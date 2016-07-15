@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 016 by Robert Schmidtke,
+ * Copyright (c) 2016 by Robert Schmidtke,
  *               Zuse Institute Berlin
  *
  * Licensed under the BSD License, see LICENSE file for details.
