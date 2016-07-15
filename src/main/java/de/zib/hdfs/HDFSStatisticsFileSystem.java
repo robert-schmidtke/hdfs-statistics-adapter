@@ -39,7 +39,7 @@ public class HDFSStatisticsFileSystem extends FileSystem {
         }
 
         fileSystemUri = URI.create(getScheme() + "://" + name.getHost()
-                + (name.getPort() != -1 ? ":" + name.getPort() : "")
+                + (name.getPort() != -1 ? ":" + name.getPort() : "") + "/"
                 + name.getPath());
     }
 
