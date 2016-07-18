@@ -15,17 +15,17 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.DelegateToFileSystem;
 import org.apache.hadoop.fs.FileSystem;
 
-public class HDFSStatistics extends DelegateToFileSystem {
+public class StatisticsFileSystemDelegate extends DelegateToFileSystem {
 
-    protected HDFSStatistics(URI theUri, FileSystem theFsImpl,
+    protected StatisticsFileSystemDelegate(URI theUri, FileSystem theFsImpl,
             Configuration conf, String supportedScheme,
             boolean authorityRequired) throws IOException, URISyntaxException {
         super(theUri, theFsImpl, conf, supportedScheme, authorityRequired);
     }
     
-    protected HDFSStatistics(URI theUri, Configuration conf)
+    protected StatisticsFileSystemDelegate(URI theUri, Configuration conf)
             throws IOException, URISyntaxException {
-        this(theUri, new HDFSStatisticsFileSystem(), conf, theUri.getScheme(), false);
+        this(theUri, new StatisticsFileSystem(), conf, theUri.getScheme(), false);
     }
 
 }

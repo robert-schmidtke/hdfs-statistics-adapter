@@ -3,8 +3,8 @@
 <configuration>
   <property>
     <name>fs.defaultFS</name>
-    <!-- Mind the hdfss:// scheme. -->
-    <value>hdfss://localhost:9000</value>
+    <!-- Mind the sfs:// scheme. -->
+    <value>sfs://localhost:9000</value>
   </property>
 
   <property>
@@ -12,13 +12,13 @@
     <value>65536</value>
   </property>
 
-  <!-- HDFSS -->
+  <!-- StatisticsFileSystem -->
   <property>
-    <name>fs.hdfss.impl</name>
-    <value>de.zib.hdfs.HDFSStatisticsFileSystem</value>
+    <name>fs.sfs.impl</name>
+    <value>de.zib.hdfs.StatisticsFileSystem</value>
   </property>
   <property>
-    <name>fs.AbstractFileSystem.hdfss.impl</name>
-    <value>de.zib.hdfs.HDFSStatistics</value>
+    <name>fs.AbstractFileSystem.sfs.impl</name>
+    <value>de.zib.hdfs.StatisticsFileSystemDelegate</value>
   </property>
 </configuration>
