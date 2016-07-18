@@ -5,9 +5,9 @@ script:
   # set up Hadoop
   - HADOOP_VERSION=2.7.2
   - HADOOP_ARCHIVE=$HOME/hadoop-$HADOOP_VERSION.tar.gz
-  - HADOOP_HOME=$HOME/hadoop-$HADOOP_VERSION
   - wget --no-verbose --output-document $HADOOP_ARCHIVE http://archive.apache.org/dist/hadoop/core/hadoop-$HADOOP_VERSION/hadoop-$HADOOP_VERSION.tar.gz
-  - tar --extract --file $HADOOP_ARCHIVE --directory $HADOOP_HOME/..
+  - tar --extract --file $HADOOP_ARCHIVE --directory $HOME
+  - HADOOP_HOME=$HOME/hadoop-$HADOOP_VERSION
   - rm $HADOOP_ARCHIVE
   - cp src/test/resources/core-site.xml $HADOOP_HOME/etc/hadoop
   - cp src/test/resources/hdfs-site.xml $HADOOP_HOME/etc/hadoop
