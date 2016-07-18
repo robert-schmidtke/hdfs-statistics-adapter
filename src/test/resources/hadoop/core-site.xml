@@ -3,8 +3,7 @@
 <configuration>
   <property>
     <name>fs.defaultFS</name>
-    <!-- Mind the sfs:// scheme. -->
-    <value>sfs://localhost:9000</value>
+    <value>hdfs://localhost:8020</value>
   </property>
 
   <property>
