@@ -1,18 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
 <configuration>
-    <property>
-        <name>fs.defaultFS</name>
-        <!-- Mind the hdfss:// scheme. -->
-        <value>hdfss://localhost:9000</value>
-    </property>
+  <property>
+    <name>fs.defaultFS</name>
+    <!-- Mind the hdfss:// scheme. -->
+    <value>hdfss://localhost:9000</value>
+  </property>
 
-    <property>
-        <name>fs.hdfss.impl</name>
-        <value>de.zib.hdfs.HDFSStatisticsFileSystem</value>
-    </property>
-    <property>
-        <name>fs.AbstractFileSystem.hdfss.impl</name>
-        <value>de.zib.hdfs.HDFSStatistics</value>
-    </property>
+  <property>
+    <name>io.file.buffer.size</name>
+    <value>65536</value>
+  </property>
+
+  <!-- HDFSS -->
+  <property>
+    <name>fs.hdfss.impl</name>
+    <value>de.zib.hdfs.HDFSStatisticsFileSystem</value>
+  </property>
+  <property>
+    <name>fs.AbstractFileSystem.hdfss.impl</name>
+    <value>de.zib.hdfs.HDFSStatistics</value>
+  </property>
 </configuration>

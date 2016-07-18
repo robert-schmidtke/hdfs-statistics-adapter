@@ -1,8 +1,35 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
 <configuration>
-    <property>
-        <name>dfs.replication</name>
-        <value>1</value>
-    </property>
+  <!-- NameNode -->
+  <property>
+    <name>dfs.namenode.rpc-address</name>
+    <value>localhost:8020</value>
+  </property>
+  <property>
+    <name>dfs.namenode.name.dir</name>
+    <value>file:///tmp/hadoop/name</value>
+  </property>
+  <property>
+    <name>dfs.blocksize</name>
+    <value>256M</value>
+  </property>
+  <property>
+    <name>dfs.replication</name>
+    <value>1</value>
+  </property>
+
+  <!-- DataNode -->
+  <property>
+    <name>dfs.datanode.address</name>
+    <value>localhost:50010</value>
+  </property>
+  <property>
+    <name>dfs.datanode.ipc.address</name>
+    <value>localhost:50020</value>
+  </property>
+  <property>
+    <name>dfs.datanode.data.dir</name>
+    <value>file:///tmp/hadoop/data</value>
+  </property>
 </configuration>
