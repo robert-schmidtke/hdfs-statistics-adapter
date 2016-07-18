@@ -9,15 +9,21 @@ script:
   - tar --extract --file $HADOOP_ARCHIVE --directory $HOME
   - HADOOP_HOME=$HOME/hadoop-$HADOOP_VERSION
   - rm $HADOOP_ARCHIVE
-  - cp src/test/resources/core-site.xml $HADOOP_HOME/etc/hadoop
-  - cp src/test/resources/hdfs-site.xml $HADOOP_HOME/etc/hadoop
+  - cp src/test/resources/hadoop/core-site.xml $HADOOP_HOME/etc/hadoop
+  - cp src/test/resources/hadoop/hdfs-site.xml $HADOOP_HOME/etc/hadoop
+
+  # accept own key to start services locally via ssh
+  - mkdir -p $HOME/.ssh
+  - ssh-keygen -t dsa -P '' -f $HOME/.ssh/id_dsa
+  - cat $HOME/.ssh/id_dsa.pub >> $HOME/.ssh/authorized_keys
+  - chmod 600 $HOME/.ssh/authorized_keys
 
   # build and install the adapter
   - mvn package
   - cp target/hdfs-statistics-adapter-1.0-SNAPSHOT.jar $HADOOP_HOME/share/hadoop/common
 
   # start Hadoop
-  - $HADOOP_BIN/bin/hdfs namenode -format
+  - $HADOOP_HOME/bin/hdfs namenode -format
   - $HADOOP_HOME/sbin/start-dfs.sh
 
   # stop Hadoop
