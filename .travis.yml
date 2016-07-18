@@ -1,0 +1,24 @@
+language: java
+jdk: openjdk7
+
+script:
+  # set up Hadoop
+  - HADOOP_VERSION=2.7.2
+  - HADOOP_ARCHIVE=$HOME/hadoop-$HADOOP_VERSION.tar.gz
+  - HADOOP_HOME=$HOME/hadoop-$HADOOP_VERSION
+  - wget --no-verbose --output-document $HADOOP_ARCHIVE http://archive.apache.org/dist/hadoop/core/hadoop-$HADOOP_VERSION/hadoop-$HADOOP_VERSION.tar.gz
+  - tar --extract --file $HADOOP_ARCHIVE --directory $HADOOP_HOME/..
+  - rm $HADOOP_ARCHIVE
+  - cp src/test/resources/core-site.xml $HADOOP_HOME/etc/hadoop
+  - cp src/test/resources/hdfs-site.xml $HADOOP_HOME/etc/hadoop
+
+  # build and install the adapter
+  - mvn package
+  - cp target/hdfs-statistics-adapter-1.0-SNAPSHOT.jar $HADOOP_HOME/share/hadoop/common
+
+  # start Hadoop
+  - $HADOOP_BIN/bin/hdfs namenode -format
+  - $HADOOP_HOME/sbin/start-dfs.sh
+
+  # stop Hadoop
+  - $HADOOP_HOME/sbin/stop-dfs.sh
