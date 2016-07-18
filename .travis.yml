@@ -18,6 +18,7 @@ script:
   - cat $HOME/.ssh/id_dsa.pub >> $HOME/.ssh/authorized_keys
   - chmod 600 $HOME/.ssh/authorized_keys
   - ssh-keyscan -t dsa localhost >> $HOME/.ssh/known_hosts
+  - ssh-keyscan -t dsa 0.0.0.0 >> $HOME/.ssh/known_hosts
 
   # build and install the adapter
   - mvn package
