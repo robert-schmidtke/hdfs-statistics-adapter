@@ -76,7 +76,9 @@ public class StatisticsFileSystem extends FileSystem {
     @Override
     public FileStatus getFileStatus(Path f) throws IOException {
         Path unwrappedPath = unwrapPath(f);
-        return wrappedFS.getFileStatus(unwrappedPath);
+        FileStatus fileStatus = wrappedFS.getFileStatus(unwrappedPath);
+        fileStatus.setPath(wrapPath(fileStatus.getPath()));
+        return fileStatus;
     }
 
     @Override
@@ -100,7 +102,11 @@ public class StatisticsFileSystem extends FileSystem {
     public FileStatus[] listStatus(Path f) throws FileNotFoundException,
             IOException {
         Path unwrappedPath = unwrapPath(f);
-        return wrappedFS.listStatus(unwrappedPath);
+        FileStatus[] fileStatuses = wrappedFS.listStatus(unwrappedPath);
+        for (FileStatus fileStatus : fileStatuses) {
+            fileStatus.setPath(wrapPath(fileStatus.getPath()));
+        }
+        return fileStatuses;
     }
 
     @Override

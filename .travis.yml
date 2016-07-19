@@ -22,7 +22,7 @@ script:
   - ssh-keyscan -t dsa 0.0.0.0 >> $HOME/.ssh/known_hosts
 
   # build and install the adapter
-  - mvn package
+  - mvn package --define hadoop.version $HADOOP_VERSION
   - cp target/hdfs-statistics-adapter-1.0-SNAPSHOT.jar $HADOOP_HOME/share/hadoop/common
 
   # start Hadoop
