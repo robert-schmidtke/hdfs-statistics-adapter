@@ -11,6 +11,7 @@ script:
   - rm $HADOOP_ARCHIVE
   - cp src/test/resources/hadoop/core-site.xml $HADOOP_HOME/etc/hadoop
   - cp src/test/resources/hadoop/hdfs-site.xml $HADOOP_HOME/etc/hadoop
+  - cp src/test/resources/hadoop/mapred-site.xml $HADOOP_HOME/etc/hadoop
 
   # accept own key to start services locally via ssh
   - mkdir -p $HOME/.ssh
