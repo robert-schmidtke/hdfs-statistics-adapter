@@ -7,7 +7,7 @@ script:
   - HADOOP_ARCHIVE=$HOME/hadoop-$HADOOP_VERSION.tar.gz
   - wget --no-verbose --output-document $HADOOP_ARCHIVE http://archive.apache.org/dist/hadoop/core/hadoop-$HADOOP_VERSION/hadoop-$HADOOP_VERSION.tar.gz
   - tar --extract --file $HADOOP_ARCHIVE --directory $HOME
-  - HADOOP_HOME=$HOME/hadoop-$HADOOP_VERSION
+  - export HADOOP_HOME=$HOME/hadoop-$HADOOP_VERSION
   - rm $HADOOP_ARCHIVE
   - cp src/test/resources/hadoop/core-site.xml $HADOOP_HOME/etc/hadoop
   - cp src/test/resources/hadoop/hdfs-site.xml $HADOOP_HOME/etc/hadoop
