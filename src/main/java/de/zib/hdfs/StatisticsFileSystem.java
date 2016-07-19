@@ -151,10 +151,17 @@ public class StatisticsFileSystem extends FileSystem {
             if (scheme.equalsIgnoreCase(from)) {
                 // path has this scheme, replace it with new scheme
                 return new Path(UriBuilder.fromUri(pathUri).scheme(to).build());
+            } else if (scheme.equalsIgnoreCase(to)) {
+                // path already has the correct scheme
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Path '" + path
+                            + "' already has the correct scheme '" + to + "'.");
+                }
+                return path;
             } else {
                 // path has wrong scheme
-                throw new IllegalArgumentException("Wrong scheme: " + scheme
-                        + ", expected " + from);
+                throw new IllegalArgumentException("Wrong scheme: '" + scheme
+                        + "' in path '" + path + "', expected '" + from + "'.");
             }
         } else {
             // path has no scheme, just return it
