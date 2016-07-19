@@ -26,6 +26,8 @@ import org.apache.hadoop.util.Progressable;
 
 public class StatisticsFileSystem extends FileSystem {
 
+    public static final String SFS_WRAPPED_FS_KEY = "sfs.wrappedFS";
+
     private URI fileSystemUri;
 
     private String wrappedScheme;
@@ -40,12 +42,15 @@ public class StatisticsFileSystem extends FileSystem {
         super.initialize(name, conf);
         setConf(conf);
 
-        wrappedScheme = getConf().get("sfs.wrappedFS", "hdfs");
+        wrappedScheme = getConf().get(SFS_WRAPPED_FS_KEY, "hdfs");
         wrappedFS = get(
                 URI.create(wrappedScheme + "://" + name.getAuthority()),
                 getConf());
         if (LOG.isDebugEnabled()) {
-            LOG.debug("Wrapping file system with scheme '" + wrappedFS + "'.");
+            LOG.debug("Wrapping file system with scheme '" + wrappedFS
+                    + "' as '" + getScheme() + "'.");
+            LOG.debug("You can change it by setting '" + SFS_WRAPPED_FS_KEY
+                    + "'.");
         }
 
         fileSystemUri = URI.create(getScheme() + "://" + name.getAuthority());
