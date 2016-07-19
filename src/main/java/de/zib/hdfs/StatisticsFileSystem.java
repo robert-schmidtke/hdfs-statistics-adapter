@@ -47,26 +47,27 @@ public class StatisticsFileSystem extends FileSystem {
     }
 
     @Override
-    public FSDataOutputStream append(Path arg0, int arg1, Progressable arg2)
-            throws IOException {
-        return wrappedFS.append(arg0, arg1);
+    public FSDataOutputStream append(Path f, int bufferSize,
+            Progressable progress) throws IOException {
+        return wrappedFS.append(f, bufferSize, progress);
     }
 
     @Override
-    public FSDataOutputStream create(Path arg0, FsPermission arg1,
-            boolean arg2, int arg3, short arg4, long arg5, Progressable arg6)
-            throws IOException {
-        return wrappedFS.create(arg0, arg1, arg2, arg3, arg4, arg5, arg6);
+    public FSDataOutputStream create(Path f, FsPermission permission,
+            boolean overwrite, int bufferSize, short replication,
+            long blockSize, Progressable progress) throws IOException {
+        return wrappedFS.create(f, permission, overwrite, bufferSize,
+                replication, blockSize, progress);
     }
 
     @Override
-    public boolean delete(Path arg0, boolean arg1) throws IOException {
-        return wrappedFS.delete(arg0, arg1);
+    public boolean delete(Path f, boolean recursive) throws IOException {
+        return wrappedFS.delete(f, recursive);
     }
 
     @Override
-    public FileStatus getFileStatus(Path arg0) throws IOException {
-        return wrappedFS.getFileStatus(arg0);
+    public FileStatus getFileStatus(Path f) throws IOException {
+        return wrappedFS.getFileStatus(f);
     }
 
     @Override
@@ -85,28 +86,28 @@ public class StatisticsFileSystem extends FileSystem {
     }
 
     @Override
-    public FileStatus[] listStatus(Path arg0) throws FileNotFoundException,
+    public FileStatus[] listStatus(Path f) throws FileNotFoundException,
             IOException {
-        return wrappedFS.listStatus(arg0);
+        return wrappedFS.listStatus(f);
     }
 
     @Override
-    public boolean mkdirs(Path arg0, FsPermission arg1) throws IOException {
-        return wrappedFS.mkdirs(arg0, arg1);
+    public boolean mkdirs(Path f, FsPermission permission) throws IOException {
+        return wrappedFS.mkdirs(f, permission);
     }
 
     @Override
-    public FSDataInputStream open(Path arg0, int arg1) throws IOException {
-        return wrappedFS.open(arg0, arg1);
+    public FSDataInputStream open(Path f, int bufferSize) throws IOException {
+        return wrappedFS.open(f, bufferSize);
     }
 
     @Override
-    public boolean rename(Path arg0, Path arg1) throws IOException {
-        return wrappedFS.rename(arg0, arg1);
+    public boolean rename(Path src, Path dst) throws IOException {
+        return wrappedFS.rename(src, dst);
     }
 
     @Override
-    public void setWorkingDirectory(Path arg0) {
-        wrappedFS.setWorkingDirectory(arg0);
+    public void setWorkingDirectory(Path new_dir) {
+        wrappedFS.setWorkingDirectory(new_dir);
     }
 }
