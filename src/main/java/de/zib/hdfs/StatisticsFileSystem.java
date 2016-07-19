@@ -11,6 +11,8 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URI;
 
+import javax.ws.rs.core.UriBuilder;
+
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
@@ -26,6 +28,8 @@ public class StatisticsFileSystem extends FileSystem {
 
     private URI fileSystemUri;
 
+    private String wrappedScheme;
+
     private FileSystem wrappedFS;
 
     // Shadow super class' LOG
@@ -36,9 +40,10 @@ public class StatisticsFileSystem extends FileSystem {
         super.initialize(name, conf);
         setConf(conf);
 
+        wrappedScheme = getConf().get("sfs.wrappedFS", "hdfs");
         wrappedFS = get(
-                URI.create(getConf().get("sfs.wrappedFS", "hdfs") + "://"
-                        + name.getAuthority()), getConf());
+                URI.create(wrappedScheme + "://" + name.getAuthority()),
+                getConf());
         if (LOG.isDebugEnabled()) {
             LOG.debug("Wrapping file system with scheme '" + wrappedFS + "'.");
         }
@@ -49,25 +54,29 @@ public class StatisticsFileSystem extends FileSystem {
     @Override
     public FSDataOutputStream append(Path f, int bufferSize,
             Progressable progress) throws IOException {
-        return wrappedFS.append(f, bufferSize, progress);
+        Path unwrappedPath = unwrapPath(f);
+        return wrappedFS.append(unwrappedPath, bufferSize, progress);
     }
 
     @Override
     public FSDataOutputStream create(Path f, FsPermission permission,
             boolean overwrite, int bufferSize, short replication,
             long blockSize, Progressable progress) throws IOException {
-        return wrappedFS.create(f, permission, overwrite, bufferSize,
-                replication, blockSize, progress);
+        Path unwrappedPath = unwrapPath(f);
+        return wrappedFS.create(unwrappedPath, permission, overwrite,
+                bufferSize, replication, blockSize, progress);
     }
 
     @Override
     public boolean delete(Path f, boolean recursive) throws IOException {
-        return wrappedFS.delete(f, recursive);
+        Path unwrappedPath = unwrapPath(f);
+        return wrappedFS.delete(unwrappedPath, recursive);
     }
 
     @Override
     public FileStatus getFileStatus(Path f) throws IOException {
-        return wrappedFS.getFileStatus(f);
+        Path unwrappedPath = unwrapPath(f);
+        return wrappedFS.getFileStatus(unwrappedPath);
     }
 
     @Override
@@ -82,32 +91,68 @@ public class StatisticsFileSystem extends FileSystem {
 
     @Override
     public Path getWorkingDirectory() {
-        return wrappedFS.getWorkingDirectory();
+        Path f = wrappedFS.getWorkingDirectory();
+        Path wrappedWorkingDirectory = wrapPath(f);
+        return wrappedWorkingDirectory;
     }
 
     @Override
     public FileStatus[] listStatus(Path f) throws FileNotFoundException,
             IOException {
-        return wrappedFS.listStatus(f);
+        Path unwrappedPath = unwrapPath(f);
+        return wrappedFS.listStatus(unwrappedPath);
     }
 
     @Override
     public boolean mkdirs(Path f, FsPermission permission) throws IOException {
-        return wrappedFS.mkdirs(f, permission);
+        Path unwrappedPath = unwrapPath(f);
+        return wrappedFS.mkdirs(unwrappedPath, permission);
     }
 
     @Override
     public FSDataInputStream open(Path f, int bufferSize) throws IOException {
-        return wrappedFS.open(f, bufferSize);
+        Path unwrappedPath = unwrapPath(f);
+        return wrappedFS.open(unwrappedPath, bufferSize);
     }
 
     @Override
     public boolean rename(Path src, Path dst) throws IOException {
-        return wrappedFS.rename(src, dst);
+        Path unwrappedSrc = unwrapPath(src);
+        Path unwrappedDst = unwrapPath(dst);
+        return wrappedFS.rename(unwrappedSrc, unwrappedDst);
     }
 
     @Override
     public void setWorkingDirectory(Path new_dir) {
-        wrappedFS.setWorkingDirectory(new_dir);
+        Path unwrappedPath = unwrapPath(new_dir);
+        wrappedFS.setWorkingDirectory(unwrappedPath);
+    }
+
+    // Helper methods.
+
+    private Path wrapPath(Path path) {
+        return replacePathScheme(path, wrappedScheme, getScheme());
+    }
+
+    private Path unwrapPath(Path path) {
+        return replacePathScheme(path, getScheme(), wrappedScheme);
+    }
+
+    private Path replacePathScheme(Path path, String from, String to) {
+        URI pathUri = path.toUri();
+        String scheme = pathUri.getScheme();
+        if (scheme != null) {
+            if (scheme.equalsIgnoreCase(from)) {
+                // path has this scheme, replace it with new scheme
+                return new Path(UriBuilder.fromUri(pathUri).scheme(to).build());
+            } else {
+                // path has wrong scheme
+                throw new IllegalArgumentException("Wrong scheme: " + scheme
+                        + ", expected " + from);
+            }
+        } else {
+            // path has no scheme, just return it
+            return path;
+        }
     }
 }
