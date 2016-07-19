@@ -11,7 +11,12 @@
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+    <!-- Compile dependencies -->
     <hadoop.version>2.7.2</hadoop.version>
+
+    <!-- Plugin configurations -->
+    <maven-shade-plugin.version>2.4.3</maven-shade-plugin.version>
   </properties>
 
   <dependencies>
@@ -51,4 +56,19 @@
       <scope>test</scope>
     </dependency>
   </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>${maven-surefire-plugin.version}</version>
+        <configuration>
+          <argLine>-Xms1024m -Xmx2048m</argLine>
+          <reuseForks>false</reuseForks>
+          <forkCount>1</forkCount>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
 </project>
