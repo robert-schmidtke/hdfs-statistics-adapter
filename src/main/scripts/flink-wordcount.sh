@@ -37,12 +37,24 @@ printf "%s\n" "\${SLAVES[@]}" > \$FLINK_HOME/conf/slaves
 
 \$FLINK_HOME/bin/start-cluster.sh
 
+CONNECTED_TASKMANAGERS=0
+while [ \$CONNECTED_TASKMANAGERS -lt \${#SLAVES[@]} ]; do
+  CONNECTED_TASKMANAGERS=\$(grep -R "Registered TaskManager" \$FLINK_HOME/log/flink-$USER-jobmanager-0-\$MASTER.log | wc -l)
+  echo "\$CONNECTED_TASKMANAGERS of \${#SLAVES[@]} TaskManagers connected ..."
+  sleep 1s
+done
+
 \$FLINK_HOME/bin/flink run \
   -c org.apache.flink.examples.java.wordcount.WordCount \
   -p \$((\${#SLAVES[@]} * \$TASK_SLOTS)) \
-  \$FLINK_HOME/examples/batch/WordCount.jar
+  \$FLINK_HOME/examples/batch/WordCount.jar \
+  --input $WORK/statistics-fs/input/pg1661.txt \
+  --output $WORK/statistics-fs/output/pg1661.txt
 
 \$FLINK_HOME/bin/stop-cluster.sh
+
+# this makes the scheduler not kill the JobManager's JVM before it is completely shut down
+sleep 5s
 
 EOF
 
