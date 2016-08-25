@@ -47,8 +47,8 @@ public class StatisticsFileSystem extends FileSystem {
                 URI.create(wrappedScheme + "://" + name.getAuthority()),
                 getConf());
         if (LOG.isDebugEnabled()) {
-            LOG.debug("Wrapping file system with scheme '" + wrappedFS
-                    + "' as '" + getScheme() + "'.");
+            LOG.debug("Wrapping file system with scheme '"
+                    + wrappedFS.getScheme() + "' as '" + getScheme() + "'.");
             LOG.debug("You can change it by setting '" + SFS_WRAPPED_FS_KEY
                     + "'.");
         }
