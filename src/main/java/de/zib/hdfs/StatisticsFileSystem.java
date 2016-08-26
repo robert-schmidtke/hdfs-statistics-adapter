@@ -57,8 +57,8 @@ public class StatisticsFileSystem extends FileSystem {
         try {
             wrappedFSFactoryClass = Class.forName(wrappedFSFactoryClassName);
         } catch (Exception e) {
-            throw new IOException("Error obtaining factory class "
-                    + wrappedFSFactoryClassName, e);
+            throw new IOException("Error obtaining factory class '"
+                    + wrappedFSFactoryClassName + "'", e);
         }
 
         try {
@@ -75,12 +75,12 @@ public class StatisticsFileSystem extends FileSystem {
                 wrappedFS = (FileSystem) getMethod.invoke(null, wrappedFSUri);
             } catch (NoSuchMethodException e1) {
                 throw new IOException(
-                        "No appropriate get method found in factory class "
-                                + wrappedFSFactoryClassName, e1);
+                        "No appropriate get method found in factory class '"
+                                + wrappedFSFactoryClassName + "'", e1);
             } catch (Exception e1) {
-                throw new IOException("Error obtaining class for scheme "
-                        + wrappedFSScheme + " from factory class "
-                        + wrappedFSFactoryClassName, e);
+                throw new IOException("Error obtaining class for scheme '"
+                        + wrappedFSScheme + "' from factory class '"
+                        + wrappedFSFactoryClassName + "'", e);
             }
         } catch (Exception e) {
             throw new IOException("Error obtaining class for scheme "
