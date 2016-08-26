@@ -26,13 +26,13 @@ import org.apache.hadoop.util.Progressable;
 
 public class StatisticsFileSystem extends FileSystem {
 
-    public static final String SFS_WRAPPED_FS_KEY = "sfs.wrappedFS";
+    public static final String SFS_WRAPPED_FS_CLASS_KEY = "sfs.wrappedFS.className";
 
     private URI fileSystemUri;
 
-    private String wrappedScheme;
-
     private FileSystem wrappedFS;
+
+    private String wrappedFSScheme;
 
     // Shadow super class' LOG
     public static final Log LOG = LogFactory.getLog(StatisticsFileSystem.class);
@@ -42,15 +42,35 @@ public class StatisticsFileSystem extends FileSystem {
         super.initialize(name, conf);
         setConf(conf);
 
-        wrappedScheme = getConf().get(SFS_WRAPPED_FS_KEY, "hdfs");
-        wrappedFS = get(
-                URI.create(wrappedScheme + "://" + name.getAuthority()),
+        String wrappedFSClassName = getConf().get(SFS_WRAPPED_FS_CLASS_KEY,
+                "org.apache.hadoop.hdfs.DistributedFileSystem");
+
+        Class<? extends FileSystem> wrappedFSClass;
+        try {
+            wrappedFSClass = Class.forName(wrappedFSClassName).asSubclass(
+                    FileSystem.class);
+        } catch (Exception e) {
+            throw new IOException(
+                    "Error obtaining class " + wrappedFSClassName, e);
+        }
+
+        try {
+            wrappedFS = wrappedFSClass.newInstance();
+        } catch (Exception e) {
+            throw new IOException("Error instantiating class "
+                    + wrappedFSClassName, e);
+        }
+
+        wrappedFSScheme = wrappedFS.getUri().getScheme();
+        wrappedFS.initialize(
+                URI.create(wrappedFSScheme + "://" + name.getAuthority()),
                 getConf());
+
         if (LOG.isDebugEnabled()) {
-            LOG.debug("Wrapping file system with scheme '"
-                    + wrappedFS.getScheme() + "' as '" + getScheme() + "'.");
-            LOG.debug("You can change it by setting '" + SFS_WRAPPED_FS_KEY
-                    + "'.");
+            LOG.debug("Wrapping file system with scheme '" + wrappedFSScheme
+                    + "' as '" + getScheme() + "'.");
+            LOG.debug("You can change it by setting '"
+                    + SFS_WRAPPED_FS_CLASS_KEY + "'.");
         }
 
         fileSystemUri = URI.create(getScheme() + "://" + name.getAuthority());
@@ -142,11 +162,11 @@ public class StatisticsFileSystem extends FileSystem {
     // Helper methods.
 
     private Path wrapPath(Path path) {
-        return replacePathScheme(path, wrappedScheme, getScheme());
+        return replacePathScheme(path, wrappedFSScheme, getScheme());
     }
 
     private Path unwrapPath(Path path) {
-        return replacePathScheme(path, getScheme(), wrappedScheme);
+        return replacePathScheme(path, getScheme(), wrappedFSScheme);
     }
 
     private Path replacePathScheme(Path path, String from, String to) {
