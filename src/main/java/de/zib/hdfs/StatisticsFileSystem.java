@@ -9,6 +9,7 @@ package de.zib.hdfs;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.net.URI;
 
 import javax.ws.rs.core.UriBuilder;
@@ -26,7 +27,9 @@ import org.apache.hadoop.util.Progressable;
 
 public class StatisticsFileSystem extends FileSystem {
 
-    public static final String SFS_WRAPPED_FS_CLASS_KEY = "sfs.wrappedFS.className";
+    public static final String SFS_WRAPPED_FS_FACTORY_CLASS_NAME_KEY = "sfs.wrappedFS.factoryClassName";
+
+    public static final String SFS_WRAPPED_FS_SCHEME = "sfs.wrappedFS.scheme";
 
     private URI fileSystemUri;
 
@@ -42,35 +45,55 @@ public class StatisticsFileSystem extends FileSystem {
         super.initialize(name, conf);
         setConf(conf);
 
-        String wrappedFSClassName = getConf().get(SFS_WRAPPED_FS_CLASS_KEY,
-                "org.apache.hadoop.hdfs.DistributedFileSystem");
+        wrappedFSScheme = getConf().get(SFS_WRAPPED_FS_SCHEME, "hdfs");
+        URI wrappedFSUri = URI.create(wrappedFSScheme + "://"
+                + name.getAuthority());
 
-        Class<? extends FileSystem> wrappedFSClass;
+        String wrappedFSFactoryClassName = getConf().get(
+                SFS_WRAPPED_FS_FACTORY_CLASS_NAME_KEY,
+                "org.apache.hadoop.fs.FileSystem");
+
+        Class<? extends FileSystem> wrappedFSFactoryClass;
         try {
-            wrappedFSClass = Class.forName(wrappedFSClassName).asSubclass(
-                    FileSystem.class);
+            wrappedFSFactoryClass = Class.forName(wrappedFSFactoryClassName)
+                    .asSubclass(FileSystem.class);
         } catch (Exception e) {
-            throw new IOException(
-                    "Error obtaining class " + wrappedFSClassName, e);
+            throw new IOException("Error obtaining factory class "
+                    + wrappedFSFactoryClassName, e);
         }
 
         try {
-            wrappedFS = wrappedFSClass.newInstance();
+            // try .get(URI, Configuration) first
+            Method getMethod = wrappedFSFactoryClass.getMethod("get",
+                    URI.class, Configuration.class);
+            wrappedFS = (FileSystem) getMethod.invoke(null, wrappedFSUri,
+                    getConf());
+        } catch (NoSuchMethodException e) {
+            // try .get(URI)
+            Method getMethod;
+            try {
+                getMethod = wrappedFSFactoryClass.getMethod("get", URI.class);
+                wrappedFS = (FileSystem) getMethod.invoke(null, wrappedFSUri);
+            } catch (NoSuchMethodException e1) {
+                throw new IOException(
+                        "No appropriate get method found in factory class "
+                                + wrappedFSFactoryClassName, e1);
+            } catch (Exception e1) {
+                throw new IOException("Error obtaining class for scheme "
+                        + wrappedFSScheme + " from factory class "
+                        + wrappedFSFactoryClassName, e);
+            }
         } catch (Exception e) {
-            throw new IOException("Error instantiating class "
-                    + wrappedFSClassName, e);
+            throw new IOException("Error obtaining class for scheme "
+                    + wrappedFSScheme + " from factory class "
+                    + wrappedFSFactoryClassName, e);
         }
-
-        wrappedFSScheme = wrappedFS.getUri().getScheme();
-        wrappedFS.initialize(
-                URI.create(wrappedFSScheme + "://" + name.getAuthority()),
-                getConf());
 
         if (LOG.isDebugEnabled()) {
             LOG.debug("Wrapping file system with scheme '" + wrappedFSScheme
                     + "' as '" + getScheme() + "'.");
             LOG.debug("You can change it by setting '"
-                    + SFS_WRAPPED_FS_CLASS_KEY + "'.");
+                    + SFS_WRAPPED_FS_FACTORY_CLASS_NAME_KEY + "'.");
         }
 
         fileSystemUri = URI.create(getScheme() + "://" + name.getAuthority());
