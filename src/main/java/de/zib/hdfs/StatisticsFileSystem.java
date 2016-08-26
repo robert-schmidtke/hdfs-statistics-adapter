@@ -80,7 +80,7 @@ public class StatisticsFileSystem extends FileSystem {
             } catch (Exception e1) {
                 throw new IOException("Error obtaining class for scheme '"
                         + wrappedFSScheme + "' from factory class '"
-                        + wrappedFSFactoryClassName + "'", e);
+                        + wrappedFSFactoryClassName + "'", e1);
             }
         } catch (Exception e) {
             throw new IOException("Error obtaining class for scheme "
