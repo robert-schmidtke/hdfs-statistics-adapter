@@ -53,10 +53,9 @@ public class StatisticsFileSystem extends FileSystem {
                 SFS_WRAPPED_FS_FACTORY_CLASS_NAME_KEY,
                 "org.apache.hadoop.fs.FileSystem");
 
-        Class<? extends FileSystem> wrappedFSFactoryClass;
+        Class<?> wrappedFSFactoryClass;
         try {
-            wrappedFSFactoryClass = Class.forName(wrappedFSFactoryClassName)
-                    .asSubclass(FileSystem.class);
+            wrappedFSFactoryClass = Class.forName(wrappedFSFactoryClassName);
         } catch (Exception e) {
             throw new IOException("Error obtaining factory class "
                     + wrappedFSFactoryClassName, e);
