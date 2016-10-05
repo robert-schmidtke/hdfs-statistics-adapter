@@ -5,7 +5,7 @@
  * Licensed under the BSD License, see LICENSE file for details.
  *
  */
-package de.zib.hdfs;
+package de.zib.sfs;
 
 import java.io.IOException;
 import java.net.URI;

@@ -5,11 +5,10 @@
  * Licensed under the BSD License, see LICENSE file for details.
  *
  */
-package de.zib.hdfs;
+package de.zib.sfs;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.lang.reflect.Method;
 import java.net.URI;
 
 import javax.ws.rs.core.UriBuilder;
@@ -25,16 +24,38 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.util.Progressable;
 
+import de.zib.sfs.flink.WrappedFlinkFileSystem;
+
+/**
+ * Implements the Hadoop {@link org.apache.hadoop.fs.FileSystem} interface as it
+ * is used in Hadoop and Flink.
+ * 
+ * @author robert
+ *
+ */
 public class StatisticsFileSystem extends FileSystem {
 
-    public static final String SFS_WRAPPED_FS_FACTORY_CLASS_NAME_KEY = "sfs.wrappedFS.factoryClassName";
+    /**
+     * The fully qualified class name of the file system implementation to wrap.
+     * Must be a subclass of {@link org.apache.hadoop.fs.FileSystem} or
+     * {@link org.apache.flink.core.fs.FileSystem}.
+     */
+    public static final String SFS_WRAPPED_FS_CLASS_NAME_KEY = "sfs.wrappedFS.className";
 
-    public static final String SFS_WRAPPED_FS_SCHEME = "sfs.wrappedFS.scheme";
-
+    /**
+     * The URI of this file system, as sfs:// plus the authority of the wrapped
+     * file system.
+     */
     private URI fileSystemUri;
 
+    /**
+     * The wrapped file system implementation.
+     */
     private FileSystem wrappedFS;
 
+    /**
+     * The scheme of the wrapped file system.
+     */
     private String wrappedFSScheme;
 
     // Shadow super class' LOG
@@ -45,54 +66,52 @@ public class StatisticsFileSystem extends FileSystem {
         super.initialize(name, conf);
         setConf(conf);
 
-        wrappedFSScheme = getConf().get(SFS_WRAPPED_FS_SCHEME, "hdfs");
-        URI wrappedFSUri = URI.create(wrappedFSScheme + "://"
-                + name.getAuthority());
-
-        String wrappedFSFactoryClassName = getConf().get(
-                SFS_WRAPPED_FS_FACTORY_CLASS_NAME_KEY,
-                "org.apache.hadoop.fs.FileSystem");
-
-        Class<?> wrappedFSFactoryClass;
-        try {
-            wrappedFSFactoryClass = Class.forName(wrappedFSFactoryClassName);
-        } catch (Exception e) {
-            throw new IOException("Error obtaining factory class '"
-                    + wrappedFSFactoryClassName + "'", e);
+        String wrappedFSClassName = getConf()
+                .get(SFS_WRAPPED_FS_CLASS_NAME_KEY);
+        if (wrappedFSClassName == null) {
+            throw new RuntimeException(SFS_WRAPPED_FS_CLASS_NAME_KEY
+                    + " not specified");
         }
 
+        Class<?> wrappedFSClass;
         try {
-            // try .get(URI, Configuration) first
-            Method getMethod = wrappedFSFactoryClass.getMethod("get",
-                    URI.class, Configuration.class);
-            wrappedFS = (FileSystem) getMethod.invoke(null, wrappedFSUri,
-                    getConf());
-        } catch (NoSuchMethodException e) {
-            // try .get(URI)
-            Method getMethod;
+            wrappedFSClass = Class.forName(wrappedFSClassName);
+        } catch (Exception e) {
+            throw new RuntimeException("Error obtaining class '"
+                    + wrappedFSClassName + "'", e);
+        }
+
+        // Figure out what kind of file system we are wrapping.
+        if (wrappedFSClassName.startsWith("org.apache.hadoop")) {
             try {
-                getMethod = wrappedFSFactoryClass.getMethod("get", URI.class);
-                wrappedFS = (FileSystem) getMethod.invoke(null, wrappedFSUri);
-            } catch (NoSuchMethodException e1) {
-                throw new IOException(
-                        "No appropriate get method found in factory class '"
-                                + wrappedFSFactoryClassName + "'", e1);
-            } catch (Exception e1) {
-                throw new IOException("Error obtaining class for scheme '"
-                        + wrappedFSScheme + "' from factory class '"
-                        + wrappedFSFactoryClassName + "'", e1);
+                // Wrap Hadoop file system directly.
+                wrappedFS = wrappedFSClass.asSubclass(FileSystem.class)
+                        .newInstance();
+            } catch (Exception e) {
+                throw new RuntimeException("Error instantiating Hadoop class '"
+                        + wrappedFSClassName + "'", e);
             }
-        } catch (Exception e) {
-            throw new IOException("Error obtaining class for scheme "
-                    + wrappedFSScheme + " from factory class "
-                    + wrappedFSFactoryClassName, e);
+        } else if (wrappedFSClassName.startsWith("org.apache.flink")) {
+            try {
+                // Wrap Flink's file system as Hadoop first.
+                wrappedFS = new WrappedFlinkFileSystem(wrappedFSClass
+                        .asSubclass(org.apache.flink.core.fs.FileSystem.class)
+                        .newInstance());
+            } catch (Exception e) {
+                throw new RuntimeException("Error instantiating Flink class '"
+                        + wrappedFSClassName + "'", e);
+            }
+        } else {
+            throw new RuntimeException("Unsupported file system class '"
+                    + wrappedFSClassName + "'");
         }
+        wrappedFSScheme = wrappedFS.getScheme();
 
         if (LOG.isDebugEnabled()) {
             LOG.debug("Wrapping file system with scheme '" + wrappedFSScheme
                     + "' as '" + getScheme() + "'.");
             LOG.debug("You can change it by setting '"
-                    + SFS_WRAPPED_FS_FACTORY_CLASS_NAME_KEY + "'.");
+                    + SFS_WRAPPED_FS_CLASS_NAME_KEY + "'.");
         }
 
         fileSystemUri = URI.create(getScheme() + "://" + name.getAuthority());

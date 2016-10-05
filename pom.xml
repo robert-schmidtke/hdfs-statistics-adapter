@@ -15,6 +15,7 @@
     <java.target.version>1.6</java.target.version>
 
     <!-- Compile dependencies -->
+    <flink.version>1.1.1</flink.version>
     <hadoop.version>2.7.2</hadoop.version>
 
     <!-- Plugin configurations -->
@@ -24,9 +25,17 @@
 
   <dependencies>
     <dependency>
+      <groupId>org.apache.flink</groupId>
+      <artifactId>flink-core</artifactId>
+      <version>${flink.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    
+    <dependency>
       <groupId>org.apache.hadoop</groupId>
       <artifactId>hadoop-common</artifactId>
       <version>${hadoop.version}</version>
+      <scope>provided</scope>
     </dependency>
 
     <dependency>

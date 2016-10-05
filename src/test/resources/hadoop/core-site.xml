@@ -14,10 +14,10 @@
   <!-- StatisticsFileSystem -->
   <property>
     <name>fs.sfs.impl</name>
-    <value>de.zib.hdfs.StatisticsFileSystem</value>
+    <value>de.zib.sfs.StatisticsFileSystem</value>
   </property>
   <property>
     <name>fs.AbstractFileSystem.sfs.impl</name>
-    <value>de.zib.hdfs.StatisticsFileSystemDelegate</value>
+    <value>de.zib.sfs.StatisticsFileSystemDelegate</value>
   </property>
 </configuration>
