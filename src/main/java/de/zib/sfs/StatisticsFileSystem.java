@@ -115,6 +115,11 @@ public class StatisticsFileSystem extends FileSystem {
         }
 
         fileSystemUri = URI.create(getScheme() + "://" + name.getAuthority());
+
+        // Finally initialize the wrapped file system with our unwrapped URI.
+        wrappedFS.initialize(
+                replaceUriScheme(fileSystemUri, getScheme(), wrappedFSScheme),
+                conf);
     }
 
     @Override
@@ -203,35 +208,36 @@ public class StatisticsFileSystem extends FileSystem {
     // Helper methods.
 
     private Path wrapPath(Path path) {
-        return replacePathScheme(path, wrappedFSScheme, getScheme());
+        return new Path(replaceUriScheme(path.toUri(), wrappedFSScheme,
+                getScheme()));
     }
 
     private Path unwrapPath(Path path) {
-        return replacePathScheme(path, getScheme(), wrappedFSScheme);
+        return new Path(replaceUriScheme(path.toUri(), getScheme(),
+                wrappedFSScheme));
     }
 
-    private Path replacePathScheme(Path path, String from, String to) {
-        URI pathUri = path.toUri();
-        String scheme = pathUri.getScheme();
+    private URI replaceUriScheme(URI uri, String from, String to) {
+        String scheme = uri.getScheme();
         if (scheme != null) {
             if (scheme.equalsIgnoreCase(from)) {
-                // path has this scheme, replace it with new scheme
-                return new Path(UriBuilder.fromUri(pathUri).scheme(to).build());
+                // uri has this scheme, replace it with new scheme
+                return UriBuilder.fromUri(uri).scheme(to).build();
             } else if (scheme.equalsIgnoreCase(to)) {
-                // path already has the correct scheme
+                // uri already has the correct scheme
                 if (LOG.isDebugEnabled()) {
-                    LOG.debug("Path '" + path
+                    LOG.debug("URI '" + uri
                             + "' already has the correct scheme '" + to + "'.");
                 }
-                return path;
+                return uri;
             } else {
-                // path has wrong scheme
+                // uri has wrong scheme
                 throw new IllegalArgumentException("Wrong scheme: '" + scheme
-                        + "' in path '" + path + "', expected '" + from + "'.");
+                        + "' in URI '" + uri + "', expected '" + from + "'.");
             }
         } else {
-            // path has no scheme, just return it
-            return path;
+            // uri has no scheme, just return it
+            return uri;
         }
     }
 }
