@@ -98,6 +98,11 @@ public class WrappedFlinkFileSystem extends FileSystem {
     public URI getUri() {
         return wrappedFlinkFS.getUri();
     }
+    
+    @Override
+    public String getScheme() {
+        return getUri().getScheme();
+    }
 
     @Override
     public Path getWorkingDirectory() {
