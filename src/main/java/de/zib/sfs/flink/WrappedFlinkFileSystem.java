@@ -15,6 +15,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.fs.FSInputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -98,7 +99,7 @@ public class WrappedFlinkFileSystem extends FileSystem {
     public URI getUri() {
         return wrappedFlinkFS.getUri();
     }
-    
+
     @Override
     public String getScheme() {
         return getUri().getScheme();
@@ -217,24 +218,51 @@ public class WrappedFlinkFileSystem extends FileSystem {
     }
 
     private static FSDataInputStream toHadoopFSDataInputStream(
-            org.apache.flink.core.fs.FSDataInputStream in,
+            final org.apache.flink.core.fs.FSDataInputStream in,
             final FileSystem.Statistics statistics) throws IOException {
-        return new FSDataInputStream(in) {
+        return new FSDataInputStream(new FSInputStream() {
             @Override
-            public int read() throws IOException {
-                int bytesRead = super.read();
+            public synchronized int read() throws IOException {
+                int data = in.read();
+                if (data == -1) {
+                    return -1;
+                }
+                statistics.incrementBytesRead(1);
+                return data;
+            }
+
+            @Override
+            public int read(byte[] b) throws IOException {
+                return read(b, 0, b.length);
+            }
+
+            @Override
+            public synchronized int read(byte[] buffer, int offset, int length)
+                    throws IOException {
+                int bytesRead = in.read(buffer, offset, length);
+                if (bytesRead == -1) {
+                    return -1;
+                }
                 statistics.incrementBytesRead(bytesRead);
                 return bytesRead;
             }
 
             @Override
-            public int read(long position, byte[] buffer, int offset, int length)
-                    throws IOException {
-                int bytesRead = super.read(position, buffer, offset, length);
-                statistics.incrementBytesRead(bytesRead);
-                return bytesRead;
+            public synchronized long getPos() throws IOException {
+                return in.getPos();
             }
-        };
+
+            @Override
+            public synchronized void seek(long pos) throws IOException {
+                in.seek(pos);
+            }
+
+            @Override
+            public synchronized boolean seekToNewSource(long pos)
+                    throws IOException {
+                return false;
+            }
+        });
     }
 
     private static FSDataOutputStream toHadoopFSDataOutputStream(
