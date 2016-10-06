@@ -32,7 +32,7 @@ script:
   # run sample grep job
   - $HADOOP_HOME/bin/hdfs dfs -mkdir -p /user/$USER
   - $HADOOP_HOME/bin/hdfs dfs -put $HADOOP_HOME/etc/hadoop /user/$USER/input
-  - $HADOOP_HOME/bin/hadoop jar $HADOOP_HOME/share/hadoop/mapreduce/hadoop-mapreduce-examples-$HADOOP_VERSION.jar grep sfs://localhost:8020/user/$USER/input sfs://localhost:8020/user/$USER/output 'dfs[a-z.]+'
+  - $HADOOP_HOME/bin/hadoop jar $HADOOP_HOME/share/hadoop/mapreduce/hadoop-mapreduce-examples-$HADOOP_VERSION.jar grep sfs:///user/$USER/input sfs:///user/$USER/output 'dfs[a-z.]+'
   - $HADOOP_HOME/bin/hdfs dfs -cat /user/$USER/output/*
 
   # stop Hadoop
