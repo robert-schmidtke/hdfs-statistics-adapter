@@ -20,4 +20,8 @@
     <name>fs.AbstractFileSystem.sfs.impl</name>
     <value>de.zib.sfs.StatisticsFileSystemDelegate</value>
   </property>
+  <property>
+    <name>sfs.wrappedFS.className</name>
+    <value>org.apache.hadoop.fs.RawLocalFileSystem</value>
+  </property>
 </configuration>
