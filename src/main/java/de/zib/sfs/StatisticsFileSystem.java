@@ -105,7 +105,13 @@ public class StatisticsFileSystem extends FileSystem {
             throw new RuntimeException("Unsupported file system class '"
                     + wrappedFSClassName + "'");
         }
-        wrappedFSScheme = wrappedFS.getScheme();
+
+        try {
+            wrappedFSScheme = wrappedFS.getScheme();
+        } catch (UnsupportedOperationException e) {
+            // Not all file systems implement getScheme().
+            wrappedFSScheme = wrappedFS.getUri().getScheme();
+        }
 
         if (LOG.isDebugEnabled()) {
             LOG.debug("Wrapping file system with scheme '" + wrappedFSScheme
