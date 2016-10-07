@@ -114,18 +114,27 @@ public class StatisticsFileSystem extends FileSystem {
         }
 
         if (LOG.isDebugEnabled()) {
-            LOG.debug("Wrapping file system with scheme '" + wrappedFSScheme
-                    + "' as '" + getScheme() + "'.");
+            LOG.debug("Wrapping file system '" + wrappedFS.getClass().getName()
+                    + "' with scheme '" + wrappedFSScheme + "' as '"
+                    + getScheme() + "'.");
             LOG.debug("You can change it by setting '"
                     + SFS_WRAPPED_FS_CLASS_NAME_KEY + "'.");
         }
 
-        fileSystemUri = URI.create(getScheme() + "://" + name.getAuthority());
+        if (name.getAuthority() != null) {
+            fileSystemUri = URI.create(getScheme() + "://"
+                    + name.getAuthority() + "/");
+        } else {
+            fileSystemUri = URI.create(getScheme() + ":///");
+        }
 
-        // Finally initialize the wrapped file system with our unwrapped URI.
-        wrappedFS.initialize(
-                replaceUriScheme(fileSystemUri, getScheme(), wrappedFSScheme),
-                conf);
+        // Finally initialize the wrapped file system with the unwrapped name.
+        URI wrappedFSUri = replaceUriScheme(name, getScheme(), wrappedFSScheme);
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Initializing wrapped file system with URI '"
+                    + wrappedFSUri + "'.");
+        }
+        wrappedFS.initialize(wrappedFSUri, conf);
     }
 
     @Override
