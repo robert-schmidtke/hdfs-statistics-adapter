@@ -16,6 +16,7 @@ import javax.ws.rs.core.UriBuilder;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileStatus;
@@ -157,6 +158,14 @@ public class StatisticsFileSystem extends FileSystem {
     public boolean delete(Path f, boolean recursive) throws IOException {
         Path unwrappedPath = unwrapPath(f);
         return wrappedFS.delete(unwrappedPath, recursive);
+    }
+    
+    @Override
+    public BlockLocation[] getFileBlockLocations(FileStatus file, long start,
+            long len) throws IOException {
+        FileStatus unwrappedFile = file;
+        unwrappedFile.setPath(unwrapPath(file.getPath()));
+        return wrappedFS.getFileBlockLocations(unwrappedFile, start, len);
     }
 
     @Override
