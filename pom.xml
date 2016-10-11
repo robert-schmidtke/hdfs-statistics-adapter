@@ -89,6 +89,14 @@
           <argLine>-Xms1024m -Xmx2048m</argLine>
           <reuseForks>false</reuseForks>
           <forkCount>1</forkCount>
+          <classpathDependencyExcludes>
+            <!-- Flink shades Hadoop 2.3.0 which messes up our classpath during testing, so exclude it. -->
+            <!-- Flink is not needed during our tests anyway. -->
+            <classpathDependencyExclude>org.apache.flink:flink-annotations</classpathDependencyExclude>
+            <classpathDependencyExclude>org.apache.flink:flink-core</classpathDependencyExclude>
+            <classpathDependencyExclude>org.apache.flink:flink-metrics-core</classpathDependencyExclude>
+            <classpathDependencyExclude>org.apache.flink:flink-shaded-hadoop2</classpathDependencyExclude>
+          </classpathDependencyExcludes>
         </configuration>
       </plugin>
     </plugins>
