@@ -22,6 +22,6 @@
   </property>
   <property>
     <name>sfs.wrappedFS.className</name>
-    <value>org.apache.hadoop.fs.RawLocalFileSystem</value>
+    <value>org.apache.hadoop.hdfs.DistributedFileSystem</value>
   </property>
 </configuration>
