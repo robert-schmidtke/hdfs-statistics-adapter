@@ -3,9 +3,9 @@ jdk: oraclejdk8
 
 script:
   # set up Hadoop
-  - HADOOP_VERSION=2.7.2
+  - export HADOOP_VERSION=2.7.2
   - HADOOP_ARCHIVE=$HOME/hadoop-$HADOOP_VERSION.tar.gz
-  - wget --no-verbose --output-document $HADOOP_ARCHIVE http://archive.apache.org/dist/hadoop/core/hadoop-$HADOOP_VERSION/hadoop-$HADOOP_VERSION.tar.gz
+  - wget --no-verbose --output-document $HADOOP_ARCHIVE https://github.com/robert-schmidtke/hadoop/releases/download/release-$HADOOP_VERSION-nodeprecatedfilestatus/hadoop-$HADOOP_VERSION.tar.gz
   - tar --extract --file $HADOOP_ARCHIVE --directory $HOME
   - export HADOOP_HOME=$HOME/hadoop-$HADOOP_VERSION
   - rm $HADOOP_ARCHIVE
