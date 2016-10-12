@@ -35,6 +35,7 @@ sed -i "/^taskmanager\.numberOfTaskSlots/c\taskmanager.numberOfTaskSlots: \$TASK
 
 printf "%s\n" "\${SLAVES[@]}" > \$FLINK_HOME/conf/slaves
 
+rm \$FLINK_HOME/log/*
 \$FLINK_HOME/bin/start-cluster.sh
 
 CONNECTED_TASKMANAGERS=0
@@ -49,8 +50,8 @@ rm -rf $WORK/statistics-fs/output/pg1661.txt
   -c org.apache.flink.examples.java.wordcount.WordCount \
   -p \$((\${#SLAVES[@]} * \$TASK_SLOTS)) \
   \$FLINK_HOME/examples/batch/WordCount.jar \
-  --input $WORK/statistics-fs/input/pg1661.txt \
-  --output $WORK/statistics-fs/output/pg1661.txt
+  --input sfs://localhost:8020$WORK/statistics-fs/input/pg1661.txt \
+  --output sfs://localhost:8020$WORK/statistics-fs/output/pg1661.txt
 
 \$FLINK_HOME/bin/stop-cluster.sh
 
