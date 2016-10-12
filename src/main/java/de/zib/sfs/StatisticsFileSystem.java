@@ -26,6 +26,8 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.util.Progressable;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import de.zib.sfs.flink.WrappedFlinkFileSystem;
 
@@ -65,6 +67,11 @@ public class StatisticsFileSystem extends FileSystem {
      * The host we're running on.
      */
     private String hostname;
+
+    /**
+     * The actual logger for file system calls.
+     */
+    private Logger fsLogger = LogManager.getLogger("de.zib.sfs.AsyncLogger");
 
     // Shadow super class' LOG
     public static final Log LOG = LogFactory.getLog(StatisticsFileSystem.class);
