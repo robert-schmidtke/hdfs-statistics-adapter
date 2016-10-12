@@ -17,6 +17,10 @@
     <!-- Compile dependencies -->
     <flink.version>1.1.1</flink.version>
     <hadoop.version>2.7.2</hadoop.version>
+    <log4j.version>2.7</log4j.version>
+    
+    <!-- Test dependencies -->
+    <junit.version>4.12</junit.version>
 
     <!-- Plugin configurations -->
     <maven-compiler-plugin.version>3.5.1</maven-compiler-plugin.version>
@@ -29,6 +33,13 @@
       <artifactId>flink-core</artifactId>
       <version>${flink.version}</version>
       <scope>provided</scope>
+      <exclusions>
+        <!-- Don't use their log4j, we provide our own -->
+        <exclusion>
+          <groupId>org.apache.logging.log4j</groupId>
+          <artifactId>log4j</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     
     <dependency>
@@ -36,6 +47,13 @@
       <artifactId>hadoop-common</artifactId>
       <version>${hadoop.version}</version>
       <scope>provided</scope>
+      <exclusions>
+        <!-- Don't use their log4j, we provide our own -->
+        <exclusion>
+          <groupId>org.apache.logging.log4j</groupId>
+          <artifactId>log4j</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
 
     <dependency>
@@ -44,6 +62,13 @@
       <version>${hadoop.version}</version>
       <classifier>tests</classifier>
       <scope>test</scope>
+      <exclusions>
+        <!-- Don't use their log4j, we provide our own -->
+        <exclusion>
+          <groupId>org.apache.logging.log4j</groupId>
+          <artifactId>log4j</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
 
     <dependency>
@@ -60,11 +85,24 @@
       <classifier>tests</classifier>
       <scope>test</scope>
     </dependency>
+    
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-core</artifactId>
+      <version>${log4j.version}</version>
+    </dependency>
+    
+    <!-- Provides a bridge from the old 1.2 API to the new 2.x implementationsss -->
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-1.2-api</artifactId>
+      <version>${log4j.version}</version>
+    </dependency>
 
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
-      <version>4.12</version>
+      <version>${junit.version}</version>
       <scope>test</scope>
     </dependency>
   </dependencies>
