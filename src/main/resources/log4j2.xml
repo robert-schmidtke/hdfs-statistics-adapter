@@ -4,9 +4,15 @@
     <Console name="Console" target="SYSTEM_OUT">
       <PatternLayout pattern="%d{HH:mm:ss,SSS} %-5p %-60c %x - %m%n"/>
     </Console>
-    <RandomAccessFile name="RandomAccessFile"
+    <RandomAccessFile name="AsyncRandomAccessFile" fileName="async.log"
+      immediateFlush="false" append="false">
+      <PatternLayout pattern="%d{HH:mm:ss,SSS} %-5p %-60c %x - %m%n"/>
+    </RandomAccessFile>
   </Appenders>
   <Loggers>
+    <AsyncLogger name="de.zib.sfs.AsyncLogger" level="info">
+      <AppenderRef ref="AsyncRandomAccessFile"/>
+    </AsyncLogger>
     <Root level="warn">
       <AppenderRef ref="Console"/>
     </Root>
