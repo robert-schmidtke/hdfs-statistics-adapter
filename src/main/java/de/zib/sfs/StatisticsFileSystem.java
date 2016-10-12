@@ -7,8 +7,10 @@
  */
 package de.zib.sfs;
 
+import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.net.URI;
 
 import javax.ws.rs.core.UriBuilder;
@@ -59,6 +61,11 @@ public class StatisticsFileSystem extends FileSystem {
      */
     private String wrappedFSScheme;
 
+    /**
+     * The host we're running on.
+     */
+    private String hostname;
+
     // Shadow super class' LOG
     public static final Log LOG = LogFactory.getLog(StatisticsFileSystem.class);
 
@@ -66,6 +73,35 @@ public class StatisticsFileSystem extends FileSystem {
     public void initialize(URI name, Configuration conf) throws IOException {
         super.initialize(name, conf);
         setConf(conf);
+
+        // Obtain hostname, preferably vis executing hostname
+        Process hostnameProcess = Runtime.getRuntime().exec("hostname");
+        try {
+            int exitCode = hostnameProcess.waitFor();
+            if (exitCode != 0) {
+                LOG.warn("'hostname' returned " + exitCode
+                        + ", using $HOSTNAME instead.");
+                hostname = System.getenv("HOSTNAME");
+            } else {
+                BufferedReader reader = new BufferedReader(
+                        new InputStreamReader(hostnameProcess.getInputStream()));
+
+                StringBuilder hostnameBuilder = new StringBuilder();
+                String line = "";
+                while ((line = reader.readLine()) != null) {
+                    hostnameBuilder.append(line);
+                }
+                reader.close();
+                hostname = hostnameBuilder.toString();
+            }
+        } catch (InterruptedException e) {
+            LOG.warn("Error executing 'hostname', using $HOSTNAME instead.", e);
+            hostname = System.getenv("HOSTNAME");
+        }
+
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Running on " + hostname + ".");
+        }
 
         String wrappedFSClassName = getConf()
                 .get(SFS_WRAPPED_FS_CLASS_NAME_KEY);
@@ -159,7 +195,7 @@ public class StatisticsFileSystem extends FileSystem {
         Path unwrappedPath = unwrapPath(f);
         return wrappedFS.delete(unwrappedPath, recursive);
     }
-    
+
     @Override
     public BlockLocation[] getFileBlockLocations(FileStatus file, long start,
             long len) throws IOException {
