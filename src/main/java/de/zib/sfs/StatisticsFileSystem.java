@@ -98,6 +98,11 @@ public class StatisticsFileSystem extends FileSystem {
      */
     private String targetLogFileDirectory;
 
+    /**
+     * Flag to track whether this file system is closed already.
+     */
+    private boolean closed = false;
+
     // Shadow super class' LOG
     public static final Log LOG = LogFactory.getLog(StatisticsFileSystem.class);
 
@@ -232,6 +237,18 @@ public class StatisticsFileSystem extends FileSystem {
                     + wrappedFSUri + "'.");
         }
         wrappedFS.initialize(wrappedFSUri, conf);
+
+        // Add shutdown hook that closes this file system
+        Runtime.getRuntime().addShutdownHook(new Thread() {
+            @Override
+            public void run() {
+                try {
+                    StatisticsFileSystem.this.close();
+                } catch (IOException e) {
+                    LOG.error("Could not close file system", e);
+                }
+            }
+        });
     }
 
     @Override
@@ -242,7 +259,11 @@ public class StatisticsFileSystem extends FileSystem {
     }
 
     @Override
-    public void close() throws IOException {
+    public synchronized final void close() throws IOException {
+        if (closed) {
+            return;
+        }
+
         super.close();
 
         if (targetLogFileDirectory != null) {
@@ -265,6 +286,8 @@ public class StatisticsFileSystem extends FileSystem {
             }
             Files.copy(fromPath, toPath);
         }
+
+        closed = true;
     }
 
     @Override
