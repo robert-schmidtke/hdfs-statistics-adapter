@@ -24,4 +24,8 @@
     <name>sfs.wrappedFS.className</name>
     <value>org.apache.hadoop.hdfs.DistributedFileSystem</value>
   </property>
+  <property>
+    <name>sfs.logFileName</name>
+    <value>/tmp/sfs/async.log</value>
+  </property>
 </configuration>

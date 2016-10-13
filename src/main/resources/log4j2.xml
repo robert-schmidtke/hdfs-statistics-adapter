@@ -2,19 +2,20 @@
 <Configuration status="WARN">
   <Appenders>
     <Console name="Console" target="SYSTEM_OUT">
-      <PatternLayout pattern="%d{HH:mm:ss,SSS} %-5p %-60c %x - %m%n"/>
+      <PatternLayout pattern="%d{HH:mm:ss,SSS} %-5p %-60c %x - %m%n" />
     </Console>
-    <RandomAccessFile name="AsyncRandomAccessFile" fileName="async.log"
-      immediateFlush="false" append="false">
-      <PatternLayout pattern="%d{HH:mm:ss,SSS} %-5p %-60c %x - %m%n"/>
+    <RandomAccessFile name="AsyncRandomAccessFile"
+      fileName="${sys:de.zib.sfs.asyncLogFileName}" immediateFlush="false"
+      append="false">
+      <PatternLayout pattern="%d{HH:mm:ss,SSS} %-5p %-60c %x - %m%n" />
     </RandomAccessFile>
   </Appenders>
   <Loggers>
     <AsyncLogger name="de.zib.sfs.AsyncLogger" level="info">
-      <AppenderRef ref="AsyncRandomAccessFile"/>
+      <AppenderRef ref="AsyncRandomAccessFile" />
     </AsyncLogger>
     <Root level="warn">
-      <AppenderRef ref="Console"/>
+      <AppenderRef ref="Console" />
     </Root>
   </Loggers>
 </Configuration>

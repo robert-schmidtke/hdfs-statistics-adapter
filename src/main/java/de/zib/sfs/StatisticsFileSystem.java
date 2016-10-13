@@ -8,6 +8,7 @@
 package de.zib.sfs;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -48,6 +49,11 @@ public class StatisticsFileSystem extends FileSystem {
     public static final String SFS_WRAPPED_FS_CLASS_NAME_KEY = "sfs.wrappedFS.className";
 
     /**
+     * Location of the log file on each host.
+     */
+    public static final String SFS_LOG_FILE_NAME_KEY = "sfs.logFileName";
+
+    /**
      * The URI of this file system, as sfs:// plus the authority of the wrapped
      * file system.
      */
@@ -71,7 +77,7 @@ public class StatisticsFileSystem extends FileSystem {
     /**
      * The actual logger for file system calls.
      */
-    private Logger fsLogger = LogManager.getLogger("de.zib.sfs.AsyncLogger");
+    private Logger fsLogger;
 
     // Shadow super class' LOG
     public static final Log LOG = LogFactory.getLog(StatisticsFileSystem.class);
@@ -110,6 +116,25 @@ public class StatisticsFileSystem extends FileSystem {
             LOG.debug("Running on " + hostname + ".");
         }
 
+        // Set up the logger for file system events
+        String logFileName = getConf().get(SFS_LOG_FILE_NAME_KEY);
+        if (logFileName == null) {
+            throw new RuntimeException(SFS_LOG_FILE_NAME_KEY + " not specified");
+        }
+
+        File logFileDirectory = new File(logFileName).getParentFile();
+        if (!logFileDirectory.exists()) {
+            if (!logFileDirectory.mkdirs()) {
+                throw new RuntimeException(
+                        "Could not create log file directories: "
+                                + logFileDirectory.getAbsolutePath());
+            }
+        }
+
+        System.setProperty("de.zib.sfs.asyncLogFileName", logFileName);
+        fsLogger = LogManager.getLogger("de.zib.sfs.AsyncLogger");
+
+        // Obtain the file system class we want to wrap
         String wrappedFSClassName = getConf()
                 .get(SFS_WRAPPED_FS_CLASS_NAME_KEY);
         if (wrappedFSClassName == null) {
@@ -186,6 +211,12 @@ public class StatisticsFileSystem extends FileSystem {
             Progressable progress) throws IOException {
         Path unwrappedPath = unwrapPath(f);
         return wrappedFS.append(unwrappedPath, bufferSize, progress);
+    }
+
+    @Override
+    public void close() throws IOException {
+        // TODO copy per-host log files to specific location
+        super.close();
     }
 
     @Override
