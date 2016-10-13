@@ -143,6 +143,7 @@
               <finalName>${project.artifactId}</finalName>
               <artifactSet>
                 <includes>
+                  <include>com.lmax:disruptor</include>
                   <include>org.apache.logging.log4j:log4j-1.2-api</include>
                   <include>org.apache.logging.log4j:log4j-api</include>
                   <include>org.apache.logging.log4j:log4j-core</include>
