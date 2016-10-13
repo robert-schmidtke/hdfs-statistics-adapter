@@ -13,6 +13,8 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 
 import javax.ws.rs.core.UriBuilder;
 
@@ -54,6 +56,12 @@ public class StatisticsFileSystem extends FileSystem {
     public static final String SFS_LOG_FILE_NAME_KEY = "sfs.logFileName";
 
     /**
+     * Directory to copy the host log file to during
+     * {@link StatisticsFileSystem#close()}.
+     */
+    public static final String SFS_TARGET_LOG_FILE_DIRECTORY_KEY = "sfs.targetLogFileDirectory";
+
+    /**
      * The URI of this file system, as sfs:// plus the authority of the wrapped
      * file system.
      */
@@ -78,6 +86,17 @@ public class StatisticsFileSystem extends FileSystem {
      * The actual logger for file system calls.
      */
     private Logger fsLogger;
+
+    /**
+     * The log file to log all events to.
+     */
+    private File logFile;
+
+    /**
+     * Path to copy the generated log file to during
+     * {@link StatisticsFileSystem#close()}.
+     */
+    private String targetLogFileDirectory;
 
     // Shadow super class' LOG
     public static final Log LOG = LogFactory.getLog(StatisticsFileSystem.class);
@@ -122,17 +141,22 @@ public class StatisticsFileSystem extends FileSystem {
             throw new RuntimeException(SFS_LOG_FILE_NAME_KEY + " not specified");
         }
 
-        File logFileDirectory = new File(logFileName).getParentFile();
-        if (!logFileDirectory.exists()) {
-            if (!logFileDirectory.mkdirs()) {
+        logFile = new File(logFileName);
+
+        if (!logFile.getParentFile().exists()) {
+            if (!logFile.getParentFile().mkdirs()) {
                 throw new RuntimeException(
                         "Could not create log file directories: "
-                                + logFileDirectory.getAbsolutePath());
+                                + logFile.getParentFile().getAbsolutePath());
             }
         }
 
         System.setProperty("de.zib.sfs.asyncLogFileName", logFileName);
         fsLogger = LogManager.getLogger("de.zib.sfs.AsyncLogger");
+
+        // Get the target log file directory
+        targetLogFileDirectory = getConf().get(
+                SFS_TARGET_LOG_FILE_DIRECTORY_KEY);
 
         // Obtain the file system class we want to wrap
         String wrappedFSClassName = getConf()
@@ -215,8 +239,22 @@ public class StatisticsFileSystem extends FileSystem {
 
     @Override
     public void close() throws IOException {
-        // TODO copy per-host log files to specific location
         super.close();
+
+        if (targetLogFileDirectory != null) {
+            File targetLogFileDirectoryFile = new File(targetLogFileDirectory);
+            if (!targetLogFileDirectoryFile.exists()) {
+                if (!targetLogFileDirectoryFile.mkdirs()) {
+                    // Just warn, maybe some other process has just created the
+                    // shared directory
+                    LOG.warn("Could not create target log file directory "
+                            + targetLogFileDirectory);
+                }
+            }
+            Files.copy(Paths.get(logFile.getAbsolutePath()), Paths.get(
+                    targetLogFileDirectoryFile.getAbsolutePath(),
+                    logFile.getName() + "." + hostname));
+        }
     }
 
     @Override
@@ -286,6 +324,7 @@ public class StatisticsFileSystem extends FileSystem {
 
     @Override
     public FSDataInputStream open(Path f, int bufferSize) throws IOException {
+        fsLogger.info("open(" + f + "," + bufferSize + ")");
         Path unwrappedPath = unwrapPath(f);
         return wrappedFS.open(unwrappedPath, bufferSize);
     }
