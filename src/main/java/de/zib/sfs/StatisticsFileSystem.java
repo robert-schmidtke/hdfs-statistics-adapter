@@ -154,6 +154,10 @@ public class StatisticsFileSystem extends FileSystem {
         System.setProperty("de.zib.sfs.asyncLogFileName", logFileName);
         fsLogger = LogManager.getLogger("de.zib.sfs.AsyncLogger");
 
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Logging to " + logFileName);
+        }
+
         // Get the target log file directory
         targetLogFileDirectory = getConf().get(
                 SFS_TARGET_LOG_FILE_DIRECTORY_KEY);
@@ -251,9 +255,15 @@ public class StatisticsFileSystem extends FileSystem {
                             + targetLogFileDirectory);
                 }
             }
-            Files.copy(Paths.get(logFile.getAbsolutePath()), Paths.get(
+
+            java.nio.file.Path fromPath = Paths.get(logFile.getAbsolutePath());
+            java.nio.file.Path toPath = Paths.get(
                     targetLogFileDirectoryFile.getAbsolutePath(),
-                    logFile.getName() + "." + hostname));
+                    logFile.getName() + "." + hostname);
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Copying " + fromPath + " to " + toPath);
+            }
+            Files.copy(fromPath, toPath);
         }
     }
 
