@@ -256,7 +256,8 @@ public class StatisticsFileSystem extends FileSystem {
             Progressable progress) throws IOException {
         fsLogger.info("append({},{})", f, bufferSize);
         Path unwrappedPath = unwrapPath(f);
-        return wrappedFS.append(unwrappedPath, bufferSize, progress);
+        return new WrappedFSDataOutputStream(wrappedFS.append(unwrappedPath,
+                bufferSize, progress), fsLogger);
     }
 
     @Override
@@ -298,8 +299,9 @@ public class StatisticsFileSystem extends FileSystem {
         fsLogger.info("create({},{},{},{},{},{})", f, permission, overwrite,
                 bufferSize, replication, blockSize);
         Path unwrappedPath = unwrapPath(f);
-        return wrappedFS.create(unwrappedPath, permission, overwrite,
-                bufferSize, replication, blockSize, progress);
+        return new WrappedFSDataOutputStream(wrappedFS.create(unwrappedPath,
+                permission, overwrite, bufferSize, replication, blockSize,
+                progress), fsLogger);
     }
 
     @Override
@@ -367,7 +369,8 @@ public class StatisticsFileSystem extends FileSystem {
     public FSDataInputStream open(Path f, int bufferSize) throws IOException {
         fsLogger.info("open({},{})", f, bufferSize);
         Path unwrappedPath = unwrapPath(f);
-        return wrappedFS.open(unwrappedPath, bufferSize);
+        return new WrappedFSDataInputStream(wrappedFS.open(unwrappedPath,
+                bufferSize), fsLogger);
     }
 
     @Override
