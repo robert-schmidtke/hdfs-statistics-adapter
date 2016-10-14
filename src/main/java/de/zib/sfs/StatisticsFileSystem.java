@@ -254,6 +254,7 @@ public class StatisticsFileSystem extends FileSystem {
     @Override
     public FSDataOutputStream append(Path f, int bufferSize,
             Progressable progress) throws IOException {
+        fsLogger.info("append({},{})", f, bufferSize);
         Path unwrappedPath = unwrapPath(f);
         return wrappedFS.append(unwrappedPath, bufferSize, progress);
     }
@@ -294,6 +295,8 @@ public class StatisticsFileSystem extends FileSystem {
     public FSDataOutputStream create(Path f, FsPermission permission,
             boolean overwrite, int bufferSize, short replication,
             long blockSize, Progressable progress) throws IOException {
+        fsLogger.info("create({},{},{},{},{},{})", f, permission, overwrite,
+                bufferSize, replication, blockSize);
         Path unwrappedPath = unwrapPath(f);
         return wrappedFS.create(unwrappedPath, permission, overwrite,
                 bufferSize, replication, blockSize, progress);
@@ -301,6 +304,7 @@ public class StatisticsFileSystem extends FileSystem {
 
     @Override
     public boolean delete(Path f, boolean recursive) throws IOException {
+        fsLogger.info("delete({},{})", f, recursive);
         Path unwrappedPath = unwrapPath(f);
         return wrappedFS.delete(unwrappedPath, recursive);
     }
@@ -308,6 +312,7 @@ public class StatisticsFileSystem extends FileSystem {
     @Override
     public BlockLocation[] getFileBlockLocations(FileStatus file, long start,
             long len) throws IOException {
+        fsLogger.info("getFileBlockLocations({},{},{})", file, start, len);
         FileStatus unwrappedFile = file;
         unwrappedFile.setPath(unwrapPath(file.getPath()));
         return wrappedFS.getFileBlockLocations(unwrappedFile, start, len);
@@ -315,6 +320,7 @@ public class StatisticsFileSystem extends FileSystem {
 
     @Override
     public FileStatus getFileStatus(Path f) throws IOException {
+        fsLogger.info("getFileStatus({})", f);
         Path unwrappedPath = unwrapPath(f);
         FileStatus fileStatus = wrappedFS.getFileStatus(unwrappedPath);
         fileStatus.setPath(wrapPath(fileStatus.getPath()));
@@ -341,6 +347,7 @@ public class StatisticsFileSystem extends FileSystem {
     @Override
     public FileStatus[] listStatus(Path f) throws FileNotFoundException,
             IOException {
+        fsLogger.info("listStatus({})", f);
         Path unwrappedPath = unwrapPath(f);
         FileStatus[] fileStatuses = wrappedFS.listStatus(unwrappedPath);
         for (FileStatus fileStatus : fileStatuses) {
@@ -351,19 +358,21 @@ public class StatisticsFileSystem extends FileSystem {
 
     @Override
     public boolean mkdirs(Path f, FsPermission permission) throws IOException {
+        fsLogger.info("mkdirs({},{})", f, permission);
         Path unwrappedPath = unwrapPath(f);
         return wrappedFS.mkdirs(unwrappedPath, permission);
     }
 
     @Override
     public FSDataInputStream open(Path f, int bufferSize) throws IOException {
-        fsLogger.info("open(" + f + "," + bufferSize + ")");
+        fsLogger.info("open({},{})", f, bufferSize);
         Path unwrappedPath = unwrapPath(f);
         return wrappedFS.open(unwrappedPath, bufferSize);
     }
 
     @Override
     public boolean rename(Path src, Path dst) throws IOException {
+        fsLogger.info("rename({},{})", src, dst);
         Path unwrappedSrc = unwrapPath(src);
         Path unwrappedDst = unwrapPath(dst);
         return wrappedFS.rename(unwrappedSrc, unwrappedDst);
