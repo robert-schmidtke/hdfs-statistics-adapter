@@ -8,7 +8,7 @@ rm -rf /tmp/user/$USER
 cp src/test/resources/hadoop/core-site.xml $HADOOP_HOME/etc/hadoop
 cp src/test/resources/hadoop/hdfs-site.xml $HADOOP_HOME/etc/hadoop
 cp src/test/resources/hadoop/mapred-site.xml $HADOOP_HOME/etc/hadoop
-cp target/hdfs-statistics-adapter-1.0-SNAPSHOT.jar $HADOOP_HOME/share/hadoop/common
+cp target/hdfs-statistics-adapter.jar $HADOOP_HOME/share/hadoop/common
 
 # make sure we wrap the local file system
 line=$(grep -n "^    <name>sfs\.wrappedFS\.className<\/name>$" $HADOOP_HOME/etc/hadoop/core-site.xml | cut -d: -f1)
