@@ -13,6 +13,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URI;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 
@@ -286,7 +287,11 @@ public class StatisticsFileSystem extends FileSystem {
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Copying log from " + fromPath + " to " + toPath);
             }
-            Files.copy(fromPath, toPath);
+            try {
+                Files.copy(fromPath, toPath);
+            } catch (FileAlreadyExistsException e) {
+                LOG.warn("Log file already exists", e);
+            }
         }
 
         closed = true;
