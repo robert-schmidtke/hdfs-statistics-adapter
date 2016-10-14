@@ -284,7 +284,7 @@ public class StatisticsFileSystem extends FileSystem {
                     targetLogFileDirectoryFile.getAbsolutePath(),
                     logFile.getName() + "." + hostname);
             if (LOG.isDebugEnabled()) {
-                LOG.debug("Copying " + fromPath + " to " + toPath);
+                LOG.debug("Copying log from " + fromPath + " to " + toPath);
             }
             Files.copy(fromPath, toPath);
         }
@@ -367,6 +367,9 @@ public class StatisticsFileSystem extends FileSystem {
 
     @Override
     public FSDataInputStream open(Path f, int bufferSize) throws IOException {
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("open(" + f + "," + bufferSize + ")");
+        }
         fsLogger.info("open({},{})", f, bufferSize);
         Path unwrappedPath = unwrapPath(f);
         return new WrappedFSDataInputStream(wrappedFS.open(unwrappedPath,
