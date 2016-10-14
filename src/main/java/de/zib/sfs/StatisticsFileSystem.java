@@ -16,6 +16,7 @@ import java.net.URI;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.Arrays;
 
 import javax.ws.rs.core.UriBuilder;
 
@@ -304,16 +305,21 @@ public class StatisticsFileSystem extends FileSystem {
         fsLogger.info("create({},{},{},{},{},{})", f, permission, overwrite,
                 bufferSize, replication, blockSize);
         Path unwrappedPath = unwrapPath(f);
-        return new WrappedFSDataOutputStream(wrappedFS.create(unwrappedPath,
-                permission, overwrite, bufferSize, replication, blockSize,
-                progress), fsLogger);
+        FSDataOutputStream stream = new WrappedFSDataOutputStream(
+                wrappedFS.create(unwrappedPath, permission, overwrite,
+                        bufferSize, replication, blockSize, progress), fsLogger);
+        fsLogger.info("create({},{},{},{},{},{}): {}", f, permission,
+                overwrite, bufferSize, replication, blockSize, stream);
+        return stream;
     }
 
     @Override
     public boolean delete(Path f, boolean recursive) throws IOException {
         fsLogger.info("delete({},{})", f, recursive);
         Path unwrappedPath = unwrapPath(f);
-        return wrappedFS.delete(unwrappedPath, recursive);
+        boolean result = wrappedFS.delete(unwrappedPath, recursive);
+        fsLogger.info("delete({},{}): {}", f, recursive, result);
+        return result;
     }
 
     @Override
@@ -322,7 +328,11 @@ public class StatisticsFileSystem extends FileSystem {
         fsLogger.info("getFileBlockLocations({},{},{})", file, start, len);
         FileStatus unwrappedFile = file;
         unwrappedFile.setPath(unwrapPath(file.getPath()));
-        return wrappedFS.getFileBlockLocations(unwrappedFile, start, len);
+        BlockLocation[] blockLocations = wrappedFS.getFileBlockLocations(
+                unwrappedFile, start, len);
+        fsLogger.info("getFileBlockLocations({},{},{}): {}", file, start, len,
+                Arrays.toString(blockLocations));
+        return blockLocations;
     }
 
     @Override
@@ -331,6 +341,7 @@ public class StatisticsFileSystem extends FileSystem {
         Path unwrappedPath = unwrapPath(f);
         FileStatus fileStatus = wrappedFS.getFileStatus(unwrappedPath);
         fileStatus.setPath(wrapPath(fileStatus.getPath()));
+        fsLogger.info("getFileStatus({}): {}", f, fileStatus);
         return fileStatus;
     }
 
@@ -360,6 +371,7 @@ public class StatisticsFileSystem extends FileSystem {
         for (FileStatus fileStatus : fileStatuses) {
             fileStatus.setPath(wrapPath(fileStatus.getPath()));
         }
+        fsLogger.info("listStatus({}): {}", f, Arrays.toString(fileStatuses));
         return fileStatuses;
     }
 
@@ -367,7 +379,9 @@ public class StatisticsFileSystem extends FileSystem {
     public boolean mkdirs(Path f, FsPermission permission) throws IOException {
         fsLogger.info("mkdirs({},{})", f, permission);
         Path unwrappedPath = unwrapPath(f);
-        return wrappedFS.mkdirs(unwrappedPath, permission);
+        boolean result = wrappedFS.mkdirs(unwrappedPath, permission);
+        fsLogger.info("mkdirs({},{}): {}", f, permission, result);
+        return result;
     }
 
     @Override
@@ -377,8 +391,10 @@ public class StatisticsFileSystem extends FileSystem {
         }
         fsLogger.info("open({},{})", f, bufferSize);
         Path unwrappedPath = unwrapPath(f);
-        return new WrappedFSDataInputStream(wrappedFS.open(unwrappedPath,
-                bufferSize), fsLogger);
+        FSDataInputStream stream = new WrappedFSDataInputStream(wrappedFS.open(
+                unwrappedPath, bufferSize), fsLogger);
+        fsLogger.info("open({},{}): {}", f, bufferSize, stream);
+        return stream;
     }
 
     @Override
@@ -386,7 +402,9 @@ public class StatisticsFileSystem extends FileSystem {
         fsLogger.info("rename({},{})", src, dst);
         Path unwrappedSrc = unwrapPath(src);
         Path unwrappedDst = unwrapPath(dst);
-        return wrappedFS.rename(unwrappedSrc, unwrappedDst);
+        boolean result = wrappedFS.rename(unwrappedSrc, unwrappedDst);
+        fsLogger.info("rename({},{}): {}", src, dst, result);
+        return result;
     }
 
     @Override
