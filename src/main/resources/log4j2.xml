@@ -11,7 +11,7 @@
     </RandomAccessFile>
   </Appenders>
   <Loggers>
-    <AsyncLogger name="de.zib.sfs.AsyncLogger" level="info">
+    <AsyncLogger name="de.zib.sfs.AsyncLogger" level="debug">
       <AppenderRef ref="AsyncRandomAccessFile" />
     </AsyncLogger>
     <Root level="warn">
