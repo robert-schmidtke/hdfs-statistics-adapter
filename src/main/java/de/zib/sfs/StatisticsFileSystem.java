@@ -326,8 +326,12 @@ public class StatisticsFileSystem extends FileSystem {
     public BlockLocation[] getFileBlockLocations(FileStatus file, long start,
             long len) throws IOException {
         fsLogger.info("getFileBlockLocations({},{},{})", file, start, len);
-        FileStatus unwrappedFile = file;
-        unwrappedFile.setPath(unwrapPath(file.getPath()));
+        FileStatus unwrappedFile = new FileStatus(file.getLen(),
+                file.isDirectory(), file.getReplication(), file.getBlockSize(),
+                file.getModificationTime(), file.getAccessTime(),
+                file.getPermission(), file.getOwner(), file.getGroup(),
+                (file.isSymlink() ? file.getSymlink() : null),
+                unwrapPath(file.getPath()));
         BlockLocation[] blockLocations = wrappedFS.getFileBlockLocations(
                 unwrappedFile, start, len);
         fsLogger.info("getFileBlockLocations({},{},{}): {}", file, start, len,
