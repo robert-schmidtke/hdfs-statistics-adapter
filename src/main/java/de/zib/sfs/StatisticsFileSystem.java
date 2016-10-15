@@ -344,6 +344,7 @@ public class StatisticsFileSystem extends FileSystem {
         fsLogger.info("getFileStatus({})", f);
         Path unwrappedPath = unwrapPath(f);
         FileStatus fileStatus = wrappedFS.getFileStatus(unwrappedPath);
+        fsLogger.debug("getFileStatus({}): {}", f, fileStatus);
         fileStatus.setPath(wrapPath(fileStatus.getPath()));
         fsLogger.info("getFileStatus({}): {}", f, fileStatus);
         return fileStatus;
