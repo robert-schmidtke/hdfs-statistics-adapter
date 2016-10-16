@@ -345,7 +345,8 @@ public class StatisticsFileSystem extends FileSystem {
         Path unwrappedPath = unwrapPath(f);
         FileStatus fileStatus = wrappedFS.getFileStatus(unwrappedPath);
         fsLogger.debug("getFileStatus({}): {}", f, fileStatus);
-        fileStatus.setPath(wrapPath(fileStatus.getPath()));
+        fileStatus.setPath(setAuthority(wrapPath(fileStatus.getPath()), f
+                .toUri().getAuthority()));
         fsLogger.info("getFileStatus({}): {}", f, fileStatus);
         return fileStatus;
     }
@@ -363,7 +364,8 @@ public class StatisticsFileSystem extends FileSystem {
     @Override
     public Path getWorkingDirectory() {
         Path f = wrappedFS.getWorkingDirectory();
-        Path wrappedWorkingDirectory = wrapPath(f);
+        Path wrappedWorkingDirectory = setAuthority(wrapPath(f),
+                fileSystemUri.getAuthority());
         return wrappedWorkingDirectory;
     }
 
@@ -374,7 +376,8 @@ public class StatisticsFileSystem extends FileSystem {
         Path unwrappedPath = unwrapPath(f);
         FileStatus[] fileStatuses = wrappedFS.listStatus(unwrappedPath);
         for (FileStatus fileStatus : fileStatuses) {
-            fileStatus.setPath(wrapPath(fileStatus.getPath()));
+            fileStatus.setPath(setAuthority(wrapPath(fileStatus.getPath()), f
+                    .toUri().getAuthority()));
         }
         fsLogger.info("listStatus({}): {}", f, Arrays.toString(fileStatuses));
         return fileStatuses;
@@ -419,6 +422,20 @@ public class StatisticsFileSystem extends FileSystem {
     }
 
     // Helper methods.
+
+    private Path setAuthority(Path path, String authority) {
+        if (authority != null) {
+            URI pathUri = path.toUri();
+            String query = pathUri.getQuery();
+            String fragment = pathUri.getFragment();
+            return new Path(URI.create(pathUri.getScheme() + "://" + authority
+                    + "/" + pathUri.getPath()
+                    + (query != null ? ("?" + query) : ""))
+                    + (fragment != null ? ("#" + fragment) : ""));
+        } else {
+            return path;
+        }
+    }
 
     private Path wrapPath(Path path) {
         return new Path(replaceUriScheme(path.toUri(), wrappedFSScheme,
