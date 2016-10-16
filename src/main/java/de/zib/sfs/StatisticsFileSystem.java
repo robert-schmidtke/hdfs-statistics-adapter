@@ -344,7 +344,6 @@ public class StatisticsFileSystem extends FileSystem {
         fsLogger.info("getFileStatus({})", f);
         Path unwrappedPath = unwrapPath(f);
         FileStatus fileStatus = wrappedFS.getFileStatus(unwrappedPath);
-        fsLogger.debug("getFileStatus({}): {}", f, fileStatus);
         fileStatus.setPath(setAuthority(wrapPath(fileStatus.getPath()), f
                 .toUri().getAuthority()));
         fsLogger.info("getFileStatus({}): {}", f, fileStatus);
@@ -394,9 +393,6 @@ public class StatisticsFileSystem extends FileSystem {
 
     @Override
     public FSDataInputStream open(Path f, int bufferSize) throws IOException {
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("open(" + f + "," + bufferSize + ")");
-        }
         fsLogger.info("open({},{})", f, bufferSize);
         Path unwrappedPath = unwrapPath(f);
         FSDataInputStream stream = new WrappedFSDataInputStream(wrappedFS.open(
