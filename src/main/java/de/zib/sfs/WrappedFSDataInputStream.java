@@ -7,6 +7,7 @@
  */
 package de.zib.sfs;
 
+import java.io.FileDescriptor;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
@@ -65,6 +66,18 @@ public class WrappedFSDataInputStream extends FSDataInputStream {
             throws IOException {
         logger.info("readFullyByteArray({},{},{})", position, offset, length);
         super.readFully(position, buffer, offset, length);
+    }
+
+    @Override
+    public FileDescriptor getFileDescriptor() throws IOException {
+        logger.debug("getFileDescriptor()");
+        return super.getFileDescriptor();
+    }
+
+    @Override
+    public InputStream getWrappedStream() {
+        logger.debug("getWrappedStream()");
+        return super.getWrappedStream();
     }
 
 }
