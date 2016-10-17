@@ -398,6 +398,13 @@ public class StatisticsFileSystem extends FileSystem {
         FSDataInputStream stream = new WrappedFSDataInputStream(wrappedFS.open(
                 unwrappedPath, bufferSize), fsLogger);
         fsLogger.info("open({},{}): {}", f, bufferSize, stream);
+        if (LOG.isDebugEnabled()) {
+            StackTraceElement[] stacktrace = Thread.currentThread()
+                    .getStackTrace();
+            for (StackTraceElement ste : stacktrace) {
+                LOG.debug(ste);
+            }
+        }
         return stream;
     }
 
