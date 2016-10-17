@@ -18,33 +18,37 @@ public class WrappedFSDataOutputStream extends FSDataOutputStream {
 
     private final Logger logger;
 
-    public WrappedFSDataOutputStream(OutputStream out, Logger logger)
-            throws IOException {
-        this(out, null, 0, logger);
+    private final String fileUri;
+
+    public WrappedFSDataOutputStream(OutputStream out, Logger logger,
+            String fileUri) throws IOException {
+        this(out, null, 0, logger, fileUri);
     }
 
     public WrappedFSDataOutputStream(OutputStream out, Statistics stats,
-            long startPosition, Logger logger) throws IOException {
+            long startPosition, Logger logger, String fileUri)
+            throws IOException {
         super(out, stats, startPosition);
         this.logger = logger;
+        this.fileUri = fileUri;
     }
 
     @Override
     public void write(byte[] b) throws IOException {
-        logger.info("writeByteArray({})", b.length);
+        logger.info("writeByteArray({})@{}", b.length, fileUri);
         super.write(b);
     }
 
     @Override
     public synchronized void write(byte[] b, int off, int len)
             throws IOException {
-        logger.info("writeByteArray({},{},{})", b.length, off, len);
+        logger.info("writeByteArray({},{},{})@{}", b.length, off, len, fileUri);
         super.write(b, off, len);
     }
 
     @Override
     public synchronized void write(int b) throws IOException {
-        logger.info("writeByte({})", b);
+        logger.info("writeByte({})@{}", b, fileUri);
         super.write(b);
     }
 
