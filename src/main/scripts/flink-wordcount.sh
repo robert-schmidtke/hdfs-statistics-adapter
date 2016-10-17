@@ -46,6 +46,7 @@ while [ \$CONNECTED_TASKMANAGERS -lt \${#SLAVES[@]} ]; do
 done
 
 rm -rf $WORK/statistics-fs/output/pg1661.txt
+rm -rf $WORK/statistics-fs/logs
 \$FLINK_HOME/bin/flink run \
   -c org.apache.flink.examples.java.wordcount.WordCount \
   -p \$((\${#SLAVES[@]} * \$TASK_SLOTS)) \
