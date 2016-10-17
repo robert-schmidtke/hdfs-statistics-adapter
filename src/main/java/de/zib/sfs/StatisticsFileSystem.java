@@ -395,16 +395,10 @@ public class StatisticsFileSystem extends FileSystem {
     public FSDataInputStream open(Path f, int bufferSize) throws IOException {
         fsLogger.info("open({},{})", f, bufferSize);
         Path unwrappedPath = unwrapPath(f);
-        FSDataInputStream stream = new WrappedFSDataInputStream(wrappedFS.open(
-                unwrappedPath, bufferSize), fsLogger);
+        FSDataInputStream stream = new FSDataInputStream(
+                new WrappedFSDataInputStream(
+                        wrappedFS.open(unwrappedPath, bufferSize), fsLogger));
         fsLogger.info("open({},{}): {}", f, bufferSize, stream);
-        if (LOG.isDebugEnabled()) {
-            StackTraceElement[] stacktrace = Thread.currentThread()
-                    .getStackTrace();
-            for (StackTraceElement ste : stacktrace) {
-                LOG.debug(ste);
-            }
-        }
         return stream;
     }
 
