@@ -7,7 +7,7 @@
     <RandomAccessFile name="AsyncRandomAccessFile"
       fileName="${sys:de.zib.sfs.asyncLogFileName}" immediateFlush="false"
       append="true">
-      <PatternLayout pattern="%d{yyyy/MM/dd HH:mm:ss,SSS} %-5p %-25c - %m%n" />
+      <PatternLayout pattern="${sys:de.zib.sfs.hostname}:%date{UNIX_MILLIS}-%message%n" />
     </RandomAccessFile>
   </Appenders>
   <Loggers>

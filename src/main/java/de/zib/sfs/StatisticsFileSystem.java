@@ -159,6 +159,7 @@ public class StatisticsFileSystem extends FileSystem {
         }
 
         System.setProperty("de.zib.sfs.asyncLogFileName", logFileName);
+        System.setProperty("de.zib.sfs.hostname", hostname);
         fsLogger = LogManager.getLogger("de.zib.sfs.AsyncLogger");
 
         if (LOG.isDebugEnabled()) {
@@ -256,11 +257,14 @@ public class StatisticsFileSystem extends FileSystem {
     @Override
     public FSDataOutputStream append(Path f, int bufferSize,
             Progressable progress) throws IOException {
-        fsLogger.info("append({},{})", f, bufferSize);
+        long startTime = System.currentTimeMillis();
         Path unwrappedPath = unwrapPath(f);
-        return new WrappedFSDataOutputStream(wrappedFS.append(unwrappedPath,
-                bufferSize, progress), fsLogger, unwrappedPath.toUri()
-                .toString());
+        FSDataOutputStream stream = new WrappedFSDataOutputStream(
+                wrappedFS.append(unwrappedPath, bufferSize, progress), fsLogger);
+        long duration = System.currentTimeMillis() - startTime;
+        fsLogger.info("{}:{}.append({},{}):{}", duration, this, f, bufferSize,
+                stream);
+        return stream;
     }
 
     @Override
@@ -303,31 +307,33 @@ public class StatisticsFileSystem extends FileSystem {
     public FSDataOutputStream create(Path f, FsPermission permission,
             boolean overwrite, int bufferSize, short replication,
             long blockSize, Progressable progress) throws IOException {
-        fsLogger.info("create({},{},{},{},{},{})", f, permission, overwrite,
-                bufferSize, replication, blockSize);
+        long startTime = System.currentTimeMillis();
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream = new WrappedFSDataOutputStream(
                 wrappedFS.create(unwrappedPath, permission, overwrite,
-                        bufferSize, replication, blockSize, progress),
-                fsLogger, unwrappedPath.toUri().toString());
-        fsLogger.info("create({},{},{},{},{},{}): {}", f, permission,
-                overwrite, bufferSize, replication, blockSize, stream);
+                        bufferSize, replication, blockSize, progress), fsLogger);
+        long duration = System.currentTimeMillis() - startTime;
+        fsLogger.info("{}:{}.create({},{},{},{},{},{}):{}", duration, this, f,
+                permission, overwrite, bufferSize, replication, blockSize,
+                stream);
         return stream;
     }
 
     @Override
     public boolean delete(Path f, boolean recursive) throws IOException {
-        fsLogger.info("delete({},{})", f, recursive);
+        long startTime = System.currentTimeMillis();
         Path unwrappedPath = unwrapPath(f);
         boolean result = wrappedFS.delete(unwrappedPath, recursive);
-        fsLogger.info("delete({},{}): {}", f, recursive, result);
+        long duration = System.currentTimeMillis() - startTime;
+        fsLogger.info("{}:{}.delete({},{}):{}", duration, this, f, recursive,
+                result);
         return result;
     }
 
     @Override
     public BlockLocation[] getFileBlockLocations(FileStatus file, long start,
             long len) throws IOException {
-        fsLogger.info("getFileBlockLocations({},{},{})", file, start, len);
+        long startTime = System.currentTimeMillis();
         FileStatus unwrappedFile = new FileStatus(file.getLen(),
                 file.isDirectory(), file.getReplication(), file.getBlockSize(),
                 file.getModificationTime(), file.getAccessTime(),
@@ -336,19 +342,22 @@ public class StatisticsFileSystem extends FileSystem {
                 unwrapPath(file.getPath()));
         BlockLocation[] blockLocations = wrappedFS.getFileBlockLocations(
                 unwrappedFile, start, len);
-        fsLogger.info("getFileBlockLocations({},{},{}): {}", file, start, len,
-                Arrays.toString(blockLocations));
+        long duration = System.currentTimeMillis() - startTime;
+        fsLogger.info("{}:{},getFileBlockLocations({},{},{}):{}", duration,
+                this, file, start, len, Arrays.toString(blockLocations));
         return blockLocations;
     }
 
     @Override
     public FileStatus getFileStatus(Path f) throws IOException {
-        fsLogger.info("getFileStatus({})", f);
+        long startTime = System.currentTimeMillis();
         Path unwrappedPath = unwrapPath(f);
         FileStatus fileStatus = wrappedFS.getFileStatus(unwrappedPath);
         fileStatus.setPath(setAuthority(wrapPath(fileStatus.getPath()), f
                 .toUri().getAuthority()));
-        fsLogger.info("getFileStatus({}): {}", f, fileStatus);
+        long duration = System.currentTimeMillis() - startTime;
+        fsLogger.info("{}:{}.getFileStatus({}):{}", duration, this, f,
+                fileStatus);
         return fileStatus;
     }
 
@@ -373,44 +382,52 @@ public class StatisticsFileSystem extends FileSystem {
     @Override
     public FileStatus[] listStatus(Path f) throws FileNotFoundException,
             IOException {
-        fsLogger.info("listStatus({})", f);
+        long startTime = System.currentTimeMillis();
         Path unwrappedPath = unwrapPath(f);
         FileStatus[] fileStatuses = wrappedFS.listStatus(unwrappedPath);
         for (FileStatus fileStatus : fileStatuses) {
             fileStatus.setPath(setAuthority(wrapPath(fileStatus.getPath()), f
                     .toUri().getAuthority()));
         }
-        fsLogger.info("listStatus({}): {}", f, Arrays.toString(fileStatuses));
+        long duration = System.currentTimeMillis() - startTime;
+        fsLogger.info("{}:{}.listStatus({}):{}", duration, this, f,
+                Arrays.toString(fileStatuses));
         return fileStatuses;
     }
 
     @Override
     public boolean mkdirs(Path f, FsPermission permission) throws IOException {
-        fsLogger.info("mkdirs({},{})", f, permission);
+        long startTime = System.currentTimeMillis();
         Path unwrappedPath = unwrapPath(f);
         boolean result = wrappedFS.mkdirs(unwrappedPath, permission);
-        fsLogger.info("mkdirs({},{}): {}", f, permission, result);
+        long duration = System.currentTimeMillis() - startTime;
+        fsLogger.info("{}:{}.mkdirs({},{}):{}", duration, this, f, permission,
+                result);
         return result;
     }
 
     @Override
     public FSDataInputStream open(Path f, int bufferSize) throws IOException {
-        fsLogger.info("open({},{})", f, bufferSize);
+        long startTime = System.currentTimeMillis();
         Path unwrappedPath = unwrapPath(f);
         FSDataInputStream stream = new FSDataInputStream(
                 new WrappedFSDataInputStream(wrappedFS.open(unwrappedPath,
-                        bufferSize), fsLogger, unwrappedPath.toUri().toString()));
-        fsLogger.info("open({},{}): {}", f, bufferSize, stream);
+                        bufferSize), fsLogger));
+        long duration = System.currentTimeMillis() - startTime;
+        fsLogger.info("{}:{}.open({},{}):{}", duration, this, f, bufferSize,
+                stream);
         return stream;
     }
 
     @Override
     public boolean rename(Path src, Path dst) throws IOException {
-        fsLogger.info("rename({},{})", src, dst);
+        long startTime = System.currentTimeMillis();
         Path unwrappedSrc = unwrapPath(src);
         Path unwrappedDst = unwrapPath(dst);
         boolean result = wrappedFS.rename(unwrappedSrc, unwrappedDst);
-        fsLogger.info("rename({},{}): {}", src, dst, result);
+        long duration = System.currentTimeMillis() - startTime;
+        fsLogger.info("{}:{}.rename({},{}):{}", duration, this, src, dst,
+                result);
         return result;
     }
 

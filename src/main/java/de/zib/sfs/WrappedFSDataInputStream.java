@@ -22,31 +22,38 @@ public class WrappedFSDataInputStream extends InputStream implements
 
     private final Logger logger;
 
-    private final String fileUri;
-
-    public WrappedFSDataInputStream(FSDataInputStream in, Logger logger,
-            String fileUri) throws IOException {
+    public WrappedFSDataInputStream(FSDataInputStream in, Logger logger)
+            throws IOException {
         this.in = in;
         this.logger = logger;
-        this.fileUri = fileUri;
     }
 
     @Override
     public int read() throws IOException {
-        logger.info("readByte()@{}", fileUri);
-        return in.read();
+        long startTime = System.currentTimeMillis();
+        int result = in.read();
+        long duration = System.currentTimeMillis() - startTime;
+        logger.info("{}:{}.read():{}", duration, this, result);
+        return result;
     }
 
     @Override
     public int read(byte[] b, int off, int len) throws IOException {
-        logger.info("readByteArray({},{},{})@{}", b.length, off, len, fileUri);
-        return in.read(b, off, len);
+        long startTime = System.currentTimeMillis();
+        int result = in.read(b, off, len);
+        long duration = System.currentTimeMillis() - startTime;
+        logger.info("{}:{}.read([{}],{},{}):{}", duration, this, b.length, off,
+                len, result);
+        return result;
     }
 
     @Override
     public int read(byte[] b) throws IOException {
-        logger.info("readByteArray({})@{}", b.length, fileUri);
-        return in.read(b);
+        long startTime = System.currentTimeMillis();
+        int result = in.read(b);
+        long duration = System.currentTimeMillis() - startTime;
+        logger.info("{}:{}.read([{}]):{}", duration, this, b.length, result);
+        return result;
     }
 
     @Override
@@ -67,24 +74,31 @@ public class WrappedFSDataInputStream extends InputStream implements
     @Override
     public int read(long position, byte[] buffer, int offset, int length)
             throws IOException {
-        logger.info("readByteArray({},{},{},{})@{}", position, buffer.length,
-                offset, length, fileUri);
-        return in.read(position, buffer, offset, length);
+        long startTime = System.currentTimeMillis();
+        int result = in.read(position, buffer, offset, length);
+        long duration = System.currentTimeMillis() - startTime;
+        logger.info("{}:{}.read({},[{}],{},{}):{}", duration, this, position,
+                buffer.length, offset, length, result);
+        return result;
     }
 
     @Override
     public void readFully(long position, byte[] buffer) throws IOException {
-        logger.info("readFullyByteArray({},{})@{}", position, buffer.length,
-                fileUri);
+        long startTime = System.currentTimeMillis();
         in.readFully(position, buffer);
+        long duration = System.currentTimeMillis() - startTime;
+        logger.info("{}:{}.readFully({},[{}]):void", duration, this, position,
+                buffer.length);
     }
 
     @Override
     public void readFully(long position, byte[] buffer, int offset, int length)
             throws IOException {
-        logger.info("readFullyByteArray({},{},{},{})@{}", position,
-                buffer.length, offset, length, fileUri);
+        long startTime = System.currentTimeMillis();
         in.readFully(position, buffer, offset, length);
+        long duration = System.currentTimeMillis() - startTime;
+        logger.info("{}:{}.readFully({},[{}],{},{}):void", duration, this,
+                position, buffer.length, offset, length);
     }
 
 }
