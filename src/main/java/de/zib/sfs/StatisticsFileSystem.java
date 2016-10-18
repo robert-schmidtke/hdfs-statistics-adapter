@@ -343,7 +343,7 @@ public class StatisticsFileSystem extends FileSystem {
         BlockLocation[] blockLocations = wrappedFS.getFileBlockLocations(
                 unwrappedFile, start, len);
         long duration = System.currentTimeMillis() - startTime;
-        fsLogger.info("{}:{},getFileBlockLocations({},{},{}):{}", duration,
+        fsLogger.info("{}:{}.getFileBlockLocations({},{},{}):{}", duration,
                 this, file, start, len, Arrays.toString(blockLocations));
         return blockLocations;
     }
@@ -410,13 +410,12 @@ public class StatisticsFileSystem extends FileSystem {
     public FSDataInputStream open(Path f, int bufferSize) throws IOException {
         long startTime = System.currentTimeMillis();
         Path unwrappedPath = unwrapPath(f);
-        FSDataInputStream stream = new FSDataInputStream(
-                new WrappedFSDataInputStream(wrappedFS.open(unwrappedPath,
-                        bufferSize), fsLogger));
+        WrappedFSDataInputStream stream = new WrappedFSDataInputStream(
+                wrappedFS.open(unwrappedPath, bufferSize), fsLogger);
         long duration = System.currentTimeMillis() - startTime;
         fsLogger.info("{}:{}.open({},{}):{}", duration, this, f, bufferSize,
                 stream);
-        return stream;
+        return new FSDataInputStream(stream);
     }
 
     @Override
