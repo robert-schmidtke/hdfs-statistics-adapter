@@ -63,12 +63,20 @@ public class WrappedFSDataInputStream extends InputStream implements
 
     @Override
     public void seek(long desired) throws IOException {
+        long startTime = System.currentTimeMillis();
         in.seek(desired);
+        long duration = System.currentTimeMillis() - startTime;
+        logger.info("{}:{}.seek({}):void", duration, this, desired);
     }
 
     @Override
     public boolean seekToNewSource(long targetPos) throws IOException {
-        return in.seekToNewSource(targetPos);
+        long startTime = System.currentTimeMillis();
+        boolean result = in.seekToNewSource(targetPos);
+        long duration = System.currentTimeMillis() - startTime;
+        logger.info("{}:{}.seekToNewSource({}):{}", duration, this, targetPos,
+                result);
+        return result;
     }
 
     @Override
