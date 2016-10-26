@@ -55,11 +55,16 @@ public class StatisticsFileSystem extends FileSystem {
     /**
      * Location of the log file on each host.
      */
-    public static final String SFS_LOG_FILE_NAME_KEY = "sfs.logFileName";
+    public static final String SFS_LOG_FILE_NAME_KEY = "sfs.logFile.name";
 
     /**
-     * Directory to copy the host log file to during
-     * {@link StatisticsFileSystem#close()}.
+     * Flag to indicate whether to delete the local log file during {
+     * {@link #close()}
+     */
+    public static final String SFS_DELETE_LOG_FILE_ON_CLOSE_KEY = "sfs.logFile.deleteOnClose";
+
+    /**
+     * Directory to copy the host log file to during {@link #close()}.
      */
     public static final String SFS_TARGET_LOG_FILE_DIRECTORY_KEY = "sfs.targetLogFileDirectory";
 
@@ -95,8 +100,12 @@ public class StatisticsFileSystem extends FileSystem {
     private File logFile;
 
     /**
-     * Path to copy the generated log file to during
-     * {@link StatisticsFileSystem#close()}.
+     * Whether to delete the local log file during {{@link #close()}
+     */
+    private boolean deleteLogFileOnClose;
+
+    /**
+     * Path to copy the generated log file to during {@link #close()}.
      */
     private String targetLogFileDirectory;
 
@@ -165,6 +174,9 @@ public class StatisticsFileSystem extends FileSystem {
         if (LOG.isDebugEnabled()) {
             LOG.debug("Logging to " + logFileName);
         }
+
+        deleteLogFileOnClose = getConf().getBoolean(
+                SFS_DELETE_LOG_FILE_ON_CLOSE_KEY, false);
 
         // Get the target log file directory
         targetLogFileDirectory = getConf().get(
@@ -298,7 +310,11 @@ public class StatisticsFileSystem extends FileSystem {
             try {
                 Files.copy(fromPath, toPath);
             } catch (FileAlreadyExistsException e) {
-                LOG.warn("Log file already exists", e);
+                LOG.warn("Log file " + toPath + " already exists", e);
+            }
+
+            if (deleteLogFileOnClose && !logFile.delete()) {
+                LOG.warn("Could not delete log file " + fromPath);
             }
         }
 

@@ -8,7 +8,7 @@
 
   <property>
     <name>io.file.buffer.size</name>
-    <value>65536</value>
+    <value>1048576</value>
   </property>
 
   <!-- StatisticsFileSystem -->
@@ -25,8 +25,12 @@
     <value>org.apache.hadoop.hdfs.DistributedFileSystem</value>
   </property>
   <property>
-    <name>sfs.logFileName</name>
+    <name>sfs.logFile.name</name>
     <value>/tmp/sfs/async.log</value>
+  </property>
+  <property>
+    <name>sfs.logFile.deleteOnClose</name>
+    <value>true</value>
   </property>
   <property>
     <name>sfs.targetLogFileDirectory</name>
