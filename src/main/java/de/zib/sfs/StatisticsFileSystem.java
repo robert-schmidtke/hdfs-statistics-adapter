@@ -187,7 +187,9 @@ public class StatisticsFileSystem extends FileSystem {
         }
 
         // Figure out what kind of file system we are wrapping.
-        if (wrappedFSClassName.startsWith("org.apache.hadoop")) {
+        if (wrappedFSClassName.startsWith("org.apache.hadoop")
+                || wrappedFSClassName
+                        .startsWith("org.xtreemfs.common.clients.hadoop")) {
             try {
                 // Wrap Hadoop file system directly.
                 wrappedFS = wrappedFSClass.asSubclass(FileSystem.class)
