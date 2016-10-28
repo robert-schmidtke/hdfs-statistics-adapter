@@ -122,7 +122,7 @@ public class StatisticsFileSystem extends FileSystem {
         super.initialize(name, conf);
         setConf(conf);
 
-        // Obtain hostname, preferably vis executing hostname
+        // Obtain hostname, preferably via executing hostname
         Process hostnameProcess = Runtime.getRuntime().exec("hostname");
         try {
             int exitCode = hostnameProcess.waitFor();
