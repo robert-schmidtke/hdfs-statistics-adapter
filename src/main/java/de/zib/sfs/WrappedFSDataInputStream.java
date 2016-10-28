@@ -10,7 +10,6 @@ package de.zib.sfs;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.invoke.LambdaMetafactory;
-import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
@@ -34,7 +33,8 @@ public class WrappedFSDataInputStream extends InputStream implements
     private final Logger logger;
 
     // Shadow super class' LOG
-    public static final Log LOG = LogFactory.getLog(WrappedFSDataInputStream.class);
+    public static final Log LOG = LogFactory
+            .getLog(WrappedFSDataInputStream.class);
 
     public WrappedFSDataInputStream(FSDataInputStream in, Logger logger)
             throws IOException {
@@ -76,16 +76,16 @@ public class WrappedFSDataInputStream extends InputStream implements
                             .getDeclaredMethod("getCurrentDatanodeHostName");
                 }
 
-                MethodHandle getCurrentDatanodeHostNameMethodHandle = methodHandlesLookup
-                        .unreflect(getCurrentDatanodeHostNameMethod);
                 datanodeHostNameSupplier = (Supplier<String>) LambdaMetafactory
-                        .metafactory(MethodHandles.lookup(),
-                                "getCurrentDatanodeHostName",
+                        .metafactory(
+                                MethodHandles.lookup(),
+                                "get",
                                 MethodType.methodType(Supplier.class),
-                                getCurrentDatanodeHostNameMethodHandle.type(),
-                                getCurrentDatanodeHostNameMethodHandle,
-                                getCurrentDatanodeHostNameMethodHandle.type())
-                        .getTarget().invokeExact();
+                                MethodType.methodType(Object.class),
+                                methodHandlesLookup
+                                        .unreflect(getCurrentDatanodeHostNameMethod),
+                                MethodType.methodType(Object.class))
+                        .getTarget().invoke();
 
                 if (LOG.isDebugEnabled()) {
                     LOG.debug("Using 'getCurrentDatanodeHostName' as datanodeHostNameSupplier.");
