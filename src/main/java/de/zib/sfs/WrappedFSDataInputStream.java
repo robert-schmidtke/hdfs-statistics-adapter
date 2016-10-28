@@ -84,7 +84,8 @@ public class WrappedFSDataInputStream extends InputStream implements
                         .metafactory(
                                 methodHandlesLookup,
                                 "get",
-                                MethodType.methodType(Supplier.class),
+                                MethodType.methodType(Supplier.class,
+                                        bindToStream.getClass()),
                                 MethodType.methodType(Object.class),
                                 methodHandlesLookup
                                         .unreflect(getCurrentDatanodeHostNameMethod),
