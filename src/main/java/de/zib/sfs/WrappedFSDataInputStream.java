@@ -16,6 +16,8 @@ import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
 import java.util.function.Supplier;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.PositionedReadable;
 import org.apache.hadoop.fs.Seekable;
@@ -31,6 +33,9 @@ public class WrappedFSDataInputStream extends InputStream implements
 
     private final Logger logger;
 
+    // Shadow super class' LOG
+    public static final Log LOG = LogFactory.getLog(StatisticsFileSystem.class);
+
     public WrappedFSDataInputStream(FSDataInputStream in, Logger logger)
             throws IOException {
         this.in = in;
@@ -42,8 +47,14 @@ public class WrappedFSDataInputStream extends InputStream implements
             if (hdfsIn.getCurrentDatanode() != null) {
                 datanodeHostNameSupplier = () -> hdfsIn.getCurrentDatanode()
                         .getHostName();
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Using datanodeHostNameSupplier from Hadoop.");
+                }
             } else {
                 datanodeHostNameSupplier = () -> "";
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("datanodeHostNameSupplier from Hadoop has no DataNode information.");
+                }
             }
         } else {
             try {
@@ -53,8 +64,18 @@ public class WrappedFSDataInputStream extends InputStream implements
                 // invocation performance.
                 MethodHandles.Lookup methodHandlesLookup = MethodHandles
                         .lookup();
-                Method getCurrentDatanodeHostNameMethod = in.getClass()
-                        .getDeclaredMethod("getCurrentDatanodeHostName");
+
+                // try this stream or the one it wraps
+                Method getCurrentDatanodeHostNameMethod = null;
+                try {
+                    getCurrentDatanodeHostNameMethod = in.getClass()
+                            .getDeclaredMethod("getCurrentDatanodeHostName");
+                } catch (NoSuchMethodException e) {
+                    getCurrentDatanodeHostNameMethod = in.getWrappedStream()
+                            .getClass()
+                            .getDeclaredMethod("getCurrentDatanodeHostName");
+                }
+
                 MethodHandle getCurrentDatanodeHostNameMethodHandle = methodHandlesLookup
                         .unreflect(getCurrentDatanodeHostNameMethod);
                 datanodeHostNameSupplier = (Supplier<String>) LambdaMetafactory
@@ -65,8 +86,15 @@ public class WrappedFSDataInputStream extends InputStream implements
                                 getCurrentDatanodeHostNameMethodHandle,
                                 getCurrentDatanodeHostNameMethodHandle.type())
                         .getTarget().invokeExact();
+
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Using 'getCurrentDatanodeHostName' as datanodeHostNameSupplier.");
+                }
             } catch (Throwable t) {
                 datanodeHostNameSupplier = () -> "";
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("No datanodeHostNameSupplier available.");
+                }
             }
         }
     }
