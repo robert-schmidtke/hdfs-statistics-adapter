@@ -93,7 +93,7 @@ public class WrappedFSDataInputStream extends InputStream implements
             } catch (Throwable t) {
                 datanodeHostNameSupplier = () -> "";
                 if (LOG.isDebugEnabled()) {
-                    LOG.debug("No datanodeHostNameSupplier available.");
+                    LOG.debug("No datanodeHostNameSupplier available.", t);
                 }
             }
         }
