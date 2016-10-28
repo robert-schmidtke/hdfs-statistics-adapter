@@ -195,11 +195,13 @@ public class WrappedFSDataInputStream extends InputStream implements
 
     private String getDatanodeHostName() {
         if (datanodeHostNameSupplier != null) {
+            String hostname = datanodeHostNameSupplier.get();
             try {
-                return "->"
-                        + InetAddress.getByName(datanodeHostNameSupplier.get())
-                                .getHostName();
+                return "->" + InetAddress.getByName(hostname).getHostName();
             } catch (UnknownHostException e) {
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Could not determine hostname for " + hostname, e);
+                }
                 return "";
             }
         } else {
