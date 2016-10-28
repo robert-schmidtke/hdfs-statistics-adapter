@@ -38,8 +38,13 @@ public class WrappedFSDataInputStream extends InputStream implements
 
         if (in instanceof HdfsDataInputStream) {
             // call Hadoop's method directly
-            datanodeHostNameSupplier = () -> ((HdfsDataInputStream) in)
-                    .getCurrentDatanode().getHostName();
+            final HdfsDataInputStream hdfsIn = (HdfsDataInputStream) in;
+            if (hdfsIn.getCurrentDatanode() != null) {
+                datanodeHostNameSupplier = () -> hdfsIn.getCurrentDatanode()
+                        .getHostName();
+            } else {
+                datanodeHostNameSupplier = () -> "";
+            }
         } else {
             try {
                 // Check if there's an appropriately named method available that
