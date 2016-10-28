@@ -9,6 +9,12 @@ package de.zib.sfs;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.invoke.LambdaMetafactory;
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
+import java.lang.reflect.Method;
+import java.util.function.Supplier;
 
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.PositionedReadable;
@@ -21,7 +27,7 @@ public class WrappedFSDataInputStream extends InputStream implements
 
     private final FSDataInputStream in;
 
-    private final HdfsDataInputStream hdfsIn;
+    private Supplier<String> datanodeHostNameSupplier;
 
     private final Logger logger;
 
@@ -31,9 +37,37 @@ public class WrappedFSDataInputStream extends InputStream implements
         this.logger = logger;
 
         if (in instanceof HdfsDataInputStream) {
-            hdfsIn = (HdfsDataInputStream) in;
+            // call Hadoop's method directly
+            final HdfsDataInputStream hdfsIn = (HdfsDataInputStream) in;
+            if (hdfsIn.getCurrentDatanode() != null) {
+                datanodeHostNameSupplier = () -> hdfsIn.getCurrentDatanode()
+                        .getHostName();
+            } else {
+                datanodeHostNameSupplier = () -> "";
+            }
         } else {
-            hdfsIn = null;
+            try {
+                // Check if there's an appropriately named method available that
+                // returns the hostname of the current node that is being read
+                // from. Using the lambda factory provides almost direct
+                // invocation performance.
+                MethodHandles.Lookup methodHandlesLookup = MethodHandles
+                        .lookup();
+                Method getCurrentDatanodeHostNameMethod = in.getClass()
+                        .getDeclaredMethod("getCurrentDatanodeHostName");
+                MethodHandle getCurrentDatanodeHostNameMethodHandle = methodHandlesLookup
+                        .unreflect(getCurrentDatanodeHostNameMethod);
+                datanodeHostNameSupplier = (Supplier<String>) LambdaMetafactory
+                        .metafactory(MethodHandles.lookup(),
+                                "getCurrentDatanodeHostName",
+                                MethodType.methodType(Supplier.class),
+                                getCurrentDatanodeHostNameMethodHandle.type(),
+                                getCurrentDatanodeHostNameMethodHandle,
+                                getCurrentDatanodeHostNameMethodHandle.type())
+                        .getTarget().invokeExact();
+            } catch (Throwable t) {
+                datanodeHostNameSupplier = () -> "";
+            }
         }
     }
 
@@ -43,7 +77,7 @@ public class WrappedFSDataInputStream extends InputStream implements
         int result = in.read();
         long duration = System.currentTimeMillis() - startTime;
         logger.info("{}:{}{}.read():{}", duration, this,
-                getCurrentDataNodeString(), result);
+                datanodeHostNameSupplier.get(), result);
         return result;
     }
 
@@ -53,7 +87,7 @@ public class WrappedFSDataInputStream extends InputStream implements
         int result = in.read(b, off, len);
         long duration = System.currentTimeMillis() - startTime;
         logger.info("{}:{}{}.read([{}],{},{}):{}", duration, this,
-                getCurrentDataNodeString(), b.length, off, len, result);
+                datanodeHostNameSupplier.get(), b.length, off, len, result);
         return result;
     }
 
@@ -63,7 +97,7 @@ public class WrappedFSDataInputStream extends InputStream implements
         int result = in.read(b);
         long duration = System.currentTimeMillis() - startTime;
         logger.info("{}:{}{}.read([{}]):{}", duration, this,
-                getCurrentDataNodeString(), b.length, result);
+                datanodeHostNameSupplier.get(), b.length, result);
         return result;
     }
 
@@ -78,7 +112,7 @@ public class WrappedFSDataInputStream extends InputStream implements
         in.seek(desired);
         long duration = System.currentTimeMillis() - startTime;
         logger.info("{}:{}{}.seek({}):void", duration, this,
-                getCurrentDataNodeString(), desired);
+                datanodeHostNameSupplier.get(), desired);
     }
 
     @Override
@@ -87,7 +121,7 @@ public class WrappedFSDataInputStream extends InputStream implements
         boolean result = in.seekToNewSource(targetPos);
         long duration = System.currentTimeMillis() - startTime;
         logger.info("{}:{}{}.seekToNewSource({}):{}", duration, this,
-                getCurrentDataNodeString(), targetPos, result);
+                datanodeHostNameSupplier.get(), targetPos, result);
         return result;
     }
 
@@ -98,8 +132,8 @@ public class WrappedFSDataInputStream extends InputStream implements
         int result = in.read(position, buffer, offset, length);
         long duration = System.currentTimeMillis() - startTime;
         logger.info("{}:{}{}.read({},[{}],{},{}):{}", duration, this,
-                getCurrentDataNodeString(), position, buffer.length, offset,
-                length, result);
+                datanodeHostNameSupplier.get(), position, buffer.length,
+                offset, length, result);
         return result;
     }
 
@@ -109,7 +143,7 @@ public class WrappedFSDataInputStream extends InputStream implements
         in.readFully(position, buffer);
         long duration = System.currentTimeMillis() - startTime;
         logger.info("{}:{}{}.readFully({},[{}]):void", duration, this,
-                getCurrentDataNodeString(), position, buffer.length);
+                datanodeHostNameSupplier.get(), position, buffer.length);
     }
 
     @Override
@@ -119,17 +153,8 @@ public class WrappedFSDataInputStream extends InputStream implements
         in.readFully(position, buffer, offset, length);
         long duration = System.currentTimeMillis() - startTime;
         logger.info("{}:{}{}.readFully({},[{}],{},{}):void", duration, this,
-                getCurrentDataNodeString(), position, buffer.length, offset,
-                length);
-    }
-
-    // Helper methods
-    private String getCurrentDataNodeString() {
-        if (hdfsIn == null) {
-            return "";
-        } else {
-            return "->" + hdfsIn.getCurrentDatanode().getHostName();
-        }
+                datanodeHostNameSupplier.get(), position, buffer.length,
+                offset, length);
     }
 
 }
