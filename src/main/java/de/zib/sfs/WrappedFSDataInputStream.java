@@ -78,7 +78,7 @@ public class WrappedFSDataInputStream extends InputStream implements
 
                 datanodeHostNameSupplier = (Supplier<String>) LambdaMetafactory
                         .metafactory(
-                                MethodHandles.lookup(),
+                                methodHandlesLookup,
                                 "get",
                                 MethodType.methodType(Supplier.class),
                                 MethodType.methodType(Object.class),
