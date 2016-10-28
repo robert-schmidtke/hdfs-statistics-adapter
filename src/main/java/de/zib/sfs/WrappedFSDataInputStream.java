@@ -16,6 +16,8 @@ import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.function.Supplier;
 
 import org.apache.commons.logging.Log;
@@ -38,6 +40,8 @@ public class WrappedFSDataInputStream extends InputStream implements
     // Shadow super class' LOG
     public static final Log LOG = LogFactory
             .getLog(WrappedFSDataInputStream.class);
+
+    private static Map<String, String> HOSTNAME_CACHE = new HashMap<String, String>();
 
     public WrappedFSDataInputStream(FSDataInputStream in, Logger logger)
             throws IOException {
@@ -111,8 +115,8 @@ public class WrappedFSDataInputStream extends InputStream implements
         long startTime = System.currentTimeMillis();
         int result = in.read();
         long duration = System.currentTimeMillis() - startTime;
-        logger.info("{}:{}{}.read():{}", duration, this, getDatanodeHostName(),
-                result);
+        logger.info("{}:{}{}.read():{}", duration, this,
+                getDatanodeHostNameString(), result);
         return result;
     }
 
@@ -122,7 +126,7 @@ public class WrappedFSDataInputStream extends InputStream implements
         int result = in.read(b, off, len);
         long duration = System.currentTimeMillis() - startTime;
         logger.info("{}:{}{}.read([{}],{},{}):{}", duration, this,
-                getDatanodeHostName(), b.length, off, len, result);
+                getDatanodeHostNameString(), b.length, off, len, result);
         return result;
     }
 
@@ -132,7 +136,7 @@ public class WrappedFSDataInputStream extends InputStream implements
         int result = in.read(b);
         long duration = System.currentTimeMillis() - startTime;
         logger.info("{}:{}{}.read([{}]):{}", duration, this,
-                getDatanodeHostName(), b.length, result);
+                getDatanodeHostNameString(), b.length, result);
         return result;
     }
 
@@ -147,7 +151,7 @@ public class WrappedFSDataInputStream extends InputStream implements
         in.seek(desired);
         long duration = System.currentTimeMillis() - startTime;
         logger.info("{}:{}{}.seek({}):void", duration, this,
-                getDatanodeHostName(), desired);
+                getDatanodeHostNameString(), desired);
     }
 
     @Override
@@ -156,7 +160,7 @@ public class WrappedFSDataInputStream extends InputStream implements
         boolean result = in.seekToNewSource(targetPos);
         long duration = System.currentTimeMillis() - startTime;
         logger.info("{}:{}{}.seekToNewSource({}):{}", duration, this,
-                getDatanodeHostName(), targetPos, result);
+                getDatanodeHostNameString(), targetPos, result);
         return result;
     }
 
@@ -167,8 +171,8 @@ public class WrappedFSDataInputStream extends InputStream implements
         int result = in.read(position, buffer, offset, length);
         long duration = System.currentTimeMillis() - startTime;
         logger.info("{}:{}{}.read({},[{}],{},{}):{}", duration, this,
-                getDatanodeHostName(), position, buffer.length, offset, length,
-                result);
+                getDatanodeHostNameString(), position, buffer.length, offset,
+                length, result);
         return result;
     }
 
@@ -178,7 +182,7 @@ public class WrappedFSDataInputStream extends InputStream implements
         in.readFully(position, buffer);
         long duration = System.currentTimeMillis() - startTime;
         logger.info("{}:{}{}.readFully({},[{}]):void", duration, this,
-                getDatanodeHostName(), position, buffer.length);
+                getDatanodeHostNameString(), position, buffer.length);
     }
 
     @Override
@@ -188,22 +192,34 @@ public class WrappedFSDataInputStream extends InputStream implements
         in.readFully(position, buffer, offset, length);
         long duration = System.currentTimeMillis() - startTime;
         logger.info("{}:{}{}.readFully({},[{}],{},{}):void", duration, this,
-                getDatanodeHostName(), position, buffer.length, offset, length);
+                getDatanodeHostNameString(), position, buffer.length, offset,
+                length);
     }
 
     // Helper methods
 
-    private String getDatanodeHostName() {
+    private String getDatanodeHostNameString() {
         if (datanodeHostNameSupplier != null) {
+            // handle cases where we have to perform a reverse lookup if
+            // hostname is an IP
             String hostname = datanodeHostNameSupplier.get();
-            try {
-                return "->" + InetAddress.getByName(hostname).getHostName();
-            } catch (UnknownHostException e) {
-                if (LOG.isDebugEnabled()) {
-                    LOG.debug("Could not determine hostname for " + hostname, e);
+            String cachedHostname = HOSTNAME_CACHE.get(hostname);
+            if (cachedHostname == null) {
+                try {
+                    // strip port if necessary
+                    int portIndex = hostname.indexOf(":");
+                    cachedHostname = InetAddress.getByName(
+                            portIndex == -1 ? hostname : hostname.substring(0,
+                                    portIndex)).getHostName();
+                } catch (UnknownHostException e) {
+                    if (LOG.isDebugEnabled()) {
+                        LOG.debug("Could not determine hostname for "
+                                + hostname, e);
+                    }
                 }
-                return "";
+                HOSTNAME_CACHE.put(hostname, cachedHostname);
             }
+            return "->" + cachedHostname;
         } else {
             return "";
         }
