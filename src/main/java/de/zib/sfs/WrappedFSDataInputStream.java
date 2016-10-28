@@ -34,7 +34,7 @@ public class WrappedFSDataInputStream extends InputStream implements
     private final Logger logger;
 
     // Shadow super class' LOG
-    public static final Log LOG = LogFactory.getLog(StatisticsFileSystem.class);
+    public static final Log LOG = LogFactory.getLog(WrappedFSDataInputStream.class);
 
     public WrappedFSDataInputStream(FSDataInputStream in, Logger logger)
             throws IOException {
