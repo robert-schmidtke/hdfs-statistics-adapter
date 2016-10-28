@@ -125,7 +125,7 @@ public class WrappedFSDataInputStream extends InputStream implements
 
     // Helper methods
     private String getCurrentDataNodeString() {
-        if (hdfsIn == null) {
+        if (hdfsIn == null || hdfsIn.getCurrentDatanode() == null) {
             return "";
         } else {
             return "->" + hdfsIn.getCurrentDatanode().getHostName();
