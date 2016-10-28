@@ -10,6 +10,7 @@ package de.zib.sfs;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.invoke.LambdaMetafactory;
+import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
@@ -67,16 +68,19 @@ public class WrappedFSDataInputStream extends InputStream implements
 
                 // try this stream or the one it wraps
                 Method getCurrentDatanodeHostNameMethod = null;
+                InputStream bindToStream = null;
                 try {
                     getCurrentDatanodeHostNameMethod = in.getClass()
                             .getDeclaredMethod("getCurrentDatanodeHostName");
+                    bindToStream = in;
                 } catch (NoSuchMethodException e) {
                     getCurrentDatanodeHostNameMethod = in.getWrappedStream()
                             .getClass()
                             .getDeclaredMethod("getCurrentDatanodeHostName");
+                    bindToStream = in.getWrappedStream();
                 }
 
-                datanodeHostNameSupplier = (Supplier<String>) LambdaMetafactory
+                MethodHandle datanodeHostNameSupplierTarget = LambdaMetafactory
                         .metafactory(
                                 methodHandlesLookup,
                                 "get",
@@ -85,7 +89,9 @@ public class WrappedFSDataInputStream extends InputStream implements
                                 methodHandlesLookup
                                         .unreflect(getCurrentDatanodeHostNameMethod),
                                 MethodType.methodType(Object.class))
-                        .getTarget().invoke();
+                        .getTarget();
+                datanodeHostNameSupplier = (Supplier<String>) datanodeHostNameSupplierTarget
+                        .bindTo(bindToStream).invoke();
 
                 if (LOG.isDebugEnabled()) {
                     LOG.debug("Using 'getCurrentDatanodeHostName' as datanodeHostNameSupplier.");
