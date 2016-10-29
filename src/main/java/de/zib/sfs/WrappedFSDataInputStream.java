@@ -47,67 +47,6 @@ public class WrappedFSDataInputStream extends InputStream implements
             throws IOException {
         this.in = in;
         this.logger = logger;
-
-        if (in instanceof HdfsDataInputStream) {
-            // call Hadoop's method directly
-            final HdfsDataInputStream hdfsIn = (HdfsDataInputStream) in;
-            if (hdfsIn.getCurrentDatanode() != null) {
-                datanodeHostNameSupplier = () -> hdfsIn.getCurrentDatanode()
-                        .getHostName();
-                if (LOG.isDebugEnabled()) {
-                    LOG.debug("Using datanodeHostNameSupplier from Hadoop.");
-                }
-            } else {
-                if (LOG.isDebugEnabled()) {
-                    LOG.debug("datanodeHostNameSupplier from Hadoop has no DataNode information.");
-                }
-            }
-        } else {
-            try {
-                // Check if there's an appropriately named method available that
-                // returns the hostname of the current node that is being read
-                // from. Using the lambda factory provides almost direct
-                // invocation performance.
-                MethodHandles.Lookup methodHandlesLookup = MethodHandles
-                        .lookup();
-
-                // try this stream or the one it wraps
-                Method getCurrentDatanodeHostNameMethod = null;
-                InputStream bindToStream = null;
-                try {
-                    getCurrentDatanodeHostNameMethod = in.getClass()
-                            .getDeclaredMethod("getCurrentDatanodeHostName");
-                    bindToStream = in;
-                } catch (NoSuchMethodException e) {
-                    getCurrentDatanodeHostNameMethod = in.getWrappedStream()
-                            .getClass()
-                            .getDeclaredMethod("getCurrentDatanodeHostName");
-                    bindToStream = in.getWrappedStream();
-                }
-
-                MethodHandle datanodeHostNameSupplierTarget = LambdaMetafactory
-                        .metafactory(
-                                methodHandlesLookup,
-                                "get",
-                                MethodType.methodType(Supplier.class,
-                                        bindToStream.getClass()),
-                                MethodType.methodType(Object.class),
-                                methodHandlesLookup
-                                        .unreflect(getCurrentDatanodeHostNameMethod),
-                                MethodType.methodType(Object.class))
-                        .getTarget();
-                datanodeHostNameSupplier = (Supplier<String>) datanodeHostNameSupplierTarget
-                        .bindTo(bindToStream).invoke();
-
-                if (LOG.isDebugEnabled()) {
-                    LOG.debug("Using 'getCurrentDatanodeHostName' as datanodeHostNameSupplier.");
-                }
-            } catch (Throwable t) {
-                if (LOG.isDebugEnabled()) {
-                    LOG.debug("No datanodeHostNameSupplier available.", t);
-                }
-            }
-        }
     }
 
     @Override
@@ -198,31 +137,101 @@ public class WrappedFSDataInputStream extends InputStream implements
 
     // Helper methods
 
+    /**
+     * Gets the datanode that was last read from as a string. Should be called
+     * after the first read operation has been performed.
+     * 
+     * @return "->" + hostname of the datanode, or empty string if the
+     *         information is not available
+     */
     private String getDatanodeHostNameString() {
-        if (datanodeHostNameSupplier != null) {
-            // handle cases where we have to perform a reverse lookup if
-            // hostname is an IP
-            String hostname = datanodeHostNameSupplier.get();
-            String cachedHostname = HOSTNAME_CACHE.get(hostname);
-            if (cachedHostname == null) {
-                try {
-                    // strip port if necessary
-                    int portIndex = hostname.indexOf(":");
-                    cachedHostname = InetAddress.getByName(
-                            portIndex == -1 ? hostname : hostname.substring(0,
-                                    portIndex)).getHostName();
-                } catch (UnknownHostException e) {
+        if (datanodeHostNameSupplier == null) {
+            if (in instanceof HdfsDataInputStream) {
+                // call Hadoop's method directly
+                final HdfsDataInputStream hdfsIn = (HdfsDataInputStream) in;
+                if (hdfsIn.getCurrentDatanode() != null) {
+                    datanodeHostNameSupplier = () -> hdfsIn
+                            .getCurrentDatanode().getHostName();
                     if (LOG.isDebugEnabled()) {
-                        LOG.debug("Could not determine hostname for "
-                                + hostname, e);
+                        LOG.debug("Using datanodeHostNameSupplier from Hadoop.");
+                    }
+                } else {
+                    if (LOG.isDebugEnabled()) {
+                        LOG.debug("datanodeHostNameSupplier from Hadoop has no DataNode information.");
+                    }
+                    datanodeHostNameSupplier = () -> "";
+                }
+            } else {
+                try {
+                    // Check if there's an appropriately named method available
+                    // that returns the hostname of the current node that is
+                    // being read from. Using the lambda factory provides almost
+                    // direct invocation performance.
+                    MethodHandles.Lookup methodHandlesLookup = MethodHandles
+                            .lookup();
+
+                    // try this stream or the one it wraps
+                    Method getCurrentDatanodeHostNameMethod = null;
+                    InputStream bindToStream = null;
+                    try {
+                        getCurrentDatanodeHostNameMethod = in
+                                .getClass()
+                                .getDeclaredMethod("getCurrentDatanodeHostName");
+                        bindToStream = in;
+                    } catch (NoSuchMethodException e) {
+                        getCurrentDatanodeHostNameMethod = in
+                                .getWrappedStream()
+                                .getClass()
+                                .getDeclaredMethod("getCurrentDatanodeHostName");
+                        bindToStream = in.getWrappedStream();
+                    }
+
+                    MethodHandle datanodeHostNameSupplierTarget = LambdaMetafactory
+                            .metafactory(
+                                    methodHandlesLookup,
+                                    "get",
+                                    MethodType.methodType(Supplier.class,
+                                            bindToStream.getClass()),
+                                    MethodType.methodType(Object.class),
+                                    methodHandlesLookup
+                                            .unreflect(getCurrentDatanodeHostNameMethod),
+                                    MethodType.methodType(Object.class))
+                            .getTarget();
+                    datanodeHostNameSupplier = (Supplier<String>) datanodeHostNameSupplierTarget
+                            .bindTo(bindToStream).invoke();
+
+                    if (LOG.isDebugEnabled()) {
+                        LOG.debug("Using 'getCurrentDatanodeHostName' as datanodeHostNameSupplier.");
+                    }
+                } catch (Throwable t) {
+                    datanodeHostNameSupplier = () -> "";
+                    if (LOG.isDebugEnabled()) {
+                        LOG.debug("No datanodeHostNameSupplier available.", t);
                     }
                 }
-                HOSTNAME_CACHE.put(hostname, cachedHostname);
             }
-            return "->" + cachedHostname;
-        } else {
-            return "";
         }
+
+        // handle cases where we have to perform a reverse lookup if
+        // hostname is an IP
+        String hostname = datanodeHostNameSupplier.get();
+        String cachedHostname = HOSTNAME_CACHE.get(hostname);
+        if (cachedHostname == null) {
+            try {
+                // strip port if necessary
+                int portIndex = hostname.indexOf(":");
+                cachedHostname = InetAddress.getByName(
+                        portIndex == -1 ? hostname : hostname.substring(0,
+                                portIndex)).getHostName();
+            } catch (UnknownHostException e) {
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Could not determine hostname for " + hostname, e);
+                }
+                cachedHostname = "";
+            }
+            HOSTNAME_CACHE.put(hostname, cachedHostname);
+        }
+        return cachedHostname.isEmpty() ? "" : ("->" + cachedHostname);
     }
 
 }
