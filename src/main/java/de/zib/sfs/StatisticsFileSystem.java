@@ -16,7 +16,10 @@ import java.net.URI;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Arrays;
+import java.util.function.BiPredicate;
+import java.util.function.Consumer;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -300,18 +303,48 @@ public class StatisticsFileSystem extends FileSystem {
                 }
             }
 
+            // The appender rolls over at a certain size (see
+            // src/main/resources/log4j2.xml) and creates a .gz archive named
+            // like the original log file, plus an additional counter, e.g.
+            // file.log.1.gz, where file.log is the original log file name. So
+            // enumerate all these files and copy them.
             java.nio.file.Path fromPath = Paths.get(logFile.getAbsolutePath());
-            java.nio.file.Path toPath = Paths.get(
-                    targetLogFileDirectoryFile.getAbsolutePath(),
-                    logFile.getName() + "." + hostname);
-            if (LOG.isDebugEnabled()) {
-                LOG.debug("Copying log from " + fromPath + " to " + toPath);
-            }
-            try {
-                Files.copy(fromPath, toPath);
-            } catch (FileAlreadyExistsException e) {
-                LOG.warn("Log file " + toPath + " already exists", e);
-            }
+
+            // accepts any file that starts exactly with the log file path, so
+            // any suffixes to these files are accepts as well
+            BiPredicate<java.nio.file.Path, BasicFileAttributes> logFilePredicate = new BiPredicate<java.nio.file.Path, BasicFileAttributes>() {
+                @Override
+                public boolean test(java.nio.file.Path path,
+                        BasicFileAttributes attributes) {
+                    return path.startsWith(fromPath);
+                }
+            };
+
+            // copies any file to the target log file directory
+            Consumer<java.nio.file.Path> logFileConsumer = new Consumer<java.nio.file.Path>() {
+                @Override
+                public void accept(java.nio.file.Path path) {
+                    java.nio.file.Path toPath = Paths.get(
+                            targetLogFileDirectoryFile.getAbsolutePath(),
+                            hostname + "-" + path.toFile().getName());
+                    if (LOG.isDebugEnabled()) {
+                        LOG.debug("Copying log from " + fromPath + " to "
+                                + toPath);
+                    }
+                    try {
+                        Files.copy(path, toPath);
+                    } catch (FileAlreadyExistsException e) {
+                        LOG.warn("Log file " + toPath + " already exists", e);
+                    } catch (IOException e) {
+                        LOG.warn("Error copying log file to " + toPath, e);
+                    }
+                }
+            };
+
+            // finally walk all files (no recursion) and copy the matching log
+            // files
+            Files.find(fromPath.getParent(), 0, logFilePredicate).forEach(
+                    logFileConsumer);
 
             if (deleteLogFileOnClose && !logFile.delete()) {
                 LOG.warn("Could not delete log file " + fromPath);
