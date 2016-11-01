@@ -502,7 +502,7 @@ public class StatisticsFileSystem extends FileSystem {
                 // illegal characters
                 StringBuilder buffer = new StringBuilder();
 
-                buffer.append(scheme).append(":");
+                buffer.append(to).append(":");
 
                 String authority = uri.getAuthority();
                 if (authority != null) {
