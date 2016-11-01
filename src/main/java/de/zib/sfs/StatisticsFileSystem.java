@@ -18,8 +18,6 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Arrays;
 
-import javax.ws.rs.core.UriBuilder;
-
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
@@ -492,11 +490,36 @@ public class StatisticsFileSystem extends FileSystem {
     }
 
     private URI replaceUriScheme(URI uri, String from, String to) {
+        // TODO add cache for replaced URIs? possibly useful for scenarions with
+        // many metadata operations.
+
         String scheme = uri.getScheme();
         if (scheme != null) {
             if (scheme.equalsIgnoreCase(from)) {
                 // uri has this scheme, replace it with new scheme
-                return UriBuilder.fromUri(uri).scheme(to).build();
+
+                // re-create the URI from scratch to avoid escaping of wanted
+                // illegal characters
+                StringBuilder buffer = new StringBuilder();
+
+                buffer.append(scheme).append(":");
+
+                String authority = uri.getAuthority();
+                if (authority != null) {
+                    buffer.append("//").append(authority);
+                }
+
+                String path = uri.getPath();
+                if (path != null) {
+                    buffer.append(path);
+                }
+
+                String fragment = uri.getFragment();
+                if (fragment != null) {
+                    buffer.append("#").append(fragment);
+                }
+
+                return URI.create(buffer.toString());
             } else if (scheme.equalsIgnoreCase(to)) {
                 // uri already has the correct scheme
                 if (LOG.isDebugEnabled()) {
