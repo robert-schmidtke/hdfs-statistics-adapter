@@ -4,11 +4,17 @@
     <Console name="Console" target="SYSTEM_OUT">
       <PatternLayout pattern="%d{HH:mm:ss,SSS} %-5p %-60c %x - %m%n" />
     </Console>
-    <RandomAccessFile name="AsyncRandomAccessFile"
-      fileName="${sys:de.zib.sfs.asyncLogFileName}" immediateFlush="false"
-      append="false">
+    <RollingRandomAccessFile
+      name="AsyncRandomAccessFile"
+      fileName="${sys:de.zib.sfs.asyncLogFileName}"
+      filePattern="${sys:de.zib.sfs.asyncLogFileName}.%d.gz"
+      append="true"
+      immediateFlush="false">
       <PatternLayout pattern="${sys:de.zib.sfs.hostname}:%date{UNIX_MILLIS}-%message%n" />
-    </RandomAccessFile>
+      <Policies>
+        <SizeBasedTriggeringPolicy size="4GB" />
+      </Policies>
+    </RollingRandomAccessFile>
   </Appenders>
   <Loggers>
     <AsyncLogger name="de.zib.sfs.AsyncLogger" level="debug">
