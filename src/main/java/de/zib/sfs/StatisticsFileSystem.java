@@ -310,13 +310,14 @@ public class StatisticsFileSystem extends FileSystem {
             // enumerate all these files and copy them.
             java.nio.file.Path fromPath = Paths.get(logFile.getAbsolutePath());
 
-            // accepts any file that starts exactly with the log file path, so
-            // any suffixes to these files are accepts as well
+            // accepts any file whose name starts exactly with the log file's
+            // name, so any suffixes to these files are accepts as well
             BiPredicate<java.nio.file.Path, BasicFileAttributes> logFilePredicate = new BiPredicate<java.nio.file.Path, BasicFileAttributes>() {
                 @Override
                 public boolean test(java.nio.file.Path path,
                         BasicFileAttributes attributes) {
-                    return path.startsWith(fromPath);
+                    return path.toFile().getName()
+                            .startsWith(logFile.getName());
                 }
             };
 
@@ -338,6 +339,10 @@ public class StatisticsFileSystem extends FileSystem {
                     } catch (IOException e) {
                         LOG.warn("Error copying log file to " + toPath, e);
                     }
+
+                    if (deleteLogFileOnClose && !path.toFile().delete()) {
+                        LOG.warn("Could not delete log file " + path);
+                    }
                 }
             };
 
@@ -345,10 +350,6 @@ public class StatisticsFileSystem extends FileSystem {
             // files
             Files.find(fromPath.getParent(), 0, logFilePredicate).forEach(
                     logFileConsumer);
-
-            if (deleteLogFileOnClose && !logFile.delete()) {
-                LOG.warn("Could not delete log file " + fromPath);
-            }
         }
 
         closed = true;
