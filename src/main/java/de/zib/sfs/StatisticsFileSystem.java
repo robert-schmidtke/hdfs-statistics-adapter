@@ -301,26 +301,17 @@ public class StatisticsFileSystem extends FileSystem {
             }
 
             java.nio.file.Path fromPath = Paths.get(logFile.getAbsolutePath());
-
-            boolean copied = false;
-            int suffixCounter = 0;
-            String suffix = "";
-
-            do {
-                java.nio.file.Path toPath = Paths.get(
-                        targetLogFileDirectoryFile.getAbsolutePath(),
-                        logFile.getName() + "." + hostname + suffix);
-                if (LOG.isDebugEnabled()) {
-                    LOG.debug("Copying log from " + fromPath + " to " + toPath);
-                }
-                try {
-                    Files.copy(fromPath, toPath);
-                    copied = true;
-                } catch (FileAlreadyExistsException e) {
-                    LOG.warn("Log file " + toPath + " already exists", e);
-                    suffix = "." + Integer.toString(++suffixCounter);
-                }
-            } while (!copied);
+            java.nio.file.Path toPath = Paths.get(
+                    targetLogFileDirectoryFile.getAbsolutePath(),
+                    logFile.getName() + "." + hostname);
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Copying log from " + fromPath + " to " + toPath);
+            }
+            try {
+                Files.copy(fromPath, toPath);
+            } catch (FileAlreadyExistsException e) {
+                LOG.warn("Log file " + toPath + " already exists", e);
+            }
 
             if (deleteLogFileOnClose && !logFile.delete()) {
                 LOG.warn("Could not delete log file " + fromPath);
