@@ -100,12 +100,14 @@ public class StatisticsFileSystem extends FileSystem {
     private File logFile;
 
     /**
-     * Whether to delete the local log file during {{@link #close()}
+     * Whether to delete the local log file during {@link #close()}. Default:
+     * {@code false}.
      */
     private boolean deleteLogFileOnClose;
 
     /**
-     * Path to copy the generated log file to during {@link #close()}.
+     * Path to copy the generated log file to during {@link #close()}. Default:
+     * {@code null}.
      */
     private String targetLogFileDirectory;
 
