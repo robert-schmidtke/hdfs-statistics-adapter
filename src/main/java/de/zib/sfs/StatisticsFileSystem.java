@@ -355,7 +355,7 @@ public class StatisticsFileSystem extends FileSystem {
 
             // finally walk all files (no recursion) and copy the matching log
             // files
-            Files.find(fromPath.getParent(), 0, logFilePredicate).forEach(
+            Files.find(fromPath.getParent(), 1, logFilePredicate).forEach(
                     logFileConsumer);
         }
 
