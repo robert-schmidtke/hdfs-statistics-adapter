@@ -6,7 +6,7 @@
     </Console>
     <RandomAccessFile name="AsyncRandomAccessFile"
       fileName="${sys:de.zib.sfs.asyncLogFileName}" immediateFlush="false"
-      append="true">
+      append="false">
       <PatternLayout pattern="${sys:de.zib.sfs.hostname}:%date{UNIX_MILLIS}-%message%n" />
     </RandomAccessFile>
   </Appenders>
