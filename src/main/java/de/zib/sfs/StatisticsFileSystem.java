@@ -316,8 +316,15 @@ public class StatisticsFileSystem extends FileSystem {
                 @Override
                 public boolean test(java.nio.file.Path path,
                         BasicFileAttributes attributes) {
-                    return path.toFile().getName()
+                    boolean accept = path.toFile().getName()
                             .startsWith(logFile.getName());
+                    if (LOG.isDebugEnabled()) {
+                        LOG.debug((accept ? "Accepting" : "Not accepting")
+                                + " file " + path
+                                + " (its name must start with "
+                                + logFile.getName() + ")");
+                    }
+                    return accept;
                 }
             };
 
