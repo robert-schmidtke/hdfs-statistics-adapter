@@ -256,6 +256,9 @@ public class StatisticsFileSystem extends FileSystem {
                 // Attach the agent to the VM
                 try {
                     vm.loadAgent(jarFilePath, "");
+                    if (LOG.isDebugEnabled()) {
+                        LOG.debug("Injected agent into VM: " + vm);
+                    }
                 } catch (AgentLoadException e) {
                     LOG.warn("Could not load agent, not injecting agent.", e);
                 } catch (AgentInitializationException e) {
