@@ -8,7 +8,6 @@
 package de.zib.sfs.agent;
 
 import java.io.File;
-import java.io.IOException;
 import java.lang.instrument.Instrumentation;
 import java.lang.management.ManagementFactory;
 
@@ -19,19 +18,21 @@ import sun.tools.attach.LinuxAttachProvider;
 import sun.tools.attach.SolarisAttachProvider;
 import sun.tools.attach.WindowsAttachProvider;
 
-import com.sun.tools.attach.AttachNotSupportedException;
 import com.sun.tools.attach.VirtualMachine;
 import com.sun.tools.attach.spi.AttachProvider;
 
 public class StatisticsFileSystemAgent {
 
-    /**
-     * 
-     * @param argentArgs
-     * @throws IOException
-     * @throws AttachNotSupportedException
-     */
-    public static void loadAgent(String argentArgs) throws Exception {
+    private static StatisticsFileSystemAgent instance = null;
+
+    private final Instrumentation inst;
+
+    private StatisticsFileSystemAgent(String agentArgs, Instrumentation inst) {
+        this.inst = inst;
+    }
+
+    public static StatisticsFileSystemAgent loadAgent(String argentArgs)
+            throws Exception {
         // Get proper VM provider depending on the OS
         AttachProvider ap = null;
         if (SystemUtils.IS_OS_LINUX) {
@@ -71,8 +72,15 @@ public class StatisticsFileSystemAgent {
         VirtualMachine vm = ap.attachVirtualMachine(vmNameParts[0]);
         vm.loadAgent(jarFilePath, argentArgs);
         vm.detach();
+
+        return instance;
     }
 
     public static void agentmain(String agentArgs, Instrumentation inst) {
+        instance = new StatisticsFileSystemAgent(agentArgs, inst);
+    }
+
+    public static void premain(String agentArgs, Instrumentation inst) {
+        agentmain(agentArgs, inst);
     }
 }

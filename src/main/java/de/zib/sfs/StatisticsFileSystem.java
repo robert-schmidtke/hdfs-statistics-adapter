@@ -116,6 +116,11 @@ public class StatisticsFileSystem extends FileSystem {
     private String targetLogFileDirectory;
 
     /**
+     * Agent that monitors low level file system interaction.
+     */
+    private StatisticsFileSystemAgent agent;
+
+    /**
      * Flag to track whether this file system is closed already.
      */
     private boolean closed = false;
@@ -216,7 +221,7 @@ public class StatisticsFileSystem extends FileSystem {
 
         // Inject the agent that monitors low-level file system access
         try {
-            StatisticsFileSystemAgent.loadAgent("");
+            agent = StatisticsFileSystemAgent.loadAgent("");
         } catch (Exception e) {
             LOG.warn("Could not inject agent", e);
         }
