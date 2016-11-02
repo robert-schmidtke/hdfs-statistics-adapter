@@ -145,6 +145,7 @@
           <archive>
             <manifestEntries>
               <Agent-Class>de.zib.sfs.agent.StatisticsFileSystemAgent</Agent-Class>
+              <Premain-Class>de.zib.sfs.agent.StatisticsFileSystemAgent</Premain-Class>
               <Can-Retransform-Classes>true</Can-Retransform-Classes>
             </manifestEntries>
           </archive>
