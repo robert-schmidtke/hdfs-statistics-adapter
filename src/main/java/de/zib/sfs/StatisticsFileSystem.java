@@ -12,6 +12,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.lang.management.ManagementFactory;
 import java.math.BigInteger;
 import java.net.URI;
 import java.nio.file.FileAlreadyExistsException;
@@ -41,7 +42,6 @@ import com.sun.tools.attach.AgentInitializationException;
 import com.sun.tools.attach.AgentLoadException;
 import com.sun.tools.attach.AttachNotSupportedException;
 import com.sun.tools.attach.VirtualMachine;
-import com.sun.tools.attach.VirtualMachineDescriptor;
 
 import de.zib.sfs.flink.WrappedFlinkFileSystem;
 
@@ -236,32 +236,24 @@ public class StatisticsFileSystem extends FileSystem {
         if (jarFilePath == null) {
             LOG.warn("Could not obtain full path to jar file, not injecting agent.");
         } else {
-            // Get the current VM
-            VirtualMachine vm = null;
-            String errorMessage = "No appropriate VM found.";
-            for (VirtualMachineDescriptor vmd : VirtualMachine.list()) {
-                if (StatisticsFileSystem.class.getName().equals(
-                        vmd.displayName())) {
-                    try {
-                        vm = VirtualMachine.attach(vmd.id());
-                    } catch (AttachNotSupportedException e) {
-                        // handle error later in null check
-                        errorMessage = e.getMessage();
-                    }
-                    break;
-                }
-            }
-
-            if (vm == null) {
-                LOG.warn("Could not attach to target VM, not injecting agent: "
-                        + errorMessage);
+            // should return PID@hostname for the executing VM
+            String vmName = ManagementFactory.getRuntimeMXBean().getName();
+            String[] vmNameParts = vmName.split("@");
+            if (vmNameParts.length != 2) {
+                LOG.warn("Unexpected VM name found: " + vmName
+                        + ", not injecting agend.");
             } else {
                 // Attach the agent to the VM
                 try {
+                    VirtualMachine vm = VirtualMachine.attach(vmNameParts[0]);
                     vm.loadAgent(jarFilePath, "");
+                    vm.detach();
+
                     if (LOG.isDebugEnabled()) {
                         LOG.debug("Injected agent into VM: " + vm);
                     }
+                } catch (AttachNotSupportedException e) {
+                    LOG.warn("Could not attach to VM, not injecting agent.", e);
                 } catch (AgentLoadException e) {
                     LOG.warn("Could not load agent, not injecting agent.", e);
                 } catch (AgentInitializationException e) {
@@ -269,9 +261,6 @@ public class StatisticsFileSystem extends FileSystem {
                             "Could not initialize agent, not injecting agent.",
                             e);
                 }
-
-                // Resume normal operations
-                vm.detach();
             }
         }
 
