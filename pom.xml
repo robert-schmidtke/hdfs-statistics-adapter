@@ -107,13 +107,6 @@
       <version>${log4j.version}</version>
     </dependency>
 
-    <!-- Provides a bridge from the old 1.2 API to the new 2.x implementationsss -->
-    <dependency>
-      <groupId>org.apache.logging.log4j</groupId>
-      <artifactId>log4j-1.2-api</artifactId>
-      <version>${log4j.version}</version>
-    </dependency>
-
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
@@ -150,7 +143,6 @@
               <artifactSet>
                 <includes>
                   <include>com.lmax:disruptor</include>
-                  <include>org.apache.logging.log4j:log4j-1.2-api</include>
                   <include>org.apache.logging.log4j:log4j-api</include>
                   <include>org.apache.logging.log4j:log4j-core</include>
                 </includes>
