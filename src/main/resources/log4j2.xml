@@ -17,10 +17,10 @@
     </RollingRandomAccessFile>
   </Appenders>
   <Loggers>
-    <AsyncLogger name="de.zib.sfs.AsyncLogger" level="debug">
+    <AsyncLogger name="de.zib.sfs.AsyncLogger" level="info">
       <AppenderRef ref="AsyncRandomAccessFile" />
     </AsyncLogger>
-    <Root level="warn">
+    <Root level="info">
       <AppenderRef ref="Console" />
     </Root>
   </Loggers>
