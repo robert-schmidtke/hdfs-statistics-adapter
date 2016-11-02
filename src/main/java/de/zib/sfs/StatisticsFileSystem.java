@@ -221,7 +221,12 @@ public class StatisticsFileSystem extends FileSystem {
 
         // Inject the agent that monitors low-level file system access
         try {
-            agent = StatisticsFileSystemAgent.loadAgent("");
+            StringBuilder agentOptions = new StringBuilder();
+            agentOptions
+                    .append(StatisticsFileSystemAgent.SFS_AGENT_LOGGER_NAME_KEY)
+                    .append("=").append("de.zib.sfs.AsyncLogger");
+            agent = StatisticsFileSystemAgent
+                    .loadAgent(agentOptions.toString());
         } catch (Exception e) {
             LOG.warn("Could not inject agent", e);
         }

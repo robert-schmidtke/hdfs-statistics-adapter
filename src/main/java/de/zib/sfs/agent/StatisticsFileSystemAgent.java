@@ -8,10 +8,17 @@
 package de.zib.sfs.agent;
 
 import java.io.File;
+import java.lang.instrument.ClassFileTransformer;
+import java.lang.instrument.IllegalClassFormatException;
 import java.lang.instrument.Instrumentation;
 import java.lang.management.ManagementFactory;
+import java.security.ProtectionDomain;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.apache.commons.lang3.SystemUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import sun.tools.attach.BsdAttachProvider;
 import sun.tools.attach.LinuxAttachProvider;
@@ -23,12 +30,42 @@ import com.sun.tools.attach.spi.AttachProvider;
 
 public class StatisticsFileSystemAgent {
 
+    public static final String SFS_AGENT_LOGGER_NAME_KEY = "logger.name";
+
     private static StatisticsFileSystemAgent instance = null;
 
     private final Instrumentation inst;
 
+    private final Logger fsLogger;
+
     private StatisticsFileSystemAgent(String agentArgs, Instrumentation inst) {
         this.inst = inst;
+
+        // Make options easily accesible through lookup
+        Map<String, String> options = new HashMap<String, String>();
+        for (String arg : agentArgs.split(",")) {
+            String[] keyValue = arg.split("=");
+            if (keyValue.length != 2) {
+                throw new IllegalArgumentException("Invalid argument: " + arg);
+            }
+            options.put(keyValue[0], keyValue[1]);
+        }
+
+        // Obtain logger
+        fsLogger = LogManager.getLogger(options.get(SFS_AGENT_LOGGER_NAME_KEY));
+
+        // Transform InputStream and OutputStream to log calls
+        inst.addTransformer(new ClassFileTransformer() {
+            @Override
+            public byte[] transform(ClassLoader loader, String className,
+                    Class<?> classBeingRedefined,
+                    ProtectionDomain protectionDomain, byte[] classfileBuffer)
+                    throws IllegalClassFormatException {
+                fsLogger.info("Transforming class: {}",
+                        classBeingRedefined.getName());
+                return classfileBuffer;
+            }
+        }, true);
     }
 
     public static StatisticsFileSystemAgent loadAgent(String argentArgs)
