@@ -119,6 +119,11 @@ public class StatisticsFileSystem extends FileSystem {
      */
     private boolean closed = false;
 
+    /**
+     * Flag to track whether this file system is initialized already.
+     */
+    private boolean initialized = false;
+
     // Shadow super class' LOG
     public static final Log LOG = LogFactory.getLog(StatisticsFileSystem.class);
 
@@ -128,7 +133,13 @@ public class StatisticsFileSystem extends FileSystem {
     private static final Random RANDOM = new Random();
 
     @Override
-    public void initialize(URI name, Configuration conf) throws IOException {
+    public synchronized void initialize(URI name, Configuration conf)
+            throws IOException {
+        if (initialized) {
+            LOG.warn("Ignoring attempt to re-initialize file system.");
+            return;
+        }
+
         super.initialize(name, conf);
         setConf(conf);
 
@@ -286,6 +297,8 @@ public class StatisticsFileSystem extends FileSystem {
                 }
             }
         });
+
+        initialized = true;
     }
 
     @Override
