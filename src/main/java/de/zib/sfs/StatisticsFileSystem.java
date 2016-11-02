@@ -12,12 +12,14 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.math.BigInteger;
 import java.net.URI;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Arrays;
+import java.util.Random;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 
@@ -54,7 +56,7 @@ public class StatisticsFileSystem extends FileSystem {
     public static final String SFS_WRAPPED_FS_CLASS_NAME_KEY = "sfs.wrappedFS.className";
 
     /**
-     * Location of the log file on each host.
+     * Location of the log file on each host. A random suffix will be appended.
      */
     public static final String SFS_LOG_FILE_NAME_KEY = "sfs.logFile.name";
 
@@ -120,6 +122,11 @@ public class StatisticsFileSystem extends FileSystem {
     // Shadow super class' LOG
     public static final Log LOG = LogFactory.getLog(StatisticsFileSystem.class);
 
+    /**
+     * For generating random suffixes to log file names.
+     */
+    private static final Random RANDOM = new Random();
+
     @Override
     public void initialize(URI name, Configuration conf) throws IOException {
         super.initialize(name, conf);
@@ -160,7 +167,10 @@ public class StatisticsFileSystem extends FileSystem {
             throw new RuntimeException(SFS_LOG_FILE_NAME_KEY + " not specified");
         }
 
-        logFile = new File(logFileName);
+        // Append 5-character random string to avoid collisions if multiple
+        // instances are running on the same machine
+        String suffix = new BigInteger(25, RANDOM).toString(32);
+        logFile = new File(logFileName + "." + suffix);
 
         if (!logFile.getParentFile().exists()) {
             if (!logFile.getParentFile().mkdirs()) {
