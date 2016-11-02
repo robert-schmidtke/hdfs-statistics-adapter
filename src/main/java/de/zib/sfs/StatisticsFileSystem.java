@@ -169,8 +169,8 @@ public class StatisticsFileSystem extends FileSystem {
 
         // Append 5-character random string to avoid collisions if multiple
         // instances are running on the same machine
-        String suffix = new BigInteger(25, RANDOM).toString(32);
-        logFile = new File(logFileName + "." + suffix);
+        logFileName += "." + new BigInteger(25, RANDOM).toString(32);
+        logFile = new File(logFileName);
 
         if (!logFile.getParentFile().exists()) {
             if (!logFile.getParentFile().mkdirs()) {
