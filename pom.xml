@@ -177,6 +177,7 @@
                   <include>com.lmax:disruptor</include>
                   <include>org.apache.logging.log4j:log4j-api</include>
                   <include>org.apache.logging.log4j:log4j-core</include>
+                  <include>org.ow2.asm:asm</include>
                 </includes>
               </artifactSet>
             </configuration>
