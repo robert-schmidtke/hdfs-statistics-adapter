@@ -219,9 +219,26 @@ public class StatisticsFileSystem extends FileSystem {
         // Inject the agent that monitors low-level file system access
         try {
             StringBuilder agentOptions = new StringBuilder();
+
+            // Agent should use the same logger as we do
             agentOptions
                     .append(StatisticsFileSystemAgent.SFS_AGENT_LOGGER_NAME_KEY)
                     .append("=").append("de.zib.sfs.AsyncLogger");
+
+            // Hadoop's InputStream classes to monitor
+            agentOptions
+                    .append(",")
+                    .append(StatisticsFileSystemAgent.SFS_AGENT_INPUTSTREAM_CLASSES_KEY)
+                    .append("=")
+                    .append("org.apache.hadoop.fs.RawLocalFileSystem.LocalFSFileInputStream");
+
+            // Dirty check to see whether we're running inside Apache Flink
+            if (System.getProperty("java.class.path").contains("flink-core")) {
+                // Add Flink's custom classes as well
+                agentOptions.append(":").append(
+                        "org.apache.flink.core.fs.local.LocalDataInputStream");
+            }
+
             agent = StatisticsFileSystemAgent
                     .loadAgent(agentOptions.toString());
             if (LOG.isDebugEnabled()) {

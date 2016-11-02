@@ -8,6 +8,7 @@
 package de.zib.sfs.agent;
 
 import java.io.File;
+import java.io.InputStream;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.IllegalClassFormatException;
 import java.lang.instrument.Instrumentation;
@@ -34,6 +35,8 @@ public class StatisticsFileSystemAgent {
 
     public static final String SFS_AGENT_LOGGER_NAME_KEY = "logger.name";
 
+    public static final String SFS_AGENT_INPUTSTREAM_CLASSES_KEY = "inputStream.classes";
+
     private static StatisticsFileSystemAgent instance = null;
 
     private final Instrumentation inst;
@@ -43,7 +46,8 @@ public class StatisticsFileSystemAgent {
     private static final Log LOG = LogFactory
             .getLog(StatisticsFileSystemAgent.class);
 
-    private StatisticsFileSystemAgent(String agentArgs, Instrumentation inst) {
+    private StatisticsFileSystemAgent(String agentArgs, Instrumentation inst)
+            throws Exception {
         this.inst = inst;
 
         if (LOG.isDebugEnabled()) {
@@ -63,6 +67,15 @@ public class StatisticsFileSystemAgent {
         // Obtain logger
         fsLogger = LogManager.getLogger(options.get(SFS_AGENT_LOGGER_NAME_KEY));
 
+        // Get InputStream subclasses to monitor
+        String[] inputStreamClassNames = options.get(
+                SFS_AGENT_INPUTSTREAM_CLASSES_KEY).split(":");
+        Class<?>[] inputStreamClasses = new Class<?>[inputStreamClassNames.length];
+        for (int i = 0; i < inputStreamClassNames.length; ++i) {
+            inputStreamClasses[i] = Class.forName(inputStreamClassNames[i])
+                    .asSubclass(InputStream.class);
+        }
+
         // Transform InputStream and OutputStream to log calls
         this.inst.addTransformer(new ClassFileTransformer() {
             @Override
@@ -70,11 +83,15 @@ public class StatisticsFileSystemAgent {
                     Class<?> classBeingRedefined,
                     ProtectionDomain protectionDomain, byte[] classfileBuffer)
                     throws IllegalClassFormatException {
-                fsLogger.info("Transforming class: {}",
-                        classBeingRedefined.getName());
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Transforming class: "
+                            + classBeingRedefined.getName());
+                }
                 return classfileBuffer;
             }
         }, true);
+
+        this.inst.retransformClasses(inputStreamClasses);
     }
 
     public static StatisticsFileSystemAgent loadAgent(String agentArgs)
@@ -126,14 +143,16 @@ public class StatisticsFileSystemAgent {
         return instance;
     }
 
-    public static void agentmain(String agentArgs, Instrumentation inst) {
+    public static void agentmain(String agentArgs, Instrumentation inst)
+            throws Exception {
         if (LOG.isDebugEnabled()) {
             LOG.debug("agentmain(" + agentArgs + "," + inst + ")");
         }
         instance = new StatisticsFileSystemAgent(agentArgs, inst);
     }
 
-    public static void premain(String agentArgs, Instrumentation inst) {
+    public static void premain(String agentArgs, Instrumentation inst)
+            throws Exception {
         if (LOG.isDebugEnabled()) {
             LOG.debug("premain(" + agentArgs + "," + inst + ")");
         }
