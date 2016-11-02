@@ -104,7 +104,7 @@ public class StatisticsFileSystemAgent {
                 return classfileBuffer;
             }
         };
-        this.inst.addTransformer(outputStreamClassFileTransformer);
+        this.inst.addTransformer(outputStreamClassFileTransformer, true);
         this.inst.retransformClasses(getClasses(
                 options.get(SFS_AGENT_OUTPUSTREAM_CLASSES_KEY),
                 OutputStream.class));
