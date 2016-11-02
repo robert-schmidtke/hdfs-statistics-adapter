@@ -12,7 +12,6 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.lang.management.ManagementFactory;
 import java.math.BigInteger;
 import java.net.URI;
 import java.nio.file.FileAlreadyExistsException;
@@ -38,11 +37,7 @@ import org.apache.hadoop.util.Progressable;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.sun.tools.attach.AgentInitializationException;
-import com.sun.tools.attach.AgentLoadException;
-import com.sun.tools.attach.AttachNotSupportedException;
-import com.sun.tools.attach.VirtualMachine;
-
+import de.zib.sfs.agent.StatisticsFileSystemAgent;
 import de.zib.sfs.flink.WrappedFlinkFileSystem;
 
 /**
@@ -220,48 +215,10 @@ public class StatisticsFileSystem extends FileSystem {
                 SFS_TARGET_LOG_FILE_DIRECTORY_KEY);
 
         // Inject the agent that monitors low-level file system access
-
-        // Obtain the full name of our jar file, which includes the agent as
-        // well
-        String jarFilePath = null;
-        String classpath = System.getProperty("java.class.path");
-        String[] classpathEntries = classpath.split(File.pathSeparator);
-        for (String classpathEntry : classpathEntries) {
-            if (classpathEntry.endsWith("hdfs-statistics-adapter.jar")) {
-                jarFilePath = new File(classpathEntry).getAbsolutePath();
-                break;
-            }
-        }
-
-        if (jarFilePath == null) {
-            LOG.warn("Could not obtain full path to jar file, not injecting agent.");
-        } else {
-            // should return PID@hostname for the executing VM
-            String vmName = ManagementFactory.getRuntimeMXBean().getName();
-            String[] vmNameParts = vmName.split("@");
-            if (vmNameParts.length != 2) {
-                LOG.warn("Unexpected VM name found: " + vmName
-                        + ", not injecting agend.");
-            } else {
-                // Attach the agent to the VM
-                try {
-                    VirtualMachine vm = VirtualMachine.attach(vmNameParts[0]);
-                    vm.loadAgent(jarFilePath, "");
-                    vm.detach();
-
-                    if (LOG.isDebugEnabled()) {
-                        LOG.debug("Injected agent into VM: " + vm);
-                    }
-                } catch (AttachNotSupportedException e) {
-                    LOG.warn("Could not attach to VM, not injecting agent.", e);
-                } catch (AgentLoadException e) {
-                    LOG.warn("Could not load agent, not injecting agent.", e);
-                } catch (AgentInitializationException e) {
-                    LOG.warn(
-                            "Could not initialize agent, not injecting agent.",
-                            e);
-                }
-            }
+        try {
+            StatisticsFileSystemAgent.loadAgent("");
+        } catch (Exception e) {
+            LOG.warn("Could not inject agent", e);
         }
 
         // Obtain the file system class we want to wrap
