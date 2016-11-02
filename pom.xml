@@ -71,6 +71,12 @@
           <groupId>org.apache.logging.log4j</groupId>
           <artifactId>log4j</artifactId>
         </exclusion>
+
+        <!-- Same goes for asm -->
+        <exclusion>
+          <groupId>asm</groupId>
+          <artifactId>asm</artifactId>
+        </exclusion>
       </exclusions>
     </dependency>
 
@@ -85,6 +91,12 @@
         <exclusion>
           <groupId>org.apache.logging.log4j</groupId>
           <artifactId>log4j</artifactId>
+        </exclusion>
+
+        <!-- Same goes for asm -->
+        <exclusion>
+          <groupId>asm</groupId>
+          <artifactId>asm</artifactId>
         </exclusion>
       </exclusions>
     </dependency>
