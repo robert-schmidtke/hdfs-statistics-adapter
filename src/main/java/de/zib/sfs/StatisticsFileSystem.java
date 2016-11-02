@@ -37,6 +37,12 @@ import org.apache.hadoop.util.Progressable;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.sun.tools.attach.AgentInitializationException;
+import com.sun.tools.attach.AgentLoadException;
+import com.sun.tools.attach.AttachNotSupportedException;
+import com.sun.tools.attach.VirtualMachine;
+import com.sun.tools.attach.VirtualMachineDescriptor;
+
 import de.zib.sfs.flink.WrappedFlinkFileSystem;
 
 /**
@@ -195,11 +201,11 @@ public class StatisticsFileSystem extends FileSystem {
         System.setProperty("de.zib.sfs.hostname", hostname);
 
         if (LOG.isDebugEnabled()) {
-            LOG.debug("Initializing logger");
+            LOG.debug("Initializing file system logger");
         }
         fsLogger = LogManager.getLogger("de.zib.sfs.AsyncLogger");
         if (LOG.isDebugEnabled()) {
-            LOG.debug("Initialized logger");
+            LOG.debug("Initialized file system logger");
         }
 
         if (LOG.isDebugEnabled()) {
@@ -212,6 +218,50 @@ public class StatisticsFileSystem extends FileSystem {
         // Get the target log file directory
         targetLogFileDirectory = getConf().get(
                 SFS_TARGET_LOG_FILE_DIRECTORY_KEY);
+
+        // Inject the agent that monitors low-level file system access
+
+        // Obtain the full name of our jar file
+        String jarFilePath = null;
+        String classpath = System.getProperty("java.class.path");
+        String[] classpathEntries = classpath.split(File.pathSeparator);
+        for (String classpathEntry : classpathEntries) {
+            if (classpathEntry.endsWith("hdfs-statistics-adapter.jar")) {
+                jarFilePath = new File(classpathEntry).getAbsolutePath();
+                break;
+            }
+        }
+        if (jarFilePath == null) {
+            throw new RuntimeException("Could not obtain full path to jar file");
+        }
+
+        // Get the current VM
+        VirtualMachine vm = null;
+        for (VirtualMachineDescriptor vmd : VirtualMachine.list()) {
+            if (StatisticsFileSystem.class.getName().equals(vmd.displayName())) {
+                try {
+                    vm = VirtualMachine.attach(vmd.id());
+                } catch (AttachNotSupportedException e) {
+                    throw new RuntimeException("Error attaching to target VM",
+                            e);
+                }
+            }
+        }
+        if (vm == null) {
+            throw new RuntimeException("Could not attach to target VM");
+        }
+
+        // Attach the agent to the VM
+        try {
+            vm.loadAgent(jarFilePath, "");
+        } catch (AgentLoadException e) {
+            throw new RuntimeException("Could not load agent", e);
+        } catch (AgentInitializationException e) {
+            throw new RuntimeException("Could not initialize agent", e);
+        }
+        
+        // Resume normal operations
+        vm.detach();
 
         // Obtain the file system class we want to wrap
         String wrappedFSClassName = getConf()
