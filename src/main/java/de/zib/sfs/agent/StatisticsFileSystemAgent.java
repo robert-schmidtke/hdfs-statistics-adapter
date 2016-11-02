@@ -17,6 +17,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.commons.lang3.SystemUtils;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -38,8 +40,8 @@ public class StatisticsFileSystemAgent {
 
     private final Logger fsLogger;
 
-    private static final Logger LOG = LogManager
-            .getLogger(StatisticsFileSystemAgent.class);
+    private static final Log LOG = LogFactory
+            .getLog(StatisticsFileSystemAgent.class);
 
     private StatisticsFileSystemAgent(String agentArgs, Instrumentation inst) {
         this.inst = inst;
@@ -126,14 +128,14 @@ public class StatisticsFileSystemAgent {
 
     public static void agentmain(String agentArgs, Instrumentation inst) {
         if (LOG.isDebugEnabled()) {
-            LOG.debug("agentmain({},{})", agentArgs, inst);
+            LOG.debug("agentmain(" + agentArgs + "," + inst + ")");
         }
         instance = new StatisticsFileSystemAgent(agentArgs, inst);
     }
 
     public static void premain(String agentArgs, Instrumentation inst) {
         if (LOG.isDebugEnabled()) {
-            LOG.debug("premain({},{})", agentArgs, inst);
+            LOG.debug("premain(" + agentArgs + "," + inst + ")");
         }
         agentmain(agentArgs, inst);
     }

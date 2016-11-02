@@ -228,7 +228,7 @@ public class StatisticsFileSystem extends FileSystem {
                 LOG.debug("Injected low-level file system logger agent");
             }
         } catch (Exception e) {
-            LOG.warn("Could not inject agent", e);
+            LOG.warn("Could not inject low-level file system logger agent", e);
         }
 
         // Obtain the file system class we want to wrap
