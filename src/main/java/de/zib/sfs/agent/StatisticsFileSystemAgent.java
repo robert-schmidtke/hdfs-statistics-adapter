@@ -75,7 +75,7 @@ public class StatisticsFileSystemAgent {
         }, true);
     }
 
-    public static StatisticsFileSystemAgent loadAgent(String argentArgs)
+    public static StatisticsFileSystemAgent loadAgent(String agentArgs)
             throws Exception {
         // Get proper VM provider depending on the OS
         AttachProvider ap = null;
@@ -114,17 +114,27 @@ public class StatisticsFileSystemAgent {
 
         // Attach to this VM, loadAgent returns when agentmain() has completed
         VirtualMachine vm = ap.attachVirtualMachine(vmNameParts[0]);
-        vm.loadAgent(jarFilePath, argentArgs);
+        vm.loadAgent(jarFilePath, agentArgs);
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Loaded agent from jar '" + jarFilePath
+                    + "' with arguments '" + agentArgs + "'");
+        }
         vm.detach();
 
         return instance;
     }
 
     public static void agentmain(String agentArgs, Instrumentation inst) {
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("agentmain({},{})", agentArgs, inst);
+        }
         instance = new StatisticsFileSystemAgent(agentArgs, inst);
     }
 
     public static void premain(String agentArgs, Instrumentation inst) {
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("premain({},{})", agentArgs, inst);
+        }
         agentmain(agentArgs, inst);
     }
 }
