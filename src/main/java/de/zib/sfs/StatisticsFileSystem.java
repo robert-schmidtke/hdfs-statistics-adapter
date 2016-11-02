@@ -172,7 +172,14 @@ public class StatisticsFileSystem extends FileSystem {
 
         System.setProperty("de.zib.sfs.asyncLogFileName", logFileName);
         System.setProperty("de.zib.sfs.hostname", hostname);
+
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Initializing logger");
+        }
         fsLogger = LogManager.getLogger("de.zib.sfs.AsyncLogger");
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Initialized logger");
+        }
 
         if (LOG.isDebugEnabled()) {
             LOG.debug("Logging to " + logFileName);
