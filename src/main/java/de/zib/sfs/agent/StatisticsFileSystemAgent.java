@@ -23,6 +23,8 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassWriter;
 
 import sun.tools.attach.BsdAttachProvider;
 import sun.tools.attach.LinuxAttachProvider;
@@ -81,7 +83,11 @@ public class StatisticsFileSystemAgent {
                     LOG.debug("Transforming InputStream class: "
                             + classBeingRedefined.getName());
                 }
-                return classfileBuffer;
+
+                ClassReader cr = new ClassReader(classfileBuffer);
+                ClassWriter cw = new ClassWriter(0);
+                cr.accept(new InputStreamAdapter(cw), 0);
+                return cw.toByteArray();
             }
         };
         this.inst.addTransformer(inputStreamClassTransformer, true);
@@ -101,7 +107,11 @@ public class StatisticsFileSystemAgent {
                     LOG.debug("Transforming OutputStream class: "
                             + classBeingRedefined.getName());
                 }
-                return classfileBuffer;
+
+                ClassReader cr = new ClassReader(classfileBuffer);
+                ClassWriter cw = new ClassWriter(0);
+                cr.accept(new OutputStreamAdapter(cw), 0);
+                return cw.toByteArray();
             }
         };
         this.inst.addTransformer(outputStreamClassFileTransformer, true);
