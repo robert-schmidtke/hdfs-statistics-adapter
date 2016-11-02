@@ -221,7 +221,8 @@ public class StatisticsFileSystem extends FileSystem {
 
         // Inject the agent that monitors low-level file system access
 
-        // Obtain the full name of our jar file
+        // Obtain the full name of our jar file, which includes the agent as
+        // well
         String jarFilePath = null;
         String classpath = System.getProperty("java.class.path");
         String[] classpathEntries = classpath.split(File.pathSeparator);
@@ -231,37 +232,42 @@ public class StatisticsFileSystem extends FileSystem {
                 break;
             }
         }
-        if (jarFilePath == null) {
-            throw new RuntimeException("Could not obtain full path to jar file");
-        }
 
-        // Get the current VM
-        VirtualMachine vm = null;
-        for (VirtualMachineDescriptor vmd : VirtualMachine.list()) {
-            if (StatisticsFileSystem.class.getName().equals(vmd.displayName())) {
-                try {
-                    vm = VirtualMachine.attach(vmd.id());
-                } catch (AttachNotSupportedException e) {
-                    throw new RuntimeException("Error attaching to target VM",
-                            e);
+        if (jarFilePath == null) {
+            LOG.warn("Could not obtain full path to jar file, not injecting agent.");
+        } else {
+            // Get the current VM
+            VirtualMachine vm = null;
+            for (VirtualMachineDescriptor vmd : VirtualMachine.list()) {
+                if (StatisticsFileSystem.class.getName().equals(
+                        vmd.displayName())) {
+                    try {
+                        vm = VirtualMachine.attach(vmd.id());
+                    } catch (AttachNotSupportedException e) {
+                        // handle error later in null check
+                    }
+                    break;
                 }
             }
-        }
-        if (vm == null) {
-            throw new RuntimeException("Could not attach to target VM");
-        }
 
-        // Attach the agent to the VM
-        try {
-            vm.loadAgent(jarFilePath, "");
-        } catch (AgentLoadException e) {
-            throw new RuntimeException("Could not load agent", e);
-        } catch (AgentInitializationException e) {
-            throw new RuntimeException("Could not initialize agent", e);
+            if (vm == null) {
+                LOG.warn("Could not attach to target VM, not injecting agent.");
+            } else {
+                // Attach the agent to the VM
+                try {
+                    vm.loadAgent(jarFilePath, "");
+                } catch (AgentLoadException e) {
+                    LOG.warn("Could not load agent, not injecting agent.", e);
+                } catch (AgentInitializationException e) {
+                    LOG.warn(
+                            "Could not initialize agent, not injecting agent.",
+                            e);
+                }
+
+                // Resume normal operations
+                vm.detach();
+            }
         }
-        
-        // Resume normal operations
-        vm.detach();
 
         // Obtain the file system class we want to wrap
         String wrappedFSClassName = getConf()
