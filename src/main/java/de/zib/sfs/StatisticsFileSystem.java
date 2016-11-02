@@ -238,6 +238,7 @@ public class StatisticsFileSystem extends FileSystem {
         } else {
             // Get the current VM
             VirtualMachine vm = null;
+            String errorMessage = "No appropriate VM found.";
             for (VirtualMachineDescriptor vmd : VirtualMachine.list()) {
                 if (StatisticsFileSystem.class.getName().equals(
                         vmd.displayName())) {
@@ -245,13 +246,15 @@ public class StatisticsFileSystem extends FileSystem {
                         vm = VirtualMachine.attach(vmd.id());
                     } catch (AttachNotSupportedException e) {
                         // handle error later in null check
+                        errorMessage = e.getMessage();
                     }
                     break;
                 }
             }
 
             if (vm == null) {
-                LOG.warn("Could not attach to target VM, not injecting agent.");
+                LOG.warn("Could not attach to target VM, not injecting agent: "
+                        + errorMessage);
             } else {
                 // Attach the agent to the VM
                 try {
