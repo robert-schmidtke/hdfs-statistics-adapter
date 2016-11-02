@@ -9,6 +9,7 @@ package de.zib.sfs.agent;
 
 import java.io.File;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.IllegalClassFormatException;
 import java.lang.instrument.Instrumentation;
@@ -36,6 +37,8 @@ public class StatisticsFileSystemAgent {
     public static final String SFS_AGENT_LOGGER_NAME_KEY = "logger.name";
 
     public static final String SFS_AGENT_INPUTSTREAM_CLASSES_KEY = "inputStream.classes";
+
+    public static final String SFS_AGENT_OUTPUSTREAM_CLASSES_KEY = "outputStream.classes";
 
     private static StatisticsFileSystemAgent instance = null;
 
@@ -67,31 +70,45 @@ public class StatisticsFileSystemAgent {
         // Obtain logger
         fsLogger = LogManager.getLogger(options.get(SFS_AGENT_LOGGER_NAME_KEY));
 
-        // Get InputStream subclasses to monitor
-        String[] inputStreamClassNames = options.get(
-                SFS_AGENT_INPUTSTREAM_CLASSES_KEY).split(":");
-        Class<?>[] inputStreamClasses = new Class<?>[inputStreamClassNames.length];
-        for (int i = 0; i < inputStreamClassNames.length; ++i) {
-            inputStreamClasses[i] = Class.forName(inputStreamClassNames[i])
-                    .asSubclass(InputStream.class);
-        }
-
-        // Transform InputStream and OutputStream to log calls
-        this.inst.addTransformer(new ClassFileTransformer() {
+        // Transformer that adds log calls to an InputStreams read calls
+        ClassFileTransformer inputStreamClassTransformer = new ClassFileTransformer() {
             @Override
             public byte[] transform(ClassLoader loader, String className,
                     Class<?> classBeingRedefined,
                     ProtectionDomain protectionDomain, byte[] classfileBuffer)
                     throws IllegalClassFormatException {
                 if (LOG.isDebugEnabled()) {
-                    LOG.debug("Transforming class: "
+                    LOG.debug("Transforming InputStream class: "
                             + classBeingRedefined.getName());
                 }
                 return classfileBuffer;
             }
-        }, true);
+        };
+        this.inst.addTransformer(inputStreamClassTransformer, true);
+        this.inst.retransformClasses(getClasses(
+                options.get(SFS_AGENT_INPUTSTREAM_CLASSES_KEY),
+                InputStream.class));
+        this.inst.removeTransformer(inputStreamClassTransformer);
 
-        this.inst.retransformClasses(inputStreamClasses);
+        // Repeat for OutputStream
+        ClassFileTransformer outputStreamClassFileTransformer = new ClassFileTransformer() {
+            @Override
+            public byte[] transform(ClassLoader loader, String className,
+                    Class<?> classBeingRedefined,
+                    ProtectionDomain protectionDomain, byte[] classfileBuffer)
+                    throws IllegalClassFormatException {
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Transforming OutputStream class: "
+                            + classBeingRedefined.getName());
+                }
+                return classfileBuffer;
+            }
+        };
+        this.inst.addTransformer(outputStreamClassFileTransformer);
+        this.inst.retransformClasses(getClasses(
+                options.get(SFS_AGENT_OUTPUSTREAM_CLASSES_KEY),
+                OutputStream.class));
+        this.inst.removeTransformer(outputStreamClassFileTransformer);
     }
 
     public static StatisticsFileSystemAgent loadAgent(String agentArgs)
@@ -157,5 +174,26 @@ public class StatisticsFileSystemAgent {
             LOG.debug("premain(" + agentArgs + "," + inst + ")");
         }
         agentmain(agentArgs, inst);
+    }
+
+    // Helper methods
+
+    /**
+     * Transforms a string of the form 'className1:className2' into an array of
+     * the according classes.
+     * 
+     * @param classNames
+     * @return
+     * @throws ClassNotFoundException
+     */
+    private static Class<?>[] getClasses(String classNamesString,
+            Class<?> commonBaseClass) throws ClassNotFoundException {
+        String[] classNames = classNamesString.split(":");
+        Class<?>[] classes = new Class<?>[classNames.length];
+        for (int i = 0; i < classNames.length; ++i) {
+            classes[i] = Class.forName(classNames[i]).asSubclass(
+                    commonBaseClass);
+        }
+        return classes;
     }
 }

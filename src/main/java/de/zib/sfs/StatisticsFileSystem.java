@@ -9,7 +9,9 @@ package de.zib.sfs;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.math.BigInteger;
@@ -225,11 +227,15 @@ public class StatisticsFileSystem extends FileSystem {
                     .append(StatisticsFileSystemAgent.SFS_AGENT_LOGGER_NAME_KEY)
                     .append("=").append("de.zib.sfs.AsyncLogger");
 
-            // InputStream classes to monitor
+            // InputStream and OutputStream classes to monitor
             agentOptions
                     .append(",")
                     .append(StatisticsFileSystemAgent.SFS_AGENT_INPUTSTREAM_CLASSES_KEY)
-                    .append("=").append("java.io.InputStream");
+                    .append("=").append(FileInputStream.class.getName());
+            agentOptions
+                    .append(",")
+                    .append(StatisticsFileSystemAgent.SFS_AGENT_OUTPUSTREAM_CLASSES_KEY)
+                    .append("=").append(FileOutputStream.class.getName());
 
             agent = StatisticsFileSystemAgent
                     .loadAgent(agentOptions.toString());
