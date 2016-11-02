@@ -200,9 +200,6 @@ public class StatisticsFileSystem extends FileSystem {
         System.setProperty("de.zib.sfs.asyncLogFileName", logFileName);
         System.setProperty("de.zib.sfs.hostname", hostname);
 
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("Initializing file system logger");
-        }
         fsLogger = LogManager.getLogger("de.zib.sfs.AsyncLogger");
         if (LOG.isDebugEnabled()) {
             LOG.debug("Initialized file system logger");
@@ -227,6 +224,9 @@ public class StatisticsFileSystem extends FileSystem {
                     .append("=").append("de.zib.sfs.AsyncLogger");
             agent = StatisticsFileSystemAgent
                     .loadAgent(agentOptions.toString());
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Injected low-level file system logger agent");
+            }
         } catch (Exception e) {
             LOG.warn("Could not inject agent", e);
         }

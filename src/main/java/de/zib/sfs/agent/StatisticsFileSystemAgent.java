@@ -38,8 +38,15 @@ public class StatisticsFileSystemAgent {
 
     private final Logger fsLogger;
 
+    private static final Logger LOG = LogManager
+            .getLogger(StatisticsFileSystemAgent.class);
+
     private StatisticsFileSystemAgent(String agentArgs, Instrumentation inst) {
         this.inst = inst;
+
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Initializing agent with '" + agentArgs + "'");
+        }
 
         // Make options easily accesible through lookup
         Map<String, String> options = new HashMap<String, String>();
@@ -55,7 +62,7 @@ public class StatisticsFileSystemAgent {
         fsLogger = LogManager.getLogger(options.get(SFS_AGENT_LOGGER_NAME_KEY));
 
         // Transform InputStream and OutputStream to log calls
-        inst.addTransformer(new ClassFileTransformer() {
+        this.inst.addTransformer(new ClassFileTransformer() {
             @Override
             public byte[] transform(ClassLoader loader, String className,
                     Class<?> classBeingRedefined,
