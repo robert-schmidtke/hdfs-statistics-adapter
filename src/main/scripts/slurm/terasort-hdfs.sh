@@ -94,7 +94,7 @@ cp $SFS_DIRECTORY/target/hdfs-statistics-adapter.jar $FLINK_HOME/lib/hdfs-statis
 cp $SFS_DIRECTORY/target/hdfs-statistics-adapter.jar $HADOOP_HOME/share/hadoop/common/hdfs-statistics-adapter.jar
 srun $SRUN_STANDARD_OPTS ./start-hdfs-slurm.sh $HDFS_STANDARD_OPTS \
   --sfs-wrappedfs "org.apache.hadoop.hdfs.DistributedFileSystem" \
-  --sfs-logfilename "/tmp/sfs/async.log" \
+  --sfs-logfilename "/local/$USER/sfs/async.log" \
   --sfs-delete-on-close \
   --sfs-target-logfile-directory $SFS_TARGET_DIRECTORY
 
@@ -119,15 +119,16 @@ EOF
 echo "$(date): Configuring Flink done"
 
 rm -rf $FLINK_HOME/log/*
-srun rm -rf /tmp/sfs/async.log
+rm -rf $HADOOP_HOME/log-*
+rm -rf $HADOOP_HOME/logs/*
+srun rm -rf /local/$USER/sfs
 rm -rf $SFS_TARGET_DIRECTORY/*
 
 echo "$(date): Generating TeraSort data on HDFS"
 $HADOOP_HOME/bin/hadoop jar \
   $HADOOP_HOME/share/hadoop/mapreduce/hadoop-mapreduce-examples-${HADOOP_VERSION}.jar teragen \
   -Dmapreduce.job.maps=$((${#NODES[@]} * ${TASK_SLOTS})) \
-  10995116 hdfs://$MASTER:8020/user/$USER/input
-#  10995116277 hdfs://$MASTER:8020/user/$USER/input
+  10995116277 hdfs://$MASTER:8020/user/$USER/input
 echo "$(date): Generating TeraSort data on HDFS done"
 
 $HADOOP_HOME/bin/hadoop fs -mkdir -p hdfs://$MASTER:8020/user/$USER/output
@@ -150,10 +151,10 @@ else
     sfs://$MASTER:8020/user/$USER/input sfs://$MASTER:8020/user/$USER/output
 fi
 
-mkdir $HOME/$SLURM_JOB_ID-output
-echo "$(date): Copying output data from HDFS"
-$HADOOP_HOME/bin/hadoop fs -copyToLocal hdfs://$MASTER:8020/user/$USER/output file://$SFS_DIRECTORY/terasort-$SLURM_JOB_ID-output
-echo "$(date): Copying output data from HDFS done"
+#mkdir $HOME/$SLURM_JOB_ID-output
+#echo "$(date): Copying output data from HDFS"
+#$HADOOP_HOME/bin/hadoop fs -copyToLocal hdfs://$MASTER:8020/user/$USER/output file://$SFS_DIRECTORY/terasort-$SLURM_JOB_ID-output
+#echo "$(date): Copying output data from HDFS done"
 
 echo "$(date): Stopping HDFS"
 cp ./stop-hdfs-slurm.sh $HADOOP_HOME/sbin
