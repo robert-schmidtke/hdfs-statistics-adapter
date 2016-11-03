@@ -193,9 +193,9 @@ public class StatisticsFileSystem extends FileSystem {
 
         if (!logFile.getParentFile().exists()) {
             if (!logFile.getParentFile().mkdirs()) {
-                throw new RuntimeException(
-                        "Could not create log file directories: "
-                                + logFile.getParentFile().getAbsolutePath());
+                // It might have been created already, we're not alone
+                LOG.warn("Could not create log file directories: "
+                        + logFile.getParentFile().getAbsolutePath());
             }
         }
 
