@@ -90,13 +90,17 @@ cp ./start-hdfs-slurm.sh $HADOOP_HOME/sbin
 # 256M block size, replication factor of 1, 60G total node memory for YARN, put first datanode on namenode host
 SRUN_STANDARD_OPTS="--nodelist=$MASTER --nodes=1-1 --chdir=$HADOOP_HOME/sbin"
 HDFS_STANDARD_OPTS="--blocksize 268435456 --replication 1 --memory 61440 --cores 16 --io-buffer 1048576 --colocate-datanode-with-namenode"
+SFS_STANDARD_OPTS="--sfs-logfilename /local/$USER/sfs/async.log --sfs-delete-on-close --sfs-target-logfile-directory $SFS_TARGET_DIRECTORY"
 cp $SFS_DIRECTORY/target/hdfs-statistics-adapter.jar $FLINK_HOME/lib/hdfs-statistics-adapter.jar
 cp $SFS_DIRECTORY/target/hdfs-statistics-adapter.jar $HADOOP_HOME/share/hadoop/common/hdfs-statistics-adapter.jar
-srun $SRUN_STANDARD_OPTS ./start-hdfs-slurm.sh $HDFS_STANDARD_OPTS \
-  --sfs-wrappedfs "org.apache.hadoop.hdfs.DistributedFileSystem" \
-  --sfs-logfilename "/local/$USER/sfs/async.log" \
-  --sfs-delete-on-close \
-  --sfs-target-logfile-directory $SFS_TARGET_DIRECTORY
+
+if [ "$ENGINE" == "flink" ]; then
+  srun $SRUN_STANDARD_OPTS ./start-hdfs-slurm.sh $HDFS_STANDARD_OPTS $SFS_STANDARD_OPTS \
+    --sfs-wrappedfs "org.apache.flink.runtime.fs.hdfs.HadoopFileSystem"
+else
+  srun $SRUN_STANDARD_OPTS ./start-hdfs-slurm.sh $HDFS_STANDARD_OPTS $SFS_STANDARD_OPTS \
+    --sfs-wrappedfs "org.apache.hadoop.hdfs.DistributedFileSystem"
+fi
 
 # wait until all datanodes are connected
 CONNECTED_DATANODES=0
