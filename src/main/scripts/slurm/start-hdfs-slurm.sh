@@ -5,6 +5,7 @@ usage() {
   echo "  -b|--blocksize <block size in bytes> (default: 134217728)"
   echo "  -r|--replication <replication factor> (default: 1)"
   echo "  -m|--memory <total memory to be used on each node in megabytes> (default: 61440)"
+  echo "  -o|--cores <total number of cores to be used on each node> (default: 16)"
   echo "  -i|--io-buffer <size of the IO buffer in bytes> (default: 1048576)"
   echo "  -c|--colocate-datanode-with-namenode (default: not specified/false)"
   echo "SFS specific options (default: not specified/do not use SFS):"
@@ -33,6 +34,10 @@ while [[ $# -gt 1 ]]; do
       ;;
     -m|--memory)
       MEMORY="$2"
+      shift
+      ;;
+    -o|--cores)
+      CORES="$2"
       shift
       ;;
     -i|--io-buffer)
@@ -68,6 +73,7 @@ done
 BLOCKSIZE=${BLOCKSIZE:-134217728}
 REPLICATION=${REPLICATION:-1}
 MEMORY=${MEMORY:-61440}
+CORES=${CORES:-16}
 IO_BUFFER=${IO_BUFFER:-1048576}
 SFS_LOGFILENAME=${SFS_LOGFILENAME:-/tmp/sfs/async.log}
 
@@ -300,6 +306,10 @@ cat > $HADOOP_CONF_DIR/yarn-site.xml << EOF
   <property>
     <name>yarn.resourcemanager.hostname</name>
     <value>${HADOOP_NAMENODE}</value>
+  </property>
+  <property>
+    <name>yarn.nodemanager.resource.cpu-vcores</name>
+    <value>${CORES}</value>
   </property>
 </configuration>
 EOF
