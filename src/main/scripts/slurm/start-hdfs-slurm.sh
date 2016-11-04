@@ -9,7 +9,8 @@ usage() {
   echo "  -i|--io-buffer <size of the IO buffer in bytes> (default: 1048576)"
   echo "  -c|--colocate-datanode-with-namenode (default: not specified/false)"
   echo "SFS specific options (default: not specified/do not use SFS):"
-  echo "     --sfs-wrappedfs <wrapped file system class name> (default: not specified; enables SFS if specified)"
+  echo "     --sfs-wrapped-fs <wrapped file system class name> (default: not specified; enables SFS if specified)"
+  echo "     --sfs-wrapped-scheme <scheme of the wrapped file system> (default: not specified)"
   echo "     --sfs-logfilename <node-local path to a log file> (default: /tmp/sfs/async.log)"
   echo "     --sfs-delete-on-close (default: not specified/false)"
   echo "     --sfs-target-logfile-directory <path to a shared folder to store the node-local log in after close> (default: not specified)"
@@ -47,8 +48,12 @@ while [[ $# -gt 1 ]]; do
     -c|--colocate-datanode-with-namenode)
       COLOCATE_DATANODE_WITH_NAMENODE="true"
       ;;
-    --sfs-wrappedfs)
-      SFS_WRAPPEDFS="$2"
+    --sfs-wrapped-fs)
+      SFS_WRAPPED_FS="$2"
+      shift
+      ;;
+    --sfs-wrapped-scheme)
+      SFS_WRAPPED_SCHEME="$2"
       shift
       ;;
     --sfs-logfilename)
@@ -139,7 +144,11 @@ if [ -n "$SFS_WRAPPEDFS" ]; then
   </property>
   <property>
     <name>sfs.wrappedFS.className</name>
-    <value>${SFS_WRAPPEDFS}</value>
+    <value>${SFS_WRAPPED_FS}</value>
+  </property>
+  <property>
+    <name>sfs.wrappedFS.scheme</name>
+    <value>${SFS_WRAPPED_SCHEME}</value>
   </property>
   <property>
     <name>sfs.logFile.name</name>
