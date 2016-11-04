@@ -60,6 +60,11 @@ public class StatisticsFileSystem extends FileSystem {
     public static final String SFS_WRAPPED_FS_CLASS_NAME_KEY = "sfs.wrappedFS.className";
 
     /**
+     * The scheme of the wrapped file system.
+     */
+    public static final String SFS_WRAPPED_FS_SCHEME_KEY = "sfs.wrappedFS.scheme";
+
+    /**
      * Location of the log file on each host. A random suffix will be appended.
      */
     public static final String SFS_LOG_FILE_NAME_KEY = "sfs.logFile.name";
@@ -255,6 +260,11 @@ public class StatisticsFileSystem extends FileSystem {
             throw new RuntimeException(SFS_WRAPPED_FS_CLASS_NAME_KEY
                     + " not specified");
         }
+        wrappedFSScheme = getConf().get(SFS_WRAPPED_FS_SCHEME_KEY);
+        if (wrappedFSScheme == null) {
+            throw new RuntimeException(SFS_WRAPPED_FS_SCHEME_KEY
+                    + " not specified");
+        }
 
         Class<?> wrappedFSClass;
         try {
@@ -300,13 +310,6 @@ public class StatisticsFileSystem extends FileSystem {
         } else {
             throw new RuntimeException("Unsupported file system class '"
                     + wrappedFSClassName + "'");
-        }
-
-        try {
-            wrappedFSScheme = wrappedFS.getScheme();
-        } catch (UnsupportedOperationException e) {
-            // Not all file systems implement getScheme().
-            wrappedFSScheme = wrappedFS.getUri().getScheme();
         }
 
         if (LOG.isDebugEnabled()) {
