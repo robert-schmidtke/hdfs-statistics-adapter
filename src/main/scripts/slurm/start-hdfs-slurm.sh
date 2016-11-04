@@ -132,7 +132,7 @@ cat > $HADOOP_CONF_DIR/core-site.xml << EOF
 EOF
 
 # add SFS options if necessary
-if [ -n "$SFS_WRAPPEDFS" ]; then
+if [ -n "$SFS_WRAPPED_FS" ]; then
   cat >> $HADOOP_CONF_DIR/core-site.xml << EOF
   <property>
     <name>fs.sfs.impl</name>
