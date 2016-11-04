@@ -102,7 +102,13 @@ public class WrappedFlinkFileSystem extends FileSystem {
 
     @Override
     public String getScheme() {
-        return getUri().getScheme();
+        // Uri could be null before the wrappedFlinkFS's initialize method has
+        // been called
+        if (getUri() != null) {
+            return getUri().getScheme();
+        } else {
+            return getScheme();
+        }
     }
 
     @Override
