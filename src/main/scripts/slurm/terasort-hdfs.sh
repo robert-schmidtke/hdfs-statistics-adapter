@@ -96,10 +96,10 @@ cp $SFS_DIRECTORY/target/hdfs-statistics-adapter.jar $HADOOP_HOME/share/hadoop/c
 
 if [ "$ENGINE" == "flink" ]; then
   srun $SRUN_STANDARD_OPTS ./start-hdfs-slurm.sh $HDFS_STANDARD_OPTS $SFS_STANDARD_OPTS \
-    --sfs-wrappedfs "org.apache.flink.runtime.fs.hdfs.HadoopFileSystem"
+    --sfs-wrapped-fs "org.apache.flink.runtime.fs.hdfs.HadoopFileSystem"
 else
   srun $SRUN_STANDARD_OPTS ./start-hdfs-slurm.sh $HDFS_STANDARD_OPTS $SFS_STANDARD_OPTS \
-    --sfs-wrappedfs "org.apache.hadoop.hdfs.DistributedFileSystem"
+    --sfs-wrapped-fs "org.apache.hadoop.hdfs.DistributedFileSystem"
 fi
 
 # wait until all datanodes are connected
