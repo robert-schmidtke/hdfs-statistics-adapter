@@ -154,46 +154,7 @@ public class WrappedFlinkFileSystem extends FileSystem {
 
     private static org.apache.flink.core.fs.FileStatus toFlinkFileStatus(
             final FileStatus status) {
-        return new org.apache.flink.core.fs.FileStatus() {
-
-            @Override
-            public long getAccessTime() {
-                return status.getAccessTime();
-            }
-
-            @Override
-            public long getBlockSize() {
-                if (status.getBlockSize() > status.getLen()) {
-                    return status.getLen();
-                }
-                return status.getBlockSize();
-            }
-
-            @Override
-            public long getLen() {
-                return status.getLen();
-            }
-
-            @Override
-            public long getModificationTime() {
-                return status.getModificationTime();
-            }
-
-            @Override
-            public org.apache.flink.core.fs.Path getPath() {
-                return toFlinkPath(status.getPath());
-            }
-
-            @Override
-            public short getReplication() {
-                return status.getReplication();
-            }
-
-            @Override
-            public boolean isDir() {
-                return status.isDirectory();
-            }
-        };
+        return new org.apache.flink.runtime.fs.hdfs.HadoopFileStatus(status);
     }
 
     private static org.apache.flink.core.fs.Path toFlinkPath(Path f) {
