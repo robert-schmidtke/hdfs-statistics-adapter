@@ -17,14 +17,8 @@ import java.io.InputStreamReader;
 import java.lang.reflect.Constructor;
 import java.math.BigInteger;
 import java.net.URI;
-import java.nio.file.FileAlreadyExistsException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Arrays;
 import java.util.Random;
-import java.util.function.BiPredicate;
-import java.util.function.Consumer;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -70,17 +64,6 @@ public class StatisticsFileSystem extends FileSystem {
     public static final String SFS_LOG_FILE_NAME_KEY = "sfs.logFile.name";
 
     /**
-     * Flag to indicate whether to delete the local log file during {
-     * {@link #close()}
-     */
-    public static final String SFS_DELETE_LOG_FILE_ON_CLOSE_KEY = "sfs.logFile.deleteOnClose";
-
-    /**
-     * Directory to copy the host log file to during {@link #close()}.
-     */
-    public static final String SFS_TARGET_LOG_FILE_DIRECTORY_KEY = "sfs.targetLogFileDirectory";
-
-    /**
      * The URI of this file system, as sfs:// plus the authority of the wrapped
      * file system.
      */
@@ -110,18 +93,6 @@ public class StatisticsFileSystem extends FileSystem {
      * The log file to log all events to.
      */
     private File logFile;
-
-    /**
-     * Whether to delete the local log file during {@link #close()}. Default:
-     * {@code false}.
-     */
-    private boolean deleteLogFileOnClose;
-
-    /**
-     * Path to copy the generated log file to during {@link #close()}. Default:
-     * {@code null}.
-     */
-    private String targetLogFileDirectory;
 
     /**
      * Agent that monitors low level file system interaction.
@@ -213,13 +184,6 @@ public class StatisticsFileSystem extends FileSystem {
             LOG.debug("Initialized file system logger");
             LOG.debug("Logging to " + logFileName);
         }
-
-        deleteLogFileOnClose = getConf().getBoolean(
-                SFS_DELETE_LOG_FILE_ON_CLOSE_KEY, false);
-
-        // Get the target log file directory
-        targetLogFileDirectory = getConf().get(
-                SFS_TARGET_LOG_FILE_DIRECTORY_KEY);
 
         // Inject the agent that monitors low-level file system access
         try {
@@ -382,74 +346,6 @@ public class StatisticsFileSystem extends FileSystem {
 
         wrappedFS.close();
         super.close();
-
-        if (targetLogFileDirectory != null) {
-            File targetLogFileDirectoryFile = new File(targetLogFileDirectory);
-            if (!targetLogFileDirectoryFile.exists()) {
-                if (!targetLogFileDirectoryFile.mkdirs()) {
-                    // Just warn, maybe some other process has just created the
-                    // shared directory
-                    LOG.warn("Could not create target log file directory "
-                            + targetLogFileDirectory);
-                }
-            }
-
-            // The appender rolls over at a certain size (see
-            // src/main/resources/log4j2.xml) and creates a .gz archive named
-            // like the original log file, plus an additional counter, e.g.
-            // file.log.1.gz, where file.log is the original log file name. So
-            // enumerate all these files and copy them.
-            java.nio.file.Path fromPath = Paths.get(logFile.getAbsolutePath());
-
-            // accepts any file whose name starts exactly with the log file's
-            // name, so any suffixes to these files are accepts as well
-            BiPredicate<java.nio.file.Path, BasicFileAttributes> logFilePredicate = new BiPredicate<java.nio.file.Path, BasicFileAttributes>() {
-                @Override
-                public boolean test(java.nio.file.Path path,
-                        BasicFileAttributes attributes) {
-                    boolean accept = path.toFile().getName()
-                            .startsWith(logFile.getName());
-                    if (LOG.isDebugEnabled()) {
-                        LOG.debug((accept ? "Accepting" : "Not accepting")
-                                + " file " + path
-                                + " (its name must start with "
-                                + logFile.getName() + ")");
-                    }
-                    return accept;
-                }
-            };
-
-            // copies any file to the target log file directory
-            Consumer<java.nio.file.Path> logFileConsumer = new Consumer<java.nio.file.Path>() {
-                @Override
-                public void accept(java.nio.file.Path path) {
-                    java.nio.file.Path toPath = Paths.get(
-                            targetLogFileDirectoryFile.getAbsolutePath(),
-                            hostname + "-" + path.toFile().getName());
-                    if (LOG.isDebugEnabled()) {
-                        LOG.debug("Copying log from " + fromPath + " to "
-                                + toPath);
-                    }
-
-                    try {
-                        Files.copy(path, toPath);
-                    } catch (FileAlreadyExistsException e) {
-                        LOG.warn("Log file " + toPath + " already exists", e);
-                    } catch (IOException e) {
-                        LOG.warn("Error copying log file to " + toPath, e);
-                    }
-
-                    if (deleteLogFileOnClose && !path.toFile().delete()) {
-                        LOG.warn("Could not delete log file " + path);
-                    }
-                }
-            };
-
-            // finally walk all files (no recursion) and copy the matching log
-            // files
-            Files.find(fromPath.getParent(), 1, logFilePredicate).forEach(
-                    logFileConsumer);
-        }
 
         if (LOG.isDebugEnabled()) {
             LOG.debug("Closed file system (-> " + logFile.getAbsolutePath()
