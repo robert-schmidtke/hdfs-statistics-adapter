@@ -12,8 +12,6 @@ usage() {
   echo "     --sfs-wrapped-fs <wrapped file system class name> (default: not specified; enables SFS if specified)"
   echo "     --sfs-wrapped-scheme <scheme of the wrapped file system> (default: not specified)"
   echo "     --sfs-logfilename <node-local path to a log file> (default: /tmp/sfs/async.log)"
-  echo "     --sfs-delete-on-close (default: not specified/false)"
-  echo "     --sfs-target-logfile-directory <path to a shared folder to store the node-local log in after close> (default: not specified)"
 }
 
 if [ -z $SLURM_JOB_ID ]; then
@@ -58,13 +56,6 @@ while [[ $# -gt 1 ]]; do
       ;;
     --sfs-logfilename)
       SFS_LOGFILENAME="$2"
-      shift
-      ;;
-    --sfs-delete-on-close)
-      SFS_DELETE_ON_CLOSE="true"
-      ;;
-    --sfs-target-logfile-directory)
-      SFS_TARGET_LOGFILE_DIRECTORY="$2"
       shift
       ;;
     *)
@@ -155,26 +146,6 @@ if [ -n "$SFS_WRAPPED_FS" ]; then
     <value>${SFS_LOGFILENAME}</value>
   </property>
 EOF
-
-  # optional delete on close option
-  if [ -n "$SFS_DELETE_ON_CLOSE" ]; then
-    cat >> $HADOOP_CONF_DIR/core-site.xml << EOF
-  <property>
-    <name>sfs.logFile.deleteOnClose</name>
-    <value>true</value>
-  </property>
-EOF
-  fi
-
-  # optional target log file directory option
-  if [ -n "$SFS_TARGET_LOGFILE_DIRECTORY" ]; then
-    cat >> $HADOOP_CONF_DIR/core-site.xml << EOF
-  <property>
-    <name>sfs.targetLogFileDirectory</name>
-    <value>${SFS_TARGET_LOGFILE_DIRECTORY}</value>
-  </property>
-EOF
-  fi
 fi
 
 # close configuration
