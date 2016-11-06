@@ -13,6 +13,13 @@ import org.apache.flink.core.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSInputStream;
 import org.apache.hadoop.fs.FileSystem;
 
+/**
+ * Wraps a Flink {@link org.apache.flink.core.fs.FSDataInputStream} so it can be
+ * extended.
+ * 
+ * @author robert
+ *
+ */
 public class WrappedFlinkFSDataInputStream extends FSInputStream {
 
     private final FSDataInputStream in;
