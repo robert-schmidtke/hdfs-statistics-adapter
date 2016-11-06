@@ -223,6 +223,13 @@ public class WrappedFlinkFileSystem extends FileSystem {
                     throws IOException {
                 return false;
             }
+
+            // Called via reflection
+            @SuppressWarnings("unused")
+            public String getCurrentDatanodeHostName() {
+                // TODO implement
+                return "";
+            }
         });
     }
 
