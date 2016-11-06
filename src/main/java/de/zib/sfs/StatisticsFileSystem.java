@@ -451,6 +451,10 @@ public class StatisticsFileSystem extends FileSystem {
                     logFileConsumer);
         }
 
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Closed file system (-> " + logFile.getAbsolutePath()
+                    + ").");
+        }
         closed = true;
     }
 
