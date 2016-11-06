@@ -155,13 +155,15 @@ else
     sfs://$MASTER:8020/user/$USER/input sfs://$MASTER:8020/user/$USER/output
 fi
 
+echo "$(date): Copying logs"
 cat > copy-logs.sh << EOF
 #!/bin/bash
 cp /local/$USER/sfs/* $SFS_TARGET_DIRECTORY
 EOF
-chmod copy-logs.sh
+chmod +x copy-logs.sh
 srun ./copy-logs.sh
 rm copy-logs.sh
+echo "$(date): Copying logs done"
 
 #mkdir $HOME/$SLURM_JOB_ID-output
 #echo "$(date): Copying output data from HDFS"
