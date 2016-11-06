@@ -160,6 +160,13 @@ fi
 #$HADOOP_HOME/bin/hadoop fs -copyToLocal hdfs://$MASTER:8020/user/$USER/output file://$SFS_DIRECTORY/terasort-$SLURM_JOB_ID-output
 #echo "$(date): Copying output data from HDFS done"
 
+#echo "$(date): Validating output"
+#$HADOOP_HOME/bin/hadoop jar \
+#  $HADOOP_HOME/share/hadoop/mapreduce/hadoop-mapreduce-examples-${HADOOP_VERSION}.jar teravalidate \
+#  hdfs://$MASTER:8020/user/$USER/output hdfs://$MASTER:8020/user/$USER/report
+#$HADOOP_HOME/bin/hadoop fs -copyToLocal hdfs://$MASTER:8020/user/$USER/report file://$SFS_DIRECTORY/terasort-$SLURM_JOB_ID-output
+#echo "$(date): Validating output done"
+
 echo "$(date): Stopping HDFS"
 cp ./stop-hdfs-slurm.sh $HADOOP_HOME/sbin
 srun --nodelist=$MASTER --nodes=1-1 --chdir=$HADOOP_HOME/sbin ./stop-hdfs-slurm.sh
