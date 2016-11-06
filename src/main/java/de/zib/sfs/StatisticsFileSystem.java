@@ -367,7 +367,8 @@ public class StatisticsFileSystem extends FileSystem {
     @Override
     public synchronized final void close() throws IOException {
         if (LOG.isDebugEnabled()) {
-            LOG.debug("Closing file system (" + logFile.getAbsolutePath() + ").");
+            LOG.debug("Closing file system (" + logFile.getAbsolutePath()
+                    + ").");
         }
 
         if (closed) {
@@ -375,6 +376,7 @@ public class StatisticsFileSystem extends FileSystem {
             return;
         }
 
+        wrappedFS.close();
         super.close();
 
         if (targetLogFileDirectory != null) {
@@ -424,6 +426,7 @@ public class StatisticsFileSystem extends FileSystem {
                         LOG.debug("Copying log from " + fromPath + " to "
                                 + toPath);
                     }
+
                     try {
                         Files.copy(path, toPath);
                     } catch (FileAlreadyExistsException e) {
