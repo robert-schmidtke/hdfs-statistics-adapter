@@ -366,6 +366,7 @@ public class StatisticsFileSystem extends FileSystem {
     @Override
     public synchronized final void close() throws IOException {
         if (closed) {
+            LOG.warn("Ignoring attempt to re-close file system.");
             return;
         }
 
