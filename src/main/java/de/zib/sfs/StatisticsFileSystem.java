@@ -337,13 +337,16 @@ public class StatisticsFileSystem extends FileSystem {
             @Override
             public void run() {
                 if (LOG.isDebugEnabled()) {
-                    LOG.debug("Running shutdown hook.");
+                    LOG.debug("Running shutdown hook (-> "
+                            + logFile.getAbsolutePath() + ").");
                 }
 
                 try {
                     StatisticsFileSystem.this.close();
                 } catch (IOException e) {
-                    LOG.error("Could not close file system", e);
+                    LOG.error(
+                            "Could not close file system (-> "
+                                    + logFile.getAbsolutePath() + ").", e);
                 }
             }
         });
@@ -367,12 +370,13 @@ public class StatisticsFileSystem extends FileSystem {
     @Override
     public synchronized final void close() throws IOException {
         if (LOG.isDebugEnabled()) {
-            LOG.debug("Closing file system (" + logFile.getAbsolutePath()
+            LOG.debug("Closing file system (-> " + logFile.getAbsolutePath()
                     + ").");
         }
 
         if (closed) {
-            LOG.warn("Ignoring attempt to re-close file system.");
+            LOG.warn("Ignoring attempt to re-close file system (-> "
+                    + logFile.getAbsolutePath() + ").");
             return;
         }
 
