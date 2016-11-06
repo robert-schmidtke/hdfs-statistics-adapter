@@ -211,9 +211,6 @@ public class StatisticsFileSystem extends FileSystem {
         fsLogger = LogManager.getLogger("de.zib.sfs.AsyncLogger");
         if (LOG.isDebugEnabled()) {
             LOG.debug("Initialized file system logger");
-        }
-
-        if (LOG.isDebugEnabled()) {
             LOG.debug("Logging to " + logFileName);
         }
 
@@ -339,6 +336,10 @@ public class StatisticsFileSystem extends FileSystem {
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
             public void run() {
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Running shutdown hook.");
+                }
+
                 try {
                     StatisticsFileSystem.this.close();
                 } catch (IOException e) {
@@ -365,6 +366,10 @@ public class StatisticsFileSystem extends FileSystem {
 
     @Override
     public synchronized final void close() throws IOException {
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Closing file system (" + logFile.getAbsolutePath() + ").");
+        }
+
         if (closed) {
             LOG.warn("Ignoring attempt to re-close file system.");
             return;
