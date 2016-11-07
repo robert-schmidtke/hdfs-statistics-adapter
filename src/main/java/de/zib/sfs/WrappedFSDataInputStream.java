@@ -54,8 +54,8 @@ public class WrappedFSDataInputStream extends InputStream implements
         long startTime = System.currentTimeMillis();
         int result = in.read();
         long duration = System.currentTimeMillis() - startTime;
-        logger.info("{}:{}{}.read():{}", duration, this,
-                getDatanodeHostNameString(), result);
+        logger.info("{}:{}.read():{}->{}", duration, this, result,
+                getDatanodeHostNameString());
         return result;
     }
 
@@ -64,8 +64,8 @@ public class WrappedFSDataInputStream extends InputStream implements
         long startTime = System.currentTimeMillis();
         int result = in.read(b, off, len);
         long duration = System.currentTimeMillis() - startTime;
-        logger.info("{}:{}{}.read([{}],{},{}):{}", duration, this,
-                getDatanodeHostNameString(), b.length, off, len, result);
+        logger.info("{}:{}.read([{}],{},{}):{}->{}", duration, this, b.length,
+                off, len, result, getDatanodeHostNameString());
         return result;
     }
 
@@ -74,8 +74,8 @@ public class WrappedFSDataInputStream extends InputStream implements
         long startTime = System.currentTimeMillis();
         int result = in.read(b);
         long duration = System.currentTimeMillis() - startTime;
-        logger.info("{}:{}{}.read([{}]):{}", duration, this,
-                getDatanodeHostNameString(), b.length, result);
+        logger.info("{}:{}.read([{}]):{}->{}", duration, this, b.length,
+                result, getDatanodeHostNameString());
         return result;
     }
 
@@ -89,8 +89,8 @@ public class WrappedFSDataInputStream extends InputStream implements
         long startTime = System.currentTimeMillis();
         in.seek(desired);
         long duration = System.currentTimeMillis() - startTime;
-        logger.info("{}:{}{}.seek({}):void", duration, this,
-                getDatanodeHostNameString(), desired);
+        logger.info("{}:{}.seek({}):void->{}", duration, this, desired,
+                getDatanodeHostNameString());
     }
 
     @Override
@@ -98,8 +98,8 @@ public class WrappedFSDataInputStream extends InputStream implements
         long startTime = System.currentTimeMillis();
         boolean result = in.seekToNewSource(targetPos);
         long duration = System.currentTimeMillis() - startTime;
-        logger.info("{}:{}{}.seekToNewSource({}):{}", duration, this,
-                getDatanodeHostNameString(), targetPos, result);
+        logger.info("{}:{}.seekToNewSource({}):{}->{}", duration, this,
+                targetPos, result, getDatanodeHostNameString());
         return result;
     }
 
@@ -109,9 +109,9 @@ public class WrappedFSDataInputStream extends InputStream implements
         long startTime = System.currentTimeMillis();
         int result = in.read(position, buffer, offset, length);
         long duration = System.currentTimeMillis() - startTime;
-        logger.info("{}:{}{}.read({},[{}],{},{}):{}", duration, this,
-                getDatanodeHostNameString(), position, buffer.length, offset,
-                length, result);
+        logger.info("{}:{}.read({},[{}],{},{}):{}->{}", duration, this,
+                position, buffer.length, offset, length, result,
+                getDatanodeHostNameString());
         return result;
     }
 
@@ -120,8 +120,8 @@ public class WrappedFSDataInputStream extends InputStream implements
         long startTime = System.currentTimeMillis();
         in.readFully(position, buffer);
         long duration = System.currentTimeMillis() - startTime;
-        logger.info("{}:{}{}.readFully({},[{}]):void", duration, this,
-                getDatanodeHostNameString(), position, buffer.length);
+        logger.info("{}:{}.readFully({},[{}]):void->{}", duration, this,
+                position, buffer.length, getDatanodeHostNameString());
     }
 
     @Override
@@ -130,9 +130,9 @@ public class WrappedFSDataInputStream extends InputStream implements
         long startTime = System.currentTimeMillis();
         in.readFully(position, buffer, offset, length);
         long duration = System.currentTimeMillis() - startTime;
-        logger.info("{}:{}{}.readFully({},[{}],{},{}):void", duration, this,
-                getDatanodeHostNameString(), position, buffer.length, offset,
-                length);
+        logger.info("{}:{}.readFully({},[{}],{},{}):void->{}", duration, this,
+                position, buffer.length, offset, length,
+                getDatanodeHostNameString());
     }
 
     // Helper methods
@@ -231,7 +231,7 @@ public class WrappedFSDataInputStream extends InputStream implements
             }
             HOSTNAME_CACHE.put(hostname, cachedHostname);
         }
-        return cachedHostname.isEmpty() ? "" : ("->" + cachedHostname);
+        return cachedHostname;
     }
 
 }
