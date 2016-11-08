@@ -49,4 +49,9 @@ public class ReadDataOperationInfo extends DataOperationInfo {
         return local;
     }
 
+    @Override
+    public de.zib.sfs.analysis.OperationInfo.Aggregator getAggregator() {
+        return new Aggregator();
+    }
+
 }
