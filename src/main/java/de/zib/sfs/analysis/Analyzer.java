@@ -46,6 +46,15 @@ public class Analyzer {
             }
         };
 
+        File[] logFiles = logFileDirectory.listFiles(filter);
+
+        // get total amount of data so we can estimate remaining time
+        long totalSize = 0L, currentSize = 0L;
+        for (File logFile : logFiles) {
+            totalSize += logFile.length();
+        }
+        long startTime = System.currentTimeMillis(), duration = 0L;
+
         long minTimeBin = Long.MAX_VALUE;
         for (File logFile : logFileDirectory.listFiles(filter)) {
             System.out.println("Analyzing " + logFile.getAbsolutePath());
@@ -95,6 +104,16 @@ public class Analyzer {
                 }
             }
             in.close();
+
+            // calculate some rudimentary progress
+            currentSize += logFile.length();
+            duration = System.currentTimeMillis() - startTime;
+            double speed = (double) currentSize / (double) duration;
+            long remainingSize = totalSize - currentSize;
+            long remainingTime = (long) (remainingSize / (speed * 1000));
+
+            System.out.println(remainingTimeString(remainingTime) + " left ("
+                    + (long) (speed * 1000 / 1048576) + " MB/s)");
         }
 
         // add the overall information as special host
@@ -159,5 +178,12 @@ public class Analyzer {
             }
             out.close();
         }
+    }
+
+    private static String remainingTimeString(long remainingTimeSeconds) {
+        long hours = remainingTimeSeconds / 3600;
+        long minutes = (remainingTimeSeconds % 3600) / 60;
+        long seconds = (remainingTimeSeconds % 3600) % 60;
+        return hours + "h " + minutes + "m " + seconds + "s";
     }
 }
