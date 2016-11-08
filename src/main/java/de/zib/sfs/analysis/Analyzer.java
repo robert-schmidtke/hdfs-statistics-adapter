@@ -35,6 +35,7 @@ public class Analyzer {
 
     public static void main(String[] args) throws IOException {
         aggregateHostOperationInfos = new HashMap<String, Map<Long, Map<String, OperationInfo.Aggregator>>>();
+        aggregateOperationInfos = new TreeMap<Long, Map<String, OperationInfo.Aggregator>>();
 
         File logFileDirectory = new File(args[0]);
         final String fileNamePattern = args[1];
