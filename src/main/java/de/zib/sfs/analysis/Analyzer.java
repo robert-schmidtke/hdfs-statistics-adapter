@@ -132,7 +132,7 @@ public class Analyzer {
                     .getValue().entrySet()) {
                 long timeBin = aggregateOperationInfosPerTime.getKey();
                 if (writeHeaders) {
-                    out.write("Time");
+                    out.write("time");
                     out.write(",reads,localReads");
                     out.write(",totalReadTime,minReadTime,maxReadTime");
                     out.write(",totalReadData,minReadData,maxReadData");
