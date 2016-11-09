@@ -158,7 +158,10 @@ fi
 echo "$(date): Copying logs"
 cat > copy-logs.sh << EOF
 #!/bin/bash
-cp /local/$USER/sfs/* $SFS_TARGET_DIRECTORY
+cd /local/$USER/sfs
+for file in \$(ls async.log*); do
+  cp \$file $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname)-\$file
+done
 EOF
 chmod +x copy-logs.sh
 srun ./copy-logs.sh
