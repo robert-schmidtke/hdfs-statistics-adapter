@@ -306,7 +306,7 @@ public class StatisticsFileSystem extends FileSystem {
                 }
 
                 try {
-                    StatisticsFileSystem.this.close();
+                    StatisticsFileSystem.this.close(true);
                 } catch (IOException e) {
                     LOG.error(
                             "Could not close file system (-> "
@@ -332,7 +332,12 @@ public class StatisticsFileSystem extends FileSystem {
     }
 
     @Override
-    public synchronized final void close() throws IOException {
+    public void close() throws IOException {
+        close(false);
+    }
+
+    private synchronized final void close(boolean fromShutdownHook)
+            throws IOException {
         if (LOG.isDebugEnabled()) {
             LOG.debug("Closing file system (-> " + logFile.getAbsolutePath()
                     + ").");
@@ -345,7 +350,13 @@ public class StatisticsFileSystem extends FileSystem {
         }
 
         wrappedFS.close();
-        super.close();
+
+        // If called from a shutdown hook, org.apache.hadoop.fs.FileSystem will
+        // be closed during its own shutdown hook, so avoid deadlock here by
+        // only closing super when explicitly closed.
+        if (!fromShutdownHook) {
+            super.close();
+        }
 
         if (LOG.isDebugEnabled()) {
             LOG.debug("Closed file system (-> " + logFile.getAbsolutePath()
