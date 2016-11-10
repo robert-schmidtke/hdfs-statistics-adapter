@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+html * {
+  font-family: sans-serif;
+  font-size: 16px;
+}
+
+.axis {
+    font-family: sans-serif;
+    font-size: 15px;
+}
+
+.axis--x path {
+	display: none;
+}
+
+.line {
+	fill: none;
+	stroke: steelblue;
+	stroke-width: 1.5px;
+}
+
+fieldset {
+    display: inline;
+    vertical-align: top;
+    height: 330px;
+}
+</style>
+</head>
+
+<body>
+  <svg width="1900" height="600"></svg>
+  <form id="requestForm">
+    <fieldset>
+      <legend>Benchmark</legend>
+      <input type="radio" name="benchmark" value="terasort-flink" checked>TeraSort Flink<br/>
+      <input type="radio" name="benchmark" value="terasort-hadoop">TeraSort Hadoop</br>
+      <br/>
+      <br/>
+      <br/>
+      <hr>
+      <input type="radio" name="benchmark" value="peakpicking-hdfs">PeakPicking HDFS<br/>
+      <input type="radio" name="benchmark" value="peakpicking-xtreemfs">PeakPicking XtreemFS<br/>
+    </fieldset>
+    <fieldset>
+      <legend>Left Y Axis</legend>
+      <input type="radio" name="yLeft" value="" checked>None<br/>
+      <input type="radio" name="yLeft" value="reads,localReads,writes@count">Reads, local reads, writes<br/>
+      <input type="radio" name="yLeft" value="totalReadTime,totalWriteTime@time(s)">Total read time, total write time (seconds)<br/>
+      <input type="radio" name="yLeft" value="totalReadData,totalWriteData@data(mb)">Total read data, total write data (megabytes)<br/>
+      <br/>
+      <hr>
+      <input type="radio" name="yLeft" value="remoteReads@count">Remote reads<br/>
+      <input type="radio" name="yLeft" value="totalRemoteReadTime@time(s)">Total remote read time (seconds)<br/>
+      <input type="radio" name="yLeft" value="totalRemoteReadData@data(mb)">Total remote read data (megabytes)<br/>
+    </fieldset>
+    <fieldset>
+      <legend>Right Y Axis</legend>
+      <input type="radio" name="yRight" value="" checked>None<br/>
+      <input type="radio" name="yRight" value="minReadTime,maxReadTime,minWriteTime,maxWriteTime@time(ms)">Min. read time, max. read time, min. write time, max. write time (milliseconds)<br/>
+      <input type="radio" name="yRight" value="minReadData,maxReadData,minWriteData,maxWriteData@data(kb)">Min. read data, max. read data, min. write data, max. write data (kilobytes)<br/>
+      <input type="radio" name="yRight" value="cumReadData,cumWriteData@data(gb)">Cum. read data, cum. write data (gigabytes)<br/>
+      <input type="radio" name="yRight" value="readSpeed,writeSpeed@mb/s">Read speed, write speed (megabytes/second)<br/>
+      <hr>
+      <input type="radio" name="yRight" value="minRemoteReadTime,maxRemoteReadTime@time(ms)">Min. remote read time, max. remote read time (milliseconds)<br/>
+      <input type="radio" name="yRight" value="minRemoteReadData,maxRemoteReadData@data(kb)">Min. remote read data, max. remote read data (kilobytes)<br/>
+      <input type="radio" name="yRight" value="cumRemoteReadData@data(gb)">Cum. remote read data (gigabytes)<br/>
+      <input type="radio" name="yRight" value="remoteReadSpeed@mb/s">Remote read speed (megabytes/second)<br/>
+    </fieldset>
+    <fieldset>
+      <legend>Hosts</legend>
+      <input type="checkbox" name="hosts" value="cumu01-00">cumu01-00 <input type="checkbox" name="hosts" value="cumu02-00">cumu02-00<br/>
+      <input type="checkbox" name="hosts" value="cumu01-01">cumu01-01 <input type="checkbox" name="hosts" value="cumu02-01">cumu02-01<br/>
+      <input type="checkbox" name="hosts" value="cumu01-02">cumu01-02 <input type="checkbox" name="hosts" value="cumu02-02">cumu02-02<br/>
+      <input type="checkbox" name="hosts" value="cumu01-03">cumu01-03 <input type="checkbox" name="hosts" value="cumu02-03">cumu02-03<br/>
+      <input type="checkbox" name="hosts" value="cumu01-04">cumu01-04 <input type="checkbox" name="hosts" value="cumu02-04">cumu02-04<br/>
+      <input type="checkbox" name="hosts" value="cumu01-05">cumu01-05 <input type="checkbox" name="hosts" value="cumu02-05">cumu02-05<br/>
+      <input type="checkbox" name="hosts" value="cumu01-06">cumu01-06 <input type="checkbox" name="hosts" value="cumu02-06">cumu02-06<br/>
+      <input type="checkbox" name="hosts" value="cumu01-07">cumu01-07 <input type="checkbox" name="hosts" value="cumu02-07">cumu02-07<br/>
+      <input type="checkbox" name="hosts" value="cumu01-08">cumu01-08 <input type="checkbox" name="hosts" value="cumu02-08">cumu02-08<br/>
+      <input type="checkbox" name="hosts" value="cumu01-09">cumu01-09 <input type="checkbox" name="hosts" value="cumu02-09">cumu02-09<br/>
+      <input type="checkbox" name="hosts" value="cumu01-10">cumu01-10 <input type="checkbox" name="hosts" value="cumu02-10">cumu02-10<br/>
+      <input type="checkbox" name="hosts" value="cumu01-11">cumu01-11 <input type="checkbox" name="hosts" value="cumu02-11">cumu02-11<br/>
+      <input type="checkbox" name="hosts" value="cumu01-12">cumu01-12 <input type="checkbox" name="hosts" value="cumu02-12">cumu02-12<br/>
+      <input type="checkbox" name="hosts" value="cumu01-13">cumu01-13 <input type="checkbox" name="hosts" value="cumu02-13">cumu02-13<br/>
+      <input type="checkbox" name="hosts" value="cumu01-14">cumu01-14 <input type="checkbox" name="hosts" value="cumu02-14">cumu02-14<br/>
+      <input type="checkbox" name="hosts" value="cumu01-15">cumu01-15 <input type="checkbox" name="hosts" value="cumu02-15">cumu02-15<br/>
+    </fieldset>
+    
+      <button type="button" onclick="setHosts(true)">All Hosts</button>
+      <button type="button" onclick="setHosts(false)">No Hosts</button>
+      <button type="button" onclick="toggleHosts()">Toggle Hosts</button>
+    <button type="button" onclick="updateGraph()">Submit</button>
+  </form>
+  
+  <script src="//d3js.org/d3.v4.min.js"></script>
+  <script>  
+    function setHosts(checked) {
+      var hosts = document.getElementsByName("hosts");
+      for (i = 0; i < hosts.length; ++i) {
+        hosts[i].checked = checked;
+      }
+    }
+    
+    function toggleHosts() {
+      var hosts = document.getElementsByName("hosts");
+      for (i = 0; i < hosts.length; ++i) {
+        hosts[i].checked = !hosts[i].checked;
+      }
+    }
+    
+    var svg = d3.select("svg");
+    var margin = {
+      top : 20,
+      right : 100,
+      bottom : 30,
+      left : 100
+    };
+    var width = svg.attr("width") - margin.left - margin.right;
+    var height = svg.attr("height") - margin.top - margin.bottom;
+
+    var x = d3.scaleLinear().range([ 0, width ]);
+    var yLeft = d3.scaleLinear().range([ height, 0 ]);
+    var yRight = d3.scaleLinear().range([ height, 0 ]);
+    var z = d3.scaleOrdinal(d3.schemeCategory10);
+    
+    var lines = {};
+    var yLeftLineNames = [
+      "reads", "localReads", "totalReadTime", "totalReadData",
+      "writes", "totalWriteTime", "totalWriteData",
+      "remoteReads", "totalRemoteReadTime", "totalRemoteReadData"
+    ];
+    var yRightLineNames = [
+      "minReadTime", "maxReadTime", "minReadData", "maxReadData",
+      "minRemoteReadTime", "maxRemoteReadTime", "minRemoteReadData", "maxRemoteReadData",
+      "minWriteTime", "maxWriteTime", "minWriteData", "maxWriteData",
+      "cumReadData", "cumRemoteReadData",
+      "cumWriteData",
+      "readSpeed", "remoteReadSpeed",
+      "writeSpeed"
+    ];
+
+    for (i = 0; i < yLeftLineNames.length; ++i) {
+      lines[yLeftLineNames[i]] = function(i) {
+        return d3.line()
+          .x(function(d) { return x(d.time); })
+          .y(function(d) { return yLeft(d[yLeftLineNames[i]]); });
+      }(i);
+    }
+
+    for (i = 0; i < yRightLineNames.length; ++i) {
+      lines[yRightLineNames[i]] = function(i) {
+        return d3.line()
+          .x(function(d) { return x(d.time); })
+          .y(function(d) { return yRight(d[yRightLineNames[i]]); });
+      }(i);
+    }
+        
+    function updateGraph() {
+      svg.selectAll("*").remove();
+      var g = svg.append("g").attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+      
+      var form = document.getElementById("requestForm").elements;
+      
+      var requestedBenchmark = form["benchmark"].value;
+      
+      var requestedYLeftLineNames = [];
+      var requestedYLeftAxis = "";
+      if (form["yLeft"].value != "") {
+        var axis = form["yLeft"].value.split("@");
+        requestedYLeftLineNames = axis[0].split(",");
+        requestedYLeftAxis = axis[1];
+      }
+      
+      var requestedYRightLineNames = [];
+      var requestedYRightAxis = "";
+      if (form["yRight"].value != "") {
+        var axis = form["yRight"].value.split("@");
+        requestedYRightLineNames = axis[0].split(",");
+        requestedYRightAxis = axis[1];
+      }
+      
+      var requestedHosts = [];
+      for (i = 0; i < form["hosts"].length; ++i) {
+        if (form["hosts"][i].checked) {
+          requestedHosts.push(form["hosts"][i].value);
+        }
+      }
+      
+      var loadedDataCount = 0;
+      var allDataLoaded = function(allData) {
+        loadedDataCount += 1;
+        if (loadedDataCount < requestedHosts.length) {
+          return;
+        }
+        
+        // augment data with computed properties
+        var cumReadData = 0, cumWriteData = 0, cumRemoteReadData = 0;
+        for (i = 0; i < allData.length; ++i) {
+          cumReadData += allData[i].totalReadData / 1024;
+          cumWriteData += allData[i].totalWriteData / 1024;
+          allData[i].cumReadData = cumReadData;
+          allData[i].cumWriteData = cumWriteData;
+          
+          cumRemoteReadData += allData[i].totalRemoteReadData / 1024;
+          allData[i].cumRemoteReadData = cumRemoteReadData;
+          
+          allData[i].readSpeed = allData[i].totalReadTime > 0 ? allData[i].totalReadData / allData[i].totalReadTime : 0;
+          allData[i].writeSpeed = allData[i].totalWriteTime > 0 ? allData[i].totalWriteData / allData[i].totalWriteTime : 0;
+          
+          allData[i].remoteReadSpeed = allData[i].totalRemoteReadTime > 0 ? allData[i].totalRemoteReadData / allData[i].totalRemoteReadTime : 0;
+        }
+        
+        x.domain(d3.extent(allData, function(d) {
+          return d.time;
+        }));
+        
+        
+        var extent = d3.extent(allData, function(d) {
+          return d.time;
+        });
+        
+        yLeft.domain([0, d3.max(allData, function(d) {
+          var max = Number.MIN_VALUE;
+          for (i = 0; i < requestedYLeftLineNames.length; ++i) {
+            max = Math.max(max, d[requestedYLeftLineNames[i]]);
+          }
+          return max;
+        })]);
+        
+        yRight.domain([0, d3.max(allData, function(d) {
+          var max = Number.MIN_VALUE;
+          for (i = 0; i < requestedYRightLineNames.length; ++i) {
+            max = Math.max(max, d[requestedYRightLineNames[i]]);
+          }
+          return max;
+        })]);
+        
+        z.domain(requestedYLeftLineNames.concat(requestedYRightLineNames).map(function(d) {
+          return d.hashCode();
+        }));
+        
+        g.append("g")
+          .attr("class", "axis axis--x")
+          .attr("transform", "translate(0," + height + ")")
+          .call(d3.axisBottom(x));
+  
+        g.append("g")
+          .attr("class", "axis axis--y")
+          .call(d3.axisLeft(yLeft))
+          .append("text")
+            .attr("transform", "rotate(-90)")
+            .attr("y", 6)
+            .attr("dy", "0.71em")
+            .style("font", "15px sans-serif")
+            .attr("fill", "#000")
+            .text(requestedYLeftAxis);
+            
+        g.append("g")
+          .attr("transform", "translate(" + width + ",0)")
+          .attr("class", "axis axis--y")
+          .call(d3.axisRight(yRight))
+          .append("text")
+            .attr("transform", "rotate(-90)")
+            .attr("y", 6)
+            .attr("dy", "0.71em")
+            .style("font", "15px sans-serif")
+            .attr("fill", "#000")
+            .text(requestedYRightAxis);
+                  
+        var allRequestedYLineNames = requestedYLeftLineNames.concat(requestedYRightLineNames);
+        var plot = g.selectAll(".plot")
+          .data(allRequestedYLineNames)
+          .enter().append("g").attr("class", "plot");
+        plot.append("path").attr("class", "line")
+          .attr("d", function(d) { return lines[d](allData); })
+          .style("stroke", function(d) { return z(d.hashCode()); });
+        plot.append("text")
+          .attr("transform", function(d) { return "translate(" + (width - 200) + "," + (20 * allRequestedYLineNames.indexOf(d)) + ")"; })
+          .attr("x", 3)
+          .attr("dy", "0.35em")
+          .style("font", "15px sans-serif")
+          .style("stroke", function(d) { return z(d.hashCode()); })
+          .text(function(d) { return d; });
+      }
+      
+      var allData = [];
+      for (i = 0; i < requestedHosts.length; ++i) {
+        d3.csv(requestedBenchmark + "-logs/" + requestedHosts[i] + ".csv", type, function(error, data) {
+          if (error) {
+            throw error;
+          }
+          
+          for (j = 0; j < data.length; ++j) {
+            var d = convert(data[j]);
+            var k = 0;
+            for (; k < allData.length; ++k) {
+              if (allData[k].time > d.time) {
+                allData.splice(k, 0, d);
+                break;
+              } else if (allData[k].time == d.time) {
+                // merge
+                allData[k].reads += d.reads;
+                allData[k].localReads += d.localReads;
+                allData[k].totalReadTime += d.totalReadTime;
+                allData[k].minReadTime = Math.min(allData[k].minReadTime, d.minReadTime);
+                allData[k].maxReadTime = Math.max(allData[k].maxReadTime, d.maxReadTime);
+                allData[k].totalReadData += d.totalReadData;
+                allData[k].minReadData = Math.min(allData[k].minReadData, d.minReadData);
+                allData[k].maxReadData = Math.max(allData[k].maxReadData, d.maxReadData);
+                
+                allData[k].remoteReads += d.remoteReads;
+                allData[k].totalRemoteReadTime += d.totalRemoteReadTime;
+                allData[k].minRemoteReadTime = Math.min(allData[k].minRemoteReadTime, d.minRemoteReadTime);
+                allData[k].maxRemoteReadTime = Math.max(allData[k].maxRemoteReadTime, d.maxRemoteReadTime);
+                allData[k].totalRemoteReadData += d.totalRemoteReadData;
+                allData[k].minRemoteReadData = Math.min(allData[k].minRemoteReadData, d.minRemoteReadData);
+                allData[k].maxRemoteReadData = Math.max(allData[k].maxRemoteReadData, d.maxRemoteReadData);
+                
+                allData[k].writes += d.writes;
+                allData[k].totalWriteTime += d.totalWriteTime;
+                allData[k].minWriteTime = Math.min(allData[k].minWriteTime, d.minWriteTime);
+                allData[k].maxWriteTime = Math.max(allData[k].maxWriteTime, d.maxWriteTime);
+                allData[k].totalWriteData += d.totalWriteData;
+                allData[k].minWriteData = Math.min(allData[k].minWriteData, d.minWriteData);
+                allData[k].maxWriteData = Math.max(allData[k].maxWriteData, d.maxWriteData);
+                break;
+              }
+            }
+            if (k == allData.length) {
+              allData.push(d);
+            }
+          }
+          
+          allDataLoaded(allData);
+        });
+      }
+    }
+    
+    String.prototype.hashCode = function(){
+      var hash = 0;
+      if (this.length == 0) return hash;
+      for (i = 0; i < this.length; i++) {
+        char = this.charCodeAt(i);
+        hash = ((hash<<5)-hash)+char;
+        hash = hash & hash; // Convert to 32bit integer
+      }
+      return hash;
+    }
+
+    function type(d, _, columns) {
+      // convert all columns to numerical values
+      for (i = 0; i < columns.length; ++i) {
+        d[columns[i]] = +d[columns[i]];
+      }
+      return d;
+    }
+    
+    function convert(d) {
+      var result = d;
+      
+      result.totalReadTime /= 1000;
+      result.totalReadData /= 1048576;
+      result.minReadData /= 1024;
+      result.maxReadData /= 1024;
+      
+      result.totalRemoteReadTime /= 1000;
+      result.totalRemoteReadData /= 1048576;
+      result.minRemoteReadData /= 1024;
+      result.maxRemoteReadData /= 1024;
+      
+      result.totalWriteTime /= 1000;
+      result.totalWriteData /= 1048576;
+      result.minWriteData /= 1024;
+      result.maxWriteData /= 1024;
+      
+      return result;
+    }
+  </script>
+</body>
+</html>
