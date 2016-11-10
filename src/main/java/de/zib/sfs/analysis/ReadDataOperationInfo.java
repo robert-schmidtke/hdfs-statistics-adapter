@@ -42,7 +42,19 @@ public class ReadDataOperationInfo extends DataOperationInfo {
     public ReadDataOperationInfo(String hostname, String name, long startTime,
             long endTime, long data, String remoteHostname) {
         super(hostname, name, startTime, endTime, data);
-        this.remoteHostname = remoteHostname;
+        if (remoteHostname == null) {
+            this.remoteHostname = null;
+        } else {
+            // hostname is usually obtained via $(hostname), remoteHostname
+            // could be a reverse DNS lookup, so it could have a domain
+            // attached, e.g. "acme" vs. "acme.example.com"
+            int index = remoteHostname.indexOf(".");
+            if (index != -1) {
+                this.remoteHostname = remoteHostname.substring(0, index);
+            } else {
+                this.remoteHostname = remoteHostname;
+            }
+        }
     }
 
     public String getRemoteHostname() {
@@ -50,12 +62,8 @@ public class ReadDataOperationInfo extends DataOperationInfo {
     }
 
     public boolean isLocal() {
-        // hostname is usually obtained via $(hostname), remoteHostname could be
-        // a reverse DNS lookup, so it could have a domain attached, e.g. "acme"
-        // vs. "acme.example.com"
-        return remoteHostname != null
-                && ("localhost".equals(remoteHostname) || remoteHostname
-                        .startsWith(hostname));
+        return "localhost".equals(remoteHostname)
+                || hostname.equals(remoteHostname);
     }
 
     @Override
