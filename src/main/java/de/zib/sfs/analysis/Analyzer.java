@@ -14,7 +14,6 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.FilenameFilter;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
@@ -25,17 +24,12 @@ public class Analyzer {
      * Map from hostname to a map from time bin to a map from operation name to
      * aggregate operation information (i.e. aggregate information per host).
      */
-    private static Map<String, Map<Long, Map<String, OperationInfo.Aggregator>>> aggregateHostOperationInfos;
-
-    /**
-     * Map from time bin to a map from operation name to aggregate operation
-     * information (i.e. aggregate information for all hosts).
-     */
-    private static Map<Long, Map<String, OperationInfo.Aggregator>> aggregateOperationInfos;
+    private static Map<String, Map<Long, Map<String, OperationInfo.Aggregator>>> aggregateOperationInfos;
 
     public static void main(String[] args) throws IOException {
-        aggregateHostOperationInfos = new HashMap<String, Map<Long, Map<String, OperationInfo.Aggregator>>>();
-        aggregateOperationInfos = new TreeMap<Long, Map<String, OperationInfo.Aggregator>>();
+        aggregateOperationInfos = new HashMap<String, Map<Long, Map<String, OperationInfo.Aggregator>>>();
+        aggregateOperationInfos.put("all",
+                new TreeMap<Long, Map<String, OperationInfo.Aggregator>>());
 
         File logFileDirectory = new File(args[0]);
         final String fileNamePattern = args[1];
@@ -65,42 +59,50 @@ public class Analyzer {
                 OperationInfo operationInfo = OperationInfoFactory
                         .parseFromLogLine(line);
 
-                // aggregate information per host
-                Map<Long, Map<String, OperationInfo.Aggregator>> aggregateOperationInfosPerHost = aggregateHostOperationInfos
-                        .get(operationInfo.getHostname());
-                if (aggregateOperationInfosPerHost == null) {
-                    aggregateOperationInfosPerHost = new TreeMap<Long, Map<String, OperationInfo.Aggregator>>();
-                    aggregateHostOperationInfos.put(
-                            operationInfo.getHostname(),
-                            aggregateOperationInfosPerHost);
-                }
-
                 // and per host per second
                 long timeBin = Math.floorDiv(operationInfo.getStartTime(),
                         1000L);
                 minTimeBin = Math.min(minTimeBin, timeBin);
 
                 // add the aggregator to the per-host and overall
-                for (Map<Long, Map<String, OperationInfo.Aggregator>> aggregateOperationInfos : Arrays
-                        .asList(aggregateOperationInfosPerHost,
-                                aggregateOperationInfos)) {
-                    Map<String, OperationInfo.Aggregator> aggregateOperationInfosPerTime = aggregateOperationInfos
-                            .get(timeBin);
-                    if (aggregateOperationInfosPerTime == null) {
-                        aggregateOperationInfosPerTime = new TreeMap<String, OperationInfo.Aggregator>();
-                        aggregateOperationInfos.put(timeBin,
-                                aggregateOperationInfosPerTime);
-                    }
+                for (String hostname : new String[] {
+                        operationInfo.getHostname(), "all" }) {
+                    // get the appropriate hostname information
+                    Map<Long, Map<String, OperationInfo.Aggregator>> aggregateOperationInfosPerHost = getOperationInfosPerHost(hostname);
 
-                    // and per host per second per operation
-                    OperationInfo.Aggregator aggregator = aggregateOperationInfosPerTime
-                            .get(operationInfo.getName());
-                    if (aggregator == null) {
-                        aggregator = operationInfo.getAggregator();
-                        aggregateOperationInfosPerTime.put(
-                                operationInfo.getName(), aggregator);
+                    // get the appropriate time information for this host
+                    Map<String, OperationInfo.Aggregator> aggregateOperationInfosPerHostPerTime = getOperationInfosPerHostPerTime(
+                            aggregateOperationInfosPerHost, timeBin);
+
+                    // get the appropriate operation information for this host
+                    // and time
+                    OperationInfo.Aggregator operationInfoAggregator = getOperationInfoAggregator(
+                            aggregateOperationInfosPerHostPerTime,
+                            operationInfo, operationInfo.getName());
+                    operationInfoAggregator.aggregate(operationInfo);
+                }
+
+                // if the operation was a non-local read, add it as special
+                // remoteRead to the remote host and overall
+                if (operationInfo instanceof ReadDataOperationInfo) {
+                    ReadDataOperationInfo readDataOperationInfo = (ReadDataOperationInfo) operationInfo;
+                    if (!readDataOperationInfo.isLocal()) {
+                        for (String hostname : new String[] {
+                                readDataOperationInfo.getRemoteHostname(),
+                                "all" }) {
+                            // same procedure as above, except set the operation
+                            // name to "remoteRead"
+                            Map<Long, Map<String, OperationInfo.Aggregator>> aggregateOperationInfosPerRemoteHost = getOperationInfosPerHost(hostname);
+                            Map<String, OperationInfo.Aggregator> aggregateOperationInfosPerRemoteHostPerTime = getOperationInfosPerHostPerTime(
+                                    aggregateOperationInfosPerRemoteHost,
+                                    timeBin);
+                            OperationInfo.Aggregator operationInfoAggregator = getOperationInfoAggregator(
+                                    aggregateOperationInfosPerRemoteHostPerTime,
+                                    readDataOperationInfo, "remoteRead");
+                            operationInfoAggregator
+                                    .aggregate(readDataOperationInfo);
+                        }
                     }
-                    aggregator.aggregate(operationInfo);
                 }
             }
             in.close();
@@ -116,10 +118,7 @@ public class Analyzer {
                     + (long) (speed * 1000 / 1048576) + " MB/s)");
         }
 
-        // add the overall information as special host
-        aggregateHostOperationInfos.put("all", aggregateOperationInfos);
-
-        for (Map.Entry<String, Map<Long, Map<String, OperationInfo.Aggregator>>> aggregateOperationInfosPerHost : aggregateHostOperationInfos
+        for (Map.Entry<String, Map<Long, Map<String, OperationInfo.Aggregator>>> aggregateOperationInfosPerHost : aggregateOperationInfos
                 .entrySet()) {
             String hostname = aggregateOperationInfosPerHost.getKey();
             System.out.println("Writing data for " + hostname);
@@ -136,6 +135,9 @@ public class Analyzer {
                     out.write(",reads,localReads");
                     out.write(",totalReadTime,minReadTime,maxReadTime");
                     out.write(",totalReadData,minReadData,maxReadData");
+                    out.write(",remoteReads");
+                    out.write(",totalRemoteReadTime,minRemoteReadTime,maxRemoteReadTime");
+                    out.write(",totalRemoteReadData,minRemoteReadData,maxRemoteReadData");
                     out.write(",writes");
                     out.write(",totalWriteTime,minWriteTime,maxWriteTime");
                     out.write(",totalWriteData,minWriteData,maxWriteData");
@@ -159,6 +161,20 @@ public class Analyzer {
                         out.write(",0,0,0,0,0,0,0,0");
                     }
 
+                    ReadDataOperationInfo.Aggregator remoteReadAggregator = (ReadDataOperationInfo.Aggregator) aggregateOperationInfosPerTime
+                            .getValue().get("remoteRead");
+                    if (remoteReadAggregator != null) {
+                        out.write("," + remoteReadAggregator.getCount());
+                        out.write("," + remoteReadAggregator.getDuration());
+                        out.write("," + remoteReadAggregator.getMinDuration());
+                        out.write("," + remoteReadAggregator.getMaxDuration());
+                        out.write("," + remoteReadAggregator.getData());
+                        out.write("," + remoteReadAggregator.getMinData());
+                        out.write("," + remoteReadAggregator.getMaxData());
+                    } else {
+                        out.write(",0,0,0,0,0,0,0");
+                    }
+
                     DataOperationInfo.Aggregator writeAggregator = (DataOperationInfo.Aggregator) aggregateOperationInfosPerTime
                             .getValue().get("write");
                     if (writeAggregator != null) {
@@ -178,6 +194,44 @@ public class Analyzer {
             }
             out.close();
         }
+    }
+
+    private static Map<Long, Map<String, OperationInfo.Aggregator>> getOperationInfosPerHost(
+            String hostname) {
+        Map<Long, Map<String, OperationInfo.Aggregator>> aggregateOperationInfosPerHost = aggregateOperationInfos
+                .get(hostname);
+        if (aggregateOperationInfosPerHost == null) {
+            aggregateOperationInfosPerHost = new TreeMap<Long, Map<String, OperationInfo.Aggregator>>();
+            aggregateOperationInfos.put(hostname,
+                    aggregateOperationInfosPerHost);
+        }
+        return aggregateOperationInfosPerHost;
+    }
+
+    private static Map<String, OperationInfo.Aggregator> getOperationInfosPerHostPerTime(
+            Map<Long, Map<String, OperationInfo.Aggregator>> aggregateOperationInfosPerHost,
+            long timeBin) {
+        Map<String, OperationInfo.Aggregator> aggregateOperationInfosPerHostPerTime = aggregateOperationInfosPerHost
+                .get(timeBin);
+        if (aggregateOperationInfosPerHostPerTime == null) {
+            aggregateOperationInfosPerHostPerTime = new TreeMap<String, OperationInfo.Aggregator>();
+            aggregateOperationInfosPerHost.put(timeBin,
+                    aggregateOperationInfosPerHostPerTime);
+        }
+        return aggregateOperationInfosPerHostPerTime;
+    }
+
+    private static OperationInfo.Aggregator getOperationInfoAggregator(
+            Map<String, OperationInfo.Aggregator> aggregateOperationInfosPerHostPerTime,
+            OperationInfo operationInfo, String operationName) {
+        OperationInfo.Aggregator operationInfoAggregator = aggregateOperationInfosPerHostPerTime
+                .get(operationName);
+        if (operationInfoAggregator == null) {
+            operationInfoAggregator = operationInfo.getAggregator();
+            aggregateOperationInfosPerHostPerTime.put(operationName,
+                    operationInfoAggregator);
+        }
+        return operationInfoAggregator;
     }
 
     private static String remainingTimeString(long remainingTimeSeconds) {
