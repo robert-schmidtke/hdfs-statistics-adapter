@@ -57,9 +57,10 @@ public class OperationInfoFactory {
 
             if (args.length == 0) {
                 // 1 byte read, returns -1 if EOF
-                data = data == -1 ? 0 : data;
+                data = data == -1 ? 0 : 1;
             } else if (args.length == 1 || args.length == 3 || args.length == 4) {
                 // data is already correct
+                data = data == -1 ? 0 : data;
             } else {
                 // illegal number of arguments
                 throw new IllegalArgumentException(
