@@ -9,7 +9,7 @@ package de.zib.sfs.analysis;
 
 public class ReadDataOperationInfo extends DataOperationInfo {
 
-    protected final boolean local;
+    protected final String remoteHostname;
 
     public static class Aggregator extends DataOperationInfo.Aggregator {
 
@@ -40,13 +40,22 @@ public class ReadDataOperationInfo extends DataOperationInfo {
     }
 
     public ReadDataOperationInfo(String hostname, String name, long startTime,
-            long endTime, long data, boolean local) {
+            long endTime, long data, String remoteHostname) {
         super(hostname, name, startTime, endTime, data);
-        this.local = local;
+        this.remoteHostname = remoteHostname;
+    }
+
+    public String getRemoteHostname() {
+        return remoteHostname;
     }
 
     public boolean isLocal() {
-        return local;
+        // hostname is usually obtained via $(hostname), remoteHostname could be
+        // a reverse DNS lookup, so it could have a domain attached, e.g. "acme"
+        // vs. "acme.example.com"
+        return remoteHostname != null
+                && ("localhost".equals(remoteHostname) || remoteHostname
+                        .startsWith(hostname));
     }
 
     @Override

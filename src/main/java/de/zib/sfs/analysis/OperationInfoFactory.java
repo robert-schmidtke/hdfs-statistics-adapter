@@ -67,10 +67,8 @@ public class OperationInfoFactory {
             }
 
             // line now only contains the remote host that was read from, if any
-            boolean local = "localhost".equals(line) || hostname.equals(line);
-
             operationInfo = new ReadDataOperationInfo(hostname, operation,
-                    endTime - duration, endTime, data, local);
+                    endTime - duration, endTime, data, line);
             break;
         }
         case "readFully": {
@@ -91,10 +89,8 @@ public class OperationInfoFactory {
             }
 
             // line now only contains the remote host that was read from, if any
-            boolean local = "localhost".equals(line) || hostname.equals(line);
-
             operationInfo = new ReadDataOperationInfo(hostname, operation,
-                    endTime - duration, endTime, data, local);
+                    endTime - duration, endTime, data, line);
             break;
         }
         case "write": {
