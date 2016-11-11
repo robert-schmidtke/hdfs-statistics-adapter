@@ -207,11 +207,6 @@ fieldset {
           
           cumRemoteReadData += allData[i].totalRemoteReadData / 1024;
           allData[i].cumRemoteReadData = cumRemoteReadData;
-          
-          allData[i].readSpeed = allData[i].totalReadTime > 0 ? allData[i].totalReadData / allData[i].totalReadTime : 0;
-          allData[i].writeSpeed = allData[i].totalWriteTime > 0 ? allData[i].totalWriteData / allData[i].totalWriteTime : 0;
-          
-          allData[i].remoteReadSpeed = allData[i].totalRemoteReadTime > 0 ? allData[i].totalRemoteReadData / allData[i].totalRemoteReadTime : 0;
         }
         
         x.domain(d3.extent(allData, function(d) {
@@ -327,6 +322,10 @@ fieldset {
                 allData[k].totalWriteData += d.totalWriteData;
                 allData[k].minWriteData = Math.min(allData[k].minWriteData, d.minWriteData);
                 allData[k].maxWriteData = Math.max(allData[k].maxWriteData, d.maxWriteData);
+
+                allData[k].readSpeed += d.readSpeed;
+                allData[k].writeSpeed += d.writeSpeed;
+                allData[k].remoteReadSpeed += d.remoteReadSpeed;
                 break;
               }
             }
@@ -376,7 +375,12 @@ fieldset {
       result.totalWriteData /= 1048576;
       result.minWriteData /= 1024;
       result.maxWriteData /= 1024;
-      
+
+      // compute some properties
+      result.readSpeed = result.totalReadTime > 0 ? result.totalReadData / result.totalReadTime : 0;
+      result.writeSpeed = result.totalWriteTime > 0 ? result.totalWriteData / result.totalWriteTime : 0;
+      result.remoteReadSpeed = result.totalRemoteReadTime > 0 ? result.totalRemoteReadData / result.totalRemoteReadTime : 0;
+
       return result;
     }
   </script>
