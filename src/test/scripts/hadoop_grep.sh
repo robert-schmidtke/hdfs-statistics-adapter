@@ -14,6 +14,9 @@ cp target/hdfs-statistics-adapter.jar $HADOOP_HOME/share/hadoop/common
 line=$(grep -n "^    <name>sfs\.wrappedFS\.className<\/name>$" $HADOOP_HOME/etc/hadoop/core-site.xml | cut -d: -f1)
 line=$(($line + 1))
 sed -i "${line}s/.*/    <value>org.apache.hadoop.fs.RawLocalFileSystem<\/value>/" $HADOOP_HOME/etc/hadoop/core-site.xml
+line=$(grep -n "^    <name>sfs\.wrappedFS\.scheme<\/name>$" $HADOOP_HOME/etc/hadoop/core-site.xml | cut -d: -f1)
+line=$(($line + 1))
+sed -i "${line}s/.*/    <value>file<\/value>/" $HADOOP_HOME/etc/hadoop/core-site.xml
 
 # start Hadoop
 $HADOOP_HOME/bin/hdfs namenode -format
