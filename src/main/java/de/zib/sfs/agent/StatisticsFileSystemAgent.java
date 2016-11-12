@@ -109,12 +109,14 @@ public class StatisticsFileSystemAgent {
                         cr.accept(new FileInputStreamAdapter(cw, fsLogger,
                                 fileDescriptorBlacklist, "sfsa_native_"), 0);
                         break;
-                    // case "java.io.FileOutputStream":
-                    // cr.accept(new FileOutputStreamAdapter(cw), 0);
-                    // break;
-                    // case "sun.nio.ch.FileChannelImpl":
-                    // cr.accept(new FileChannelImplAdapter(cw), 0);
-                    // break;
+                    case "java.io.FileOutputStream":
+                        // cr.accept(new FileOutputStreamAdapter(cw), 0);
+                        cr.accept(cw, 0);
+                        break;
+                    case "sun.nio.ch.FileChannelImpl":
+                        // cr.accept(new FileChannelImplAdapter(cw), 0);
+                        cr.accept(cw, 0);
+                        break;
                     }
                 } catch (Exception e) {
                     LOG.warn("Could not transform I/O class: "
