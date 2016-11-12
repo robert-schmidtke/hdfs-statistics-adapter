@@ -57,9 +57,15 @@
           <groupId>org.apache.logging.log4j</groupId>
           <artifactId>log4j</artifactId>
         </exclusion>
+
+        <!-- Same goes for asm -->
+        <exclusion>
+          <groupId>org.ow2.asm</groupId>
+          <artifactId>asm-all</artifactId>
+        </exclusion>
       </exclusions>
     </dependency>
-    
+
     <dependency>
       <groupId>org.apache.flink</groupId>
       <artifactId>flink-runtime_2.11</artifactId>
@@ -70,6 +76,12 @@
         <exclusion>
           <groupId>org.apache.logging.log4j</groupId>
           <artifactId>log4j</artifactId>
+        </exclusion>
+
+        <!-- Same goes for asm -->
+        <exclusion>
+          <groupId>org.ow2.asm</groupId>
+          <artifactId>asm-all</artifactId>
         </exclusion>
       </exclusions>
     </dependency>
@@ -90,6 +102,10 @@
         <exclusion>
           <groupId>asm</groupId>
           <artifactId>asm</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.ow2.asm</groupId>
+          <artifactId>asm-all</artifactId>
         </exclusion>
       </exclusions>
     </dependency>
@@ -111,6 +127,10 @@
         <exclusion>
           <groupId>asm</groupId>
           <artifactId>asm</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.ow2.asm</groupId>
+          <artifactId>asm-all</artifactId>
         </exclusion>
       </exclusions>
     </dependency>
@@ -142,12 +162,12 @@
       <version>${log4j.version}</version>
     </dependency>
 
+    <!-- Runtime byte code rewriting -->
     <dependency>
       <groupId>org.ow2.asm</groupId>
-      <artifactId>asm</artifactId>
+      <artifactId>asm-all</artifactId>
       <version>${asm.version}</version>
     </dependency>
-
 
     <dependency>
       <groupId>junit</groupId>
