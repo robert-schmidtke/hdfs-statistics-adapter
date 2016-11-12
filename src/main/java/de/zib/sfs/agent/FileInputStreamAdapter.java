@@ -98,7 +98,7 @@ public class FileInputStreamAdapter extends ClassVisitor {
         FieldVisitor fv = cv.visitField(
                 Opcodes.ACC_PRIVATE & Opcodes.ACC_FINAL,
                 "fileDescriptorBlacklist", fileDescriptorBlacklistDescriptor,
-                null, fileDescriptorBlacklist);
+                null, null);
         fv.visitEnd();
 
         // add open method that calls the renamed native version
