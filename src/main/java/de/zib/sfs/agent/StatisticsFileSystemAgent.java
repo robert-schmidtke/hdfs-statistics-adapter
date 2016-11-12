@@ -8,8 +8,8 @@
 package de.zib.sfs.agent;
 
 import java.io.File;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.IllegalClassFormatException;
 import java.lang.instrument.Instrumentation;
@@ -26,6 +26,7 @@ import org.apache.logging.log4j.Logger;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
 
+import sun.nio.ch.FileChannelImpl;
 import sun.tools.attach.BsdAttachProvider;
 import sun.tools.attach.LinuxAttachProvider;
 import sun.tools.attach.SolarisAttachProvider;
@@ -38,15 +39,15 @@ public class StatisticsFileSystemAgent {
 
     public static final String SFS_AGENT_LOGGER_NAME_KEY = "logger.name";
 
-    public static final String SFS_AGENT_INPUTSTREAM_CLASSES_KEY = "inputStream.classes";
-
-    public static final String SFS_AGENT_OUTPUSTREAM_CLASSES_KEY = "outputStream.classes";
+    public static final String SFS_AGENT_BLACKLISTED_FILENAMES_KEY = "blacklist.filenames";
 
     private static StatisticsFileSystemAgent instance = null;
 
     private final Instrumentation inst;
 
     private final Logger fsLogger;
+
+    private final FileDescriptorBlacklist fileDescriptorBlacklist;
 
     private static final Log LOG = LogFactory
             .getLog(StatisticsFileSystemAgent.class);
@@ -59,7 +60,7 @@ public class StatisticsFileSystemAgent {
             LOG.debug("Initializing agent with '" + agentArgs + "'");
         }
 
-        // Make options easily accesible through lookup
+        // Make options easily accessible through lookup
         Map<String, String> options = new HashMap<String, String>();
         for (String arg : agentArgs.split(",")) {
             String[] keyValue = arg.split("=");
@@ -72,53 +73,58 @@ public class StatisticsFileSystemAgent {
         // Obtain logger
         fsLogger = LogManager.getLogger(options.get(SFS_AGENT_LOGGER_NAME_KEY));
 
-        // Transformer that adds log calls to an InputStreams read calls
-        ClassFileTransformer inputStreamClassTransformer = new ClassFileTransformer() {
+        // Build blacklist of file names not to log access to
+        fileDescriptorBlacklist = new FileDescriptorBlacklist();
+        if (options.get(SFS_AGENT_BLACKLISTED_FILENAMES_KEY) != null) {
+            for (String blacklistedFilename : options.get(
+                    SFS_AGENT_BLACKLISTED_FILENAMES_KEY).split(":")) {
+                fileDescriptorBlacklist
+                        .addBlacklistedFilename(blacklistedFilename);
+            }
+        }
+
+        // Transformer that adds log calls to read and write calls of certain
+        // classes
+        ClassFileTransformer ioClassTransformer = new ClassFileTransformer() {
             @Override
             public byte[] transform(ClassLoader loader, String className,
                     Class<?> classBeingRedefined,
                     ProtectionDomain protectionDomain, byte[] classfileBuffer)
                     throws IllegalClassFormatException {
                 if (LOG.isDebugEnabled()) {
-                    LOG.debug("Transforming InputStream class: "
+                    LOG.debug("Transforming I/O class: "
                             + classBeingRedefined.getName());
                 }
 
                 ClassReader cr = new ClassReader(classfileBuffer);
                 ClassWriter cw = new ClassWriter(0);
-                cr.accept(new InputStreamAdapter(cw), 0);
-                return cw.toByteArray();
-            }
-        };
-        this.inst.addTransformer(inputStreamClassTransformer, true);
-        this.inst.retransformClasses(getClasses(
-                options.get(SFS_AGENT_INPUTSTREAM_CLASSES_KEY),
-                InputStream.class));
-        this.inst.removeTransformer(inputStreamClassTransformer);
 
-        // Repeat for OutputStream
-        ClassFileTransformer outputStreamClassFileTransformer = new ClassFileTransformer() {
-            @Override
-            public byte[] transform(ClassLoader loader, String className,
-                    Class<?> classBeingRedefined,
-                    ProtectionDomain protectionDomain, byte[] classfileBuffer)
-                    throws IllegalClassFormatException {
-                if (LOG.isDebugEnabled()) {
-                    LOG.debug("Transforming OutputStream class: "
-                            + classBeingRedefined.getName());
+                try {
+                    switch (classBeingRedefined.getName()) {
+                    case "java.io.FileInputStream":
+                        cr.accept(new FileInputStreamAdapter(cw, fsLogger,
+                                fileDescriptorBlacklist, "sfsa_native_"), 0);
+                        break;
+                    // case "java.io.FileOutputStream":
+                    // cr.accept(new FileOutputStreamAdapter(cw), 0);
+                    // break;
+                    // case "sun.nio.ch.FileChannelImpl":
+                    // cr.accept(new FileChannelImplAdapter(cw), 0);
+                    // break;
+                    }
+                } catch (Exception e) {
+                    LOG.warn("Could not transform I/O class: "
+                            + classBeingRedefined.getName(), e);
+                    cr.accept(cw, 0);
                 }
-
-                ClassReader cr = new ClassReader(classfileBuffer);
-                ClassWriter cw = new ClassWriter(0);
-                cr.accept(new OutputStreamAdapter(cw), 0);
                 return cw.toByteArray();
             }
         };
-        this.inst.addTransformer(outputStreamClassFileTransformer, true);
-        this.inst.retransformClasses(getClasses(
-                options.get(SFS_AGENT_OUTPUSTREAM_CLASSES_KEY),
-                OutputStream.class));
-        this.inst.removeTransformer(outputStreamClassFileTransformer);
+        this.inst.addTransformer(ioClassTransformer, true);
+        this.inst.setNativeMethodPrefix(ioClassTransformer, "sfsa_native_");
+        this.inst.retransformClasses(FileInputStream.class,
+                FileOutputStream.class, FileChannelImpl.class);
+        this.inst.removeTransformer(ioClassTransformer);
     }
 
     public static StatisticsFileSystemAgent loadAgent(String agentArgs)
@@ -184,26 +190,5 @@ public class StatisticsFileSystemAgent {
             LOG.debug("premain(" + agentArgs + "," + inst + ")");
         }
         agentmain(agentArgs, inst);
-    }
-
-    // Helper methods
-
-    /**
-     * Transforms a string of the form 'className1:className2' into an array of
-     * the according classes.
-     * 
-     * @param classNames
-     * @return
-     * @throws ClassNotFoundException
-     */
-    private static Class<?>[] getClasses(String classNamesString,
-            Class<?> commonBaseClass) throws ClassNotFoundException {
-        String[] classNames = classNamesString.split(":");
-        Class<?>[] classes = new Class<?>[classNames.length];
-        for (int i = 0; i < classNames.length; ++i) {
-            classes[i] = Class.forName(classNames[i]).asSubclass(
-                    commonBaseClass);
-        }
-        return classes;
     }
 }
