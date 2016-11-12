@@ -96,7 +96,7 @@ public class FileInputStreamAdapter extends ClassVisitor {
 
         // begin code generation
         mv.visitCode();
-        
+
         // TODO add (fd,name) pair to blacklist mappings
 
         // load this pointer onto stack
@@ -118,7 +118,7 @@ public class FileInputStreamAdapter extends ClassVisitor {
 
         // end code generation
         mv.visitEnd();
-        
+
         cv.visitEnd();
     }
 

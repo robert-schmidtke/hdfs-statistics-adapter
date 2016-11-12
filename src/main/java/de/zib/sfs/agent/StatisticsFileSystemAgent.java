@@ -78,6 +78,10 @@ public class StatisticsFileSystemAgent {
         if (options.get(SFS_AGENT_BLACKLISTED_FILENAMES_KEY) != null) {
             for (String blacklistedFilename : options.get(
                     SFS_AGENT_BLACKLISTED_FILENAMES_KEY).split(":")) {
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Not logging access to file: "
+                            + blacklistedFilename);
+                }
                 fileDescriptorBlacklist
                         .addBlacklistedFilename(blacklistedFilename);
             }
@@ -120,11 +124,20 @@ public class StatisticsFileSystemAgent {
                 return cw.toByteArray();
             }
         };
+
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Begin transforming I/O classes");
+        }
+
         this.inst.addTransformer(ioClassTransformer, true);
         this.inst.setNativeMethodPrefix(ioClassTransformer, "sfsa_native_");
         this.inst.retransformClasses(FileInputStream.class,
                 FileOutputStream.class, FileChannelImpl.class);
         this.inst.removeTransformer(ioClassTransformer);
+
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("End transforming I/O classes");
+        }
     }
 
     public static StatisticsFileSystemAgent loadAgent(String agentArgs)
