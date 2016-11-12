@@ -200,6 +200,7 @@
               <Agent-Class>de.zib.sfs.agent.StatisticsFileSystemAgent</Agent-Class>
               <Premain-Class>de.zib.sfs.agent.StatisticsFileSystemAgent</Premain-Class>
               <Can-Retransform-Classes>true</Can-Retransform-Classes>
+              <Can-Set-Native-Method-Prefix>true</Can-Set-Native-Method-Prefix>
             </manifestEntries>
           </archive>
         </configuration>
