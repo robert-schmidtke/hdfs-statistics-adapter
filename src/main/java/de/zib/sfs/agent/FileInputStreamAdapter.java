@@ -7,13 +7,19 @@
  */
 package de.zib.sfs.agent;
 
+import java.io.FileDescriptor;
 import java.util.HashMap;
 import java.util.Map;
 
+import javassist.bytecode.Opcode;
+
 import org.apache.logging.log4j.Logger;
 import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
+
+import com.sun.xml.internal.ws.org.objectweb.asm.Type;
 
 /**
  * Class adapter that instruments {@link java.io.FileInputStream}.
@@ -89,6 +95,15 @@ public class FileInputStreamAdapter extends ClassVisitor {
 
     @Override
     public void visitEnd() {
+        // add file descriptor blacklist field to class
+        String fileDescriptorBlacklistDescriptor = Type.getType(
+                FileDescriptorBlacklist.class).getDescriptor();
+        FieldVisitor fv = cv.visitField(
+                Opcodes.ACC_PRIVATE & Opcodes.ACC_FINAL,
+                "fileDescriptorBlacklist", fileDescriptorBlacklistDescriptor,
+                null, fileDescriptorBlacklist);
+        fv.visitEnd();
+
         // add open method that calls the renamed native version
         MethodVisitor mv = cv.visitMethod(Opcodes.ACC_PRIVATE, "open",
                 methodDescriptors.get("open"), methodSignatures.get("open"),
@@ -97,7 +112,28 @@ public class FileInputStreamAdapter extends ClassVisitor {
         // begin code generation
         mv.visitCode();
 
-        // TODO add (fd,name) pair to blacklist mappings
+        // load fileDescriptorBlacklist onto stack
+        mv.visitFieldInsn(Opcode.ALOAD, "java.io.FileInputStream",
+                "fileDescriptorBlacklist", fileDescriptorBlacklistDescriptor);
+
+        // load fd onto stack
+        mv.visitFieldInsn(Opcode.ALOAD, "java.io.FileInputStream", "fd", Type
+                .getType(FileDescriptor.class).getDescriptor());
+
+        // load name onto stack
+        mv.visitVarInsn(Opcode.ALOAD, 1);
+
+        // add mapping to blacklist
+        try {
+            mv.visitMethodInsn(Opcodes.INVOKESPECIAL,
+                    "de.zib.sfs.agent.FileDescriptorBlacklist",
+                    "addFileDescriptor",
+                    Type.getMethodDescriptor(FileDescriptorBlacklist.class
+                            .getDeclaredMethod("addFileDescriptor",
+                                    FileDescriptor.class, String.class)), false);
+        } catch (NoSuchMethodException | SecurityException e) {
+            throw new RuntimeException(e);
+        }
 
         // load this pointer onto stack
         mv.visitVarInsn(Opcodes.ALOAD, 0);
@@ -113,13 +149,9 @@ public class FileInputStreamAdapter extends ClassVisitor {
         // return;
         mv.visitInsn(Opcodes.RETURN);
 
-        // this and name both on the stack and locally
-        mv.visitMaxs(2, 2);
-
         // end code generation
         mv.visitEnd();
 
         cv.visitEnd();
     }
-
 }
