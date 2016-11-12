@@ -13,6 +13,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
 /**
  * Maps file descriptors to file names and checks these mappings against a
  * user-defined blacklist of file names.
@@ -26,16 +29,26 @@ public class FileDescriptorBlacklist {
 
     private final Set<String> blacklistedFilenames;
 
+    private static final Log LOG = LogFactory
+            .getLog(FileDescriptorBlacklist.class);
+
     public FileDescriptorBlacklist() {
         fileDescriptors = new ConcurrentHashMap<FileDescriptor, String>();
         blacklistedFilenames = ConcurrentHashMap.<String> newKeySet();
     }
 
     public void addFileDescriptor(FileDescriptor fileDescriptor, String filename) {
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Adding file descriptor: " + fileDescriptor + "->"
+                    + filename);
+        }
         fileDescriptors.put(fileDescriptor, filename);
     }
 
     public void addBlacklistedFilename(String filename) {
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Blacklisting file name: " + filename);
+        }
         blacklistedFilenames.add(filename);
     }
 
