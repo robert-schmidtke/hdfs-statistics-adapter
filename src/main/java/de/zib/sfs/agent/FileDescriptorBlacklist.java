@@ -8,6 +8,7 @@
 package de.zib.sfs.agent;
 
 import java.io.FileDescriptor;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -49,6 +50,14 @@ public class FileDescriptorBlacklist {
     public boolean isBlacklisted(FileDescriptor fileDescriptor) {
         String filename = fileDescriptors.get(fileDescriptor);
         return filename == null || blacklistedFilenames.contains(filename);
+    }
+
+    public Set<FileDescriptor> getFileDescriptors() {
+        return Collections.unmodifiableSet(fileDescriptors.keySet());
+    }
+
+    public String getFilename(FileDescriptor fileDescriptor) {
+        return fileDescriptors.get(fileDescriptor);
     }
 
 }
