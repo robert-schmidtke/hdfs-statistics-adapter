@@ -11,15 +11,12 @@ import java.io.FileDescriptor;
 import java.util.HashMap;
 import java.util.Map;
 
-import javassist.bytecode.Opcode;
-
 import org.apache.logging.log4j.Logger;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
-
-import com.sun.xml.internal.ws.org.objectweb.asm.Type;
+import org.objectweb.asm.Type;
 
 /**
  * Class adapter that instruments {@link java.io.FileInputStream}.
@@ -113,17 +110,18 @@ public class FileInputStreamAdapter extends ClassVisitor {
         mv.visitCode();
 
         // load fileDescriptorBlacklist onto stack
-        mv.visitFieldInsn(Opcode.ALOAD, "java.io.FileInputStream",
+        mv.visitFieldInsn(Opcodes.ALOAD, "java.io.FileInputStream",
                 "fileDescriptorBlacklist", fileDescriptorBlacklistDescriptor);
 
         // load fd onto stack
-        mv.visitFieldInsn(Opcode.ALOAD, "java.io.FileInputStream", "fd", Type
+        mv.visitFieldInsn(Opcodes.ALOAD, "java.io.FileInputStream", "fd", Type
                 .getType(FileDescriptor.class).getDescriptor());
 
         // load name onto stack
-        mv.visitVarInsn(Opcode.ALOAD, 1);
+        mv.visitVarInsn(Opcodes.ALOAD, 1);
 
-        // add mapping to blacklist
+        // add fd->name mapping to blacklist so we can look it up during read
+        // operations
         try {
             mv.visitMethodInsn(Opcodes.INVOKESPECIAL,
                     "de.zib.sfs.agent.FileDescriptorBlacklist",
