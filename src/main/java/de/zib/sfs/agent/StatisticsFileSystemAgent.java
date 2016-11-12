@@ -8,6 +8,7 @@
 package de.zib.sfs.agent;
 
 import java.io.File;
+import java.io.FileDescriptor;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.lang.instrument.ClassFileTransformer;
@@ -101,7 +102,8 @@ public class StatisticsFileSystemAgent {
                 }
 
                 ClassReader cr = new ClassReader(classfileBuffer);
-                ClassWriter cw = new ClassWriter(0);
+                ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS
+                        | ClassWriter.COMPUTE_FRAMES);
 
                 try {
                     switch (classBeingRedefined.getName()) {
@@ -146,6 +148,23 @@ public class StatisticsFileSystemAgent {
         if (LOG.isDebugEnabled()) {
             LOG.debug("End transforming I/O classes");
         }
+
+        Runtime.getRuntime().addShutdownHook(new Thread() {
+            @Override
+            public void run() {
+                if (LOG.isDebugEnabled()) {
+                    for (FileDescriptor fileDescriptor : fileDescriptorBlacklist
+                            .getFileDescriptors()) {
+                        String filename = fileDescriptorBlacklist
+                                .getFilename(fileDescriptor);
+                        boolean blacklisted = fileDescriptorBlacklist
+                                .isBlacklisted(fileDescriptor);
+                        LOG.debug(filename + " was "
+                                + (blacklisted ? "" : "not ") + "blacklisted.");
+                    }
+                }
+            }
+        });
     }
 
     public static StatisticsFileSystemAgent loadAgent(String agentArgs)
