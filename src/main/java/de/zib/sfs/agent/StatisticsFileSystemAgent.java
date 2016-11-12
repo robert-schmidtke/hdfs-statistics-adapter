@@ -129,11 +129,17 @@ public class StatisticsFileSystemAgent {
             LOG.debug("Begin transforming I/O classes");
         }
 
-        this.inst.addTransformer(ioClassTransformer, true);
-        this.inst.setNativeMethodPrefix(ioClassTransformer, "sfsa_native_");
-        this.inst.retransformClasses(FileInputStream.class,
-                FileOutputStream.class, FileChannelImpl.class);
-        this.inst.removeTransformer(ioClassTransformer);
+        try {
+            this.inst.addTransformer(ioClassTransformer, true);
+            this.inst.setNativeMethodPrefix(ioClassTransformer, "sfsa_native_");
+            this.inst.retransformClasses(FileInputStream.class,
+                    FileOutputStream.class, FileChannelImpl.class);
+        } catch (Exception e) {
+            LOG.warn("Error transforming I/O classes", e);
+            throw e;
+        } finally {
+            this.inst.removeTransformer(ioClassTransformer);
+        }
 
         if (LOG.isDebugEnabled()) {
             LOG.debug("End transforming I/O classes");
