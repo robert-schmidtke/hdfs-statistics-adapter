@@ -225,7 +225,7 @@
                   <include>org.apache.commons:commons-lang3</include>
                   <include>org.apache.logging.log4j:log4j-api</include>
                   <include>org.apache.logging.log4j:log4j-core</include>
-                  <include>org.ow2.asm:asm</include>
+                  <include>org.ow2.asm:asm-all</include>
                 </includes>
               </artifactSet>
             </configuration>
