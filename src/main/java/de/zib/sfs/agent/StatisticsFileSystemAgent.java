@@ -153,6 +153,8 @@ public class StatisticsFileSystemAgent {
             @Override
             public void run() {
                 if (LOG.isDebugEnabled()) {
+                    LOG.debug("Running shutdown hook");
+
                     for (FileDescriptor fileDescriptor : fileDescriptorBlacklist
                             .getFileDescriptors()) {
                         String filename = fileDescriptorBlacklist
