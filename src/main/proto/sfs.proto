@@ -1,0 +1,35 @@
+// Copyright (c) 2016 by Robert Schmidtke,
+//               Zuse Institute Berlin
+//
+// Licensed under the BSD License, see LICENSE file for details.
+syntax = "proto3";
+
+package de.zib.sfs.agent.rpc.proto;
+
+message BeginClassTransformationsRequest {
+}
+
+message BeginClassTransformationsResponse {
+}
+
+message ClassTransformationRequest {
+  string name = 1;
+  bytes bytecode = 2;
+}
+
+message ClassTransformationResponse {
+  string name = 1;
+  bytes bytecode = 2;
+}
+
+message EndClassTransformationsRequest {
+}
+
+message EndClassTransformationsResponse {
+}
+
+service ClassTransformationService {
+  rpc BeginClassTransformations (BeginClassTransformationsRequest) returns (BeginClassTransformationsResponse);
+  rpc ClassTransformation (ClassTransformationRequest) returns (ClassTransformationResponse);
+  rpc EndClassTransformations (EndClassTransformationsRequest) returns (EndClassTransformationsResponse);
+}
