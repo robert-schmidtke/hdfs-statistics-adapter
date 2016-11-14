@@ -197,20 +197,4 @@ public class StatisticsFileSystemAgent {
 
         return instance;
     }
-
-    public static void agentmain(String agentArgs, Instrumentation inst)
-            throws Exception {
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("agentmain(" + agentArgs + "," + inst + ")");
-        }
-        instance = new StatisticsFileSystemAgent(agentArgs, inst);
-    }
-
-    public static void premain(String agentArgs, Instrumentation inst)
-            throws Exception {
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("premain(" + agentArgs + "," + inst + ")");
-        }
-        agentmain(agentArgs, inst);
-    }
 }

@@ -32,7 +32,6 @@ import org.apache.hadoop.util.Progressable;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import de.zib.sfs.agent.StatisticsFileSystemAgent;
 import de.zib.sfs.flink.WrappedFlinkFileSystem;
 
 /**
@@ -91,11 +90,6 @@ public class StatisticsFileSystem extends FileSystem {
      * The log file to log all events to.
      */
     private File logFile;
-
-    /**
-     * Agent that monitors low level file system interaction.
-     */
-    private StatisticsFileSystemAgent agent;
 
     /**
      * Flag to track whether this file system is closed already.
@@ -181,31 +175,6 @@ public class StatisticsFileSystem extends FileSystem {
         if (LOG.isDebugEnabled()) {
             LOG.debug("Initialized file system logger");
             LOG.debug("Logging to " + logFileName);
-        }
-
-        // Inject the agent that monitors low-level file system access
-        try {
-            StringBuilder agentOptions = new StringBuilder();
-
-            // Agent should use the same logger as we do
-            agentOptions
-                    .append(StatisticsFileSystemAgent.SFS_AGENT_LOGGER_NAME_KEY)
-                    .append("=").append("de.zib.sfs.AsyncLogger");
-
-            // Exclude the log file from log events
-            agentOptions
-                    .append(",")
-                    .append(StatisticsFileSystemAgent.SFS_AGENT_BLACKLISTED_FILENAMES_KEY)
-                    .append("=").append(logFileName);
-
-            agent = StatisticsFileSystemAgent
-                    .loadAgent(agentOptions.toString());
-
-            if (LOG.isDebugEnabled()) {
-                LOG.debug("Injected low-level file system logger agent");
-            }
-        } catch (Exception e) {
-            LOG.warn("Could not inject low-level file system logger agent", e);
         }
 
         // Obtain the file system class we want to wrap
