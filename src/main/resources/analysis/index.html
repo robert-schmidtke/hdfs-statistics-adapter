@@ -63,12 +63,13 @@ fieldset {
       <input type="radio" name="yRight" value="minReadTime,maxReadTime,minWriteTime,maxWriteTime@time(ms)">Min. read time, max. read time, min. write time, max. write time (milliseconds)<br/>
       <input type="radio" name="yRight" value="minReadData,maxReadData,minWriteData,maxWriteData@data(kb)">Min. read data, max. read data, min. write data, max. write data (kilobytes)<br/>
       <input type="radio" name="yRight" value="cumReadData,cumWriteData@data(gb)">Cum. read data, cum. write data (gigabytes)<br/>
+      <input type="radio" name="yRight" value="cumReadTime,cumWriteTime@time(s)">Cum. read time, cum. write time (seconds)<br/>
       <input type="radio" name="yRight" value="readSpeed,writeSpeed@mb/s">Read speed, write speed (megabytes/second)<br/>
       <hr>
       <input type="radio" name="yRight" value="minRemoteReadTime,maxRemoteReadTime@time(ms)">Min. remote read time, max. remote read time (milliseconds)<br/>
       <input type="radio" name="yRight" value="minRemoteReadData,maxRemoteReadData@data(kb)">Min. remote read data, max. remote read data (kilobytes)<br/>
       <input type="radio" name="yRight" value="cumRemoteReadData@data(gb)">Cum. remote read data (gigabytes)<br/>
-      <input type="radio" name="yRight" value="remoteReadSpeed@mb/s">Remote read speed (megabytes/second)<br/>
+      <input type="radio" name="yRight" value="remoteReadSpeed@speed(mb/s)">Remote read speed (megabytes/second)<br/>
     </fieldset>
     <fieldset>
       <legend>Hosts</legend>
@@ -137,8 +138,8 @@ fieldset {
       "minReadTime", "maxReadTime", "minReadData", "maxReadData",
       "minRemoteReadTime", "maxRemoteReadTime", "minRemoteReadData", "maxRemoteReadData",
       "minWriteTime", "maxWriteTime", "minWriteData", "maxWriteData",
-      "cumReadData", "cumRemoteReadData",
-      "cumWriteData",
+      "cumReadTime", "cumReadData", "cumRemoteReadData",
+      "cumWriteTime", "cumWriteData",
       "readSpeed", "remoteReadSpeed",
       "writeSpeed"
     ];
@@ -198,13 +199,19 @@ fieldset {
         }
         
         // augment data with computed properties
+        var cumReadTime = 0, cumWriteTime = 0;
         var cumReadData = 0, cumWriteData = 0, cumRemoteReadData = 0;
         for (i = 0; i < allData.length; ++i) {
+          cumReadTime += allData[i].totalReadTime;
+          cumWriteTime += allData[i].totalWriteTime;
+          allData[i].cumReadTime = cumReadTime;
+          allData[i].cumWriteTime = cumWriteTime;
+
           cumReadData += allData[i].totalReadData / 1024;
           cumWriteData += allData[i].totalWriteData / 1024;
           allData[i].cumReadData = cumReadData;
           allData[i].cumWriteData = cumWriteData;
-          
+
           cumRemoteReadData += allData[i].totalRemoteReadData / 1024;
           allData[i].cumRemoteReadData = cumRemoteReadData;
         }
