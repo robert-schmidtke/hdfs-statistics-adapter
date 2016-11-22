@@ -51,7 +51,7 @@ static bool parse_options(char *command_line_options, CliOptions *cli_options) {
   bool delete_command_line_options = false;
   if (command_line_options == NULL) {
     command_line_options = new char[1];
-    sprintf(command_line_options, "");
+    command_line_options[0] = 0;
     delete_command_line_options = true;
   }
 
@@ -59,7 +59,7 @@ static bool parse_options(char *command_line_options, CliOptions *cli_options) {
   bool delete_extra_options = false;
   if (extra_options == NULL) {
     extra_options = new char[1];
-    sprintf(extra_options, "");
+    extra_options[0] = 0;
     delete_extra_options = true;
   }
 
