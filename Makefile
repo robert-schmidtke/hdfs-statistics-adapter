@@ -22,7 +22,7 @@ endif
 
 sfs: sfs_pb sfs_grpc_pb
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -o target/sfs.o -c src/main/native/agent/sfs.cpp
-	$(CXX) $(LDFLAGS) target/sfs_pb.o target/sfs_grpc_pb.o target/sfs.o
+	$(CXX) target/sfs_pb.o target/sfs_grpc_pb.o target/sfs.o $(LDFLAGS)
 
 sfs_pb:
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -o target/sfs_pb.o -c target/generated-sources/protobuf/native/agent/rpc/proto/sfs.pb.cc
