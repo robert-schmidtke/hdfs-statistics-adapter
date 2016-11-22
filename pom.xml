@@ -11,7 +11,7 @@
 
   <properties>
     <!-- Compile dependencies -->
-    <asm.version>5.1</asm.version>
+    <asm-all.version>5.1</asm-all.version>
     <commons-lang3.version>3.5</commons-lang3.version>
     <disruptor.version>3.3.6</disruptor.version>
     <flink.version>1.1.3</flink.version>
@@ -56,13 +56,19 @@
 
     <dependency>
       <groupId>io.grpc</groupId>
-      <artifactId>grpc-netty</artifactId>
+      <artifactId>grpc-core</artifactId>
       <version>${grpc.version}</version>
     </dependency>
 
     <dependency>
       <groupId>io.grpc</groupId>
       <artifactId>grpc-protobuf</artifactId>
+      <version>${grpc.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>io.grpc</groupId>
+      <artifactId>grpc-netty</artifactId>
       <version>${grpc.version}</version>
     </dependency>
 
@@ -198,7 +204,7 @@
     <dependency>
       <groupId>org.ow2.asm</groupId>
       <artifactId>asm-all</artifactId>
-      <version>${asm.version}</version>
+      <version>${asm-all.version}</version>
     </dependency>
 
     <dependency>
@@ -239,16 +245,16 @@
             <goals>
               <goal>shade</goal>
             </goals>
-            <configuration combine.self="override">
+            <configuration>
               <shadedArtifactAttached>true</shadedArtifactAttached>
               <finalName>${project.artifactId}</finalName>
               <artifactSet>
                 <includes>
+                  <include>com.google.guava:guava</include>
                   <include>com.google.protobuf:protobuf-java</include>
                   <include>com.lmax:disruptor</include>
-                  <include>io.grpc:grpc-netty</include>
-                  <include>io.grpc:grpc-protobuf</include>
-                  <include>io.grpc:grpc-stub</include>
+                  <include>io.grpc:*</include>
+                  <include>io.netty:*</include>
                   <include>org.apache.commons:commons-lang3</include>
                   <include>org.apache.logging.log4j:log4j-api</include>
                   <include>org.apache.logging.log4j:log4j-core</include>
@@ -285,6 +291,22 @@
         <artifactId>exec-maven-plugin</artifactId>
         <version>${exec-maven-plugin.version}</version>
         <executions>
+          <!-- Create target output directories for protoc -->
+          <execution>
+            <id>mkdirs-protoc</id>
+            <phase>generate-sources</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>mkdir</executable>
+              <arguments>
+                <argument>-p</argument>
+                <argument>${project.build.directory}/generated-sources/protobuf/native/agent/rpc/proto</argument>
+              </arguments>
+            </configuration>
+          </execution>
+
           <!-- Generate C++ sources for the native agent -->
           <execution>
             <id>generate-rpc</id>
@@ -295,11 +317,11 @@
             <configuration>
               <executable>${protoc.bin}</executable>
               <arguments>
-                <argument>--proto_path=${project.basedir}/src/main/proto</argument>
-                <argument>--cpp_out=${project.basedir}/target/generated-sources/protobuf/native/agent/rpc/proto</argument>
-                <argument>--grpc_out=${project.basedir}/target/generated-sources/protobuf/native/agent/rpc/proto</argument>
+                <argument>--proto_path=${project.build.sourceDirectory}/../proto</argument>
+                <argument>--cpp_out=${project.build.directory}/generated-sources/protobuf/native/agent/rpc/proto</argument>
+                <argument>--grpc_out=${project.build.directory}/generated-sources/protobuf/native/agent/rpc/proto</argument>
                 <argument>--plugin=protoc-gen-grpc=${grpc.plugin}</argument>
-                <argument>${project.basedir}/src/main/proto/sfs.proto</argument>
+                <argument>${project.build.sourceDirectory}/../proto/sfs.proto</argument>
               </arguments>
             </configuration>
           </execution>

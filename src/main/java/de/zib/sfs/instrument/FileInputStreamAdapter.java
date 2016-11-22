@@ -5,7 +5,7 @@
  * Licensed under the BSD License, see LICENSE file for details.
  *
  */
-package de.zib.sfs.agent;
+package de.zib.sfs.instrument;
 
 import java.io.FileDescriptor;
 import java.util.HashMap;

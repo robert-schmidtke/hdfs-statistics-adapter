@@ -1,7 +1,7 @@
 HOST_SYSTEM = $(shell uname | cut -f 1 -d_)
 SYSTEM ?= $(HOST_SYSTEM)
 CXX = g++
-CPPFLAGS += -I/usr/local/include -pthread -I${JDK_HOME}/include -Isrc/main/native/agent -c -fPIC -fpermissive
+CPPFLAGS += -I/usr/local/include -pthread -I${JDK_HOME}/include -Isrc/main/native/agent -Itarget/generated-sources/protobuf/native -c -fPIC -fpermissive
 CXXFLAGS += -std=c++11
 ifeq ($(SYSTEM),Darwin)
 CPPFLAGS += -I${JDK_HOME}/include/darwin

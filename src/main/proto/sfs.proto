@@ -18,8 +18,7 @@ message ClassTransformationRequest {
 }
 
 message ClassTransformationResponse {
-  string name = 1;
-  bytes bytecode = 2;
+  bytes bytecode = 1;
 }
 
 message EndClassTransformationsRequest {
