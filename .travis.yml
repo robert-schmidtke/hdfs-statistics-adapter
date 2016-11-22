@@ -9,7 +9,9 @@ addons:
       - build-essential
       - libtool
 
-script:
+# override the initial `mvn install -DskipTests=true -Dmaven.javadoc.skip=true -B -V` command,
+# because this is part of Travis' dependencies installation and would fail because we need to install custom dependencies
+install:
   # set up Hadoop
   - export HADOOP_VERSION=2.7.2
   - HADOOP_ARCHIVE=$HOME/hadoop-$HADOOP_VERSION.tar.gz
@@ -39,7 +41,7 @@ script:
   - make -j2
 
   # build the adapter
-  - mvn package                                                         \
+  - mvn install                                                         \
     --define hadoop.version=$HADOOP_VERSION                             \
     --define protobuf.version=$PROTOBUF_VERSION                         \
     --define protoc.bin=$GRPC_HOME/third_party/protobuf/src/protoc      \
@@ -50,5 +52,6 @@ script:
     --define grpc.include.dir=$GRPC_HOME/include                        \
     --define grpc.lib.dir=$GRPC_HOME/libs/opt
 
+script:
   # configure Hadoop and run the grep job
   - ./src/test/scripts/hadoop_grep.sh
