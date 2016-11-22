@@ -39,6 +39,7 @@
     <protoc.bin>/usr/local/bin/protoc</protoc.bin>
     <protobuf.include.dir>/usr/local/include</protobuf.include.dir>
     <grpc.plugin>/usr/local/bin/grpc_cpp_plugin</grpc.plugin>
+    <grpc.include.dir>/usr/local/include</grpc.include.dir>
   </properties>
 
   <dependencies>
@@ -342,6 +343,7 @@
                   so assuming it is a JDK as well, go one level up. -->
                 <argument>JDK_HOME=${java.home}/..</argument>
                 <argument>PROTOBUF_INCLUDE_DIR=${protobuf.include.dir}</argument>
+                <argument>GRPC_INCLUDE_DIR=${grpc.include.dir}</argument>
               </arguments>
             </configuration>
           </execution>
