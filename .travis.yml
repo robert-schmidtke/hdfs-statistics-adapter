@@ -45,16 +45,7 @@ install:
   - cd $TRAVIS_BUILD_DIR
 
   # build the adapter
-  - mvn install                                                         \
-    --define hadoop.version=$HADOOP_VERSION                             \
-    --define protobuf.version=$PROTOBUF_VERSION                         \
-    --define protoc.bin=$GRPC_HOME/third_party/protobuf/src/protoc      \
-    --define protobuf.include.dir=$GRPC_HOME/third_party/protobuf/src   \
-    --define protobuf.lib.dir=$GRPC_HOME/third_party/protobuf/src/.libs \
-    --define grpc.version=$GRPC_VERSION                                 \
-    --define grpc.plugin=$GRPC_HOME/bins/opt/grpc_cpp_plugin            \
-    --define grpc.include.dir=$GRPC_HOME/include                        \
-    --define grpc.lib.dir=$GRPC_HOME/libs/opt
+  - mvn install --define hadoop.version=$HADOOP_VERSION --define protobuf.version=$PROTOBUF_VERSION --define protoc.bin=$GRPC_HOME/third_party/protobuf/src/protoc --define protobuf.include.dir=$GRPC_HOME/third_party/protobuf/src --define protobuf.lib.dir=$GRPC_HOME/third_party/protobuf/src/.libs --define grpc.version=$GRPC_VERSION --define grpc.plugin=$GRPC_HOME/bins/opt/grpc_cpp_plugin --define grpc.include.dir=$GRPC_HOME/include --define grpc.lib.dir=$GRPC_HOME/libs/opt
 
 script:
   # configure Hadoop and run the grep job
