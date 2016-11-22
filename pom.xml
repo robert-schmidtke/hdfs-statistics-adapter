@@ -36,7 +36,8 @@
     <java.source.version>1.8</java.source.version>
     <java.target.version>1.8</java.target.version>
 
-    <protoc.bin>protoc</protoc.bin>
+    <protoc.bin>/usr/local/bin/protoc</protoc.bin>
+    <protobuf.include.dir>/usr/local/include</protobuf.include.dir>
     <grpc.plugin>/usr/local/bin/grpc_cpp_plugin</grpc.plugin>
   </properties>
 
@@ -340,6 +341,7 @@
                 <!-- ${java.home} points to the JRE running this command, 
                   so assuming it is a JDK as well, go one level up. -->
                 <argument>JDK_HOME=${java.home}/..</argument>
+                <argument>PROTOBUF_INCLUDE_DIR=${protobuf.include.dir}</argument>
               </arguments>
             </configuration>
           </execution>
