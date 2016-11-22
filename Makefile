@@ -5,15 +5,15 @@ CPPFLAGS += -I/usr/local/include -I${PROTOBUF_INCLUDE_DIR} -I${GRPC_INCLUDE_DIR}
 CXXFLAGS += -std=c++11
 ifeq ($(SYSTEM),Darwin)
 CPPFLAGS += -I${JDK_HOME}/include/darwin
-LDFLAGS += -L/usr/local/lib `pkg-config --libs grpc++ grpc`       \
-           -lgrpc++_reflection                                    \
-           -lprotobuf -lpthread -ldl                              \
+LDFLAGS += -L/usr/local/lib -L${PROTOBUF_LIB_DIR} -L${GRPC_LIB_DIR} \
+           -lgrpc++_reflection                                      \
+           -lprotobuf -lpthread -ldl                                \
            -dynamiclib -o target/libsfs.dylib
 else
 CPPFLAGS += -I${JDK_HOME}/include/linux
-LDFLAGS += -L/usr/local/lib `pkg-config --libs grpc++ grpc`       \
-           -Wl,--no-as-needed -lgrpc++_reflection -Wl,--as-needed \
-           -lprotobuf -lpthread -ldl                              \
+LDFLAGS += -L/usr/local/lib -L${PROTOBUF_LIB_DIR} -L${GRPC_LIB_DIR} \
+           -Wl,--no-as-needed -lgrpc++_reflection -Wl,--as-needed   \
+           -lprotobuf -lpthread -ldl                                \
            -z defs -static-libgcc -shared -o target/libsfs.so -lc
 endif
 
