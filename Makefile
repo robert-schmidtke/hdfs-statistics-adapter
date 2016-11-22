@@ -6,12 +6,13 @@ CXXFLAGS += -std=c++11
 ifeq ($(SYSTEM),Darwin)
 CPPFLAGS += -I${JDK_HOME}/include/darwin
 LDFLAGS += -L/usr/local/lib -L${PROTOBUF_LIB_DIR} -L${GRPC_LIB_DIR} \
-           -lgrpc++_reflection                                      \
+           -lgrpc++ -lgrpc -lgrpc++_reflection                      \
            -lprotobuf -lpthread -ldl                                \
            -dynamiclib -o target/libsfs.dylib
 else
 CPPFLAGS += -I${JDK_HOME}/include/linux
 LDFLAGS += -L/usr/local/lib -L${PROTOBUF_LIB_DIR} -L${GRPC_LIB_DIR} \
+           -lgrpc++ -lgrpc                                          \
            -Wl,--no-as-needed -lgrpc++_reflection -Wl,--as-needed   \
            -lprotobuf -lpthread -ldl                                \
            -z defs -static-libgcc -shared -o target/libsfs.so -lc
@@ -26,6 +27,6 @@ sfs_pb:
 
 sfs_grpc_pb:
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -o target/sfs_grpc_pb.o -c target/generated-sources/protobuf/native/agent/rpc/proto/sfs.grpc.pb.cc
-	
+
 clean:
 	rm -rf target/sfs_pb.o target/sfs_grpc_pb.o target/sfs.o target/libsfs.so target/libsfs.dylib
