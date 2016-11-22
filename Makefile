@@ -1,7 +1,9 @@
 HOST_SYSTEM = $(shell uname | cut -f 1 -d_)
 SYSTEM ?= $(HOST_SYSTEM)
 CXX = g++
-CPPFLAGS += -I/usr/local/include -I${PROTOBUF_INCLUDE_DIR} -I${GRPC_INCLUDE_DIR} -pthread -I${JDK_HOME}/include -Isrc/main/native/agent -Itarget/generated-sources/protobuf/native -c -fPIC -fpermissive
+CPPFLAGS += -I/usr/local/include -I${GRPC_INCLUDE_DIR} -I${JDK_HOME}/include -I${PROTOBUF_INCLUDE_DIR} \
+            -Isrc/main/native/agent -Itarget/generated-sources/protobuf/native                         \
+            -pthread -c -fPIC -fpermissive
 CXXFLAGS += -std=c++11
 ifeq ($(SYSTEM),Darwin)
 CPPFLAGS += -I${JDK_HOME}/include/darwin
@@ -20,7 +22,7 @@ endif
 
 sfs: sfs_pb sfs_grpc_pb
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -o target/sfs.o -c src/main/native/agent/sfs.cpp
-	$(CXX) $(LDFLAGS) target/sfs_grpc_pb.o target/sfs_pb.o target/sfs.o
+	$(CXX) $(LDFLAGS) target/sfs_pb.o target/sfs_grpc_pb.o target/sfs.o
 
 sfs_pb:
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -o target/sfs_pb.o -c target/generated-sources/protobuf/native/agent/rpc/proto/sfs.pb.cc
