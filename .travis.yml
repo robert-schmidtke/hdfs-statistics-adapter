@@ -1,6 +1,5 @@
 dist: trusty
 sudo: false
-group: beta
 
 language: java
 jdk: oraclejdk8
@@ -43,6 +42,7 @@ install:
   # the protobuf branch specified in gRPC (at least in v1.0.1) is not available anymore
   - cd third_party/protobuf && git checkout tags/v$PROTOBUF_VERSION && cd ../../
   - make -j2
+  - cd $TRAVIS_BUILD_DIR
 
   # build the adapter
   - mvn install                                                         \
