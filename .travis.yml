@@ -11,17 +11,20 @@ addons:
       - autoconf
       - build-essential
       - libtool
+  ssh_known_hosts:
+    - localhost
+    - 0.0.0.0
 
 # override the initial `mvn install -DskipTests=true -Dmaven.javadoc.skip=true -B -V` command,
 # because this is part of Travis' dependencies installation and would fail because we need to install custom dependencies
 install:
   # accept own key to start services locally via ssh
-  - mkdir -p $HOME/.ssh
-  - ssh-keygen -t dsa -N "" -f $HOME/.ssh/id_dsa
-  - cat $HOME/.ssh/id_dsa.pub >> $HOME/.ssh/authorized_keys
-  - chmod 600 $HOME/.ssh/authorized_keys
-  - ssh-keyscan -vvv -t dsa localhost >> $HOME/.ssh/known_hosts
-  - ssh-keyscan -vvv -t dsa 0.0.0.0 >> $HOME/.ssh/known_hosts
+  #- mkdir -p $HOME/.ssh
+  #- ssh-keygen -t dsa -N "" -f $HOME/.ssh/id_dsa
+  #- cat $HOME/.ssh/id_dsa.pub >> $HOME/.ssh/authorized_keys
+  #- chmod 600 $HOME/.ssh/authorized_keys
+  #- ssh-keyscan -vvv -t dsa localhost >> $HOME/.ssh/known_hosts
+  #- ssh-keyscan -vvv -t dsa 0.0.0.0 >> $HOME/.ssh/known_hosts
 
   # set up Hadoop
   - export HADOOP_VERSION=2.7.2
