@@ -25,11 +25,11 @@ install:
 
   # accept own key to start services locally via ssh
   - mkdir -p $HOME/.ssh
-  - ssh-keygen -t dsa -P '' -f $HOME/.ssh/id_dsa
+  - ssh-keygen -t dsa -N "" -f $HOME/.ssh/id_dsa
   - cat $HOME/.ssh/id_dsa.pub >> $HOME/.ssh/authorized_keys
   - chmod 600 $HOME/.ssh/authorized_keys
-  - ssh-keyscan -t dsa localhost >> $HOME/.ssh/known_hosts
-  - ssh-keyscan -t dsa 0.0.0.0 >> $HOME/.ssh/known_hosts
+  - ssh-keyscan -v -t dsa localhost >> $HOME/.ssh/known_hosts
+  - ssh-keyscan -v -t dsa 0.0.0.0 >> $HOME/.ssh/known_hosts
 
   # build gRPC
   - export GRPC_VERSION=1.0.1
