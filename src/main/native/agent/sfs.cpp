@@ -24,11 +24,17 @@
 
 // global handles to the client/server that communicate with the Java class
 // bytecode transformer JVM
-ClassTransformationClient *g_class_transformation_client;
-ClassTransformationServer *g_class_transformation_server;
+static ClassTransformationClient *g_class_transformation_client;
+static ClassTransformationServer *g_class_transformation_server;
 
 // store startup command of transformer JVM so we can them up
-char **g_transformer_jvm_cmd;
+static char **g_transformer_jvm_cmd;
+
+// the prefix to use when wrapping native methods
+static std::string g_native_method_prefix("sfs_native_");
+
+// the name of the log file to use
+static std::string g_log_file_name;
 
 // performs deregistration of events, server shutdown and memory freeing
 static void cleanup();
@@ -38,6 +44,9 @@ static void JNICALL ClassFileLoadHookCallback(jvmtiEnv *, JNIEnv *, jclass,
                                               jobject, const char *, jobject,
                                               jint, const unsigned char *,
                                               jint *, unsigned char **);
+
+// function to be called when the JVM initializes
+static void JNICALL VMInitCallback(jvmtiEnv *, JNIEnv *, jthread);
 
 // called by the JVM to load the agent
 JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
@@ -49,7 +58,8 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
               << "Required options: " << std::endl
               << "  trans_jar=/path/to/trans.jar" << std::endl
               << "  comm_port_agent=port" << std::endl
-              << "  comm_port_trans=port" << std::endl;
+              << "  comm_port_trans=port" << std::endl
+              << "  log_file_name=/path/to/log.file" << std::endl;
     return JNI_EINVAL;
   }
 
@@ -80,7 +90,9 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
   jvmtiCapabilities capabilities;
   (void)memset(&capabilities, 0, sizeof(jvmtiCapabilities));
   capabilities.can_generate_all_class_hook_events = 1;
+  capabilities.can_retransform_any_class = 1;
   capabilities.can_retransform_classes = 1;
+  capabilities.can_set_native_method_prefix = 1;
   jvmti_result = jvmti->AddCapabilities(&capabilities);
   CHECK_JVMTI_RESULT("AddCapabilities", jvmti_result);
 
@@ -88,6 +100,7 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
   jvmtiEventCallbacks eventCallbacks;
   (void)memset(&eventCallbacks, 0, sizeof(eventCallbacks));
   eventCallbacks.ClassFileLoadHook = &ClassFileLoadHookCallback;
+  eventCallbacks.VMInit = &VMInitCallback;
   jvmti_result =
       jvmti->SetEventCallbacks(&eventCallbacks, (jint)sizeof(eventCallbacks));
   CHECK_JVMTI_RESULT("SetEventCallbacks", jvmti_result);
@@ -95,9 +108,20 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
   // enable notification sending on class loading
   jvmti_result = jvmti->SetEventNotificationMode(
       JVMTI_ENABLE, JVMTI_EVENT_CLASS_FILE_LOAD_HOOK, (jthread)NULL);
-  CHECK_JVMTI_RESULT("SetEventNotificationMode", jvmti_result);
+  CHECK_JVMTI_RESULT("SetEventNotificationMode(ClassFileLoadHook)",
+                     jvmti_result);
+  jvmti_result = jvmti->SetEventNotificationMode(
+      JVMTI_ENABLE, JVMTI_EVENT_VM_INIT, (jthread)NULL);
+  CHECK_JVMTI_RESULT("SetEventNotificationMode(VMInit)", jvmti_result);
 
-  // build the JVM start command
+  // create a log file name for this JVM
+  g_log_file_name = cli_options.log_file_name + "." + std::to_string(getpid());
+
+  // set the prefix to use when wrapping native methods
+  jvmti_result = jvmti->SetNativeMethodPrefix(g_native_method_prefix.c_str());
+  CHECK_JVMTI_RESULT("SetNativeMethodPrefix", jvmti_result);
+
+  // build the transformer JVM start command
   g_transformer_jvm_cmd = new char *[9];
   g_transformer_jvm_cmd[0] = strdup((java_home + "/bin/java").c_str());
   g_transformer_jvm_cmd[1] = strdup("-cp");
@@ -196,9 +220,11 @@ static void JNICALL ClassFileLoadHookCallback(
   // keep track of which classes have been loaded already
   static bool java_io_FileInputStream_seen = false;
   static bool java_io_FileOutputStream_seen = false;
+  static bool sun_nio_ch_FileChannelImpl_seen = false;
 
   // all transformations done
-  if (java_io_FileInputStream_seen && java_io_FileOutputStream_seen) {
+  if (java_io_FileInputStream_seen && java_io_FileOutputStream_seen &&
+      sun_nio_ch_FileChannelImpl_seen) {
     return;
   }
 
@@ -221,12 +247,20 @@ static void JNICALL ClassFileLoadHookCallback(
     java_io_FileInputStream_seen = true;
     g_class_transformation_client->ClassTransformation(
         name, class_data, class_data_len, allocator, new_class_data,
-        new_class_data_len);
+        new_class_data_len, g_native_method_prefix.c_str(),
+        g_log_file_name.c_str());
   } else if (strcmp(name, "java/io/FileOutputStream") == 0) {
     java_io_FileOutputStream_seen = true;
     g_class_transformation_client->ClassTransformation(
         name, class_data, class_data_len, allocator, new_class_data,
-        new_class_data_len);
+        new_class_data_len, g_native_method_prefix.c_str(),
+        g_log_file_name.c_str());
+  } else if (strcmp(name, "sun/nio/ch/FileChannelImpl") == 0) {
+    sun_nio_ch_FileChannelImpl_seen = true;
+    g_class_transformation_client->ClassTransformation(
+        name, class_data, class_data_len, allocator, new_class_data,
+        new_class_data_len, g_native_method_prefix.c_str(),
+        g_log_file_name.c_str());
   } else {
     // don't set new_class_data_len or new_class_data to indicate no
     // modification is desired
@@ -234,10 +268,36 @@ static void JNICALL ClassFileLoadHookCallback(
 
   // indicate after all necessary classes are loaded that the transformer
   // JVM can shut down
-  if (java_io_FileInputStream_seen && java_io_FileOutputStream_seen) {
+  if (java_io_FileInputStream_seen && java_io_FileOutputStream_seen &&
+      sun_nio_ch_FileChannelImpl_seen) {
     g_class_transformation_client->EndClassTransformations();
     cleanup();
   }
+}
+
+// function to be called when the JVM initializes
+static void JNICALL VMInitCallback(jvmtiEnv *jvmti_env, JNIEnv *jni_env,
+                                   jthread thread) {
+  // trigger loading (and thus instrumentation) of the classes if they have not
+  // been loaded yet
+  jni_env->FindClass("java/io/FileInputStream");
+  jni_env->FindClass("java/io/FileOutputStream");
+  jni_env->FindClass("sun/nio/ch/FileChannelImpl");
+
+  // set the log file name to use as system property
+  jclass system_class = jni_env->FindClass("java/lang/System");
+
+  jmethodID set_property_method_id = jni_env->GetStaticMethodID(
+      system_class, "setProperty",
+      "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;");
+
+  jni_env->CallStaticVoidMethod(
+      system_class, set_property_method_id,
+      jni_env->NewStringUTF("de.zib.sfs.asyncLogFileName"),
+      jni_env->NewStringUTF(g_log_file_name.c_str()));
+
+  // TODO set de.zib.sfs.hostname as well
+  // TODO mkdir the parent log file directories
 }
 
 // performs deregistration of events, server shutdown and memory freeing

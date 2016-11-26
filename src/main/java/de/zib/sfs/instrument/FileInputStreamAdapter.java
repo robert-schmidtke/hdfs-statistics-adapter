@@ -7,16 +7,12 @@
  */
 package de.zib.sfs.instrument;
 
-import java.io.FileDescriptor;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.logging.log4j.Logger;
 import org.objectweb.asm.ClassVisitor;
-import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
-import org.objectweb.asm.Type;
 
 /**
  * Class adapter that instruments {@link java.io.FileInputStream}.
@@ -26,11 +22,9 @@ import org.objectweb.asm.Type;
  */
 public class FileInputStreamAdapter extends ClassVisitor {
 
-    private final Logger fsLogger;
-
-    private final FileDescriptorBlacklist fileDescriptorBlacklist;
-
     private final String nativeMethodPrefix;
+
+    private final String ignoreFileName;
 
     private final Map<String, String> methodDescriptors, methodSignatures;
     private final Map<String, String[]> methodExceptions;
@@ -43,21 +37,18 @@ public class FileInputStreamAdapter extends ClassVisitor {
      *            {@link org.objectweb.asm.ClassVisitor} to delegate all visit
      *            calls to which are not explicitly overridden here. Most likely
      *            a {@link org.objectweb.asm.ClassWriter}.
-     * @param fsLogger
-     * @param fileDescriptorBlacklist
      * @param nativeMethodPrefix
+     * @param ignoreFileName
      * @throws SecurityException
      * @throws NoSuchMethodException
      */
-    public FileInputStreamAdapter(ClassVisitor cv, Logger fsLogger,
-            FileDescriptorBlacklist fileDescriptorBlacklist,
-            String nativeMethodPrefix) throws NoSuchMethodException,
+    public FileInputStreamAdapter(ClassVisitor cv, String nativeMethodPrefix,
+            String ignoreFileName) throws NoSuchMethodException,
             SecurityException {
         super(Opcodes.ASM5, cv);
 
-        this.fsLogger = fsLogger;
-        this.fileDescriptorBlacklist = fileDescriptorBlacklist;
         this.nativeMethodPrefix = nativeMethodPrefix;
+        this.ignoreFileName = ignoreFileName;
 
         methodDescriptors = new HashMap<String, String>();
         methodSignatures = new HashMap<String, String>();
@@ -69,14 +60,19 @@ public class FileInputStreamAdapter extends ClassVisitor {
             String signature, String[] exceptions) {
         MethodVisitor mv;
         if ("open".equals(name)) {
-            // rename native open method
-            mv = cv.visitMethod(access, nativeMethodPrefix + name, desc,
-                    signature, exceptions);
+            // TODO rename native open method so we can wrap it
+            // mv = cv.visitMethod(access, nativeMethodPrefix + name, desc,
+            // signature, exceptions);
+            mv = cv.visitMethod(access, name, desc, signature, exceptions);
         } else if ("read".equals(name)) {
-            // TODO rename native read method
+            // TODO rename native read method so we can wrap it
+            // mv = cv.visitMethod(access, nativeMethodPrefix + name, desc,
+            // signature, exceptions);
             mv = cv.visitMethod(access, name, desc, signature, exceptions);
         } else if ("readBytes".equals(name)) {
-            // TODO rename native readBytes method
+            // TODO rename native readBytes method so we can wrap it
+            // mv = cv.visitMethod(access, nativeMethodPrefix + name, desc,
+            // signature, exceptions);
             mv = cv.visitMethod(access, name, desc, signature, exceptions);
         } else {
             mv = cv.visitMethod(access, name, desc, signature, exceptions);
@@ -92,64 +88,9 @@ public class FileInputStreamAdapter extends ClassVisitor {
 
     @Override
     public void visitEnd() {
-        // add file descriptor blacklist field to class
-        String fileDescriptorBlacklistDescriptor = Type.getType(
-                FileDescriptorBlacklist.class).getDescriptor();
-        FieldVisitor fv = cv.visitField(
-                Opcodes.ACC_PRIVATE & Opcodes.ACC_FINAL,
-                "fileDescriptorBlacklist", fileDescriptorBlacklistDescriptor,
-                null, null);
-        fv.visitEnd();
-
-        // add open method that calls the renamed native version
-        MethodVisitor mv = cv.visitMethod(Opcodes.ACC_PRIVATE, "open",
-                methodDescriptors.get("open"), methodSignatures.get("open"),
-                methodExceptions.get("open"));
-
-        // begin code generation
-        mv.visitCode();
-
-        // load fileDescriptorBlacklist onto stack
-        mv.visitFieldInsn(Opcodes.ALOAD, "java.io.FileInputStream",
-                "fileDescriptorBlacklist", fileDescriptorBlacklistDescriptor);
-
-        // load fd onto stack
-        mv.visitFieldInsn(Opcodes.ALOAD, "java.io.FileInputStream", "fd", Type
-                .getType(FileDescriptor.class).getDescriptor());
-
-        // load name onto stack
-        mv.visitVarInsn(Opcodes.ALOAD, 1);
-
-        // add fd->name mapping to blacklist so we can look it up during read
-        // operations
-        try {
-            mv.visitMethodInsn(Opcodes.INVOKESPECIAL,
-                    "de.zib.sfs.agent.FileDescriptorBlacklist",
-                    "addFileDescriptor",
-                    Type.getMethodDescriptor(FileDescriptorBlacklist.class
-                            .getDeclaredMethod("addFileDescriptor",
-                                    FileDescriptor.class, String.class)), false);
-        } catch (NoSuchMethodException | SecurityException e) {
-            throw new RuntimeException(e);
-        }
-
-        // load this pointer onto stack
-        mv.visitVarInsn(Opcodes.ALOAD, 0);
-
-        // load name argument onto stack
-        mv.visitVarInsn(Opcodes.ALOAD, 1);
-
-        // this.nativeMethodPrefix + open(name);
-        mv.visitMethodInsn(Opcodes.INVOKESPECIAL, "java.io.FileInputStream",
-                nativeMethodPrefix + "open", methodDescriptors.get("open"),
-                false);
-
-        // return;
-        mv.visitInsn(Opcodes.RETURN);
-
-        // end code generation
-        mv.visitEnd();
 
         cv.visitEnd();
+
+        // TODO add wrapper methods for above renamed methods
     }
 }

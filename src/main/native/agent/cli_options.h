@@ -44,6 +44,7 @@ static int get_tok(char **src, char *buf, int buflen, int sep) {
 struct CliOptions {
   std::string transformer_jar_path;
   int communication_port_agent, communication_port_transformer;
+  std::string log_file_name;
 };
 
 // borrows from the hprof agent
@@ -76,6 +77,7 @@ static bool parse_options(char *command_line_options, CliOptions *cli_options) {
 
   bool tx_jar_path_set = false;
   bool comm_port_agent_set = false, comm_port_trans_set = false;
+  bool log_file_name_set = false;
   while (*options) {
     char option[16];
     char suboption[FILENAME_MAX + 1];
@@ -105,6 +107,11 @@ static bool parse_options(char *command_line_options, CliOptions *cli_options) {
             comm_port_trans_set = true;
           }
         }
+      } else if (strcmp(option, "log_file_name") == 0) {
+        if (get_tok(&options, suboption, (int)sizeof(suboption), ',')) {
+          cli_options->log_file_name = std::string(suboption);
+          log_file_name_set = true;
+        }
       }
     }
   }
@@ -117,7 +124,8 @@ static bool parse_options(char *command_line_options, CliOptions *cli_options) {
   }
   delete[] all_options;
 
-  return tx_jar_path_set && comm_port_agent_set && comm_port_trans_set;
+  return tx_jar_path_set && comm_port_agent_set && comm_port_trans_set &&
+         log_file_name_set;
 }
 
 #endif // CLI_OPTIONS_H

@@ -13,10 +13,8 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.lang.reflect.Constructor;
-import java.math.BigInteger;
 import java.net.URI;
 import java.util.Arrays;
-import java.util.Random;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -54,11 +52,6 @@ public class StatisticsFileSystem extends FileSystem {
      * The scheme of the wrapped file system.
      */
     public static final String SFS_WRAPPED_FS_SCHEME_KEY = "sfs.wrappedFS.scheme";
-
-    /**
-     * Location of the log file on each host. A random suffix will be appended.
-     */
-    public static final String SFS_LOG_FILE_NAME_KEY = "sfs.logFile.name";
 
     /**
      * The URI of this file system, as sfs:// plus the authority of the wrapped
@@ -104,11 +97,6 @@ public class StatisticsFileSystem extends FileSystem {
     // Shadow super class' LOG
     public static final Log LOG = LogFactory.getLog(StatisticsFileSystem.class);
 
-    /**
-     * For generating random suffixes to log file names.
-     */
-    private static final Random RANDOM = new Random();
-
     @Override
     public synchronized void initialize(URI name, Configuration conf)
             throws IOException {
@@ -149,27 +137,12 @@ public class StatisticsFileSystem extends FileSystem {
             LOG.debug("Running on " + hostname + ".");
         }
 
-        // Set up the logger for file system events
-        String logFileName = getConf().get(SFS_LOG_FILE_NAME_KEY);
+        String logFileName = System.getProperty("de.zib.sfs.asyncLogFileName");
         if (logFileName == null) {
-            throw new RuntimeException(SFS_LOG_FILE_NAME_KEY + " not specified");
+            throw new RuntimeException(
+                    "'de.zib.sfs.asyncLogFileName' not set, did the agent start properly?");
         }
-
-        // Append 5-character random string to avoid collisions if multiple
-        // instances are running on the same machine
-        logFileName += "." + new BigInteger(25, RANDOM).toString(32);
         logFile = new File(logFileName);
-
-        if (!logFile.getParentFile().exists()) {
-            if (!logFile.getParentFile().mkdirs()) {
-                // It might have been created already, we're not alone
-                LOG.warn("Could not create log file directories: "
-                        + logFile.getParentFile().getAbsolutePath());
-            }
-        }
-
-        System.setProperty("de.zib.sfs.asyncLogFileName", logFileName);
-        System.setProperty("de.zib.sfs.hostname", hostname);
 
         fsLogger = LogManager.getLogger("de.zib.sfs.AsyncLogger");
         if (LOG.isDebugEnabled()) {
