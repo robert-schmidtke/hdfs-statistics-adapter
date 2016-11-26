@@ -28,4 +28,8 @@
     <name>sfs.wrappedFS.scheme</name>
     <value>hdfs</value>
   </property>
+  <property>
+    <name>sfs.logFile.name</name>
+    <value>/tmp/sfs.log</value>
+  </property>
 </configuration>

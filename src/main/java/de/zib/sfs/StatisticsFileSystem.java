@@ -53,6 +53,11 @@ public class StatisticsFileSystem extends FileSystem {
     public static final String SFS_WRAPPED_FS_SCHEME_KEY = "sfs.wrappedFS.scheme";
 
     /**
+     * The file to log to.
+     */
+    public static final String SFS_LOG_FILE_NAME_KEY = "sfs.logFile.name";
+
+    /**
      * The URI of this file system, as sfs:// plus the authority of the wrapped
      * file system.
      */
@@ -127,9 +132,14 @@ public class StatisticsFileSystem extends FileSystem {
             LOG.debug("Running on " + hostname + ".");
         }
 
-        if (System.getProperty("de.zib.sfs.asyncLogFileName") == null) {
-            throw new RuntimeException(
-                    "'de.zib.sfs.asyncLogFileName' not set, did the agent start properly?");
+        if (System.getProperty("de.zib.sfs.logFile.name") == null) {
+            LOG.warn("'de.zib.sfs.logFile.name' not set, did the agent start properly?");
+            String logFileName = getConf().get(SFS_LOG_FILE_NAME_KEY);
+            if (logFileName == null) {
+                throw new RuntimeException("'de.zib.sfs.logFile.name' and '"
+                        + SFS_LOG_FILE_NAME_KEY + "' not set.");
+            }
+            System.setProperty("de.zib.sfs.logFile.name", logFileName);
         }
 
         fsLogger = LogManager.getLogger("de.zib.sfs.AsyncLogger");

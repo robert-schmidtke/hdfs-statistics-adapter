@@ -293,7 +293,7 @@ static void JNICALL VMInitCallback(jvmtiEnv *jvmti_env, JNIEnv *jni_env,
 
   jni_env->CallStaticVoidMethod(
       system_class, set_property_method_id,
-      jni_env->NewStringUTF("de.zib.sfs.asyncLogFileName"),
+      jni_env->NewStringUTF("de.zib.sfs.logFile.name"),
       jni_env->NewStringUTF(g_log_file_name.c_str()));
 
   // repeat for the hostname
