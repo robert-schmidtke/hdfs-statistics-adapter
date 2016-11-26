@@ -296,8 +296,15 @@ static void JNICALL VMInitCallback(jvmtiEnv *jvmti_env, JNIEnv *jni_env,
       jni_env->NewStringUTF("de.zib.sfs.asyncLogFileName"),
       jni_env->NewStringUTF(g_log_file_name.c_str()));
 
-  // TODO set de.zib.sfs.hostname as well
-  // TODO mkdir the parent log file directories
+  // repeat for the hostname
+  char hostname[256];
+  if (gethostname(hostname, 256) != 0) {
+    std::cerr << "Error getting hostname" << std::endl;
+  } else {
+    jni_env->CallStaticVoidMethod(system_class, set_property_method_id,
+                                  jni_env->NewStringUTF("de.zib.sfs.hostname"),
+                                  jni_env->NewStringUTF(hostname));
+  }
 }
 
 // performs deregistration of events, server shutdown and memory freeing

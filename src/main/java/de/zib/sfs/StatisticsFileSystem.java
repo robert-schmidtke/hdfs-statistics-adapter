@@ -8,7 +8,6 @@
 package de.zib.sfs;
 
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -70,19 +69,9 @@ public class StatisticsFileSystem extends FileSystem {
     private String wrappedFSScheme;
 
     /**
-     * The host we're running on.
-     */
-    private String hostname;
-
-    /**
      * The actual logger for file system calls.
      */
     private Logger fsLogger;
-
-    /**
-     * The log file to log all events to.
-     */
-    private File logFile;
 
     /**
      * Flag to track whether this file system is closed already.
@@ -109,6 +98,7 @@ public class StatisticsFileSystem extends FileSystem {
         setConf(conf);
 
         // Obtain hostname, preferably via executing hostname
+        String hostname;
         Process hostnameProcess = Runtime.getRuntime().exec("hostname");
         try {
             int exitCode = hostnameProcess.waitFor();
@@ -137,17 +127,14 @@ public class StatisticsFileSystem extends FileSystem {
             LOG.debug("Running on " + hostname + ".");
         }
 
-        String logFileName = System.getProperty("de.zib.sfs.asyncLogFileName");
-        if (logFileName == null) {
+        if (System.getProperty("de.zib.sfs.asyncLogFileName") == null) {
             throw new RuntimeException(
                     "'de.zib.sfs.asyncLogFileName' not set, did the agent start properly?");
         }
-        logFile = new File(logFileName);
 
         fsLogger = LogManager.getLogger("de.zib.sfs.AsyncLogger");
         if (LOG.isDebugEnabled()) {
             LOG.debug("Initialized file system logger");
-            LOG.debug("Logging to " + logFileName);
         }
 
         // Obtain the file system class we want to wrap
@@ -237,16 +224,13 @@ public class StatisticsFileSystem extends FileSystem {
             @Override
             public void run() {
                 if (LOG.isDebugEnabled()) {
-                    LOG.debug("Running shutdown hook (-> "
-                            + logFile.getAbsolutePath() + ").");
+                    LOG.debug("Running shutdown hook.");
                 }
 
                 try {
                     StatisticsFileSystem.this.close(true);
                 } catch (IOException e) {
-                    LOG.error(
-                            "Could not close file system (-> "
-                                    + logFile.getAbsolutePath() + ").", e);
+                    LOG.error("Could not close file system.", e);
                 }
             }
         });
@@ -275,13 +259,11 @@ public class StatisticsFileSystem extends FileSystem {
     private synchronized final void close(boolean fromShutdownHook)
             throws IOException {
         if (LOG.isDebugEnabled()) {
-            LOG.debug("Closing file system (-> " + logFile.getAbsolutePath()
-                    + ").");
+            LOG.debug("Closing file system.");
         }
 
         if (closed) {
-            LOG.warn("Ignoring attempt to re-close file system (-> "
-                    + logFile.getAbsolutePath() + ").");
+            LOG.warn("Ignoring attempt to re-close file system.");
             return;
         }
 
@@ -295,8 +277,7 @@ public class StatisticsFileSystem extends FileSystem {
         }
 
         if (LOG.isDebugEnabled()) {
-            LOG.debug("Closed file system (-> " + logFile.getAbsolutePath()
-                    + ").");
+            LOG.debug("Closed file system.");
         }
         closed = true;
     }

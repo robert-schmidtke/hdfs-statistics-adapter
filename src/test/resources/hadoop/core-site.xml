@@ -28,16 +28,4 @@
     <name>sfs.wrappedFS.scheme</name>
     <value>hdfs</value>
   </property>
-  <property>
-    <name>sfs.logFile.name</name>
-    <value>/tmp/sfs/async.log</value>
-  </property>
-  <property>
-    <name>sfs.logFile.deleteOnClose</name>
-    <value>true</value>
-  </property>
-  <property>
-    <name>sfs.targetLogFileDirectory</name>
-    <value>~/sfs</value>
-  </property>
 </configuration>
