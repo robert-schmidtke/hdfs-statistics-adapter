@@ -45,7 +45,9 @@ install:
   # the protobuf branch specified in gRPC (at least in v1.0.1) is not available anymore
   - cd third_party/protobuf && git checkout tags/v$PROTOBUF_VERSION && cd ../../
   - make -j2
-  - export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$GRPC_HOME/libs/opt"
+  
+  # make the built libraries available transparently
+  - export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$GRPC_HOME/libs/opt:$GRPC_HOME/third_party/protobuf/src/.libs"
   - cd $TRAVIS_BUILD_DIR
 
   # build the adapter
