@@ -121,6 +121,11 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
   jvmti_result = jvmti->SetNativeMethodPrefix(g_native_method_prefix.c_str());
   CHECK_JVMTI_RESULT("SetNativeMethodPrefix", jvmti_result);
 
+  // make all necessary classes known to this JVM (especially logging)
+  jvmti_result = jvmti->AddToBootstrapClassLoaderSearch(
+      cli_options.transformer_jar_path.c_str());
+  CHECK_JVMTI_RESULT("AddToBootstrapClassLoaderSearch", jvmti_result);
+
   // build the transformer JVM start command
   g_transformer_jvm_cmd = new char *[9];
   g_transformer_jvm_cmd[0] = strdup((java_home + "/bin/java").c_str());
