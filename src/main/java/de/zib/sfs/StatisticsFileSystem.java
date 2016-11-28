@@ -102,30 +102,39 @@ public class StatisticsFileSystem extends FileSystem {
         super.initialize(name, conf);
         setConf(conf);
 
-        // Obtain hostname, preferably via executing hostname
-        String hostname;
-        Process hostnameProcess = Runtime.getRuntime().exec("hostname");
-        try {
-            int exitCode = hostnameProcess.waitFor();
-            if (exitCode != 0) {
-                LOG.warn("'hostname' returned " + exitCode
-                        + ", using $HOSTNAME instead.");
-                hostname = System.getenv("HOSTNAME");
-            } else {
-                BufferedReader reader = new BufferedReader(
-                        new InputStreamReader(hostnameProcess.getInputStream()));
+        String hostname = System.getProperty("de.zib.sfs.hostname");
+        if (hostname == null) {
+            LOG.warn("'de.zib.sfs.hostname' not set, did the agent start properly?");
 
-                StringBuilder hostnameBuilder = new StringBuilder();
-                String line = "";
-                while ((line = reader.readLine()) != null) {
-                    hostnameBuilder.append(line);
+            // Obtain hostname, preferably via executing hostname
+            Process hostnameProcess = Runtime.getRuntime().exec("hostname");
+            try {
+                int exitCode = hostnameProcess.waitFor();
+                if (exitCode != 0) {
+                    LOG.warn("'hostname' returned " + exitCode
+                            + ", using $HOSTNAME instead.");
+                    hostname = System.getenv("HOSTNAME");
+                } else {
+                    BufferedReader reader = new BufferedReader(
+                            new InputStreamReader(
+                                    hostnameProcess.getInputStream()));
+
+                    StringBuilder hostnameBuilder = new StringBuilder();
+                    String line = "";
+                    while ((line = reader.readLine()) != null) {
+                        hostnameBuilder.append(line);
+                    }
+                    reader.close();
+                    hostname = hostnameBuilder.toString();
                 }
-                reader.close();
-                hostname = hostnameBuilder.toString();
+            } catch (InterruptedException e) {
+                LOG.warn(
+                        "Error executing 'hostname', using $HOSTNAME instead.",
+                        e);
+                hostname = System.getenv("HOSTNAME");
             }
-        } catch (InterruptedException e) {
-            LOG.warn("Error executing 'hostname', using $HOSTNAME instead.", e);
-            hostname = System.getenv("HOSTNAME");
+
+            System.setProperty("de.zib.sfs.hostname", hostname);
         }
 
         if (LOG.isDebugEnabled()) {
