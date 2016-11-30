@@ -58,8 +58,7 @@ public class ClassTransformationServer extends
             case "java/io/FileInputStream":
                 cr.accept(
                         new FileInputStreamAdapter(cw, request
-                                .getNativeMethodPrefix(), request
-                                .getIgnoreFileName()), 0);
+                                .getNativeMethodPrefix()), 0);
                 break;
             case "java/io/FileOutputStream":
                 // cr.accept(new FileOutputStreamAdapter(cw), 0);

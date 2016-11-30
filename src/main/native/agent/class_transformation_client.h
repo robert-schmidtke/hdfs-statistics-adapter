@@ -36,14 +36,12 @@ public:
                            std::function<unsigned char *(int)> allocator,
                            unsigned char **new_class_data,
                            int *new_class_data_len,
-                           const char *native_method_prefix,
-                           const char *ignore_file_name) {
+                           const char *native_method_prefix) {
     ClassTransformationRequest request;
     request.set_name(name);
     request.set_bytecode(std::string(reinterpret_cast<const char *>(class_data),
                                      class_data_len));
     request.set_native_method_prefix(native_method_prefix);
-    request.set_ignore_file_name(ignore_file_name);
     ClassTransformationResponse response;
     ClientContext context;
     Status status = stub_->ClassTransformation(&context, request, &response);

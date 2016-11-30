@@ -252,20 +252,17 @@ static void JNICALL ClassFileLoadHookCallback(
     java_io_FileInputStream_seen = true;
     g_class_transformation_client->ClassTransformation(
         name, class_data, class_data_len, allocator, new_class_data,
-        new_class_data_len, g_native_method_prefix.c_str(),
-        g_log_file_name.c_str());
+        new_class_data_len, g_native_method_prefix.c_str());
   } else if (strcmp(name, "java/io/FileOutputStream") == 0) {
     java_io_FileOutputStream_seen = true;
     g_class_transformation_client->ClassTransformation(
         name, class_data, class_data_len, allocator, new_class_data,
-        new_class_data_len, g_native_method_prefix.c_str(),
-        g_log_file_name.c_str());
+        new_class_data_len, g_native_method_prefix.c_str());
   } else if (strcmp(name, "sun/nio/ch/FileChannelImpl") == 0) {
     sun_nio_ch_FileChannelImpl_seen = true;
     g_class_transformation_client->ClassTransformation(
         name, class_data, class_data_len, allocator, new_class_data,
-        new_class_data_len, g_native_method_prefix.c_str(),
-        g_log_file_name.c_str());
+        new_class_data_len, g_native_method_prefix.c_str());
   } else {
     // don't set new_class_data_len or new_class_data to indicate no
     // modification is desired

@@ -16,7 +16,6 @@ message ClassTransformationRequest {
   string name = 1;
   bytes bytecode = 2;
   string native_method_prefix = 3;
-  string ignore_file_name = 4;
 }
 
 message ClassTransformationResponse {

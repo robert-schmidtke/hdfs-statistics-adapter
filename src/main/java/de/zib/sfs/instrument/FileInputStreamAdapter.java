@@ -11,11 +11,7 @@ import java.io.FileInputStream;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.objectweb.asm.ClassVisitor;
-import org.objectweb.asm.FieldVisitor;
-import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -30,8 +26,6 @@ public class FileInputStreamAdapter extends ClassVisitor {
 
     private final String nativeMethodPrefix;
 
-    private final String ignoreFileName;
-
     private final Map<String, String> methodDescriptors, methodSignatures;
     private final Map<String, String[]> methodExceptions;
 
@@ -44,17 +38,14 @@ public class FileInputStreamAdapter extends ClassVisitor {
      *            calls to which are not explicitly overridden here. Most likely
      *            a {@link org.objectweb.asm.ClassWriter}.
      * @param nativeMethodPrefix
-     * @param ignoreFileName
      * @throws SecurityException
      * @throws NoSuchMethodException
      */
-    public FileInputStreamAdapter(ClassVisitor cv, String nativeMethodPrefix,
-            String ignoreFileName) throws NoSuchMethodException,
-            SecurityException {
+    public FileInputStreamAdapter(ClassVisitor cv, String nativeMethodPrefix)
+            throws NoSuchMethodException, SecurityException {
         super(Opcodes.ASM5, cv);
 
         this.nativeMethodPrefix = nativeMethodPrefix;
-        this.ignoreFileName = ignoreFileName;
 
         methodDescriptors = new HashMap<String, String>();
         methodSignatures = new HashMap<String, String>();
@@ -93,10 +84,14 @@ public class FileInputStreamAdapter extends ClassVisitor {
 
     @Override
     public void visitEnd() {
-        // private Logger fsLogger;
-        FieldVisitor fsLoggerFV = cv.visitField(Opcodes.ACC_PRIVATE,
-                "fsLogger", Type.getDescriptor(Logger.class), null, null);
-        fsLoggerFV.visitEnd();
+        String fileInputStreamInternalName = Type
+                .getInternalName(FileInputStream.class);
+        String fileInputStreamCallbackInternalName = Type
+                .getInternalName(FileInputStreamCallback.class);
+        String fileInputStreamCallbackGetInstanceMethodDescriptor = Type
+                .getMethodDescriptor(
+                        Type.getType(FileInputStreamCallback.class),
+                        Type.getType(FileInputStream.class));
 
         // private void open(String name) {
         MethodVisitor openMV = cv.visitMethod(Opcodes.ACC_PRIVATE, "open",
@@ -104,40 +99,34 @@ public class FileInputStreamAdapter extends ClassVisitor {
                 methodExceptions.get("open"));
         openMV.visitCode();
 
-        // if (!ignoreFileName.equals(name)) {
-        openMV.visitLdcInsn(ignoreFileName);
+        // FileInputStreamCallback.getInstance(this).onOpenBegin(name);
+        openMV.visitVarInsn(Opcodes.ALOAD, 0);
+        openMV.visitMethodInsn(Opcodes.INVOKESTATIC,
+                fileInputStreamCallbackInternalName, "getInstance",
+                fileInputStreamCallbackGetInstanceMethodDescriptor, false);
         openMV.visitVarInsn(Opcodes.ALOAD, 1);
         openMV.visitMethodInsn(
                 Opcodes.INVOKEVIRTUAL,
-                Type.getInternalName(String.class),
-                "equals",
-                Type.getMethodDescriptor(Type.BOOLEAN_TYPE,
-                        Type.getType(Object.class)), false);
-        Label ignoreFileNameEqualsName = new Label();
-        openMV.visitJumpInsn(Opcodes.IFNE, ignoreFileNameEqualsName);
-
-        // fsLogger = LogManager.getLogger("de.zib.sfs.AsyncLogger");
-        openMV.visitVarInsn(Opcodes.ALOAD, 0);
-        openMV.visitLdcInsn("de.zib.sfs.AsyncLogger");
-        openMV.visitMethodInsn(
-                Opcodes.INVOKESTATIC,
-                Type.getInternalName(LogManager.class),
-                "getLogger",
-                Type.getMethodDescriptor(Type.getType(Logger.class),
+                fileInputStreamCallbackInternalName,
+                "onOpenBegin",
+                Type.getMethodDescriptor(Type.VOID_TYPE,
                         Type.getType(String.class)), false);
-        openMV.visitFieldInsn(Opcodes.PUTFIELD,
-                Type.getInternalName(FileInputStream.class), "fsLogger",
-                Type.getDescriptor(Logger.class));
-
-        // }
-        openMV.visitLabel(ignoreFileNameEqualsName);
 
         // nativeMethodPrefixopen(name);
         openMV.visitVarInsn(Opcodes.ALOAD, 0);
         openMV.visitVarInsn(Opcodes.ALOAD, 1);
         openMV.visitMethodInsn(Opcodes.INVOKESPECIAL,
-                Type.getInternalName(FileInputStream.class), nativeMethodPrefix
-                        + "open", methodDescriptors.get("open"), false);
+                fileInputStreamInternalName, nativeMethodPrefix + "open",
+                methodDescriptors.get("open"), false);
+
+        // FileInputStreamCallback.getInstance(this).onOpenEnd();
+        openMV.visitVarInsn(Opcodes.ALOAD, 0);
+        openMV.visitMethodInsn(Opcodes.INVOKESTATIC,
+                fileInputStreamCallbackInternalName, "getInstance",
+                fileInputStreamCallbackGetInstanceMethodDescriptor, false);
+        openMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+                fileInputStreamCallbackInternalName, "onOpenEnd",
+                Type.getMethodDescriptor(Type.VOID_TYPE), false);
 
         // }
         openMV.visitInsn(Opcodes.RETURN);
