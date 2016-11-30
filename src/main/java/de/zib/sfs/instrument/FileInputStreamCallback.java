@@ -31,30 +31,32 @@ public class FileInputStreamCallback {
     private FileInputStreamCallback(FileInputStream fis) {
         this.fis = fis;
         ignoreFileName = System.getProperty("de.zib.sfs.logFile.name");
+        System.out.println("Ignore file name: " + ignoreFileName);
     }
 
     public void onOpenBegin(String name) {
-        System.out.println(name + " : " + ignoreFileName);
+        System.out.println("{ open: " + name);
     }
 
     public void onOpenEnd() {
-        System.out.println(ignoreFileName);
+        System.out.println("} open");
     }
 
     public void onReadBegin() {
-
+        System.out.println("{ read");
     }
 
-    public void onReadEnd() {
-
+    public void onReadEnd(int readResult) {
+        System.out.println("} read: " + readResult);
     }
 
     public void onReadBytesBegin(byte[] b, int off, int len) {
-
+        System.out.println("{ readBytes: [" + b.length + "], " + off + ", "
+                + len);
     }
 
-    public void onReadBytesEnd() {
-
+    public void onReadBytesEnd(int readBytesResult) {
+        System.out.println("} readBytes: " + readBytesResult);
     }
 
 }

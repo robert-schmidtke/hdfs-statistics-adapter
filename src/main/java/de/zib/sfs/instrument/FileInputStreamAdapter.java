@@ -8,8 +8,8 @@
 package de.zib.sfs.instrument;
 
 import java.io.FileInputStream;
-import java.util.HashMap;
-import java.util.Map;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
@@ -26,9 +26,6 @@ public class FileInputStreamAdapter extends ClassVisitor {
 
     private final String nativeMethodPrefix;
 
-    private final Map<String, String> methodDescriptors, methodSignatures;
-    private final Map<String, String[]> methodExceptions;
-
     /**
      * Construct a visitor that modifies an {@link java.io.FileInputStream}'s
      * read calls. Delegate to {@code cv} by default.
@@ -44,41 +41,27 @@ public class FileInputStreamAdapter extends ClassVisitor {
     public FileInputStreamAdapter(ClassVisitor cv, String nativeMethodPrefix)
             throws NoSuchMethodException, SecurityException {
         super(Opcodes.ASM5, cv);
-
         this.nativeMethodPrefix = nativeMethodPrefix;
-
-        methodDescriptors = new HashMap<String, String>();
-        methodSignatures = new HashMap<String, String>();
-        methodExceptions = new HashMap<String, String[]>();
     }
 
     @Override
     public MethodVisitor visitMethod(int access, String name, String desc,
             String signature, String[] exceptions) {
+        // rename native methods so we can wrap them
         MethodVisitor mv;
-        if ("open".equals(name)) {
-            // rename native open method so we can wrap it
+        if (isOpenMethod(access, name, desc, signature, exceptions)) {
             mv = cv.visitMethod(access, nativeMethodPrefix + name, desc,
                     signature, exceptions);
-        } else if ("read".equals(name)) {
-            // TODO rename native read method so we can wrap it
-            // mv = cv.visitMethod(access, nativeMethodPrefix + name, desc,
-            // signature, exceptions);
-            mv = cv.visitMethod(access, name, desc, signature, exceptions);
-        } else if ("readBytes".equals(name)) {
-            // TODO rename native readBytes method so we can wrap it
-            // mv = cv.visitMethod(access, nativeMethodPrefix + name, desc,
-            // signature, exceptions);
-            mv = cv.visitMethod(access, name, desc, signature, exceptions);
+        } else if (isReadMethod(access, name, desc, signature, exceptions)) {
+            mv = cv.visitMethod(access, nativeMethodPrefix + name, desc,
+                    signature, exceptions);
+        } else if (isReadBytesMethod(access, name, desc, signature, exceptions)) {
+            mv = cv.visitMethod(access, nativeMethodPrefix + name, desc,
+                    signature, exceptions);
         } else {
+            // simply copy the old method
             mv = cv.visitMethod(access, name, desc, signature, exceptions);
         }
-
-        // remember method information for generating wrappers
-        methodDescriptors.put(name, desc);
-        methodSignatures.put(name, signature);
-        methodExceptions.put(name, exceptions);
-
         return mv;
     }
 
@@ -93,10 +76,17 @@ public class FileInputStreamAdapter extends ClassVisitor {
                         Type.getType(FileInputStreamCallback.class),
                         Type.getType(FileInputStream.class));
 
+        String openMethodDescriptor = Type.getMethodDescriptor(Type.VOID_TYPE,
+                Type.getType(String.class));
+        String readMethodDescriptor = Type.getMethodDescriptor(Type.INT_TYPE);
+        String readBytesMethodDescriptor = Type.getMethodDescriptor(
+                Type.INT_TYPE, Type.getType(byte[].class), Type.INT_TYPE,
+                Type.INT_TYPE);
+
         // private void open(String name) {
         MethodVisitor openMV = cv.visitMethod(Opcodes.ACC_PRIVATE, "open",
-                methodDescriptors.get("open"), methodSignatures.get("open"),
-                methodExceptions.get("open"));
+                openMethodDescriptor, null, new String[] { Type
+                        .getInternalName(FileNotFoundException.class) });
         openMV.visitCode();
 
         // FileInputStreamCallback.getInstance(this).onOpenBegin(name);
@@ -117,7 +107,7 @@ public class FileInputStreamAdapter extends ClassVisitor {
         openMV.visitVarInsn(Opcodes.ALOAD, 1);
         openMV.visitMethodInsn(Opcodes.INVOKESPECIAL,
                 fileInputStreamInternalName, nativeMethodPrefix + "open",
-                methodDescriptors.get("open"), false);
+                openMethodDescriptor, false);
 
         // FileInputStreamCallback.getInstance(this).onOpenEnd();
         openMV.visitVarInsn(Opcodes.ALOAD, 0);
@@ -133,8 +123,134 @@ public class FileInputStreamAdapter extends ClassVisitor {
         openMV.visitMaxs(0, 0);
         openMV.visitEnd();
 
-        cv.visitEnd();
+        // public int read() {
+        MethodVisitor readMV = cv.visitMethod(Opcodes.ACC_PUBLIC, "read",
+                readMethodDescriptor, null,
+                new String[] { Type.getInternalName(IOException.class) });
+        readMV.visitCode();
 
-        // TODO add wrapper methods for above renamed methods
+        // FileInputStreamCallback.getInstance(this).onReadBegin();
+        readMV.visitVarInsn(Opcodes.ALOAD, 0);
+        readMV.visitMethodInsn(Opcodes.INVOKESTATIC,
+                fileInputStreamCallbackInternalName, "getInstance",
+                fileInputStreamCallbackGetInstanceMethodDescriptor, false);
+        readMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+                fileInputStreamCallbackInternalName, "onReadBegin",
+                Type.getMethodDescriptor(Type.VOID_TYPE), false);
+
+        // int readResult = nativeMethodPrefixread();
+        readMV.visitVarInsn(Opcodes.ALOAD, 0);
+        readMV.visitMethodInsn(Opcodes.INVOKESPECIAL,
+                fileInputStreamInternalName, nativeMethodPrefix + "read",
+                readMethodDescriptor, false);
+        readMV.visitVarInsn(Opcodes.ISTORE, 1);
+
+        // FileInputStreamCallback.getInstance(this).onReadEnd(readResult);
+        readMV.visitVarInsn(Opcodes.ALOAD, 0);
+        readMV.visitMethodInsn(Opcodes.INVOKESTATIC,
+                fileInputStreamCallbackInternalName, "getInstance",
+                fileInputStreamCallbackGetInstanceMethodDescriptor, false);
+        readMV.visitVarInsn(Opcodes.ILOAD, 1);
+        readMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+                fileInputStreamCallbackInternalName, "onReadEnd",
+                Type.getMethodDescriptor(Type.VOID_TYPE, Type.INT_TYPE), false);
+
+        // return readResult;
+        // }
+        readMV.visitVarInsn(Opcodes.ILOAD, 1);
+        readMV.visitInsn(Opcodes.IRETURN);
+        readMV.visitMaxs(0, 0);
+        readMV.visitEnd();
+
+        // private int readBytes(byte[] b, int off, int len) {
+        MethodVisitor readBytesMV = cv.visitMethod(Opcodes.ACC_PRIVATE,
+                "readBytes", readBytesMethodDescriptor, null,
+                new String[] { Type.getInternalName(IOException.class) });
+        readBytesMV.visitCode();
+
+        // FileInputStreamCallback.getInstance(this).onReadBytesBegin(b, off,
+        // len);
+        readBytesMV.visitVarInsn(Opcodes.ALOAD, 0);
+        readBytesMV.visitMethodInsn(Opcodes.INVOKESTATIC,
+                fileInputStreamCallbackInternalName, "getInstance",
+                fileInputStreamCallbackGetInstanceMethodDescriptor, false);
+        readBytesMV.visitVarInsn(Opcodes.ALOAD, 1);
+        readBytesMV.visitVarInsn(Opcodes.ILOAD, 2);
+        readBytesMV.visitVarInsn(Opcodes.ILOAD, 3);
+        readBytesMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+                fileInputStreamCallbackInternalName, "onReadBytesBegin", Type
+                        .getMethodDescriptor(Type.VOID_TYPE,
+                                Type.getType(byte[].class), Type.INT_TYPE,
+                                Type.INT_TYPE), false);
+
+        // int readBytesResult = nativeMethodPrefixreadBytes(b, off, len);
+        readBytesMV.visitVarInsn(Opcodes.ALOAD, 0);
+        readBytesMV.visitVarInsn(Opcodes.ALOAD, 1);
+        readBytesMV.visitVarInsn(Opcodes.ILOAD, 2);
+        readBytesMV.visitVarInsn(Opcodes.ILOAD, 3);
+        readBytesMV.visitMethodInsn(Opcodes.INVOKESPECIAL,
+                fileInputStreamInternalName, nativeMethodPrefix + "readBytes",
+                readBytesMethodDescriptor, false);
+        readBytesMV.visitVarInsn(Opcodes.ISTORE, 4);
+
+        // FileInputStreamCallback.getInstance(this).onReadBytesEnd(readBytesResult);
+        readBytesMV.visitVarInsn(Opcodes.ALOAD, 0);
+        readBytesMV.visitMethodInsn(Opcodes.INVOKESTATIC,
+                fileInputStreamCallbackInternalName, "getInstance",
+                fileInputStreamCallbackGetInstanceMethodDescriptor, false);
+        readBytesMV.visitVarInsn(Opcodes.ILOAD, 4);
+        readBytesMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+                fileInputStreamCallbackInternalName, "onReadBytesEnd",
+                Type.getMethodDescriptor(Type.VOID_TYPE, Type.INT_TYPE), false);
+
+        // return readBytesResult;
+        // }
+        readBytesMV.visitVarInsn(Opcodes.ILOAD, 4);
+        readBytesMV.visitInsn(Opcodes.IRETURN);
+        readBytesMV.visitMaxs(0, 0);
+        readBytesMV.visitEnd();
+
+        cv.visitEnd();
+    }
+
+    // Helper methods
+
+    private boolean isOpenMethod(int access, String name, String desc,
+            String signature, String[] exceptions) {
+        return access == Opcodes.ACC_PRIVATE
+                && "open".equals(name)
+                && Type.getMethodDescriptor(Type.VOID_TYPE,
+                        Type.getType(String.class)).equals(desc)
+                && null == signature
+                && exceptions != null
+                && exceptions.length == 1
+                && Type.getInternalName(FileNotFoundException.class).equals(
+                        exceptions[0]);
+    }
+
+    private boolean isReadMethod(int access, String name, String desc,
+            String signature, String[] exceptions) {
+        return access == Opcodes.ACC_PUBLIC
+                && "read".equals(name)
+                && Type.getMethodDescriptor(Type.INT_TYPE).equals(desc)
+                && null == signature
+                && exceptions != null
+                && exceptions.length == 1
+                && Type.getInternalName(IOException.class)
+                        .equals(exceptions[0]);
+    }
+
+    private boolean isReadBytesMethod(int access, String name, String desc,
+            String signature, String[] exceptions) {
+        return access == (Opcodes.ACC_PRIVATE | Opcodes.ACC_NATIVE)
+                && "readBytes".equals(name)
+                && Type.getMethodDescriptor(Type.INT_TYPE,
+                        Type.getType(byte[].class), Type.INT_TYPE,
+                        Type.INT_TYPE).equals(desc)
+                && null == signature
+                && exceptions != null
+                && exceptions.length == 1
+                && Type.getInternalName(IOException.class)
+                        .equals(exceptions[0]);
     }
 }
