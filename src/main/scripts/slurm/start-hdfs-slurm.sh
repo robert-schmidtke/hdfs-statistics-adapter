@@ -8,6 +8,7 @@ usage() {
   echo "  -o|--cores <total number of cores to be used on each node> (default: 16)"
   echo "  -i|--io-buffer <size of the IO buffer in bytes> (default: 1048576)"
   echo "  -h|--hadoop-opts the HADOOP_OPTS to set (default: not specified)"
+  echo "  -y|--yarn-opts the YARN_OPTS to set (default: not specified)"
   echo "  -l|--ld-library-path the LD_LIBRARY_PATH to set (default: not specified)"
   echo "  -c|--colocate-datanode-with-namenode (default: not specified/false)"
   echo "SFS specific options (default: not specified/do not use SFS):"
@@ -52,6 +53,10 @@ while [[ $# -gt 1 ]]; do
       HADOOP_OPTS="$2"
       shift
       ;;
+    -y|--yarn-opts)
+      YARN_OPTS="$2"
+      shift
+      ;;
     -l|--ld-library-path)
       LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$2"
       shift
@@ -82,6 +87,9 @@ MEMORY=${MEMORY:-61440}
 CORES=${CORES:-16}
 IO_BUFFER=${IO_BUFFER:-1048576}
 SFS_LOGFILENAME=${SFS_LOGFILENAME:-/tmp/sfs.log}
+
+export HADOOP_OPTS
+export YARN_OPTS
 export LD_LIBRARY_PATH
 
 # set up the environment variables
@@ -392,7 +400,7 @@ nodemanager_script=$(dirname $0)/${SLURM_JOB_ID}-${datanode}-start-nodemanager.s
 #!/bin/bash
 
 # same as for resource manager
-export HADOOP_OPTS=$HADOOP_OPTS
+export YARN_OPTS=$YARN_OPTS
 export LD_LIBRARY_PATH="\$LD_LIBRARY_PATH:$LD_LIBRARY_PATH"
 export YARN_USER_CLASSPATH="$YARN_USER_CLASSPATH:$HADOOP_CONF_DIR/$datanode"
 export YARN_NODEMANAGER_LOG=/local/$HDFS_LOCAL_LOG_DIR/nodemanager-$datanode.log
