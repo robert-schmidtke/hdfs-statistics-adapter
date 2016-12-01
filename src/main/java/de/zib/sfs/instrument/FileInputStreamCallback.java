@@ -11,11 +11,14 @@ import java.io.FileInputStream;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 public class FileInputStreamCallback {
 
     private final FileInputStream fis;
 
-    private final String ignoreFileName;
+    private Logger logger;
 
     private static final Map<FileInputStream, FileInputStreamCallback> instances = new HashMap<>();
 
@@ -30,33 +33,81 @@ public class FileInputStreamCallback {
 
     private FileInputStreamCallback(FileInputStream fis) {
         this.fis = fis;
-        ignoreFileName = System.getProperty("de.zib.sfs.logFile.name");
-        System.out.println("Ignore file name: " + ignoreFileName);
+        logger = null;
     }
 
-    public void onOpenBegin(String name) {
-        System.out.println("{ open: " + name);
+    public long onOpenBegin(String name) {
+        // don't monitor access to libraries and configurations in the JVM's
+        // home
+        if (name.startsWith(System.getProperty("java.home"))) {
+            return -1L;
+        }
+
+        // check if log4j providers can be loaded already
+        boolean hasProviders;
+        try {
+            ClassLoader classLoader = ClassLoader.getSystemClassLoader();
+            if (classLoader != null) {
+                hasProviders = classLoader.getResources(
+                        "META-INF/log4j-provider.properties").hasMoreElements();
+            } else {
+                hasProviders = false;
+            }
+        } catch (Exception e) {
+            hasProviders = false;
+        }
+
+        // we're too early in the JVM startup, don't initialize log4j yet
+        if (!hasProviders) {
+            return -1L;
+        }
+
+        // only log access to files that are not our own log file
+        if (!name.equals(System.getProperty("de.zib.sfs.logFile.name"))) {
+            logger = LogManager.getLogger("de.zib.sfs.AsyncLogger");
+            return System.currentTimeMillis();
+        } else {
+            return -1L;
+        }
     }
 
-    public void onOpenEnd() {
-        System.out.println("} open");
+    public void onOpenEnd(long startTime, String name) {
+        if (logger != null) {
+            logger.info("{}:{}.open({}):void", System.currentTimeMillis()
+                    - startTime, this, name);
+        }
     }
 
-    public void onReadBegin() {
-        System.out.println("{ read");
+    public long onReadBegin() {
+        if (logger != null) {
+            return System.currentTimeMillis();
+        } else {
+            return -1L;
+        }
     }
 
-    public void onReadEnd(int readResult) {
-        System.out.println("} read: " + readResult);
+    public void onReadEnd(long startTime, int readResult) {
+        if (logger != null) {
+            logger.info("{}:{}.read():{}->{}", System.currentTimeMillis()
+                    - startTime, this, readResult, "localhost");
+        }
     }
 
-    public void onReadBytesBegin(byte[] b, int off, int len) {
-        System.out.println("{ readBytes: [" + b.length + "], " + off + ", "
-                + len);
+    public long onReadBytesBegin(byte[] b, int off, int len) {
+        if (logger != null) {
+            return System.currentTimeMillis();
+        } else {
+            return -1L;
+        }
     }
 
-    public void onReadBytesEnd(int readBytesResult) {
-        System.out.println("} readBytes: " + readBytesResult);
+    public void onReadBytesEnd(long startTime, int readBytesResult, byte[] b,
+            int off, int len) {
+        if (logger != null) {
+            logger.info("{}:{}.readBytes([{}],{},{}):{}->{}",
+                    System.currentTimeMillis() - startTime, this, b.length,
+                    off, len, readBytesResult, "localhost");
+        }
     }
 
 }

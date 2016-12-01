@@ -89,6 +89,7 @@ public class FileInputStreamAdapter extends ClassVisitor {
                         .getInternalName(FileNotFoundException.class) });
         openMV.visitCode();
 
+        // long startTime =
         // FileInputStreamCallback.getInstance(this).onOpenBegin(name);
         openMV.visitVarInsn(Opcodes.ALOAD, 0);
         openMV.visitMethodInsn(Opcodes.INVOKESTATIC,
@@ -99,8 +100,9 @@ public class FileInputStreamAdapter extends ClassVisitor {
                 Opcodes.INVOKEVIRTUAL,
                 fileInputStreamCallbackInternalName,
                 "onOpenBegin",
-                Type.getMethodDescriptor(Type.VOID_TYPE,
+                Type.getMethodDescriptor(Type.LONG_TYPE,
                         Type.getType(String.class)), false);
+        openMV.visitVarInsn(Opcodes.LSTORE, 2);
 
         // nativeMethodPrefixopen(name);
         openMV.visitVarInsn(Opcodes.ALOAD, 0);
@@ -109,14 +111,19 @@ public class FileInputStreamAdapter extends ClassVisitor {
                 fileInputStreamInternalName, nativeMethodPrefix + "open",
                 openMethodDescriptor, false);
 
-        // FileInputStreamCallback.getInstance(this).onOpenEnd();
+        // FileInputStreamCallback.getInstance(this).onOpenEnd(startTime, name);
         openMV.visitVarInsn(Opcodes.ALOAD, 0);
         openMV.visitMethodInsn(Opcodes.INVOKESTATIC,
                 fileInputStreamCallbackInternalName, "getInstance",
                 fileInputStreamCallbackGetInstanceMethodDescriptor, false);
-        openMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
-                fileInputStreamCallbackInternalName, "onOpenEnd",
-                Type.getMethodDescriptor(Type.VOID_TYPE), false);
+        openMV.visitVarInsn(Opcodes.LLOAD, 2);
+        openMV.visitVarInsn(Opcodes.ALOAD, 1);
+        openMV.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL,
+                fileInputStreamCallbackInternalName,
+                "onOpenEnd",
+                Type.getMethodDescriptor(Type.VOID_TYPE, Type.LONG_TYPE,
+                        Type.getType(String.class)), false);
 
         // }
         openMV.visitInsn(Opcodes.RETURN);
@@ -129,6 +136,7 @@ public class FileInputStreamAdapter extends ClassVisitor {
                 new String[] { Type.getInternalName(IOException.class) });
         readMV.visitCode();
 
+        // long startTime =
         // FileInputStreamCallback.getInstance(this).onReadBegin();
         readMV.visitVarInsn(Opcodes.ALOAD, 0);
         readMV.visitMethodInsn(Opcodes.INVOKESTATIC,
@@ -136,28 +144,32 @@ public class FileInputStreamAdapter extends ClassVisitor {
                 fileInputStreamCallbackGetInstanceMethodDescriptor, false);
         readMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
                 fileInputStreamCallbackInternalName, "onReadBegin",
-                Type.getMethodDescriptor(Type.VOID_TYPE), false);
+                Type.getMethodDescriptor(Type.LONG_TYPE), false);
+        readMV.visitVarInsn(Opcodes.LSTORE, 1);
 
         // int readResult = nativeMethodPrefixread();
         readMV.visitVarInsn(Opcodes.ALOAD, 0);
         readMV.visitMethodInsn(Opcodes.INVOKESPECIAL,
                 fileInputStreamInternalName, nativeMethodPrefix + "read",
                 readMethodDescriptor, false);
-        readMV.visitVarInsn(Opcodes.ISTORE, 1);
+        readMV.visitVarInsn(Opcodes.ISTORE, 3);
 
-        // FileInputStreamCallback.getInstance(this).onReadEnd(readResult);
+        // FileInputStreamCallback.getInstance(this).onReadEnd(startTime,
+        // readResult);
         readMV.visitVarInsn(Opcodes.ALOAD, 0);
         readMV.visitMethodInsn(Opcodes.INVOKESTATIC,
                 fileInputStreamCallbackInternalName, "getInstance",
                 fileInputStreamCallbackGetInstanceMethodDescriptor, false);
-        readMV.visitVarInsn(Opcodes.ILOAD, 1);
+        readMV.visitVarInsn(Opcodes.LLOAD, 1);
+        readMV.visitVarInsn(Opcodes.ILOAD, 3);
         readMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
-                fileInputStreamCallbackInternalName, "onReadEnd",
-                Type.getMethodDescriptor(Type.VOID_TYPE, Type.INT_TYPE), false);
+                fileInputStreamCallbackInternalName, "onReadEnd", Type
+                        .getMethodDescriptor(Type.VOID_TYPE, Type.LONG_TYPE,
+                                Type.INT_TYPE), false);
 
         // return readResult;
         // }
-        readMV.visitVarInsn(Opcodes.ILOAD, 1);
+        readMV.visitVarInsn(Opcodes.ILOAD, 3);
         readMV.visitInsn(Opcodes.IRETURN);
         readMV.visitMaxs(0, 0);
         readMV.visitEnd();
@@ -168,6 +180,7 @@ public class FileInputStreamAdapter extends ClassVisitor {
                 new String[] { Type.getInternalName(IOException.class) });
         readBytesMV.visitCode();
 
+        // long startTime =
         // FileInputStreamCallback.getInstance(this).onReadBytesBegin(b, off,
         // len);
         readBytesMV.visitVarInsn(Opcodes.ALOAD, 0);
@@ -179,9 +192,10 @@ public class FileInputStreamAdapter extends ClassVisitor {
         readBytesMV.visitVarInsn(Opcodes.ILOAD, 3);
         readBytesMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
                 fileInputStreamCallbackInternalName, "onReadBytesBegin", Type
-                        .getMethodDescriptor(Type.VOID_TYPE,
+                        .getMethodDescriptor(Type.LONG_TYPE,
                                 Type.getType(byte[].class), Type.INT_TYPE,
                                 Type.INT_TYPE), false);
+        readBytesMV.visitVarInsn(Opcodes.LSTORE, 4);
 
         // int readBytesResult = nativeMethodPrefixreadBytes(b, off, len);
         readBytesMV.visitVarInsn(Opcodes.ALOAD, 0);
@@ -191,21 +205,28 @@ public class FileInputStreamAdapter extends ClassVisitor {
         readBytesMV.visitMethodInsn(Opcodes.INVOKESPECIAL,
                 fileInputStreamInternalName, nativeMethodPrefix + "readBytes",
                 readBytesMethodDescriptor, false);
-        readBytesMV.visitVarInsn(Opcodes.ISTORE, 4);
+        readBytesMV.visitVarInsn(Opcodes.ISTORE, 6);
 
-        // FileInputStreamCallback.getInstance(this).onReadBytesEnd(readBytesResult);
+        // FileInputStreamCallback.getInstance(this).onReadBytesEnd(startTime,
+        // readBytesResult, b, off, len);
         readBytesMV.visitVarInsn(Opcodes.ALOAD, 0);
         readBytesMV.visitMethodInsn(Opcodes.INVOKESTATIC,
                 fileInputStreamCallbackInternalName, "getInstance",
                 fileInputStreamCallbackGetInstanceMethodDescriptor, false);
-        readBytesMV.visitVarInsn(Opcodes.ILOAD, 4);
+        readBytesMV.visitVarInsn(Opcodes.LLOAD, 4);
+        readBytesMV.visitVarInsn(Opcodes.ILOAD, 6);
+        readBytesMV.visitVarInsn(Opcodes.ALOAD, 1);
+        readBytesMV.visitVarInsn(Opcodes.ILOAD, 2);
+        readBytesMV.visitVarInsn(Opcodes.ILOAD, 3);
         readBytesMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
-                fileInputStreamCallbackInternalName, "onReadBytesEnd",
-                Type.getMethodDescriptor(Type.VOID_TYPE, Type.INT_TYPE), false);
+                fileInputStreamCallbackInternalName, "onReadBytesEnd", Type
+                        .getMethodDescriptor(Type.VOID_TYPE, Type.LONG_TYPE,
+                                Type.INT_TYPE, Type.getType(byte[].class),
+                                Type.INT_TYPE, Type.INT_TYPE), false);
 
         // return readBytesResult;
         // }
-        readBytesMV.visitVarInsn(Opcodes.ILOAD, 4);
+        readBytesMV.visitVarInsn(Opcodes.ILOAD, 6);
         readBytesMV.visitInsn(Opcodes.IRETURN);
         readBytesMV.visitMaxs(0, 0);
         readBytesMV.visitEnd();
@@ -217,6 +238,8 @@ public class FileInputStreamAdapter extends ClassVisitor {
 
     private boolean isOpenMethod(int access, String name, String desc,
             String signature, String[] exceptions) {
+        // wrap the generated accessor method and not the native open0 method
+        // itself
         return access == Opcodes.ACC_PRIVATE
                 && "open".equals(name)
                 && Type.getMethodDescriptor(Type.VOID_TYPE,
@@ -230,6 +253,8 @@ public class FileInputStreamAdapter extends ClassVisitor {
 
     private boolean isReadMethod(int access, String name, String desc,
             String signature, String[] exceptions) {
+        // wrap the generated accessor method and not the native read0 method
+        // itself
         return access == Opcodes.ACC_PUBLIC
                 && "read".equals(name)
                 && Type.getMethodDescriptor(Type.INT_TYPE).equals(desc)
@@ -242,6 +267,8 @@ public class FileInputStreamAdapter extends ClassVisitor {
 
     private boolean isReadBytesMethod(int access, String name, String desc,
             String signature, String[] exceptions) {
+        // wrap the native method itself, because readBytes has no accessor
+        // method and there is no native readBytes0 method
         return access == (Opcodes.ACC_PRIVATE | Opcodes.ACC_NATIVE)
                 && "readBytes".equals(name)
                 && Type.getMethodDescriptor(Type.INT_TYPE,

@@ -7,11 +7,12 @@ usage() {
   echo "  -m|--memory <total memory to be used on each node in megabytes> (default: 61440)"
   echo "  -o|--cores <total number of cores to be used on each node> (default: 16)"
   echo "  -i|--io-buffer <size of the IO buffer in bytes> (default: 1048576)"
+  echo "  -h|--hadoop-opts the HADOOP_OPTS to set (default: not specified)"
   echo "  -c|--colocate-datanode-with-namenode (default: not specified/false)"
   echo "SFS specific options (default: not specified/do not use SFS):"
   echo "     --sfs-wrapped-fs <wrapped file system class name> (default: not specified; enables SFS if specified)"
   echo "     --sfs-wrapped-scheme <scheme of the wrapped file system> (default: not specified)"
-  echo "     --sfs-logfilename <node-local path to a log file> (default: /tmp/sfs/async.log)"
+  echo "     --sfs-logfilename <node-local path to a log file> (default: /tmp/sfs.log)"
 }
 
 if [ -z $SLURM_JOB_ID ]; then
@@ -46,6 +47,10 @@ while [[ $# -gt 1 ]]; do
     -c|--colocate-datanode-with-namenode)
       COLOCATE_DATANODE_WITH_NAMENODE="true"
       ;;
+    -h|--hadoop-opts)
+      HADOOP_OPTS="$2"
+      shift
+      ;;
     --sfs-wrapped-fs)
       SFS_WRAPPED_FS="$2"
       shift
@@ -71,7 +76,7 @@ REPLICATION=${REPLICATION:-1}
 MEMORY=${MEMORY:-61440}
 CORES=${CORES:-16}
 IO_BUFFER=${IO_BUFFER:-1048576}
-SFS_LOGFILENAME=${SFS_LOGFILENAME:-/tmp/sfs/async.log}
+SFS_LOGFILENAME=${SFS_LOGFILENAME:-/tmp/sfs.log}
 
 # set up the environment variables
 export HADOOP_PREFIX="$(pwd $(dirname $0))/.."
@@ -346,6 +351,7 @@ mkdir -p /local/$HDFS_LOCAL_DIR
 mkdir -p /local/${HDFS_LOCAL_DIR}/tmp
 mkdir -p /local/$HDFS_LOCAL_LOG_DIR
 
+export HADOOP_OPTS=$HADOOP_OPTS
 export HADOOP_USER_CLASSPATH_FIRST="YES"
 export HADOOP_CLASSPATH="$HADOOP_CONF_DIR/$datanode:$HADOOP_CLASSPATH"
 export HDFS_DATANODE_LOG=/local/$HDFS_LOCAL_LOG_DIR/datanode-$datanode.log
@@ -379,6 +385,7 @@ nodemanager_script=$(dirname $0)/${SLURM_JOB_ID}-${datanode}-start-nodemanager.s
 #!/bin/bash
 
 # same as for resource manager
+export HADOOP_OPTS=$HADOOP_OPTS
 export YARN_USER_CLASSPATH="$YARN_USER_CLASSPATH:$HADOOP_CONF_DIR/$datanode"
 export YARN_NODEMANAGER_LOG=/local/$HDFS_LOCAL_LOG_DIR/nodemanager-$datanode.log
 #export JSTAT_LOG=/local/$HDFS_LOCAL_LOG_DIR/nodemanager-jstat-$datanode.log

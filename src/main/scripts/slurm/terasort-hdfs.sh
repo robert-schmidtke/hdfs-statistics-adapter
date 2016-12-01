@@ -89,10 +89,12 @@ cp ./start-hdfs-slurm.sh $HADOOP_HOME/sbin
 
 # 256M block size, replication factor of 1, 60G total node memory for YARN, put first datanode on namenode host
 SRUN_STANDARD_OPTS="--nodelist=$MASTER --nodes=1-1 --chdir=$HADOOP_HOME/sbin"
-HDFS_STANDARD_OPTS="--blocksize 268435456 --replication 1 --memory 61440 --cores 16 --io-buffer 1048576 --colocate-datanode-with-namenode"
-SFS_STANDARD_OPTS="--sfs-logfilename /local/$USER/sfs/async.log --sfs-wrapped-scheme hdfs"
+HDFS_STANDARD_OPTS="--blocksize 268435456 --replication 1 --memory 61440 --cores 16 --io-buffer 1048576 --hadoop-opts -agentpath:$SFS_DIRECTORY/target/libsfs.so=trans_jar=$HADOOP_HOME/share/hadoop/common/hdfs-statistics-adapter.jar,comm_port_agent=4242,comm_port_trans=4243,log_file_name=/local/$USER/sfs.log --colocate-datanode-with-namenode"
+SFS_STANDARD_OPTS="--sfs-logfilename /local/$USER/sfs.log --sfs-wrapped-scheme hdfs"
 cp $SFS_DIRECTORY/target/hdfs-statistics-adapter.jar $FLINK_HOME/lib/hdfs-statistics-adapter.jar
 cp $SFS_DIRECTORY/target/hdfs-statistics-adapter.jar $HADOOP_HOME/share/hadoop/common/hdfs-statistics-adapter.jar
+
+export HADOOP_OPTS="-agentpath:$SFS_DIRECTORY/target/libsfs.so=trans_jar=$HADOOP_HOME/share/hadoop/common/hdfs-statistics-adapter.jar,comm_port_agent=4242,comm_port_trans=4243,log_file_name=/local/$USER/sfs.log"
 
 if [ "$ENGINE" == "flink" ]; then
   srun $SRUN_STANDARD_OPTS ./start-hdfs-slurm.sh $HDFS_STANDARD_OPTS $SFS_STANDARD_OPTS \
@@ -125,7 +127,7 @@ echo "$(date): Configuring Flink done"
 rm -rf $FLINK_HOME/log/*
 rm -rf $HADOOP_HOME/log-*
 rm -rf $HADOOP_HOME/logs/*
-srun rm -rf /local/$USER/sfs
+srun rm -rf /local/$USER/sfs*
 rm -rf $SFS_TARGET_DIRECTORY/*
 
 echo "$(date): Generating TeraSort data on HDFS"
@@ -158,8 +160,8 @@ fi
 echo "$(date): Copying logs"
 cat > copy-logs.sh << EOF
 #!/bin/bash
-cd /local/$USER/sfs
-for file in \$(ls async.log*); do
+cd /local/$USER
+for file in \$(ls sfs.log*); do
   cp \$file $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname)-\$file
 done
 EOF

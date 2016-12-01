@@ -125,6 +125,9 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
   jvmti_result = jvmti->AddToBootstrapClassLoaderSearch(
       cli_options.transformer_jar_path.c_str());
   CHECK_JVMTI_RESULT("AddToBootstrapClassLoaderSearch", jvmti_result);
+  jvmti_result = jvmti->AddToSystemClassLoaderSearch(
+      cli_options.transformer_jar_path.c_str());
+  CHECK_JVMTI_RESULT("AddToSystemClassLoaderSearch", jvmti_result);
 
   // build the transformer JVM start command
   g_transformer_jvm_cmd = new char *[9];
