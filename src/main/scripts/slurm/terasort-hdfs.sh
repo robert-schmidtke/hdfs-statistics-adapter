@@ -94,8 +94,6 @@ SFS_STANDARD_OPTS="--sfs-logfilename /local/$USER/sfs.log --sfs-wrapped-scheme h
 cp $SFS_DIRECTORY/target/hdfs-statistics-adapter.jar $FLINK_HOME/lib/hdfs-statistics-adapter.jar
 cp $SFS_DIRECTORY/target/hdfs-statistics-adapter.jar $HADOOP_HOME/share/hadoop/common/hdfs-statistics-adapter.jar
 
-export HADOOP_OPTS="-agentpath:$SFS_DIRECTORY/target/libsfs.so=trans_jar=$HADOOP_HOME/share/hadoop/common/hdfs-statistics-adapter.jar,comm_port_agent=4242,comm_port_trans=4243,log_file_name=/local/$USER/sfs.log"
-
 if [ "$ENGINE" == "flink" ]; then
   srun $SRUN_STANDARD_OPTS ./start-hdfs-slurm.sh $HDFS_STANDARD_OPTS $SFS_STANDARD_OPTS \
     --sfs-wrapped-fs "org.apache.flink.runtime.fs.hdfs.HadoopFileSystem"
