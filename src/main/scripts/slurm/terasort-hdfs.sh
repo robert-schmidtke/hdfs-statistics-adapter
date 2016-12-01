@@ -64,6 +64,8 @@ export HADOOP_CONF_DIR=$HADOOP_HOME/etc/hadoop
 export HDFS_LOCAL_DIR=$USER/hdfs
 export HDFS_LOCAL_LOG_DIR=$HDFS_LOCAL_DIR/log
 
+export GRPC_HOME=/scratch/$USER/grpc
+
 export SFS_DIRECTORY=/scratch/$USER/hdfs-statistics-adapter
 export SFS_TARGET_DIRECTORY=/scratch/$USER/statistics-fs/logs
 
@@ -90,7 +92,9 @@ cp ./start-hdfs-slurm.sh $HADOOP_HOME/sbin
 
 # 256M block size, replication factor of 1, 60G total node memory for YARN, put first datanode on namenode host
 SRUN_STANDARD_OPTS="--nodelist=$MASTER --nodes=1-1 --chdir=$HADOOP_HOME/sbin"
-HDFS_STANDARD_OPTS="--blocksize 268435456 --replication 1 --memory 61440 --cores 16 --io-buffer 1048576 --hadoop-opts -agentpath:$SFS_DIRECTORY/target/libsfs.so=trans_jar=$HADOOP_HOME/share/hadoop/common/hdfs-statistics-adapter.jar,comm_port_agent=4242,comm_port_trans=4243,log_file_name=/local/$USER/sfs.log --colocate-datanode-with-namenode"
+HDFS_STANDARD_OPTS="--blocksize 268435456 --replication 1 --memory 61440 --cores 16 --io-buffer 1048576 --hadoop-opts --colocate-datanode-with-namenode"
+HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS -agentpath:$SFS_DIRECTORY/target/libsfs.so=trans_jar=$HADOOP_HOME/share/hadoop/common/hdfs-statistics-adapter.jar,comm_port_agent=4242,comm_port_trans=4243,log_file_name=/local/$USER/sfs.log"
+HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --ld-library-path $GRPC_HOME/libs/opt:$GRPC_HOME/third_party/protobuf/src/.lib"
 SFS_STANDARD_OPTS="--sfs-logfilename /local/$USER/sfs.log --sfs-wrapped-scheme hdfs"
 cp $SFS_DIRECTORY/target/hdfs-statistics-adapter.jar $FLINK_HOME/lib/hdfs-statistics-adapter.jar
 cp $SFS_DIRECTORY/target/hdfs-statistics-adapter.jar $HADOOP_HOME/share/hadoop/common/hdfs-statistics-adapter.jar
