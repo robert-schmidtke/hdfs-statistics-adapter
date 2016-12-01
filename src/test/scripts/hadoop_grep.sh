@@ -5,6 +5,7 @@ rm -rf /tmp/hadoop*
 rm -rf /tmp/user/$USER
 
 # setup Hadoop and install the adapter
+echo localhost > $HADOOP_HOME/etc/hadoop/slaves
 cp src/test/resources/hadoop/core-site.xml $HADOOP_HOME/etc/hadoop
 cp src/test/resources/hadoop/hdfs-site.xml $HADOOP_HOME/etc/hadoop
 cp src/test/resources/hadoop/mapred-site.xml $HADOOP_HOME/etc/hadoop
