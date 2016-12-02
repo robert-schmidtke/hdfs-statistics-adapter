@@ -61,8 +61,9 @@ public class ClassTransformationServer extends
                                 .getNativeMethodPrefix()), 0);
                 break;
             case "java/io/FileOutputStream":
-                // cr.accept(new FileOutputStreamAdapter(cw), 0);
-                cr.accept(cw, 0);
+                cr.accept(
+                        new FileOutputStreamAdapter(cw, request
+                                .getNativeMethodPrefix()), 0);
                 break;
             case "sun/nio/ch/FileChannelImpl":
                 // cr.accept(new FileChannelImplAdapter(cw), 0);

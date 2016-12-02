@@ -47,15 +47,11 @@ public class FileInputStreamAdapter extends ClassVisitor {
     @Override
     public MethodVisitor visitMethod(int access, String name, String desc,
             String signature, String[] exceptions) {
-        // rename native methods so we can wrap them
         MethodVisitor mv;
-        if (isOpenMethod(access, name, desc, signature, exceptions)) {
-            mv = cv.visitMethod(access, nativeMethodPrefix + name, desc,
-                    signature, exceptions);
-        } else if (isReadMethod(access, name, desc, signature, exceptions)) {
-            mv = cv.visitMethod(access, nativeMethodPrefix + name, desc,
-                    signature, exceptions);
-        } else if (isReadBytesMethod(access, name, desc, signature, exceptions)) {
+        if (isOpenMethod(access, name, desc, signature, exceptions)
+                || isReadMethod(access, name, desc, signature, exceptions)
+                || isReadBytesMethod(access, name, desc, signature, exceptions)) {
+            // rename native methods so we can wrap them
             mv = cv.visitMethod(access, nativeMethodPrefix + name, desc,
                     signature, exceptions);
         } else {
@@ -67,6 +63,7 @@ public class FileInputStreamAdapter extends ClassVisitor {
 
     @Override
     public void visitEnd() {
+        // general descriptors needed to add methods to FileInputStream
         String fileInputStreamInternalName = Type
                 .getInternalName(FileInputStream.class);
         String fileInputStreamCallbackInternalName = Type
@@ -76,6 +73,7 @@ public class FileInputStreamAdapter extends ClassVisitor {
                         Type.getType(FileInputStreamCallback.class),
                         Type.getType(FileInputStream.class));
 
+        // descriptors of the methods we add to FileInputStream
         String openMethodDescriptor = Type.getMethodDescriptor(Type.VOID_TYPE,
                 Type.getType(String.class));
         String readMethodDescriptor = Type.getMethodDescriptor(Type.INT_TYPE);
