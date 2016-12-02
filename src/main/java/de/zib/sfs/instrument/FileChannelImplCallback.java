@@ -112,8 +112,8 @@ public class FileChannelImplCallback {
             int offset, int length) {
         if (logger != null) {
             logger.info("{}:{}.write([{}],{},{}):{}",
-                    System.currentTimeMillis() - startTime, fci, srcs, offset,
-                    length, writeResult);
+                    System.currentTimeMillis() - startTime, fci, srcs.length,
+                    offset, length, writeResult);
         }
     }
 

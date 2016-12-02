@@ -144,14 +144,14 @@ public class FileChannelImplAdapter extends ClassVisitor {
         readMVs[0].visitMaxs(0, 0);
         readMVs[0].visitEnd();
 
-        // public int read(ByteBuffer dst, int offset, int length) {
+        // public int read(ByteBuffer dsts, int offset, int length) {
         readMVs[1] = cv.visitMethod(Opcodes.ACC_PUBLIC, "read",
                 methodDescriptors[1], null,
                 new String[] { Type.getInternalName(IOException.class) });
         readMVs[1].visitCode();
 
         // long startTime =
-        // FileChannelImplCallback.getInstance(this, parent).onReadBegin(dst,
+        // FileChannelImplCallback.getInstance(this, parent).onReadBegin(dsts,
         // offset, length);
         readMVs[1].visitVarInsn(Opcodes.ALOAD, 0);
         readMVs[1].visitVarInsn(Opcodes.ALOAD, 0);
@@ -166,11 +166,12 @@ public class FileChannelImplAdapter extends ClassVisitor {
         readMVs[1].visitVarInsn(Opcodes.ILOAD, 3);
         readMVs[1].visitMethodInsn(Opcodes.INVOKEVIRTUAL,
                 fileChannelImplCallbackInternalName, "onReadBegin", Type
-                        .getMethodDescriptor(Type.LONG_TYPE, Type.INT_TYPE,
-                                Type.INT_TYPE), false);
+                        .getMethodDescriptor(Type.LONG_TYPE,
+                                Type.getType(ByteBuffer[].class),
+                                Type.INT_TYPE, Type.INT_TYPE), false);
         readMVs[1].visitVarInsn(Opcodes.LSTORE, 4);
 
-        // long readResult = methodPrefixread(dst, offset, length);
+        // long readResult = methodPrefixread(dsts, offset, length);
         readMVs[1].visitVarInsn(Opcodes.ALOAD, 0);
         readMVs[1].visitVarInsn(Opcodes.ALOAD, 1);
         readMVs[1].visitVarInsn(Opcodes.ILOAD, 2);
@@ -181,7 +182,7 @@ public class FileChannelImplAdapter extends ClassVisitor {
         readMVs[1].visitVarInsn(Opcodes.LSTORE, 6);
 
         // FileChannelImplCallback.getInstance(this,
-        // parent).onReadEnd(startTime, readResult, dst, offset, length);
+        // parent).onReadEnd(startTime, readResult, dsts, offset, length);
         readMVs[1].visitVarInsn(Opcodes.ALOAD, 0);
         readMVs[1].visitVarInsn(Opcodes.ALOAD, 0);
         readMVs[1].visitFieldInsn(Opcodes.GETFIELD,
@@ -198,7 +199,8 @@ public class FileChannelImplAdapter extends ClassVisitor {
         readMVs[1].visitMethodInsn(Opcodes.INVOKEVIRTUAL,
                 fileChannelImplCallbackInternalName, "onReadEnd", Type
                         .getMethodDescriptor(Type.VOID_TYPE, Type.LONG_TYPE,
-                                Type.LONG_TYPE, Type.getType(ByteBuffer.class),
+                                Type.LONG_TYPE,
+                                Type.getType(ByteBuffer[].class),
                                 Type.INT_TYPE, Type.INT_TYPE), false);
 
         // return readResult;
@@ -208,14 +210,14 @@ public class FileChannelImplAdapter extends ClassVisitor {
         readMVs[1].visitMaxs(0, 0);
         readMVs[1].visitEnd();
 
-        // public int write(ByteBuffer dst) {
+        // public int write(ByteBuffer src) {
         writeMVs[0] = cv.visitMethod(Opcodes.ACC_PUBLIC, "write",
                 methodDescriptors[0], null,
                 new String[] { Type.getInternalName(IOException.class) });
         writeMVs[0].visitCode();
 
         // long startTime =
-        // FileChannelImplCallback.getInstance(this, parent).onWriteBegin(dst);
+        // FileChannelImplCallback.getInstance(this, parent).onWriteBegin(src);
         writeMVs[0].visitVarInsn(Opcodes.ALOAD, 0);
         writeMVs[0].visitVarInsn(Opcodes.ALOAD, 0);
         writeMVs[0].visitFieldInsn(Opcodes.GETFIELD,
@@ -233,7 +235,7 @@ public class FileChannelImplAdapter extends ClassVisitor {
                         Type.getType(ByteBuffer.class)), false);
         writeMVs[0].visitVarInsn(Opcodes.LSTORE, 2);
 
-        // int writeResult = methodPrefixwrite(dst);
+        // int writeResult = methodPrefixwrite(src);
         writeMVs[0].visitVarInsn(Opcodes.ALOAD, 0);
         writeMVs[0].visitVarInsn(Opcodes.ALOAD, 1);
         writeMVs[0].visitMethodInsn(Opcodes.INVOKESPECIAL,
@@ -242,7 +244,7 @@ public class FileChannelImplAdapter extends ClassVisitor {
         writeMVs[0].visitVarInsn(Opcodes.ISTORE, 4);
 
         // FileChannelImplCallback.getInstance(this,
-        // parent).onWriteEnd(startTime, writeResult, dst);
+        // parent).onWriteEnd(startTime, writeResult, src);
         writeMVs[0].visitVarInsn(Opcodes.ALOAD, 0);
         writeMVs[0].visitVarInsn(Opcodes.ALOAD, 0);
         writeMVs[0].visitFieldInsn(Opcodes.GETFIELD,
@@ -267,14 +269,14 @@ public class FileChannelImplAdapter extends ClassVisitor {
         writeMVs[0].visitMaxs(0, 0);
         writeMVs[0].visitEnd();
 
-        // public int write(ByteBuffer dst, int offset, int length) {
+        // public int write(ByteBuffer srcs, int offset, int length) {
         writeMVs[1] = cv.visitMethod(Opcodes.ACC_PUBLIC, "write",
                 methodDescriptors[1], null,
                 new String[] { Type.getInternalName(IOException.class) });
         writeMVs[1].visitCode();
 
         // long startTime =
-        // FileChannelImplCallback.getInstance(this, parent).onWriteBegin(dst,
+        // FileChannelImplCallback.getInstance(this, parent).onWriteBegin(srcs,
         // offset, length);
         writeMVs[1].visitVarInsn(Opcodes.ALOAD, 0);
         writeMVs[1].visitVarInsn(Opcodes.ALOAD, 0);
@@ -289,11 +291,12 @@ public class FileChannelImplAdapter extends ClassVisitor {
         writeMVs[1].visitVarInsn(Opcodes.ILOAD, 3);
         writeMVs[1].visitMethodInsn(Opcodes.INVOKEVIRTUAL,
                 fileChannelImplCallbackInternalName, "onWriteBegin", Type
-                        .getMethodDescriptor(Type.LONG_TYPE, Type.INT_TYPE,
-                                Type.INT_TYPE), false);
+                        .getMethodDescriptor(Type.LONG_TYPE,
+                                Type.getType(ByteBuffer[].class),
+                                Type.INT_TYPE, Type.INT_TYPE), false);
         writeMVs[1].visitVarInsn(Opcodes.LSTORE, 4);
 
-        // long writeResult = methodPrefixwrite(dst, offset, length);
+        // long writeResult = methodPrefixwrite(srcs, offset, length);
         writeMVs[1].visitVarInsn(Opcodes.ALOAD, 0);
         writeMVs[1].visitVarInsn(Opcodes.ALOAD, 1);
         writeMVs[1].visitVarInsn(Opcodes.ILOAD, 2);
@@ -304,7 +307,7 @@ public class FileChannelImplAdapter extends ClassVisitor {
         writeMVs[1].visitVarInsn(Opcodes.LSTORE, 6);
 
         // FileChannelImplCallback.getInstance(this,
-        // parent).onWriteEnd(startTime, writeResult, dst, offset, length);
+        // parent).onWriteEnd(startTime, writeResult, srcs, offset, length);
         writeMVs[1].visitVarInsn(Opcodes.ALOAD, 0);
         writeMVs[1].visitVarInsn(Opcodes.ALOAD, 0);
         writeMVs[1].visitFieldInsn(Opcodes.GETFIELD,
@@ -321,7 +324,8 @@ public class FileChannelImplAdapter extends ClassVisitor {
         writeMVs[1].visitMethodInsn(Opcodes.INVOKEVIRTUAL,
                 fileChannelImplCallbackInternalName, "onWriteEnd", Type
                         .getMethodDescriptor(Type.VOID_TYPE, Type.LONG_TYPE,
-                                Type.LONG_TYPE, Type.getType(ByteBuffer.class),
+                                Type.LONG_TYPE,
+                                Type.getType(ByteBuffer[].class),
                                 Type.INT_TYPE, Type.INT_TYPE), false);
 
         // return writeResult;
