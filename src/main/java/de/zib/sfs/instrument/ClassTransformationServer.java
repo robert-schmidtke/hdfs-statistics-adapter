@@ -71,8 +71,9 @@ public class ClassTransformationServer extends
                                 .getNativeMethodPrefix()), 0);
                 break;
             case "sun/nio/ch/FileChannelImpl":
-                // cr.accept(new FileChannelImplAdapter(cw), 0);
-                cr.accept(cw, 0);
+                cr.accept(
+                        new FileChannelImplAdapter(cw, request
+                                .getNativeMethodPrefix()), 0);
                 break;
             default:
                 cr.accept(cw, 0);

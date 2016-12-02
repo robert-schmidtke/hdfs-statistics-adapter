@@ -36,6 +36,10 @@ public class FileInputStreamCallback {
         logger = null;
     }
 
+    public Logger getLogger() {
+        return logger;
+    }
+
     public long onOpenBegin(String name) {
         // don't monitor access to libraries and configurations in the JVM's
         // home
@@ -74,7 +78,7 @@ public class FileInputStreamCallback {
     public void onOpenEnd(long startTime, String name) {
         if (logger != null) {
             logger.info("{}:{}.open({}):void", System.currentTimeMillis()
-                    - startTime, this, name);
+                    - startTime, fis, name);
         }
     }
 
@@ -89,7 +93,7 @@ public class FileInputStreamCallback {
     public void onReadEnd(long startTime, int readResult) {
         if (logger != null) {
             logger.info("{}:{}.read():{}->{}", System.currentTimeMillis()
-                    - startTime, this, readResult, "localhost");
+                    - startTime, fis, readResult, "localhost");
         }
     }
 
@@ -105,8 +109,8 @@ public class FileInputStreamCallback {
             int off, int len) {
         if (logger != null) {
             logger.info("{}:{}.readBytes([{}],{},{}):{}->{}",
-                    System.currentTimeMillis() - startTime, this, b.length,
-                    off, len, readBytesResult, "localhost");
+                    System.currentTimeMillis() - startTime, fis, b.length, off,
+                    len, readBytesResult, "localhost");
         }
     }
 

@@ -36,6 +36,10 @@ public class RandomAccessFileCallback {
         logger = null;
     }
 
+    public Logger getLogger() {
+        return logger;
+    }
+
     public long onOpenBegin(String name, int mode) {
         // don't monitor access to libraries and configurations in the JVM's
         // home
@@ -74,7 +78,7 @@ public class RandomAccessFileCallback {
     public void onOpenEnd(long startTime, String name, int mode) {
         if (logger != null) {
             logger.info("{}:{}.open({},{}):void", System.currentTimeMillis()
-                    - startTime, this, name, mode);
+                    - startTime, raf, name, mode);
         }
     }
 
@@ -89,7 +93,7 @@ public class RandomAccessFileCallback {
     public void onReadEnd(long startTime, int readResult) {
         if (logger != null) {
             logger.info("{}:{}.read():{}->{}", System.currentTimeMillis()
-                    - startTime, this, readResult, "localhost");
+                    - startTime, raf, readResult, "localhost");
         }
     }
 
@@ -105,8 +109,8 @@ public class RandomAccessFileCallback {
             int off, int len) {
         if (logger != null) {
             logger.info("{}:{}.readBytes([{}],{},{}):{}->{}",
-                    System.currentTimeMillis() - startTime, this, b.length,
-                    off, len, readBytesResult, "localhost");
+                    System.currentTimeMillis() - startTime, raf, b.length, off,
+                    len, readBytesResult, "localhost");
         }
     }
 
@@ -120,8 +124,8 @@ public class RandomAccessFileCallback {
 
     public void onWriteEnd(long startTime, int b) {
         if (logger != null) {
-            logger.info("{}:{}.write({}):void->{}", System.currentTimeMillis()
-                    - startTime, this, b, "localhost");
+            logger.info("{}:{}.write({}):void", System.currentTimeMillis()
+                    - startTime, raf, b);
         }
     }
 
@@ -135,9 +139,9 @@ public class RandomAccessFileCallback {
 
     public void onWriteBytesEnd(long startTime, byte[] b, int off, int len) {
         if (logger != null) {
-            logger.info("{}:{}.writeBytes([{}],{},{}):void->{}",
-                    System.currentTimeMillis() - startTime, this, b.length,
-                    off, len, "localhost");
+            logger.info("{}:{}.writeBytes([{}],{},{}):void",
+                    System.currentTimeMillis() - startTime, raf, b.length, off,
+                    len);
         }
     }
 
