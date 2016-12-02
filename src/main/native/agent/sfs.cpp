@@ -228,11 +228,12 @@ static void JNICALL ClassFileLoadHookCallback(
   // keep track of which classes have been loaded already
   static bool java_io_FileInputStream_seen = false;
   static bool java_io_FileOutputStream_seen = false;
+  static bool java_io_RandomAccessFile_seen = false;
   static bool sun_nio_ch_FileChannelImpl_seen = false;
 
   // all transformations done
   if (java_io_FileInputStream_seen && java_io_FileOutputStream_seen &&
-      sun_nio_ch_FileChannelImpl_seen) {
+      java_io_RandomAccessFile_seen && sun_nio_ch_FileChannelImpl_seen) {
     return;
   }
 
@@ -251,30 +252,31 @@ static void JNICALL ClassFileLoadHookCallback(
     return out;
   };
 
+  bool transform_class = true;
   if (strcmp(name, "java/io/FileInputStream") == 0) {
     java_io_FileInputStream_seen = true;
-    g_class_transformation_client->ClassTransformation(
-        name, class_data, class_data_len, allocator, new_class_data,
-        new_class_data_len, g_native_method_prefix.c_str());
   } else if (strcmp(name, "java/io/FileOutputStream") == 0) {
     java_io_FileOutputStream_seen = true;
-    g_class_transformation_client->ClassTransformation(
-        name, class_data, class_data_len, allocator, new_class_data,
-        new_class_data_len, g_native_method_prefix.c_str());
+  } else if (strcmp(name, "java/io/RandomAccessFile") == 0) {
+    java_io_RandomAccessFile_seen = true;
   } else if (strcmp(name, "sun/nio/ch/FileChannelImpl") == 0) {
     sun_nio_ch_FileChannelImpl_seen = true;
-    g_class_transformation_client->ClassTransformation(
-        name, class_data, class_data_len, allocator, new_class_data,
-        new_class_data_len, g_native_method_prefix.c_str());
   } else {
     // don't set new_class_data_len or new_class_data to indicate no
     // modification is desired
+    transform_class = false;
+  }
+
+  if (transform_class) {
+    g_class_transformation_client->ClassTransformation(
+        name, class_data, class_data_len, allocator, new_class_data,
+        new_class_data_len, g_native_method_prefix.c_str());
   }
 
   // indicate after all necessary classes are loaded that the transformer
   // JVM can shut down
   if (java_io_FileInputStream_seen && java_io_FileOutputStream_seen &&
-      sun_nio_ch_FileChannelImpl_seen) {
+      java_io_RandomAccessFile_seen && sun_nio_ch_FileChannelImpl_seen) {
     g_class_transformation_client->EndClassTransformations();
     cleanup();
   }
@@ -287,6 +289,7 @@ static void JNICALL VMInitCallback(jvmtiEnv *jvmti_env, JNIEnv *jni_env,
   // been loaded yet
   jni_env->FindClass("java/io/FileInputStream");
   jni_env->FindClass("java/io/FileOutputStream");
+  jni_env->FindClass("java/io/RandomAccessFile");
   jni_env->FindClass("sun/nio/ch/FileChannelImpl");
 
   // set the log file name to use as system property
