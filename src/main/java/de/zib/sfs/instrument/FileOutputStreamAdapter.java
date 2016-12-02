@@ -73,7 +73,7 @@ public class FileOutputStreamAdapter extends ClassVisitor {
                         Type.getType(FileOutputStreamCallback.class),
                         Type.getType(FileOutputStream.class));
 
-        // descriptors of the methods we add to FileInputStream
+        // descriptors of the methods we add to FileOutputStream
         String openMethodDescriptor = Type.getMethodDescriptor(Type.VOID_TYPE,
                 Type.getType(String.class), Type.BOOLEAN_TYPE);
         String writeMethodDescriptor = Type.getMethodDescriptor(Type.VOID_TYPE,
@@ -112,7 +112,7 @@ public class FileOutputStreamAdapter extends ClassVisitor {
                 fileOutputStreamInternalName, nativeMethodPrefix + "open",
                 openMethodDescriptor, false);
 
-        // FileInputStreamCallback.getInstance(this).onOpenEnd(startTime, name,
+        // FileOutputStreamCallback.getInstance(this).onOpenEnd(startTime, name,
         // append);
         openMV.visitVarInsn(Opcodes.ALOAD, 0);
         openMV.visitMethodInsn(Opcodes.INVOKESTATIC,
@@ -161,7 +161,7 @@ public class FileOutputStreamAdapter extends ClassVisitor {
                 fileOutputStreamInternalName, nativeMethodPrefix + "write",
                 writeMethodDescriptor, false);
 
-        // FileInputStreamCallback.getInstance(this).onWriteEnd(startTime, b,
+        // FileOutputStreamCallback.getInstance(this).onWriteEnd(startTime, b,
         // append);
         writeMV.visitVarInsn(Opcodes.ALOAD, 0);
         writeMV.visitMethodInsn(Opcodes.INVOKESTATIC,
