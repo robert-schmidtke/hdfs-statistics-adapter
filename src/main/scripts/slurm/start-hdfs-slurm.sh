@@ -256,7 +256,7 @@ cat > $HADOOP_CONF_DIR/mapred-site.xml << EOF
   </property>
   <property>
     <name>mapreduce.map.java.opts</name>
-    <value>-Xmx2048M</value>
+    <value>-Xmx2048M $HADOOP_OPTS</value>
   </property>
   <property>
     <name>mapreduce.reduce.memory.mb</name>
@@ -264,7 +264,7 @@ cat > $HADOOP_CONF_DIR/mapred-site.xml << EOF
   </property>
   <property>
     <name>mapreduce.reduce.java.opts</name>
-    <value>-Xmx3072M</value>
+    <value>-Xmx3072M $HADOOP_OPTS</value>
   </property>
   <property>
     <name>mapreduce.task.io.sort.mb</name>
