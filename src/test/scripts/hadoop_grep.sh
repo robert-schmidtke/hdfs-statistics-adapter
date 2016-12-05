@@ -19,7 +19,7 @@ line=$(grep -n "^    <name>sfs\.wrappedFS\.scheme<\/name>$" $HADOOP_HOME/etc/had
 line=$(($line + 1))
 sed -i "${line}s/.*/    <value>file<\/value>/" $HADOOP_HOME/etc/hadoop/core-site.xml
 
-export HADOOP_OPTS="-agentpath:$TRAVIS_BUILD_DIR/target/libsfs.so=trans_jar=$HADOOP_HOME/share/hadoop/common/hdfs-statistics-adapter.jar,comm_port_agent=4242,comm_port_trans=4243,log_file_name=/tmp/log.file"
+export HADOOP_OPTS="-agentpath:$TRAVIS_BUILD_DIR/target/libsfs.so=trans_jar=$HADOOP_HOME/share/hadoop/common/hdfs-statistics-adapter.jar,log_file_name=/tmp/log.file"
 
 # start Hadoop
 $HADOOP_HOME/bin/hdfs namenode -format
