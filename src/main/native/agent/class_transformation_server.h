@@ -18,8 +18,11 @@
 
 #include "agent/rpc/proto/sfs.grpc.pb.h"
 
+using grpc::ChannelArguments;
 using grpc::Server;
 using grpc::ServerBuilder;
+using grpc::ServerBuilderOption;
+using grpc::ServerBuilderPlugin;
 using grpc::ServerContext;
 using grpc::Status;
 
@@ -31,16 +34,28 @@ using de::zib::sfs::agent::rpc::proto::ClassTransformationService;
 using de::zib::sfs::agent::rpc::proto::EndClassTransformationsRequest;
 using de::zib::sfs::agent::rpc::proto::EndClassTransformationsResponse;
 
+class ClassTransformationServerOptions : public ServerBuilderOption {
+public:
+  void UpdateArguments(ChannelArguments *args) override {
+    // explicitly disallow reusing ports, this is for Mac OS X mainly, Linux
+    // does not allow this by default
+    args->SetInt(GRPC_ARG_ALLOW_REUSEPORT, 0);
+  }
+
+  void
+  UpdatePlugins(std::vector<std::unique_ptr<ServerBuilderPlugin>> *) override {}
+};
+
 class ClassTransformationServer : public ClassTransformationService::Service {
 private:
   std::unique_ptr<Server> server_;
 
-  bool is_begin_class_transformations_;
+  int transformer_port_;
   std::mutex begin_class_transformations_mutex_;
   std::condition_variable begin_class_transformations_cond_;
 
 public:
-  ClassTransformationServer() { is_begin_class_transformations_ = false; }
+  ClassTransformationServer() { transformer_port_ = -1; }
 
   Status
   BeginClassTransformations(ServerContext *context,
@@ -48,38 +63,41 @@ public:
                             BeginClassTransformationsResponse *response) {
     {
       std::lock_guard<std::mutex> lock(begin_class_transformations_mutex_);
-      is_begin_class_transformations_ = true;
+      transformer_port_ = request->port();
     }
     begin_class_transformations_cond_.notify_one();
     return Status::OK;
   }
 
-  void Start(std::string address) {
-    if (server_ == NULL) {
+  bool Start(std::string address) {
+    if (server_ == nullptr) {
       ServerBuilder server_builder;
       server_builder.AddListeningPort(address,
                                       grpc::InsecureServerCredentials());
+      server_builder.SetOption(std::unique_ptr<ServerBuilderOption>(
+          new ClassTransformationServerOptions));
       server_builder.RegisterService(this);
       server_ = server_builder.BuildAndStart();
     }
+    return server_ != nullptr;
   }
 
   void Shutdown() {
-    if (server_ != NULL) {
+    if (server_ != nullptr) {
       server_->Shutdown();
       server_->Wait();
-      server_ = NULL;
+      server_ = nullptr;
     }
   }
 
-  bool WaitForBeginClassTransformations(int timeout_seconds) {
+  int WaitForBeginClassTransformations(int timeout_seconds) {
     {
       std::unique_lock<std::mutex> lock(begin_class_transformations_mutex_);
       begin_class_transformations_cond_.wait_for(
           lock, std::chrono::seconds(timeout_seconds),
-          [this] { return this->is_begin_class_transformations_; });
+          [this] { return this->transformer_port_ != -1; });
     }
-    return is_begin_class_transformations_;
+    return transformer_port_;
   }
 };
 

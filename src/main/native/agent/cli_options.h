@@ -43,7 +43,6 @@ static int get_tok(char **src, char *buf, int buflen, int sep) {
 
 struct CliOptions {
   std::string transformer_jar_path;
-  int communication_port_agent, communication_port_transformer;
   std::string log_file_name;
 };
 
@@ -76,7 +75,6 @@ static bool parse_options(char *command_line_options, CliOptions *cli_options) {
   char *options = all_options;
 
   bool tx_jar_path_set = false;
-  bool comm_port_agent_set = false, comm_port_trans_set = false;
   bool log_file_name_set = false;
   while (*options) {
     char option[16];
@@ -88,24 +86,6 @@ static bool parse_options(char *command_line_options, CliOptions *cli_options) {
         if (get_tok(&options, suboption, (int)sizeof(suboption), ',')) {
           cli_options->transformer_jar_path = std::string(suboption);
           tx_jar_path_set = true;
-        }
-      } else if (strcmp(option, "comm_port_agent") == 0) {
-        if (get_tok(&options, suboption, (int)sizeof(suboption), ',')) {
-          cli_options->communication_port_agent =
-              (int)strtol(suboption, &endptr, 10);
-          if ((endptr == NULL || *endptr == 0) &&
-              cli_options->communication_port_agent > 0) {
-            comm_port_agent_set = true;
-          }
-        }
-      } else if (strcmp(option, "comm_port_trans") == 0) {
-        if (get_tok(&options, suboption, (int)sizeof(suboption), ',')) {
-          cli_options->communication_port_transformer =
-              (int)strtol(suboption, &endptr, 10);
-          if ((endptr == NULL || *endptr == 0) &&
-              cli_options->communication_port_transformer > 0) {
-            comm_port_trans_set = true;
-          }
         }
       } else if (strcmp(option, "log_file_name") == 0) {
         if (get_tok(&options, suboption, (int)sizeof(suboption), ',')) {
@@ -124,8 +104,7 @@ static bool parse_options(char *command_line_options, CliOptions *cli_options) {
   }
   delete[] all_options;
 
-  return tx_jar_path_set && comm_port_agent_set && comm_port_trans_set &&
-         log_file_name_set;
+  return tx_jar_path_set && log_file_name_set;
 }
 
 #endif // CLI_OPTIONS_H

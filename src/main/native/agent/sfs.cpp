@@ -57,8 +57,6 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
               << (options != NULL ? options : "-") << std::endl
               << "Required options: " << std::endl
               << "  trans_jar=/path/to/trans.jar" << std::endl
-              << "  comm_port_agent=port" << std::endl
-              << "  comm_port_trans=port" << std::endl
               << "  log_file_name=/path/to/log.file" << std::endl;
     return JNI_EINVAL;
   }
@@ -129,27 +127,38 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
       cli_options.transformer_jar_path.c_str());
   CHECK_JVMTI_RESULT("AddToSystemClassLoaderSearch", jvmti_result);
 
+  // start the server that communicates with the transformer JVM
+  g_class_transformation_server = new ClassTransformationServer;
+
+  // assume that all that can go wrong during startup is a port that is already
+  // in use
+  int port, tries = 0;
+  bool started = false;
+  do {
+    ++tries;
+    port = rand() % 16384 + 49152;
+    started =
+        g_class_transformation_server->Start("0.0.0.0:" + std::to_string(port));
+  } while (!started && tries < 10);
+  if (!started) {
+    std::cerr << "Could not start transformation server after " << tries
+              << " tries." << std::endl;
+    cleanup();
+    return JNI_ERR;
+  }
+
   // build the transformer JVM start command
-  g_transformer_jvm_cmd = new char *[9];
+  g_transformer_jvm_cmd = new char *[7];
   g_transformer_jvm_cmd[0] = strdup((java_home + "/bin/java").c_str());
   g_transformer_jvm_cmd[1] = strdup("-cp");
   g_transformer_jvm_cmd[2] = strdup(cli_options.transformer_jar_path.c_str());
   g_transformer_jvm_cmd[3] =
       strdup("de.zib.sfs.instrument.ClassTransformationService");
   g_transformer_jvm_cmd[4] = strdup("--communication-port-agent");
-  g_transformer_jvm_cmd[5] =
-      strdup(std::to_string(cli_options.communication_port_agent).c_str());
-  g_transformer_jvm_cmd[6] = strdup("--communication-port-transformer");
-  g_transformer_jvm_cmd[7] = strdup(
-      std::to_string(cli_options.communication_port_transformer).c_str());
-  g_transformer_jvm_cmd[8] = NULL;
+  g_transformer_jvm_cmd[5] = strdup(std::to_string(port).c_str());
+  g_transformer_jvm_cmd[6] = NULL;
 
   char *envp[] = {NULL};
-
-  // start the server that communicates with the transformer JVM
-  g_class_transformation_server = new ClassTransformationServer;
-  g_class_transformation_server->Start(
-      "0.0.0.0:" + std::to_string(cli_options.communication_port_agent));
 
   // start new process to execute the transformer JVM
   pid_t transformer_pid = fork();
@@ -167,7 +176,9 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
 
     // wait until the transformer JVM has indicated that class transformations
     // can begin
-    if (!g_class_transformation_server->WaitForBeginClassTransformations(30)) {
+    int transformer_port =
+        g_class_transformation_server->WaitForBeginClassTransformations(30);
+    if (transformer_port == -1) {
       // there was a timeout
       std::cerr << "Transformer JVM failed to register within 30 seconds"
                 << std::endl;
@@ -206,11 +217,9 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
       return JNI_ERR;
     } else {
       // build the client that talks to the transformer JVM
-      g_class_transformation_client =
-          new ClassTransformationClient(grpc::CreateChannel(
-              "0.0.0.0:" +
-                  std::to_string(cli_options.communication_port_transformer),
-              grpc::InsecureChannelCredentials()));
+      g_class_transformation_client = new ClassTransformationClient(
+          grpc::CreateChannel("0.0.0.0:" + std::to_string(transformer_port),
+                              grpc::InsecureChannelCredentials()));
       return JNI_OK;
     }
   }
@@ -332,7 +341,7 @@ static void cleanup() {
 
   // clean the startup command for the transformer JVM
   if (g_transformer_jvm_cmd != NULL) {
-    for (size_t i = 0; i < 8; ++i) {
+    for (size_t i = 0; i < 6; ++i) {
       free(g_transformer_jvm_cmd[i]);
     }
     delete[] g_transformer_jvm_cmd;

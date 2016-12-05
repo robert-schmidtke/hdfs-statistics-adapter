@@ -9,6 +9,7 @@ package de.zib.sfs.instrument;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Random;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -16,25 +17,21 @@ public class ClassTransformationService {
 
     public static void main(String args[]) {
         int i = 0;
-        int agentPort = -1, transformerPort = -1;
+        int agentPort = -1;
         while (i < args.length) {
             switch (args[i]) {
             case "--communication-port-agent":
                 agentPort = Integer.parseInt(args[++i]);
                 break;
-            case "--communication-port-transformer":
-                transformerPort = Integer.parseInt(args[++i]);
-                break;
             }
             ++i;
         }
 
-        if (agentPort < 0 || transformerPort < 0) {
+        if (agentPort < 0) {
             System.err.println("Could not parse options: "
                     + Arrays.toString(args));
             System.err.println("Required options:");
             System.err.println("  --communication-port-agent port");
-            System.err.println("  --communication-port-transformer port");
             System.exit(1);
         }
 
@@ -42,13 +39,27 @@ public class ClassTransformationService {
         Logger.getLogger("io.grpc").setLevel(Level.SEVERE);
 
         // start the transformer server
-        ClassTransformationServer classTransformationServer = new ClassTransformationServer(
-                transformerPort);
-        try {
-            classTransformationServer.start();
-        } catch (IOException e) {
-            System.err.println("Could not start transformer server");
-            e.printStackTrace();
+        ClassTransformationServer classTransformationServer = null;
+
+        // assume that all that can go wrong during startup is a port that is
+        // already in use
+        Random random = new Random();
+        int port = -1, tries = 0;
+        boolean started = false;
+        do {
+            try {
+                ++tries;
+                port = random.nextInt(16384) + 49152;
+                classTransformationServer = new ClassTransformationServer(port);
+                classTransformationServer.start();
+                started = true;
+            } catch (IOException e) {
+
+            }
+        } while (!started && tries < 10);
+        if (!started) {
+            System.err.println("Could not start transformer server after "
+                    + tries + " tries.");
             System.exit(1);
         }
 
@@ -56,7 +67,7 @@ public class ClassTransformationService {
         // requests
         ClassTransformationClient classTransformationClient = new ClassTransformationClient(
                 agentPort);
-        classTransformationClient.beginClassTransformations();
+        classTransformationClient.beginClassTransformations(port);
         try {
             classTransformationClient.shutdown();
         } catch (InterruptedException e) {
