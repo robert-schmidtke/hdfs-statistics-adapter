@@ -23,7 +23,7 @@ if [ -z $SLURM_JOB_ID ]; then
   exit 1
 fi
 
-while [[ $# -gt 1 ]]; do
+while [[ $# -gt 0 ]]; do
   key="$1"
   case $key in
     -b|--blocksize)
@@ -95,8 +95,7 @@ export LD_LIBRARY_PATH
 # set up the environment variables
 export HADOOP_PREFIX="$(pwd $(dirname $0))/.."
 export HADOOP_CONF_DIR=$HADOOP_PREFIX/etc/hadoop
-HADOOP_NODES=(`scontrol show hostnames`)
-export NODES
+export HADOOP_NODES=(`scontrol show hostnames`)
 export HADOOP_NAMENODE=${HADOOP_NODES[0]}
 
 # will become a sub-directory of /local
@@ -256,7 +255,7 @@ cat > $HADOOP_CONF_DIR/mapred-site.xml << EOF
   </property>
   <property>
     <name>mapreduce.map.java.opts</name>
-    <value>-Xmx2048M $HADOOP_OPTS</value>
+    <value>-Xmx2048M</value>
   </property>
   <property>
     <name>mapreduce.reduce.memory.mb</name>
@@ -264,7 +263,7 @@ cat > $HADOOP_CONF_DIR/mapred-site.xml << EOF
   </property>
   <property>
     <name>mapreduce.reduce.java.opts</name>
-    <value>-Xmx3072M $HADOOP_OPTS</value>
+    <value>-Xmx3072M</value>
   </property>
   <property>
     <name>mapreduce.task.io.sort.mb</name>
