@@ -10,6 +10,7 @@
 #include <cerrno>
 #include <cstdlib>
 #include <cstring>
+#include <ctime>
 #include <functional>
 #include <iostream>
 #include <signal.h>
@@ -132,6 +133,8 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
 
   // assume that all that can go wrong during startup is a port that is already
   // in use
+  srand(time(NULL));
+
   int port, tries = 0;
   bool started = false;
   do {
