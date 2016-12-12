@@ -50,6 +50,11 @@ public class WrappedFlinkFileSystem extends FileSystem {
     }
 
     @Override
+    public void close() throws IOException {
+        // avoid calling super.close();
+    }
+
+    @Override
     public FSDataOutputStream append(Path f, int bufferSize,
             Progressable progress) throws IOException {
         throw new UnsupportedOperationException("append is not supported in "
