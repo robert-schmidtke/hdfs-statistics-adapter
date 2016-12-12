@@ -1,21 +1,44 @@
 #!/bin/bash
 
-USAGE="Usage: srun --nodes=1-1 --nodelist=<NAMENODE> stop-hdfs-slurm.sh"
+usage() {
+  echo "Usage: srun --nodes=1-1 --nodelist=<NAMENODE> stop-hdfs-slurm.sh"
+  echo "  -c|--colocate-datanode-with-namenode (default: not specified/false)"
+}
 
 if [ -z $SLURM_JOB_ID ]; then
-  echo "No Slurm environment detected. $USAGE"
+  echo "No Slurm environment detected."
+  usage
   exit 1
 fi
+
+while [[ $# -gt 0 ]]; do
+  key="$1"
+  case $key in
+    -c|--colocate-datanode-with-namenode)
+      COLOCATE_DATANODE_WITH_NAMENODE="true"
+      ;;
+    *)
+      echo "Invalid argument detected."
+      usage
+      exit 1
+  esac
+  shift
+done
 
 # set up the environment variables
 export HADOOP_PREFIX="$(pwd $(dirname $0))/.."
 export HADOOP_CONF_DIR=$HADOOP_PREFIX/etc/hadoop
-HADOOP_NODES=(`scontrol show hostnames`)
-export NODES
+export HADOOP_NODES=(`scontrol show hostnames`)
 export HADOOP_NAMENODE=${HADOOP_NODES[0]}
-export HADOOP_DATANODES=(${HADOOP_NODES[@]:1})
+
 export HDFS_LOCAL_DIR=$USER/hdfs
 export HDFS_LOCAL_LOG_DIR=$HDFS_LOCAL_DIR/log
+
+if [ -z $COLOCATE_DATANODE_WITH_NAMENODE ]; then
+  export HADOOP_DATANODES=(${HADOOP_NODES[@]:1})
+else
+  export HADOOP_DATANODES=(${HADOOP_NODES[@]:0})
+fi
 
 echo "Using Hadoop Distribution in '$HADOOP_PREFIX'."
 
@@ -107,15 +130,13 @@ if [ -f $pidfile ]; then
   fi
   rm $pidfile
   cp /local/$HDFS_LOCAL_LOG_DIR/jobhistory_server-$(hostname).log $HADOOP_PREFIX/log-$SLURM_JOB_ID/jobhistory_server-$(hostname).log
-  rm -rf /local/$HDFS_LOCAL_LOG_DIR
-  rm -rf /local/$HDFS_LOCAL_DIR
 else
   echo "PID file $pidfile does not exist."
 fi
 echo "Stopping JobHistory Server done."
 
 for datanode in ${HADOOP_DATANODES[@]}; do
-  nodemanager_script=$(dirname $0)/${SLURM_JOB_ID}-${datanode}-stop-datanode.sh
+  nodemanager_script=$(dirname $0)/${SLURM_JOB_ID}-${datanode}-stop-nodemanager.sh
   cat > $nodemanager_script << EOF
 #!/bin/bash
 
@@ -156,5 +177,8 @@ EOF
   echo "Stopping NodeManager on $datanode done."
   rm $nodemanager_script
 done
+
+rm -rf /local/$HDFS_LOCAL_LOG_DIR
+rm -rf /local/$HDFS_LOCAL_DIR
 
 echo "Stopping Hadoop done."
