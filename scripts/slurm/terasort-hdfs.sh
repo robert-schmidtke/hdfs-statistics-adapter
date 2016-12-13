@@ -127,7 +127,7 @@ sed -i "/^# taskmanager\.network\.numberOfBuffers/c\taskmanager.network.numberOf
 sed -i "/^# fs\.hdfs\.hadoopconf/c\fs.hdfs.hadoopconf: $HADOOP_HOME/etc/hadoop" $FLINK_HOME/conf/flink-conf.yaml
 cat >> $FLINK_HOME/conf/flink-conf.yaml << EOF
 taskmanager.memory.off-heap: true
-env.java.opts: -agentpath:$SFS_DIRECTORY/sfs-agent/target/libsfs.so=trans_jar=$SFS_DIRECTORY/sfs-agent/target/sfs-adapter.jar,log_file_name=/local/$USER/sfs.log.flink
+env.java.opts: -agentpath:$SFS_DIRECTORY/sfs-agent/target/libsfs.so=trans_jar=$SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar,log_file_name=/local/$USER/sfs.log.flink
 EOF
 echo "$(date): Configuring Flink done"
 
