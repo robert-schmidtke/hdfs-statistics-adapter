@@ -79,11 +79,12 @@ echo "$(date): Cleaning Java processes done"
 
 echo "$(date): Cleaning local directories"
 srun -N$SLURM_JOB_NUM_NODES rm -rf /local/$USER/hdfs
-srun -N$SLURM_JOB_NUM_NODES rm -rf /local/$USER/sfs*
+srun -N$SLURM_JOB_NUM_NODES rm -rf /local/$USER/sfs
 echo "$(date): Cleaning local directories done"
 
 echo "$(date): Creating local folders"
 srun -N$SLURM_JOB_NUM_NODES mkdir -p /local/$USER/hdfs
+srun -N$SLURM_JOB_NUM_NODES mkdir -p /local/$USER/sfs
 echo "$(date): Creating local folders done"
 
 echo "$(date): Starting HDFS"
@@ -93,10 +94,10 @@ cp ./start-hdfs-slurm.sh $HADOOP_HOME/sbin
 # 256M block size, replication factor of 1, 50G total node memory for YARN, put first datanode on namenode host
 SRUN_STANDARD_OPTS="--nodelist=$MASTER --nodes=1-1 --chdir=$HADOOP_HOME/sbin"
 HDFS_STANDARD_OPTS="--blocksize 268435456 --replication 1 --memory 51200 --cores 16 --io-buffer 1048576 --colocate-datanode-with-namenode"
-HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --hadoop-opts -agentpath:$SFS_DIRECTORY/target/libsfs.so=trans_jar=$HADOOP_HOME/share/hadoop/common/hdfs-statistics-adapter.jar,log_file_name=/local/$USER/sfs.log.hadoop"
-HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --yarn-opts -agentpath:$SFS_DIRECTORY/target/libsfs.so=trans_jar=$HADOOP_HOME/share/hadoop/common/hdfs-statistics-adapter.jar,log_file_name=/local/$USER/sfs.log.yarn"
+HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --hadoop-opts -agentpath:$SFS_DIRECTORY/target/libsfs.so=trans_jar=$HADOOP_HOME/share/hadoop/common/hdfs-statistics-adapter.jar,log_file_name=/local/$USER/sfs/sfs.log.hadoop"
+HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --yarn-opts -agentpath:$SFS_DIRECTORY/target/libsfs.so=trans_jar=$HADOOP_HOME/share/hadoop/common/hdfs-statistics-adapter.jar,log_file_name=/local/$USER/sfs/sfs.log.yarn"
 HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --ld-library-path $GRPC_HOME/libs/opt:$GRPC_HOME/third_party/protobuf/src/.lib"
-SFS_STANDARD_OPTS="--sfs-logfilename /local/$USER/sfs.log --sfs-wrapped-scheme hdfs"
+SFS_STANDARD_OPTS="--sfs-logfilename /local/$USER/sfs/sfs.log --sfs-wrapped-scheme hdfs"
 cp $SFS_DIRECTORY/target/hdfs-statistics-adapter.jar $FLINK_HOME/lib/hdfs-statistics-adapter.jar
 cp $SFS_DIRECTORY/target/hdfs-statistics-adapter.jar $HADOOP_HOME/share/hadoop/common/hdfs-statistics-adapter.jar
 
@@ -123,16 +124,16 @@ JOBMANAGER_MEMORY=4096
 TASKMANAGER_MEMORY=40960
 cp $FLINK_HOME/conf/flink-conf.yaml.template $FLINK_HOME/conf/flink-conf.yaml
 sed -i "/^# taskmanager\.network\.numberOfBuffers/c\taskmanager.network.numberOfBuffers: $(($TASK_SLOTS * $TASK_SLOTS * ${#NODES[@]} * 4))" $FLINK_HOME/conf/flink-conf.yaml
+sed -i "/^# fs\.hdfs\.hadoopconf/c\fs.hdfs.hadoopconf: $HADOOP_HOME/etc/hadoop" $FLINK_HOME/conf/flink-conf.yaml
 cat >> $FLINK_HOME/conf/flink-conf.yaml << EOF
 taskmanager.memory.off-heap: true
-env.java.opts: -agentpath:$SFS_DIRECTORY/target/libsfs.so=trans_jar=$HADOOP_HOME/share/hadoop/common/hdfs-statistics-adapter.jar,log_file_name=/local/$USER/sfs.log.flink
+env.java.opts: -agentpath:$SFS_DIRECTORY/target/libsfs.so=trans_jar=$HADOOP_HOME/share/hadoop/common/hdfs-statistics-adapter.jar,log_file_name=/local/$USER/sfs/sfs.log.flink
 EOF
 echo "$(date): Configuring Flink done"
 
 rm -rf $FLINK_HOME/log/*
 rm -rf $HADOOP_HOME/log-*
 rm -rf $HADOOP_HOME/logs/*
-srun rm -rf /local/$USER/sfs*
 rm -rf $SFS_TARGET_DIRECTORY/*
 
 echo "$(date): Generating TeraSort data on HDFS"
@@ -186,7 +187,7 @@ echo "$(date): Cleaning Java processes done"
 echo "$(date): Copying logs"
 cat > copy-logs.sh << EOF
 #!/bin/bash
-cd /local/$USER
+cd /local/$USER/sfs
 for file in \$(ls sfs.log*); do
   cp \$file $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname)-\$file
 done
@@ -198,5 +199,5 @@ echo "$(date): Copying logs done"
 
 echo "$(date): Cleaning local directories"
 srun -N$SLURM_JOB_NUM_NODES rm -rf /local/$USER/hdfs
-srun -N$SLURM_JOB_NUM_NODES rm -rf /local/$USER/sfs*
+srun -N$SLURM_JOB_NUM_NODES rm -rf /local/$USER/sfs
 echo "$(date): Cleaning local directories done"
