@@ -60,4 +60,4 @@ install:
 
 script:
   # configure Hadoop and run the grep job
-  - ./travis/hadoop_grep.sh
+  - .scripts/travis/hadoop_grep.sh
