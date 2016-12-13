@@ -15,8 +15,6 @@ addons:
     - localhost
     - 0.0.0.0
 
-# override the initial `mvn install -DskipTests=true -Dmaven.javadoc.skip=true -B -V` command,
-# because this is part of Travis' dependencies installation and would fail because we need to install custom dependencies
 install:
   # accept own key to start services locally via ssh
   #- mkdir -p $HOME/.ssh
@@ -50,9 +48,16 @@ install:
   - export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$GRPC_HOME/libs/opt:$GRPC_HOME/third_party/protobuf/src/.libs"
   - cd $TRAVIS_BUILD_DIR
 
+  # build the agent
+  - cd sfs-agent
+  - mvn install --define protobuf.version=$PROTOBUF_VERSION --define protoc.bin=$GRPC_HOME/third_party/protobuf/src/protoc --define protobuf.include.dir=$GRPC_HOME/third_party/protobuf/src --define protobuf.lib.dir=$GRPC_HOME/third_party/protobuf/src/.libs --define grpc.version=$GRPC_VERSION --define grpc.plugin=$GRPC_HOME/bins/opt/grpc_cpp_plugin --define grpc.include.dir=$GRPC_HOME/include --define grpc.lib.dir=$GRPC_HOME/libs/opt
+  - cd $TRAVIS_BUILD_DIR
+
   # build the adapter
-  - mvn install --define hadoop.version=$HADOOP_VERSION --define protobuf.version=$PROTOBUF_VERSION --define protoc.bin=$GRPC_HOME/third_party/protobuf/src/protoc --define protobuf.include.dir=$GRPC_HOME/third_party/protobuf/src --define protobuf.lib.dir=$GRPC_HOME/third_party/protobuf/src/.libs --define grpc.version=$GRPC_VERSION --define grpc.plugin=$GRPC_HOME/bins/opt/grpc_cpp_plugin --define grpc.include.dir=$GRPC_HOME/include --define grpc.lib.dir=$GRPC_HOME/libs/opt
+  - cd sfs-adapter
+  - mvn install --define hadoop.version=$HADOOP_VERSION
+  - cd $TRAVIS_BUILD_DIR
 
 script:
   # configure Hadoop and run the grep job
-  - ./src/test/scripts/hadoop_grep.sh
+  - ./travis/hadoop_grep.sh
