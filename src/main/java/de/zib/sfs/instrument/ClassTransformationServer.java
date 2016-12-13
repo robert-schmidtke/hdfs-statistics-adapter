@@ -22,11 +22,11 @@ import org.objectweb.asm.ClassWriter;
 
 import com.google.protobuf.ByteString;
 
-import de.zib.sfs.agent.rpc.proto.ClassTransformationServiceGrpc;
-import de.zib.sfs.agent.rpc.proto.Sfs.ClassTransformationRequest;
-import de.zib.sfs.agent.rpc.proto.Sfs.ClassTransformationResponse;
-import de.zib.sfs.agent.rpc.proto.Sfs.EndClassTransformationsRequest;
-import de.zib.sfs.agent.rpc.proto.Sfs.EndClassTransformationsResponse;
+import de.zib.sfs.instrument.rpc.ClassTransformationServiceGrpc;
+import de.zib.sfs.instrument.rpc.Sfs.ClassTransformationRequest;
+import de.zib.sfs.instrument.rpc.Sfs.ClassTransformationResponse;
+import de.zib.sfs.instrument.rpc.Sfs.EndClassTransformationsRequest;
+import de.zib.sfs.instrument.rpc.Sfs.EndClassTransformationsResponse;
 
 public class ClassTransformationServer extends
         ClassTransformationServiceGrpc.ClassTransformationServiceImplBase {

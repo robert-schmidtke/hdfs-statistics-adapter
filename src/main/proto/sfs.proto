@@ -4,7 +4,7 @@
 // Licensed under the BSD License, see LICENSE file for details.
 syntax = "proto3";
 
-package de.zib.sfs.agent.rpc.proto;
+package de.zib.sfs.instrument.rpc;
 
 message BeginClassTransformationsRequest {
   int32 port = 1;

@@ -25,10 +25,10 @@ sfs: sfs_pb sfs_grpc_pb
 	$(CXX) target/sfs_pb.o target/sfs_grpc_pb.o target/sfs.o $(LDFLAGS)
 
 sfs_pb:
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -o target/sfs_pb.o -c target/generated-sources/protobuf/native/agent/rpc/proto/sfs.pb.cc
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -o target/sfs_pb.o -c target/generated-sources/protobuf/native/agent/rpc/sfs.pb.cc
 
 sfs_grpc_pb:
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -o target/sfs_grpc_pb.o -c target/generated-sources/protobuf/native/agent/rpc/proto/sfs.grpc.pb.cc
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -o target/sfs_grpc_pb.o -c target/generated-sources/protobuf/native/agent/rpc/sfs.grpc.pb.cc
 
 clean:
 	rm -rf target/sfs_pb.o target/sfs_grpc_pb.o target/sfs.o target/libsfs.so target/libsfs.dylib

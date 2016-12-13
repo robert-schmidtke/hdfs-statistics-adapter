@@ -306,7 +306,7 @@
               <executable>mkdir</executable>
               <arguments>
                 <argument>-p</argument>
-                <argument>${project.build.directory}/generated-sources/protobuf/native/agent/rpc/proto</argument>
+                <argument>${project.build.directory}/generated-sources/protobuf/native/agent/rpc</argument>
               </arguments>
             </configuration>
           </execution>
@@ -322,8 +322,8 @@
               <executable>${protoc.bin}</executable>
               <arguments>
                 <argument>--proto_path=${project.build.sourceDirectory}/../proto</argument>
-                <argument>--cpp_out=${project.build.directory}/generated-sources/protobuf/native/agent/rpc/proto</argument>
-                <argument>--grpc_out=${project.build.directory}/generated-sources/protobuf/native/agent/rpc/proto</argument>
+                <argument>--cpp_out=${project.build.directory}/generated-sources/protobuf/native/agent/rpc</argument>
+                <argument>--grpc_out=${project.build.directory}/generated-sources/protobuf/native/agent/rpc</argument>
                 <argument>--plugin=protoc-gen-grpc=${grpc.plugin}</argument>
                 <argument>${project.build.sourceDirectory}/../proto/sfs.proto</argument>
               </arguments>

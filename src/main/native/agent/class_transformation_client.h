@@ -14,17 +14,17 @@
 
 #include <grpc++/grpc++.h>
 
-#include "agent/rpc/proto/sfs.grpc.pb.h"
+#include "agent/rpc/sfs.grpc.pb.h"
 
 using grpc::Channel;
 using grpc::ClientContext;
 using grpc::Status;
 
-using de::zib::sfs::agent::rpc::proto::ClassTransformationRequest;
-using de::zib::sfs::agent::rpc::proto::ClassTransformationResponse;
-using de::zib::sfs::agent::rpc::proto::ClassTransformationService;
-using de::zib::sfs::agent::rpc::proto::EndClassTransformationsRequest;
-using de::zib::sfs::agent::rpc::proto::EndClassTransformationsResponse;
+using de::zib::sfs::instrument::rpc::ClassTransformationRequest;
+using de::zib::sfs::instrument::rpc::ClassTransformationResponse;
+using de::zib::sfs::instrument::rpc::ClassTransformationService;
+using de::zib::sfs::instrument::rpc::EndClassTransformationsRequest;
+using de::zib::sfs::instrument::rpc::EndClassTransformationsResponse;
 
 class ClassTransformationClient {
 public:

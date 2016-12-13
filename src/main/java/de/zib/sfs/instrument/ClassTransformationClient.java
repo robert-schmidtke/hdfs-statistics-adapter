@@ -12,9 +12,9 @@ import io.grpc.ManagedChannelBuilder;
 
 import java.util.concurrent.TimeUnit;
 
-import de.zib.sfs.agent.rpc.proto.ClassTransformationServiceGrpc;
-import de.zib.sfs.agent.rpc.proto.Sfs.BeginClassTransformationsRequest;
-import de.zib.sfs.agent.rpc.proto.Sfs.BeginClassTransformationsResponse;
+import de.zib.sfs.instrument.rpc.ClassTransformationServiceGrpc;
+import de.zib.sfs.instrument.rpc.Sfs.BeginClassTransformationsRequest;
+import de.zib.sfs.instrument.rpc.Sfs.BeginClassTransformationsResponse;
 
 public class ClassTransformationClient {
 
