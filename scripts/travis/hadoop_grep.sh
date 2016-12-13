@@ -9,7 +9,7 @@ echo localhost > $HADOOP_HOME/etc/hadoop/slaves
 cp sfs-adapter/src/test/resources/hadoop/core-site.xml $HADOOP_HOME/etc/hadoop
 cp sfs-adapter/src/test/resources/hadoop/hdfs-site.xml $HADOOP_HOME/etc/hadoop
 cp sfs-adapter/src/test/resources/hadoop/mapred-site.xml $HADOOP_HOME/etc/hadoop
-cp sfs-adapter/target/hdfs-statistics-adapter.jar $HADOOP_HOME/share/hadoop/common
+cp sfs-adapter/target/sfs-adapter.jar $HADOOP_HOME/share/hadoop/common
 
 # make sure we wrap the local file system
 line=$(grep -n "^    <name>sfs\.wrappedFS\.className<\/name>$" $HADOOP_HOME/etc/hadoop/core-site.xml | cut -d: -f1)
@@ -19,7 +19,7 @@ line=$(grep -n "^    <name>sfs\.wrappedFS\.scheme<\/name>$" $HADOOP_HOME/etc/had
 line=$(($line + 1))
 sed -i "${line}s/.*/    <value>file<\/value>/" $HADOOP_HOME/etc/hadoop/core-site.xml
 
-export HADOOP_OPTS="-agentpath:$TRAVIS_BUILD_DIR/sfs-agent/target/libsfs.so=trans_jar=$HADOOP_HOME/share/hadoop/common/hdfs-statistics-adapter.jar,log_file_name=/tmp/log.file"
+export HADOOP_OPTS="-agentpath:$TRAVIS_BUILD_DIR/sfs-agent/target/libsfs.so=trans_jar=$TRAVIS_BUILD_DIR/sfs-agent/target/sfs-agent.jar,log_file_name=/tmp/log.file"
 
 # start Hadoop
 $HADOOP_HOME/bin/hdfs namenode -format
