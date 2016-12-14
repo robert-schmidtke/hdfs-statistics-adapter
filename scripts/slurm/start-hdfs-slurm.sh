@@ -68,7 +68,7 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     -l|--ld-library-path)
-      LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$2"
+      LD_LIBRARY_PATH_EXT="$2"
       shift
       ;;
     --sfs-wrapped-fs)
@@ -100,7 +100,7 @@ SFS_LOGFILENAME=${SFS_LOGFILENAME:-/tmp/sfs.log}
 
 export HADOOP_OPTS
 export YARN_OPTS
-export LD_LIBRARY_PATH
+export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$LD_LIBRARY_PATH_EXT"
 
 # set up the environment variables
 export HADOOP_PREFIX="$(pwd $(dirname $0))/.."
@@ -375,7 +375,7 @@ mkdir -p /local/${HDFS_LOCAL_DIR}/tmp
 mkdir -p /local/$HDFS_LOCAL_LOG_DIR
 
 export HADOOP_OPTS=$HADOOP_OPTS
-export LD_LIBRARY_PATH="\$LD_LIBRARY_PATH:$LD_LIBRARY_PATH"
+export LD_LIBRARY_PATH="\$LD_LIBRARY_PATH:$LD_LIBRARY_PATH_EXT"
 export HADOOP_USER_CLASSPATH_FIRST="YES"
 export HADOOP_CLASSPATH="$HADOOP_CONF_DIR/$datanode:$HADOOP_CLASSPATH"
 export HDFS_DATANODE_LOG=/local/$HDFS_LOCAL_LOG_DIR/datanode-$datanode.log
@@ -410,7 +410,7 @@ nodemanager_script=$(dirname $0)/${SLURM_JOB_ID}-${datanode}-start-nodemanager.s
 
 # same as for resource manager
 export YARN_OPTS=$YARN_OPTS
-export LD_LIBRARY_PATH="\$LD_LIBRARY_PATH:$LD_LIBRARY_PATH"
+export LD_LIBRARY_PATH="\$LD_LIBRARY_PATH:$LD_LIBRARY_PATH_EXT"
 export YARN_USER_CLASSPATH="$YARN_USER_CLASSPATH:$HADOOP_CONF_DIR/$datanode"
 export YARN_NODEMANAGER_LOG=/local/$HDFS_LOCAL_LOG_DIR/nodemanager-$datanode.log
 #export JSTAT_LOG=/local/$HDFS_LOCAL_LOG_DIR/nodemanager-jstat-$datanode.log
