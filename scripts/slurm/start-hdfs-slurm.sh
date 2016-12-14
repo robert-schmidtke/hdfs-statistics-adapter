@@ -268,12 +268,20 @@ cat > $HADOOP_CONF_DIR/mapred-site.xml << EOF
     <value>-Xmx2048M $MAP_OPTS</value>
   </property>
   <property>
+    <name>mapreduce.map.env</name>
+    <value>LD_LIBRARY_PATH=\${LD_LIBRARY_PATH}:${LD_LIBRARY_PATH_EXT}</value>
+  </property>
+  <property>
     <name>mapreduce.reduce.memory.mb</name>
     <value>4096</value>
   </property>
   <property>
     <name>mapreduce.reduce.java.opts</name>
     <value>-Xmx3072M $REDUCE_OPTS</value>
+  </property>
+  <property>
+    <name>mapreduce.reduce.env</name>
+    <value>LD_LIBRARY_PATH=\${LD_LIBRARY_PATH}:${LD_LIBRARY_PATH_EXT}</value>
   </property>
   <property>
     <name>mapreduce.task.io.sort.mb</name>
