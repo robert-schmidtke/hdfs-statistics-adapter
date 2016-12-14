@@ -95,6 +95,8 @@ cp ./start-hdfs-slurm.sh $HADOOP_HOME/sbin
 SRUN_STANDARD_OPTS="--nodelist=$MASTER --nodes=1-1 --chdir=$HADOOP_HOME/sbin"
 HDFS_STANDARD_OPTS="--blocksize 268435456 --replication 1 --memory 51200 --cores 16 --io-buffer 1048576 --colocate-datanode-with-namenode"
 HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --hadoop-opts -agentpath:$SFS_DIRECTORY/sfs-agent/target/libsfs.so=trans_jar=$SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar,log_file_name=/local/$USER/sfs/sfs.log.hadoop"
+HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --map-opts -agentpath:$SFS_DIRECTORY/sfs-agent/target/libsfs.so=trans_jar=$SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar,log_file_name=/local/$USER/sfs/sfs.log.map"
+HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --reduce-opts -agentpath:$SFS_DIRECTORY/sfs-agent/target/libsfs.so=trans_jar=$SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar,log_file_name=/local/$USER/sfs/sfs.log.reduce"
 HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --yarn-opts -agentpath:$SFS_DIRECTORY/sfs-agent/target/libsfs.so=trans_jar=$SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar,log_file_name=/local/$USER/sfs/sfs.log.yarn"
 HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --ld-library-path $GRPC_HOME/libs/opt:$GRPC_HOME/third_party/protobuf/src/.lib"
 SFS_STANDARD_OPTS="--sfs-logfilename /local/$USER/sfs/sfs.log --sfs-wrapped-scheme hdfs"

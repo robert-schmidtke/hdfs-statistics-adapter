@@ -8,6 +8,8 @@ usage() {
   echo "  -o|--cores <total number of cores to be used on each node> (default: 16)"
   echo "  -i|--io-buffer <size of the IO buffer in bytes> (default: 1048576)"
   echo "  -h|--hadoop-opts the HADOOP_OPTS to set (default: not specified)"
+  echo "  -a|--map-opts the JVM Options to pass to each mapper (default: not specified)"
+  echo "  -e|--reduce-opts the JVM Options to pass to each reducer (default: not specified)"
   echo "  -y|--yarn-opts the YARN_OPTS to set (default: not specified)"
   echo "  -l|--ld-library-path the LD_LIBRARY_PATH to set (default: not specified)"
   echo "  -c|--colocate-datanode-with-namenode (default: not specified/false)"
@@ -51,6 +53,14 @@ while [[ $# -gt 0 ]]; do
       ;;
     -h|--hadoop-opts)
       HADOOP_OPTS="$2"
+      shift
+      ;;
+    -a|--map-opts)
+      MAP_OPTS="$2"
+      shift
+      ;;
+    -e|--reduce-opts)
+      REDUCE_OPTS="$2"
       shift
       ;;
     -y|--yarn-opts)
@@ -255,7 +265,7 @@ cat > $HADOOP_CONF_DIR/mapred-site.xml << EOF
   </property>
   <property>
     <name>mapreduce.map.java.opts</name>
-    <value>-Xmx2048M</value>
+    <value>-Xmx2048M $MAP_OPTS</value>
   </property>
   <property>
     <name>mapreduce.reduce.memory.mb</name>
@@ -263,7 +273,7 @@ cat > $HADOOP_CONF_DIR/mapred-site.xml << EOF
   </property>
   <property>
     <name>mapreduce.reduce.java.opts</name>
-    <value>-Xmx3072M</value>
+    <value>-Xmx3072M $REDUCE_OPTS</value>
   </property>
   <property>
     <name>mapreduce.task.io.sort.mb</name>
