@@ -42,8 +42,9 @@ static int get_tok(char **src, char *buf, int buflen, int sep) {
 }
 
 struct CliOptions {
-  std::string transformer_jar_path;
   std::string log_file_name;
+  std::string transformer_address;
+  std::string transformer_jar_path;
 };
 
 // borrows from the hprof agent
@@ -74,6 +75,10 @@ static bool parse_options(char *command_line_options, CliOptions *cli_options) {
   }
   char *options = all_options;
 
+  cli_options->log_file_name = std::string("");
+  cli_options->transformer_address = std::string("");
+  cli_options->transformer_jar_path = std::string("");
+
   bool tx_jar_path_set = false;
   bool log_file_name_set = false;
   while (*options) {
@@ -82,7 +87,11 @@ static bool parse_options(char *command_line_options, CliOptions *cli_options) {
     char *endptr;
 
     if (get_tok(&options, option, (int)sizeof(option), '=')) {
-      if (strcmp(option, "trans_jar") == 0) {
+      if (strcmp(option, "trans_address") == 0) {
+        if (get_tok(&options, suboption, (int)sizeof(suboption), ',')) {
+          cli_options->transformer_address = std::string(suboption);
+        }
+      } else if (strcmp(option, "trans_jar") == 0) {
         if (get_tok(&options, suboption, (int)sizeof(suboption), ',')) {
           cli_options->transformer_jar_path = std::string(suboption);
           tx_jar_path_set = true;

@@ -132,10 +132,14 @@ public class ClassTransformationServer extends
         isEndClassTransformationsLock.lock();
         try {
             while (!isEndClassTransformations) {
-                if (!isEndClassTransformationsCondition.await(timeoutSeconds,
-                        TimeUnit.SECONDS)) {
-                    // time elapsed
-                    break;
+                if (timeoutSeconds > 0) {
+                    if (!isEndClassTransformationsCondition.await(
+                            timeoutSeconds, TimeUnit.SECONDS)) {
+                        // time elapsed
+                        break;
+                    }
+                } else {
+                    isEndClassTransformationsCondition.awaitUninterruptibly();
                 }
             }
         } finally {

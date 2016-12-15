@@ -28,6 +28,9 @@
 static ClassTransformationClient *g_class_transformation_client;
 static ClassTransformationServer *g_class_transformation_server;
 
+// flag to indicate whether we should start our own transformer JVM
+static bool g_start_transformer_jvm;
+
 // store startup command of transformer JVM so we can them up
 static char **g_transformer_jvm_cmd;
 
@@ -56,9 +59,12 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
   if (!parse_options(options, &cli_options)) {
     std::cerr << "Could not parse options: "
               << (options != NULL ? options : "-") << std::endl
-              << "Required options: " << std::endl
+              << "Required options:" << std::endl
+              << "  log_file_name=/path/to/log.file" << std::endl
               << "  trans_jar=/path/to/trans.jar" << std::endl
-              << "  log_file_name=/path/to/log.file" << std::endl;
+              << "Optional options:" << std::endl
+              << "  trans_address=trans-host:port (default: empty)"
+              << std::endl;
     return JNI_EINVAL;
   }
 
@@ -152,82 +158,91 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
     return JNI_ERR;
   }
 
-  // build the transformer JVM start command
-  g_transformer_jvm_cmd = new char *[7];
-  g_transformer_jvm_cmd[0] = strdup((java_home + "/bin/java").c_str());
-  g_transformer_jvm_cmd[1] = strdup("-cp");
-  g_transformer_jvm_cmd[2] = strdup(cli_options.transformer_jar_path.c_str());
-  g_transformer_jvm_cmd[3] =
-      strdup("de.zib.sfs.instrument.ClassTransformationService");
-  g_transformer_jvm_cmd[4] = strdup("--communication-port-agent");
-  g_transformer_jvm_cmd[5] = strdup(std::to_string(port).c_str());
-  g_transformer_jvm_cmd[6] = NULL;
+  // figure out whether we should start our own transformer JVM or use an
+  // already running one
+  g_start_transformer_jvm = cli_options.transformer_address.length() == 0;
+  if (g_start_transformer_jvm) {
+    // build the transformer JVM start command
+    g_transformer_jvm_cmd = new char *[7];
+    g_transformer_jvm_cmd[0] = strdup((java_home + "/bin/java").c_str());
+    g_transformer_jvm_cmd[1] = strdup("-cp");
+    g_transformer_jvm_cmd[2] = strdup(cli_options.transformer_jar_path.c_str());
+    g_transformer_jvm_cmd[3] =
+        strdup("de.zib.sfs.instrument.ClassTransformationService");
+    g_transformer_jvm_cmd[4] = strdup("--communication-port-agent");
+    g_transformer_jvm_cmd[5] = strdup(std::to_string(port).c_str());
+    g_transformer_jvm_cmd[6] = NULL;
 
-  char *envp[] = {NULL};
+    char *envp[] = {NULL};
 
-  // start new process to execute the transformer JVM
-  pid_t transformer_pid = fork();
-  if (transformer_pid == 0) {
-    /* this block is executed by the child thread */
+    // start new process to execute the transformer JVM
+    pid_t transformer_pid = fork();
+    if (transformer_pid == 0) {
+      /* this block is executed by the child thread */
 
-    // start the transformer JVM, execve does not return on success
-    execve((java_home + "/bin/java").c_str(), g_transformer_jvm_cmd, envp);
-    int errnum = errno;
-    std::cerr << "Could not start transformer JVM (" << std::strerror(errnum)
-              << ": " << errnum << ")" << std::endl;
-    return errnum;
-  } else {
-    /* this block is executed by the parent thread */
+      // start the transformer JVM, execve does not return on success
+      execve((java_home + "/bin/java").c_str(), g_transformer_jvm_cmd, envp);
+      int errnum = errno;
+      std::cerr << "Could not start transformer JVM (" << std::strerror(errnum)
+                << ": " << errnum << ")" << std::endl;
+      return errnum;
+    } else {
+      /* this block is executed by the parent thread */
 
-    // wait until the transformer JVM has indicated that class transformations
-    // can begin
-    int transformer_port =
-        g_class_transformation_server->WaitForBeginClassTransformations(30);
-    if (transformer_port == -1) {
-      // there was a timeout
-      std::cerr << "Transformer JVM failed to register within 30 seconds"
-                << std::endl;
-      cleanup();
+      // wait until the transformer JVM has indicated that class transformations
+      // can begin
+      int transformer_port =
+          g_class_transformation_server->WaitForBeginClassTransformations(30);
+      if (transformer_port == -1) {
+        // there was a timeout
+        std::cerr << "Transformer JVM failed to register within 30 seconds"
+                  << std::endl;
+        cleanup();
 
-      // read exit code, if applicable
-      int transformer_status;
-      pid_t p = waitpid(transformer_pid, &transformer_status, WNOHANG);
-      if (p == transformer_pid) {
-        if (!WIFEXITED(transformer_status)) {
-          // process may be still alive, kill it
-          std::cerr << "Killing transformer JVM" << std::endl;
-          if (kill(transformer_pid, 9) == 0) {
+        // read exit code, if applicable
+        int transformer_status;
+        pid_t p = waitpid(transformer_pid, &transformer_status, WNOHANG);
+        if (p == transformer_pid) {
+          if (!WIFEXITED(transformer_status)) {
+            // process may be still alive, kill it
+            std::cerr << "Killing transformer JVM" << std::endl;
+            if (kill(transformer_pid, 9) == 0) {
+              waitpid(transformer_pid, NULL, 0);
+            }
+          } else {
+            // process is dead, return its status
+            std::cerr << "Transformer JVM exited with status: "
+                      << WEXITSTATUS(transformer_status) << std::endl;
+            return WEXITSTATUS(transformer_status);
+          }
+        } else if (p == 0) {
+          // process is still running, interrupt it
+          std::cerr << "Interrupting transformer JVM" << std::endl;
+          if (kill(transformer_pid, 2) == 0) {
             waitpid(transformer_pid, NULL, 0);
           }
-        } else {
-          // process is dead, return its status
-          std::cerr << "Transformer JVM exited with status: "
-                    << WEXITSTATUS(transformer_status) << std::endl;
-          return WEXITSTATUS(transformer_status);
+        } else if (p == -1) {
+          // something else went wrong
+          int errnum = errno;
+          std::cerr << "Unknown error getting transformer JVM's status: "
+                    << std::strerror(errnum) << ": " << errnum << std::endl;
+          return errnum;
         }
-      } else if (p == 0) {
-        // process is still running, interrupt it
-        std::cerr << "Interrupting transformer JVM" << std::endl;
-        if (kill(transformer_pid, 2) == 0) {
-          waitpid(transformer_pid, NULL, 0);
-        }
-      } else if (p == -1) {
-        // something else went wrong
-        int errnum = errno;
-        std::cerr << "Unknown error getting transformer JVM's status: "
-                  << std::strerror(errnum) << ": " << errnum << std::endl;
-        return errnum;
-      }
 
-      return JNI_ERR;
-    } else {
-      // build the client that talks to the transformer JVM
-      g_class_transformation_client = new ClassTransformationClient(
-          grpc::CreateChannel("0.0.0.0:" + std::to_string(transformer_port),
-                              grpc::InsecureChannelCredentials()));
-      return JNI_OK;
+        return JNI_ERR;
+      } else {
+        // set the transformer's address ourselves
+        cli_options.transformer_address =
+            std::string("0.0.0.0:" + std::to_string(transformer_port));
+      }
     }
   }
+
+  // build the client that talks to the transformer JVM
+  g_class_transformation_client =
+      new ClassTransformationClient(grpc::CreateChannel(
+          cli_options.transformer_address, grpc::InsecureChannelCredentials()));
+  return JNI_OK;
 }
 
 // called by the JVM to unload the agent

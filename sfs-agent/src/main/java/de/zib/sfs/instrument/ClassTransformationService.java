@@ -18,10 +18,14 @@ public class ClassTransformationService {
     public static void main(String args[]) {
         int i = 0;
         int agentPort = -1;
+        int timeoutSeconds = 30;
         while (i < args.length) {
             switch (args[i]) {
             case "--communication-port-agent":
                 agentPort = Integer.parseInt(args[++i]);
+                break;
+            case "--timeout":
+                timeoutSeconds = Integer.parseInt(args[++i]);
                 break;
             }
             ++i;
@@ -32,6 +36,8 @@ public class ClassTransformationService {
                     + Arrays.toString(args));
             System.err.println("Required options:");
             System.err.println("  --communication-port-agent port");
+            System.err.println("Optional options:");
+            System.err.println("  --timeout seconds (default: 30)");
             System.exit(1);
         }
 
@@ -84,11 +90,13 @@ public class ClassTransformationService {
             System.exit(1);
         }
 
-        // wait at most 30 seconds for the agent to signal it is done
+        // wait at most X seconds for the agent to signal it is done
         try {
-            if (!classTransformationServer.awaitEndClassTransformations(30)) {
+            if (!classTransformationServer
+                    .awaitEndClassTransformations(timeoutSeconds)) {
                 System.err
-                        .println("Agent failed to finish class transformations within 30 seconds");
+                        .println("Agent failed to finish class transformations within "
+                                + timeoutSeconds + " seconds");
             }
         } catch (InterruptedException e) {
             System.err
