@@ -12,6 +12,8 @@ import io.grpc.ServerBuilder;
 import io.grpc.stub.StreamObserver;
 
 import java.io.IOException;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
@@ -37,6 +39,8 @@ public class ClassTransformationServer extends
     private final Lock isEndClassTransformationsLock;
     private final Condition isEndClassTransformationsCondition;
 
+    private final Map<String, ByteString> transformedClassesCache;
+
     public ClassTransformationServer(int port) {
         server = ServerBuilder.forPort(port).addService(this).build();
 
@@ -44,47 +48,58 @@ public class ClassTransformationServer extends
         isEndClassTransformationsLock = new ReentrantLock();
         isEndClassTransformationsCondition = isEndClassTransformationsLock
                 .newCondition();
+
+        transformedClassesCache = new ConcurrentHashMap<>();
     }
 
     @Override
     public void classTransformation(ClassTransformationRequest request,
             StreamObserver<ClassTransformationResponse> responseObserver) {
-        ClassReader cr = new ClassReader(request.getBytecode().toByteArray());
-        ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS
-                | ClassWriter.COMPUTE_FRAMES);
+        String className = request.getName();
+        ByteString transformedClass = transformedClassesCache.get(className);
+        if (transformedClass == null) {
+            ClassReader cr = new ClassReader(request.getBytecode()
+                    .toByteArray());
+            ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS
+                    | ClassWriter.COMPUTE_FRAMES);
 
-        try {
-            switch (request.getName()) {
-            case "java/io/FileInputStream":
-                cr.accept(
-                        new FileInputStreamAdapter(cw, request
-                                .getNativeMethodPrefix()), 0);
-                break;
-            case "java/io/FileOutputStream":
-                cr.accept(
-                        new FileOutputStreamAdapter(cw, request
-                                .getNativeMethodPrefix()), 0);
-                break;
-            case "java/io/RandomAccessFile":
-                cr.accept(
-                        new RandomAccessFileAdapter(cw, request
-                                .getNativeMethodPrefix()), 0);
-                break;
-            case "sun/nio/ch/FileChannelImpl":
-                cr.accept(
-                        new FileChannelImplAdapter(cw, request
-                                .getNativeMethodPrefix()), 0);
-                break;
-            default:
-                cr.accept(cw, 0);
-                break;
+            try {
+                switch (className) {
+                case "java/io/FileInputStream":
+                    cr.accept(
+                            new FileInputStreamAdapter(cw, request
+                                    .getNativeMethodPrefix()), 0);
+                    break;
+                case "java/io/FileOutputStream":
+                    cr.accept(
+                            new FileOutputStreamAdapter(cw, request
+                                    .getNativeMethodPrefix()), 0);
+                    break;
+                case "java/io/RandomAccessFile":
+                    cr.accept(
+                            new RandomAccessFileAdapter(cw, request
+                                    .getNativeMethodPrefix()), 0);
+                    break;
+                case "sun/nio/ch/FileChannelImpl":
+                    cr.accept(
+                            new FileChannelImplAdapter(cw, request
+                                    .getNativeMethodPrefix()), 0);
+                    break;
+                default:
+                    throw new IllegalArgumentException("Invalid class: "
+                            + className);
+                }
+
+                transformedClass = ByteString.copyFrom(cw.toByteArray());
+                transformedClassesCache.put(className, transformedClass);
+            } catch (Exception e) {
+                System.err.println("Error during class transformation:");
+                e.printStackTrace();
             }
-        } catch (Exception e) {
-            e.printStackTrace();
         }
 
         responseObserver.onNext(ClassTransformationResponse.newBuilder()
-                .setBytecode(ByteString.copyFrom(cw.toByteArray())).build());
+                .setBytecode(transformedClass).build());
         responseObserver.onCompleted();
     }
 
