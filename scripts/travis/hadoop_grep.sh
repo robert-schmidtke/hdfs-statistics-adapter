@@ -51,7 +51,7 @@ cat >> $HADOOP_HOME/etc/hadoop/mapred-site.xml << EOF
 EOF
 
 # start the transformer JVM
-java -cp $TRAVIS_BUILD_DIR/sfs-agent/target/sfs-agent.jar de.zib.sfs.instrument.ClassTransformationService --port 4242 --timeout -1 &
+java -cp $TRAVIS_BUILD_DIR/sfs-agent/target/sfs-agent.jar de.zib.sfs.instrument.ClassTransformationService --port 4242 --timeout -1 2>&1 &
 TRANSFORMER_PID=$!
 
 # start Hadoop
