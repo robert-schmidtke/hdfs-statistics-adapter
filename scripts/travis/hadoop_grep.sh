@@ -20,10 +20,12 @@ line=$(($line + 1))
 sed -i "${line}s/.*/    <value>file<\/value>/" $HADOOP_HOME/etc/hadoop/core-site.xml
 
 export LD_LIBRARY_PATH_EXT="$GRPC_HOME/libs/opt:$GRPC_HOME/third_party/protobuf/src/.lib"
-export HADOOP_OPTS="-agentpath:$TRAVIS_BUILD_DIR/sfs-agent/target/libsfs.so=trans_jar=$TRAVIS_BUILD_DIR/sfs-agent/target/sfs-agent.jar,log_file_name=/tmp/sfs.log.hadoop"
-export YARN_OPTS="-agentpath:$TRAVIS_BUILD_DIR/sfs-agent/target/libsfs.so=trans_jar=$TRAVIS_BUILD_DIR/sfs-agent/target/sfs-agent.jar,log_file_name=/tmp/sfs.log.yarn"
-export MAP_OPTS="-agentpath:$TRAVIS_BUILD_DIR/sfs-agent/target/libsfs.so=trans_jar=$TRAVIS_BUILD_DIR/sfs-agent/target/sfs-agent.jar,log_file_name=/tmp/sfs.log.map"
-export REDUCE_OPTS="-agentpath:$TRAVIS_BUILD_DIR/sfs-agent/target/libsfs.so=trans_jar=$TRAVIS_BUILD_DIR/sfs-agent/target/sfs-agent.jar,log_file_name=/tmp/sfs.log.reduce"
+
+OPTS="-agentpath:$TRAVIS_BUILD_DIR/sfs-agent/target/libsfs.so=trans_jar=$TRAVIS_BUILD_DIR/sfs-agent/target/sfs-agent.jar,trans_address=0.0.0.0:4242"
+export HADOOP_OPTS="$OPTS,log_file_name=/tmp/sfs.log.hadoop"
+export YARN_OPTS="$OPTS,log_file_name=/tmp/sfs.log.yarn"
+export MAP_OPTS="$OPTS,log_file_name=/tmp/sfs.log.map"
+export REDUCE_OPTS="$OPTS,log_file_name=/tmp/sfs.log.reduce"
 
 # instrument mappers and reducers
 line_number=`grep -nr "</configuration>" "$HADOOP_HOME/etc/hadoop/mapred-site.xml" | cut -d : -f 1`
@@ -48,6 +50,10 @@ cat >> $HADOOP_HOME/etc/hadoop/mapred-site.xml << EOF
 </configuration>
 EOF
 
+# start the transformer JVM
+java -cp $TRAVIS_BUILD_DIR/sfs-agent/target/sfs-agent.jar de.zib.sfs.instrument.ClassTransformationService --port 4242 --timeout -1 &
+TRANSFORMER_PID=$!
+
 # start Hadoop
 $HADOOP_HOME/bin/hdfs namenode -format
 $HADOOP_HOME/sbin/start-dfs.sh
@@ -68,3 +74,6 @@ done
 
 # stop Hadoop
 $HADOOP_HOME/sbin/stop-dfs.sh
+
+# stop transformer JVM
+kill $TRANSFORMER_PID
