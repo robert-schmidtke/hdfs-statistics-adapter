@@ -19,7 +19,34 @@ line=$(grep -n "^    <name>sfs\.wrappedFS\.scheme<\/name>$" $HADOOP_HOME/etc/had
 line=$(($line + 1))
 sed -i "${line}s/.*/    <value>file<\/value>/" $HADOOP_HOME/etc/hadoop/core-site.xml
 
-export HADOOP_OPTS="-agentpath:$TRAVIS_BUILD_DIR/sfs-agent/target/libsfs.so=trans_jar=$TRAVIS_BUILD_DIR/sfs-agent/target/sfs-agent.jar,log_file_name=/tmp/log.file"
+export LD_LIBRARY_PATH_EXT="$GRPC_HOME/libs/opt:$GRPC_HOME/third_party/protobuf/src/.lib"
+export HADOOP_OPTS="-agentpath:$TRAVIS_BUILD_DIR/sfs-agent/target/libsfs.so=trans_jar=$TRAVIS_BUILD_DIR/sfs-agent/target/sfs-agent.jar,log_file_name=/tmp/sfs.log.hadoop"
+export YARN_OPTS="-agentpath:$TRAVIS_BUILD_DIR/sfs-agent/target/libsfs.so=trans_jar=$TRAVIS_BUILD_DIR/sfs-agent/target/sfs-agent.jar,log_file_name=/tmp/sfs.log.yarn"
+export MAP_OPTS="-agentpath:$TRAVIS_BUILD_DIR/sfs-agent/target/libsfs.so=trans_jar=$TRAVIS_BUILD_DIR/sfs-agent/target/sfs-agent.jar,log_file_name=/tmp/sfs.log.map"
+export REDUCE_OPTS="-agentpath:$TRAVIS_BUILD_DIR/sfs-agent/target/libsfs.so=trans_jar=$TRAVIS_BUILD_DIR/sfs-agent/target/sfs-agent.jar,log_file_name=/tmp/sfs.log.reduce"
+
+# instrument mappers and reducers
+line_number=`grep -nr "</configuration>" "$HADOOP_HOME/etc/hadoop/mapred-site.xml" | cut -d : -f 1`
+printf '%s\n' "${line_number}s#.*##" w | ed -s "$HADOOP_HOME/etc/hadoop/mapred-site.xml"
+cat >> $HADOOP_HOME/etc/hadoop/mapred-site.xml << EOF
+  <property>
+    <name>mapreduce.map.java.opts</name>
+    <value>$MAP_OPTS</value>
+  </property>
+  <property>
+    <name>mapreduce.map.env</name>
+    <value>LD_LIBRARY_PATH=\${LD_LIBRARY_PATH}:${LD_LIBRARY_PATH_EXT}</value>
+  </property>
+  <property>
+    <name>mapreduce.reduce.java.opts</name>
+    <value>$REDUCE_OPTS</value>
+  </property>
+  <property>
+    <name>mapreduce.reduce.env</name>
+    <value>LD_LIBRARY_PATH=\${LD_LIBRARY_PATH}:${LD_LIBRARY_PATH_EXT}</value>
+  </property>
+</configuration>
+EOF
 
 # start Hadoop
 $HADOOP_HOME/bin/hdfs namenode -format
@@ -34,7 +61,7 @@ echo "Hadoop Output:"
 $HADOOP_HOME/bin/hdfs dfs -cat sfs:///tmp/user/$USER/output/*
 
 echo "SFS Output:"
-for file in $(ls /tmp/log.file*); do
+for file in $(ls /tmp/sfs.log*); do
   echo "${file}:"
   cat $file
 done
