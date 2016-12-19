@@ -51,19 +51,27 @@ cat >> $HADOOP_HOME/etc/hadoop/mapred-site.xml << EOF
 EOF
 
 # start the transformer JVM
+echo "$(date): Starting Transformer JVM"
 java -cp $TRAVIS_BUILD_DIR/sfs-agent/target/sfs-agent.jar de.zib.sfs.instrument.ClassTransformationService --port 4242 --timeout -1 2>&1 &
 TRANSFORMER_PID=$!
+echo "$(date): Transformer JVM running as process $TRANSFORMER_PID"
 
 # start Hadoop
+echo "$(date): Formatting NameNode"
 $HADOOP_HOME/bin/hdfs namenode -format
+echo "$(date): Starting DFS"
 $HADOOP_HOME/sbin/start-dfs.sh
+echo "$(date): Started DFS"
 
 # run sample grep job
+echo "$(date): Creating user directory"
 $HADOOP_HOME/bin/hdfs dfs -mkdir -p sfs:///tmp/user/$USER
+echo "$(date): Copying input data"
 $HADOOP_HOME/bin/hdfs dfs -put $HADOOP_HOME/etc/hadoop sfs:///tmp/user/$USER/input
+echo "$(date): Running Hadoop grep"
 $HADOOP_HOME/bin/hadoop jar $HADOOP_HOME/share/hadoop/mapreduce/hadoop-mapreduce-examples-$HADOOP_VERSION.jar grep sfs:///tmp/user/$USER/input sfs:///tmp/user/$USER/output 'dfs[a-z.]+'
 
-echo "Hadoop Output:"
+echo "$(date): Hadoop Output:"
 $HADOOP_HOME/bin/hdfs dfs -cat sfs:///tmp/user/$USER/output/*
 
 echo "SFS Output:"
@@ -73,7 +81,11 @@ for file in $(ls /tmp/sfs.log*); do
 done
 
 # stop Hadoop
+echo "$(date): Stopping DFS"
 $HADOOP_HOME/sbin/stop-dfs.sh
 
 # stop transformer JVM
+echo "$(date): Stopping Transformer JVM"
 kill $TRANSFORMER_PID
+
+echo "$(date): Done."
