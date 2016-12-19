@@ -133,18 +133,20 @@ while [ $CONNECTED_DATANODES -lt ${#NODES[@]} ]; do
 done
 echo "$(date): Starting HDFS done"
 
-echo "$(date): Configuring Flink"
-TASK_SLOTS=16
-JOBMANAGER_MEMORY=4096
-TASKMANAGER_MEMORY=40960
-cp $FLINK_HOME/conf/flink-conf.yaml.template $FLINK_HOME/conf/flink-conf.yaml
-sed -i "/^# taskmanager\.network\.numberOfBuffers/c\taskmanager.network.numberOfBuffers: $(($TASK_SLOTS * $TASK_SLOTS * ${#NODES[@]} * 4))" $FLINK_HOME/conf/flink-conf.yaml
-sed -i "/^# fs\.hdfs\.hadoopconf/c\fs.hdfs.hadoopconf: $HADOOP_HOME/etc/hadoop" $FLINK_HOME/conf/flink-conf.yaml
-cat >> $FLINK_HOME/conf/flink-conf.yaml << EOF
+if [ "$ENGINE" == "flink" ]; then
+  echo "$(date): Configuring Flink"
+  TASK_SLOTS=16
+  JOBMANAGER_MEMORY=4096
+  TASKMANAGER_MEMORY=40960
+  cp $FLINK_HOME/conf/flink-conf.yaml.template $FLINK_HOME/conf/flink-conf.yaml
+  sed -i "/^# taskmanager\.network\.numberOfBuffers/c\taskmanager.network.numberOfBuffers: $(($TASK_SLOTS * $TASK_SLOTS * ${#NODES[@]} * 4))" $FLINK_HOME/conf/flink-conf.yaml
+  sed -i "/^# fs\.hdfs\.hadoopconf/c\fs.hdfs.hadoopconf: $HADOOP_HOME/etc/hadoop" $FLINK_HOME/conf/flink-conf.yaml
+  cat >> $FLINK_HOME/conf/flink-conf.yaml << EOF
 taskmanager.memory.off-heap: true
 env.java.opts: $OPTS,log_file_name=/local/$USER/sfs/sfs.log.flink
 EOF
-echo "$(date): Configuring Flink done"
+  echo "$(date): Configuring Flink done"
+fi
 
 rm -rf $FLINK_HOME/log/*
 rm -rf $HADOOP_HOME/log-*
@@ -195,7 +197,7 @@ cp ./stop-hdfs-slurm.sh $HADOOP_HOME/sbin
 srun --nodelist=$MASTER --nodes=1-1 --chdir=$HADOOP_HOME/sbin ./stop-hdfs-slurm.sh --colocate-datanode-with-namenode
 echo "$(date): Stopping HDFS done"
 
-echo "$(date): Stoppint transformer JVMs"
+echo "$(date): Stopping transformer JVMs"
 stop_transformer_jvm_script="${SLURM_JOB_ID}-stop-transformer-jvm.sh"
 cat >> $stop_transformer_jvm_script << EOF
 #!/bin/bash
