@@ -123,12 +123,13 @@ public class ClassTransformationService {
             @Override
             public void run() {
                 try {
-                    classTransformationServer.shutdown();
+                    if (classTransformationServer != null) {
+                        classTransformationServer.shutdown();
+                    }
                 } catch (InterruptedException e) {
                     System.err
                             .println("Could not shut down transformer server");
                     e.printStackTrace();
-                    System.exit(1);
                 }
             }
         }.setClassTransformationServer(classTransformationServer));
