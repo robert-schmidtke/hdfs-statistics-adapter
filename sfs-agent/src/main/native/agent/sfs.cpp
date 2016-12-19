@@ -134,34 +134,35 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
       cli_options.transformer_jar_path.c_str());
   CHECK_JVMTI_RESULT("AddToSystemClassLoaderSearch", jvmti_result);
 
-  // start the server that communicates with the transformer JVM
-  g_class_transformation_server = new ClassTransformationServer;
-
-  // assume that all that can go wrong during startup is a port that is already
-  // in use
-  timespec ts;
-  clock_gettime(CLOCK_MONOTONIC, &ts);
-  srand((time_t)ts.tv_nsec);
-
-  int port, tries = 0;
-  bool started = false;
-  do {
-    ++tries;
-    port = rand() % 16384 + 49152;
-    started =
-        g_class_transformation_server->Start("0.0.0.0:" + std::to_string(port));
-  } while (!started && tries < 10);
-  if (!started) {
-    std::cerr << "Could not start transformation server after " << tries
-              << " tries." << std::endl;
-    cleanup();
-    return JNI_ERR;
-  }
-
   // figure out whether we should start our own transformer JVM or use an
   // already running one
   g_start_transformer_jvm = cli_options.transformer_address.length() == 0;
   if (g_start_transformer_jvm) {
+    // start the server that communicates with the transformer JVM, i.e. waits
+    // for it to have started
+    g_class_transformation_server = new ClassTransformationServer;
+
+    // assume that all that can go wrong during startup is a port that is
+    // already in use
+    timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    srand((time_t)ts.tv_nsec);
+
+    int port, tries = 0;
+    bool started = false;
+    do {
+      ++tries;
+      port = rand() % 16384 + 49152;
+      started = g_class_transformation_server->Start("0.0.0.0:" +
+                                                     std::to_string(port));
+    } while (!started && tries < 10);
+    if (!started) {
+      std::cerr << "Could not start transformation server after " << tries
+                << " tries." << std::endl;
+      cleanup();
+      return JNI_ERR;
+    }
+
     // build the transformer JVM start command
     g_transformer_jvm_cmd = new char *[7];
     g_transformer_jvm_cmd[0] = strdup((java_home + "/bin/java").c_str());
