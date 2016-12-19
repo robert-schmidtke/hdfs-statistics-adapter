@@ -88,7 +88,7 @@ srun -N$SLURM_JOB_NUM_NODES mkdir -p /local/$USER/sfs
 echo "$(date): Creating local folders done"
 
 echo "$(date): Starting transformer JVMs"
-start_transformer_jvm_script="$(dirname $0)/${SLURM_JOB_ID}-start-transformer-jvm.sh"
+start_transformer_jvm_script="${SLURM_JOB_ID}-start-transformer-jvm.sh"
 cat >> $start_transformer_jvm_script << EOF
 #!/bin/bash
 nohup java -cp $SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar de.zib.sfs.instrument.ClassTransformationService --port 4242 --timeout -1 > /local/$USER/sfs/transformer.log 2>&1 &
@@ -196,7 +196,7 @@ srun --nodelist=$MASTER --nodes=1-1 --chdir=$HADOOP_HOME/sbin ./stop-hdfs-slurm.
 echo "$(date): Stopping HDFS done"
 
 echo "$(date): Stoppint transformer JVMs"
-stop_transformer_jvm_script="$(dirname $0)/${SLURM_JOB_ID}-stop-transformer-jvm.sh"
+stop_transformer_jvm_script="${SLURM_JOB_ID}-stop-transformer-jvm.sh"
 cat >> $stop_transformer_jvm_script << EOF
 #!/bin/bash
 kill $(</local/$USER/sfs/transformer.pid)
