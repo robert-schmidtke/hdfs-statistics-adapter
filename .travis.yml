@@ -17,12 +17,9 @@ addons:
 
 install:
   # accept own key to start services locally via ssh
-  #- mkdir -p $HOME/.ssh
-  #- ssh-keygen -t dsa -N "" -f $HOME/.ssh/id_dsa
-  #- cat $HOME/.ssh/id_dsa.pub >> $HOME/.ssh/authorized_keys
-  #- chmod 600 $HOME/.ssh/authorized_keys
-  #- ssh-keyscan -vvv -t dsa localhost >> $HOME/.ssh/known_hosts
-  #- ssh-keyscan -vvv -t dsa 0.0.0.0 >> $HOME/.ssh/known_hosts
+  - ssh-keygen -t dsa -N "" -f $HOME/.ssh/id_dsa
+  - cat $HOME/.ssh/id_dsa.pub >> $HOME/.ssh/authorized_keys
+  - chmod 600 $HOME/.ssh/authorized_keys
 
   # set up Hadoop
   - export HADOOP_VERSION=2.7.2
