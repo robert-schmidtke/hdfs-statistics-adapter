@@ -133,9 +133,9 @@ while [ $CONNECTED_DATANODES -lt ${#NODES[@]} ]; do
 done
 echo "$(date): Starting HDFS done"
 
+TASK_SLOTS=16
 if [ "$ENGINE" == "flink" ]; then
   echo "$(date): Configuring Flink"
-  TASK_SLOTS=16
   JOBMANAGER_MEMORY=4096
   TASKMANAGER_MEMORY=40960
   cp $FLINK_HOME/conf/flink-conf.yaml.template $FLINK_HOME/conf/flink-conf.yaml
