@@ -87,6 +87,18 @@ srun -N$SLURM_JOB_NUM_NODES mkdir -p /local/$USER/hdfs
 srun -N$SLURM_JOB_NUM_NODES mkdir -p /local/$USER/sfs
 echo "$(date): Creating local folders done"
 
+echo "$(date): Starting transformer JVMs"
+start_transformer_jvm_script="$(dirname $0)/${SLURM_JOB_ID}-start-transformer-jvm.sh"
+cat >> $start_transformer_jvm_script << EOF
+#!/bin/bash
+nohup java -cp $SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar de.zib.sfs.instrument.ClassTransformationService --port 4242 --timeout -1 > /local/$USER/sfs/transformer.log 2>&1 &
+echo \$! > /local/$USER/sfs/transformer.pid
+EOF
+chmod +x $start_transformer_jvm_script
+srun -N$SLURM_JOB_NUM_NODES $start_transformer_jvm_script
+rm $start_transformer_jvm_script
+echo "$(date): Starting transformer JVMs done"
+
 echo "$(date): Starting HDFS"
 rm -rf $HADOOP_HOME/logs/*
 cp ./start-hdfs-slurm.sh $HADOOP_HOME/sbin
@@ -94,10 +106,11 @@ cp ./start-hdfs-slurm.sh $HADOOP_HOME/sbin
 # 256M block size, replication factor of 1, 50G total node memory for YARN, put first datanode on namenode host
 SRUN_STANDARD_OPTS="--nodelist=$MASTER --nodes=1-1 --chdir=$HADOOP_HOME/sbin"
 HDFS_STANDARD_OPTS="--blocksize 268435456 --replication 1 --memory 51200 --cores 16 --io-buffer 1048576 --colocate-datanode-with-namenode"
-HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --hadoop-opts -agentpath:$SFS_DIRECTORY/sfs-agent/target/libsfs.so=trans_jar=$SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar,log_file_name=/local/$USER/sfs/sfs.log.hadoop"
-HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --map-opts -agentpath:$SFS_DIRECTORY/sfs-agent/target/libsfs.so=trans_jar=$SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar,log_file_name=/local/$USER/sfs/sfs.log.map"
-HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --reduce-opts -agentpath:$SFS_DIRECTORY/sfs-agent/target/libsfs.so=trans_jar=$SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar,log_file_name=/local/$USER/sfs/sfs.log.reduce"
-HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --yarn-opts -agentpath:$SFS_DIRECTORY/sfs-agent/target/libsfs.so=trans_jar=$SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar,log_file_name=/local/$USER/sfs/sfs.log.yarn"
+OPTS="-agentpath:$SFS_DIRECTORY/sfs-agent/target/libsfs.so=trans_jar=$SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar,trans_address=0.0.0.0:4242"
+HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --hadoop-opts $OPTS,log_file_name=/local/$USER/sfs/sfs.log.hadoop"
+HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --map-opts $OPTS,log_file_name=/local/$USER/sfs/sfs.log.map"
+HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --reduce-opts $OPTS,log_file_name=/local/$USER/sfs/sfs.log.reduce"
+HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --yarn-opts $OPTS,log_file_name=/local/$USER/sfs/sfs.log.yarn"
 HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --ld-library-path $GRPC_HOME/libs/opt:$GRPC_HOME/third_party/protobuf/src/.lib"
 SFS_STANDARD_OPTS="--sfs-logfilename /local/$USER/sfs/sfs.log --sfs-wrapped-scheme hdfs"
 cp $SFS_DIRECTORY/sfs-adapter/target/sfs-adapter.jar $FLINK_HOME/lib/sfs-adapter.jar
@@ -129,7 +142,7 @@ sed -i "/^# taskmanager\.network\.numberOfBuffers/c\taskmanager.network.numberOf
 sed -i "/^# fs\.hdfs\.hadoopconf/c\fs.hdfs.hadoopconf: $HADOOP_HOME/etc/hadoop" $FLINK_HOME/conf/flink-conf.yaml
 cat >> $FLINK_HOME/conf/flink-conf.yaml << EOF
 taskmanager.memory.off-heap: true
-env.java.opts: -agentpath:$SFS_DIRECTORY/sfs-agent/target/libsfs.so=trans_jar=$SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar,log_file_name=/local/$USER/sfs/sfs.log.flink
+env.java.opts: $OPTS,log_file_name=/local/$USER/sfs/sfs.log.flink
 EOF
 echo "$(date): Configuring Flink done"
 
@@ -181,6 +194,17 @@ echo "$(date): Stopping HDFS"
 cp ./stop-hdfs-slurm.sh $HADOOP_HOME/sbin
 srun --nodelist=$MASTER --nodes=1-1 --chdir=$HADOOP_HOME/sbin ./stop-hdfs-slurm.sh --colocate-datanode-with-namenode
 echo "$(date): Stopping HDFS done"
+
+echo "$(date): Stoppint transformer JVMs"
+stop_transformer_jvm_script="$(dirname $0)/${SLURM_JOB_ID}-stop-transformer-jvm.sh"
+cat >> $stop_transformer_jvm_script << EOF
+#!/bin/bash
+kill $(</local/$USER/sfs/transformer.pid)
+EOF
+chmod +x $stop_transformer_jvm_script
+srun -N$SLURM_JOB_NUM_NODES $stop_transformer_jvm_script
+rm $stop_transformer_jvm_script
+echo "$(date): Stopping transformer JVMs done"
 
 echo "$(date): Cleaning Java processes"
 srun -N$SLURM_JOB_NUM_NODES killall -sSIGKILL java
