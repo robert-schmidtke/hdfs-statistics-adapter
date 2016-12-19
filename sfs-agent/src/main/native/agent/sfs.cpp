@@ -303,10 +303,12 @@ static void JNICALL ClassFileLoadHookCallback(
   }
 
   // indicate after all necessary classes are loaded that the transformer
-  // JVM can shut down
+  // JVM can shut down, if we have started it ourselves
   if (java_io_FileInputStream_seen && java_io_FileOutputStream_seen &&
       java_io_RandomAccessFile_seen && sun_nio_ch_FileChannelImpl_seen) {
-    g_class_transformation_client->EndClassTransformations();
+    if (g_start_transformer_jvm) {
+      g_class_transformation_client->EndClassTransformations();
+    }
     cleanup();
   }
 }
