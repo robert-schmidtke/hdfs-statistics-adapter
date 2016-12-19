@@ -29,7 +29,15 @@ $HADOOP_HOME/sbin/start-dfs.sh
 $HADOOP_HOME/bin/hdfs dfs -mkdir -p sfs:///tmp/user/$USER
 $HADOOP_HOME/bin/hdfs dfs -put $HADOOP_HOME/etc/hadoop sfs:///tmp/user/$USER/input
 $HADOOP_HOME/bin/hadoop jar $HADOOP_HOME/share/hadoop/mapreduce/hadoop-mapreduce-examples-$HADOOP_VERSION.jar grep sfs:///tmp/user/$USER/input sfs:///tmp/user/$USER/output 'dfs[a-z.]+'
+
+echo "Hadoop Output:"
 $HADOOP_HOME/bin/hdfs dfs -cat sfs:///tmp/user/$USER/output/*
+
+echo "SFS Output:"
+for file in $(ls /tmp/log.file*); do
+  echo "${file}:"
+  cat $file
+done
 
 # stop Hadoop
 $HADOOP_HOME/sbin/stop-dfs.sh
