@@ -91,7 +91,7 @@ echo "$(date): Starting transformer JVMs"
 start_transformer_jvm_script="${SLURM_JOB_ID}-start-transformer-jvm.sh"
 cat >> $start_transformer_jvm_script << EOF
 #!/bin/bash
-nohup java -cp $SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar de.zib.sfs.instrument.ClassTransformationService --port 4242 --timeout -1 > /local/$USER/sfs/transformer.log 2>&1 &
+nohup java -cp $SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar de.zib.sfs.instrument.ClassTransformationService --port 4242 --timeout -1 --verbose n > /local/$USER/sfs/transformer.log 2>&1 &
 echo \$! > /local/$USER/sfs/transformer.pid
 EOF
 chmod +x $start_transformer_jvm_script
@@ -106,7 +106,7 @@ cp ./start-hdfs-slurm.sh $HADOOP_HOME/sbin
 # 256M block size, replication factor of 1, 50G total node memory for YARN, put first datanode on namenode host
 SRUN_STANDARD_OPTS="--nodelist=$MASTER --nodes=1-1 --chdir=$HADOOP_HOME/sbin"
 HDFS_STANDARD_OPTS="--blocksize 268435456 --replication 1 --memory 51200 --cores 16 --io-buffer 1048576 --colocate-datanode-with-namenode"
-OPTS="-agentpath:$SFS_DIRECTORY/sfs-agent/target/libsfs.so=trans_jar=$SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar,trans_address=0.0.0.0:4242"
+OPTS="-agentpath:$SFS_DIRECTORY/sfs-agent/target/libsfs.so=trans_jar=$SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar,trans_address=0.0.0.0:4242,verbose=n"
 HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --hadoop-opts $OPTS,log_file_name=/local/$USER/sfs/sfs.log.hadoop"
 HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --map-opts $OPTS,log_file_name=/local/$USER/sfs/sfs.log.map"
 HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --reduce-opts $OPTS,log_file_name=/local/$USER/sfs/sfs.log.reduce"
@@ -202,6 +202,8 @@ stop_transformer_jvm_script="${SLURM_JOB_ID}-stop-transformer-jvm.sh"
 cat >> $stop_transformer_jvm_script << EOF
 #!/bin/bash
 kill \$(</local/$USER/sfs/transformer.pid)
+echo "Transformer log on \$(hostname):"
+cat /local/$USER/sfs/transformer.log
 EOF
 chmod +x $stop_transformer_jvm_script
 srun -N$SLURM_JOB_NUM_NODES $stop_transformer_jvm_script
