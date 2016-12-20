@@ -158,7 +158,7 @@ public class ClassTransformationService {
 
         // wait at most X seconds for the agent to signal it is done
         try {
-            LogUtil.stderr("Wating '%s' for sthudown signal.\n",
+            LogUtil.stderr("Waiting '%s' for shutdown signal.\n",
                     timeoutSeconds > 0 ? (timeoutSeconds + " seconds")
                             : "indefinitely");
             if (!classTransformationServer
