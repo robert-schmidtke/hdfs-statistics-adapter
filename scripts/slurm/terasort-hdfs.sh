@@ -201,7 +201,7 @@ echo "$(date): Stopping transformer JVMs"
 stop_transformer_jvm_script="${SLURM_JOB_ID}-stop-transformer-jvm.sh"
 cat >> $stop_transformer_jvm_script << EOF
 #!/bin/bash
-kill $(</local/$USER/sfs/transformer.pid)
+kill \$(</local/$USER/sfs/transformer.pid)
 EOF
 chmod +x $stop_transformer_jvm_script
 srun -N$SLURM_JOB_NUM_NODES $stop_transformer_jvm_script
