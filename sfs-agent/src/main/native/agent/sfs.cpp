@@ -40,6 +40,15 @@ static std::string g_native_method_prefix("sfs_native_");
 // the name of the log file to use
 static std::string g_log_file_name;
 
+// indicates whether we should do verbose logging
+static bool g_verbose = false;
+#define LOG_VERBOSE(...)                                                       \
+  do {                                                                         \
+    if (g_verbose) {                                                           \
+      fprintf(stderr, __VA_ARGS__);                                            \
+    }                                                                          \
+  } while (false)
+
 // performs deregistration of events, server shutdown and memory freeing
 static void cleanup();
 
@@ -64,9 +73,12 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
               << "  trans_jar=/path/to/trans.jar" << std::endl
               << "Optional options:" << std::endl
               << "  trans_address=trans-host:port (default: empty)"
-              << std::endl;
+              << "  verbose=y|n (default: n)" << std::endl;
     return JNI_EINVAL;
   }
+
+  g_verbose = cli_options.verbose;
+  LOG_VERBOSE("Agent loading.\n");
 
   // make sure a valid JAVA_HOME is set
   if (getenv("JAVA_HOME") == NULL) {
@@ -79,12 +91,14 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
   if (java_home.back() == '/') {
     java_home.pop_back();
   }
+  LOG_VERBOSE("JAVA_HOME='%s'.\n", java_home.c_str());
 
   // variables used for error checking
   jint jni_result = JNI_OK;
   jvmtiError jvmti_result = JVMTI_ERROR_NONE;
 
   // obtain the JVMTI environment
+  LOG_VERBOSE("Getting JVM TI environment.\n");
   jvmtiEnv *jvmti = NULL;
   jni_result = vm->GetEnv((void **)&jvmti, JVMTI_VERSION);
   CHECK_JNI_RESULT("GetEnv", jni_result);
@@ -92,6 +106,7 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
   // register required capabilities:
   // - get notified upon class definitions
   // - allow rewriting their bytecodes and signatures
+  LOG_VERBOSE("Registering capabilities.\n");
   jvmtiCapabilities capabilities;
   (void)memset(&capabilities, 0, sizeof(jvmtiCapabilities));
   capabilities.can_generate_all_class_hook_events = 1;
@@ -102,6 +117,7 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
   CHECK_JVMTI_RESULT("AddCapabilities", jvmti_result);
 
   // register callback to be called when classes are loaded
+  LOG_VERBOSE("Setting event callbacks.\n");
   jvmtiEventCallbacks eventCallbacks;
   (void)memset(&eventCallbacks, 0, sizeof(eventCallbacks));
   eventCallbacks.ClassFileLoadHook = &ClassFileLoadHookCallback;
@@ -111,6 +127,7 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
   CHECK_JVMTI_RESULT("SetEventCallbacks", jvmti_result);
 
   // enable notification sending on class loading
+  LOG_VERBOSE("Setting event notifications.\n");
   jvmti_result = jvmti->SetEventNotificationMode(
       JVMTI_ENABLE, JVMTI_EVENT_CLASS_FILE_LOAD_HOOK, (jthread)NULL);
   CHECK_JVMTI_RESULT("SetEventNotificationMode(ClassFileLoadHook)",
@@ -123,10 +140,12 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
   g_log_file_name = cli_options.log_file_name + "." + std::to_string(getpid());
 
   // set the prefix to use when wrapping native methods
+  LOG_VERBOSE("Setting native method prefix.\n");
   jvmti_result = jvmti->SetNativeMethodPrefix(g_native_method_prefix.c_str());
   CHECK_JVMTI_RESULT("SetNativeMethodPrefix", jvmti_result);
 
   // make all necessary classes known to this JVM (especially logging)
+  LOG_VERBOSE("Adding agent jar to classpaths.\n");
   jvmti_result = jvmti->AddToBootstrapClassLoaderSearch(
       cli_options.transformer_jar_path.c_str());
   CHECK_JVMTI_RESULT("AddToBootstrapClassLoaderSearch", jvmti_result);
@@ -138,6 +157,8 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
   // already running one
   g_start_transformer_jvm = cli_options.transformer_address.length() == 0;
   if (g_start_transformer_jvm) {
+    LOG_VERBOSE("Starting transformer JVM.\n");
+
     // start the server that communicates with the transformer JVM, i.e. waits
     // for it to have started
     g_class_transformation_server = new ClassTransformationServer;
@@ -153,6 +174,8 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
     do {
       ++tries;
       port = rand() % 16384 + 49152;
+      LOG_VERBOSE("Trying to start transformation server on port '%d'.\n",
+                  port);
       started = g_class_transformation_server->Start("0.0.0.0:" +
                                                      std::to_string(port));
     } while (!started && tries < 10);
@@ -162,6 +185,7 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
       cleanup();
       return JNI_ERR;
     }
+    LOG_VERBOSE("Started transformation server on port '%d'.\n", port);
 
     // build the transformer JVM start command
     g_transformer_jvm_cmd = new char *[7];
@@ -173,6 +197,10 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
     g_transformer_jvm_cmd[4] = strdup("--communication-port-agent");
     g_transformer_jvm_cmd[5] = strdup(std::to_string(port).c_str());
     g_transformer_jvm_cmd[6] = NULL;
+    LOG_VERBOSE("Starting transformer JVM using command '%s %s %s %s %s %s'.\n",
+                g_transformer_jvm_cmd[0], g_transformer_jvm_cmd[1],
+                g_transformer_jvm_cmd[2], g_transformer_jvm_cmd[3],
+                g_transformer_jvm_cmd[4], g_transformer_jvm_cmd[5]);
 
     char *envp[] = {NULL};
 
@@ -192,6 +220,7 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
 
       // wait until the transformer JVM has indicated that class transformations
       // can begin
+      LOG_VERBOSE("Waiting for the transformer JVM to register itself.\n");
       int transformer_port =
           g_class_transformation_server->WaitForBeginClassTransformations(30);
       if (transformer_port == -1) {
@@ -236,13 +265,19 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
         cli_options.transformer_address =
             std::string("0.0.0.0:" + std::to_string(transformer_port));
       }
+      LOG_VERBOSE("Started transformer JVM on port '%d'.\n", transformer_port);
     }
   }
+  LOG_VERBOSE("Using transformer JVM at '%s'.\n",
+              cli_options.transformer_address.c_str());
 
   // build the client that talks to the transformer JVM
+  LOG_VERBOSE("Creating client to talk to the transformer JVM.\n");
   g_class_transformation_client =
       new ClassTransformationClient(grpc::CreateChannel(
           cli_options.transformer_address, grpc::InsecureChannelCredentials()));
+
+  LOG_VERBOSE("Agent loaded successfully.\n");
   return JNI_OK;
 }
 
@@ -264,6 +299,9 @@ static void JNICALL ClassFileLoadHookCallback(
   // all transformations done
   if (java_io_FileInputStream_seen && java_io_FileOutputStream_seen &&
       java_io_RandomAccessFile_seen && sun_nio_ch_FileChannelImpl_seen) {
+    LOG_VERBOSE("Ignoring class '%s' because all required classes have been "
+                "transformed.\n",
+                name);
     return;
   }
 
@@ -298,17 +336,24 @@ static void JNICALL ClassFileLoadHookCallback(
   }
 
   if (transform_class) {
+    LOG_VERBOSE("Transforming class '%s'.\n", name);
     g_class_transformation_client->ClassTransformation(
         name, class_data, class_data_len, allocator, new_class_data,
         new_class_data_len, g_native_method_prefix.c_str());
+    LOG_VERBOSE("Transformed class '%s'.\n", name);
+  } else {
+    LOG_VERBOSE("Not transforming class '%s'.\n", name);
   }
 
   // indicate after all necessary classes are loaded that the transformer
   // JVM can shut down, if we have started it ourselves
   if (java_io_FileInputStream_seen && java_io_FileOutputStream_seen &&
       java_io_RandomAccessFile_seen && sun_nio_ch_FileChannelImpl_seen) {
+    LOG_VERBOSE("All required classes have been transformed.\n");
     if (g_start_transformer_jvm) {
+      LOG_VERBOSE("Stopping transformer JVM.\n");
       g_class_transformation_client->EndClassTransformations();
+      LOG_VERBOSE("Stopped transformer JVM.\n");
     }
     cleanup();
   }
@@ -317,8 +362,11 @@ static void JNICALL ClassFileLoadHookCallback(
 // function to be called when the JVM initializes
 static void JNICALL VMInitCallback(jvmtiEnv *jvmti_env, JNIEnv *jni_env,
                                    jthread thread) {
+  LOG_VERBOSE("Initializing VM.\n");
+
   // trigger loading (and thus instrumentation) of the classes if they have not
   // been loaded yet
+  LOG_VERBOSE("Finding required classes.\n");
   jni_env->FindClass("java/io/FileInputStream");
   jni_env->FindClass("java/io/FileOutputStream");
   jni_env->FindClass("java/io/RandomAccessFile");
@@ -331,6 +379,9 @@ static void JNICALL VMInitCallback(jvmtiEnv *jvmti_env, JNIEnv *jni_env,
       system_class, "setProperty",
       "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;");
 
+  LOG_VERBOSE("Setting system property '%s'='%s'.\n",
+              std::string("de.zib.sfs.logFile.name").c_str(),
+              g_log_file_name.c_str());
   jni_env->CallStaticVoidMethod(
       system_class, set_property_method_id,
       jni_env->NewStringUTF("de.zib.sfs.logFile.name"),
@@ -341,22 +392,30 @@ static void JNICALL VMInitCallback(jvmtiEnv *jvmti_env, JNIEnv *jni_env,
   if (gethostname(hostname, 256) != 0) {
     std::cerr << "Error getting hostname" << std::endl;
   } else {
+    LOG_VERBOSE("Setting system property '%s'='%s'.\n",
+                std::string("de.zib.sfs.hostname").c_str(), hostname);
     jni_env->CallStaticVoidMethod(system_class, set_property_method_id,
                                   jni_env->NewStringUTF("de.zib.sfs.hostname"),
                                   jni_env->NewStringUTF(hostname));
   }
+
+  LOG_VERBOSE("VM initialized successfully.\n");
 }
 
 // performs deregistration of events, server shutdown and memory freeing
 static void cleanup() {
+  LOG_VERBOSE("Cleaning up.\n");
+
   // shut down the client that talked to the transformer JVM
   if (g_class_transformation_client != NULL) {
+    LOG_VERBOSE("Deleting client.\n");
     delete g_class_transformation_client;
     g_class_transformation_client = NULL;
   }
 
   // shut down the server the transformer JVM talked to
   if (g_class_transformation_server != NULL) {
+    LOG_VERBOSE("Shutting down transformation server.\n");
     g_class_transformation_server->Shutdown();
     delete g_class_transformation_server;
     g_class_transformation_server = NULL;
@@ -364,10 +423,13 @@ static void cleanup() {
 
   // clean the startup command for the transformer JVM
   if (g_transformer_jvm_cmd != NULL) {
+    LOG_VERBOSE("Freeing transformer JVM command.\n");
     for (size_t i = 0; i < 6; ++i) {
       free(g_transformer_jvm_cmd[i]);
     }
     delete[] g_transformer_jvm_cmd;
     g_transformer_jvm_cmd = NULL;
   }
+
+  LOG_VERBOSE("Cleaned up successfully.\n");
 }

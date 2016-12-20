@@ -45,6 +45,7 @@ struct CliOptions {
   std::string log_file_name;
   std::string transformer_address;
   std::string transformer_jar_path;
+  bool verbose;
 };
 
 // borrows from the hprof agent
@@ -78,6 +79,7 @@ static bool parse_options(char *command_line_options, CliOptions *cli_options) {
   cli_options->log_file_name = std::string("");
   cli_options->transformer_address = std::string("");
   cli_options->transformer_jar_path = std::string("");
+  cli_options->verbose = false;
 
   bool tx_jar_path_set = false;
   bool log_file_name_set = false;
@@ -100,6 +102,10 @@ static bool parse_options(char *command_line_options, CliOptions *cli_options) {
         if (get_tok(&options, suboption, (int)sizeof(suboption), ',')) {
           cli_options->log_file_name = std::string(suboption);
           log_file_name_set = true;
+        }
+      } else if (strcmp(option, "verbose") == 0) {
+        if (get_tok(&options, suboption, (int)sizeof(suboption), ',')) {
+          cli_options->verbose = strcmp(suboption, "y") == 0;
         }
       }
     }
