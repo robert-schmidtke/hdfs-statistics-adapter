@@ -19,6 +19,7 @@ public class ClassTransformationService {
         int i = 0;
         int serverPort = -1, agentPort = -1;
         int timeoutSeconds = 30;
+        boolean verbose = false;
         while (i < args.length) {
             switch (args[i]) {
             case "--port":
@@ -29,6 +30,9 @@ public class ClassTransformationService {
                 break;
             case "--timeout":
                 timeoutSeconds = Integer.parseInt(args[++i]);
+                break;
+            case "--verbose":
+                verbose = "y".equals(args[++i]);
                 break;
             }
             ++i;
@@ -43,8 +47,12 @@ public class ClassTransformationService {
             System.err.println("  --communication-port-agent port");
             System.err.println("Optional options:");
             System.err.println("  --timeout seconds (default: 30)");
+            System.err.println("  --verbose y|n (default: n)");
             System.exit(1);
         }
+
+        LogUtil.enableStderrLogging(verbose);
+        LogUtil.stderr("Starting class transformation service.\n");
 
         // quieten gRPC
         Logger.getLogger("io.grpc").setLevel(Level.SEVERE);
@@ -54,6 +62,8 @@ public class ClassTransformationService {
 
         if (serverPort < 0) {
             // the transformation server should find a port on its own
+            LogUtil.stderr("Starting on random port.\n");
+
             Random random = new Random();
             int port = -1, tries = 0;
             boolean started = false;
@@ -61,6 +71,9 @@ public class ClassTransformationService {
                 try {
                     ++tries;
                     port = random.nextInt(16384) + 49152;
+                    LogUtil.stderr(
+                            "Trying to start transformation server on port '%d'.\n",
+                            port);
                     classTransformationServer = new ClassTransformationServer(
                             port);
                     classTransformationServer.start();
@@ -74,13 +87,17 @@ public class ClassTransformationService {
                         + tries + " tries.");
                 System.exit(1);
             }
+            LogUtil.stderr("Started transformation server on port '%d'.\n",
+                    port);
 
             // signal to the agent that we are ready to receive transformation
             // requests
+            LogUtil.stderr("Registering with agent on port '%d'.\n", agentPort);
             ClassTransformationClient classTransformationClient = new ClassTransformationClient(
                     agentPort);
             classTransformationClient.beginClassTransformations(port);
             try {
+                LogUtil.stderr("Shutting down client.\n");
                 classTransformationClient.shutdown();
             } catch (InterruptedException e) {
                 System.err.println("Could not shut down transformer client");
@@ -98,6 +115,7 @@ public class ClassTransformationService {
             }
         } else {
             // we have a dedicated port to run on
+            LogUtil.stderr("Starting on dedicated port '%d'.\n", serverPort);
             classTransformationServer = new ClassTransformationServer(
                     serverPort);
             try {
@@ -109,8 +127,10 @@ public class ClassTransformationService {
                 System.exit(1);
             }
         }
+        LogUtil.stderr("Successfully started transformation server.\n");
 
         // shut down the server when this VM is shut down
+        LogUtil.stderr("Registering shutdown hook.\n");
         Runtime.getRuntime().addShutdownHook(new Thread() {
             private ClassTransformationServer classTransformationServer;
 
@@ -122,8 +142,10 @@ public class ClassTransformationService {
 
             @Override
             public void run() {
+                LogUtil.stderr("Running shutdown hook.\n");
                 try {
                     if (classTransformationServer != null) {
+                        LogUtil.stderr("Shutting down server.\n");
                         classTransformationServer.shutdown();
                     }
                 } catch (InterruptedException e) {
@@ -136,6 +158,9 @@ public class ClassTransformationService {
 
         // wait at most X seconds for the agent to signal it is done
         try {
+            LogUtil.stderr("Wating '%s' for sthudown signal.\n",
+                    timeoutSeconds > 0 ? (timeoutSeconds + " seconds")
+                            : "indefinitely");
             if (!classTransformationServer
                     .awaitEndClassTransformations(timeoutSeconds)) {
                 System.err
@@ -148,5 +173,7 @@ public class ClassTransformationService {
             e.printStackTrace();
             System.exit(1);
         }
+
+        LogUtil.stderr("Stopping class transformation service.\n");
     }
 }
