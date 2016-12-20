@@ -174,7 +174,7 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
     do {
       ++tries;
       port = rand() % 16384 + 49152;
-      LOG_VERBOSE("Trying to start transformation server on port '%d'.\n",
+      LOG_VERBOSE("Trying to start agent transformation server on port '%d'.\n",
                   port);
       started = g_class_transformation_server->Start("0.0.0.0:" +
                                                      std::to_string(port));
@@ -185,7 +185,7 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
       cleanup();
       return JNI_ERR;
     }
-    LOG_VERBOSE("Started transformation server on port '%d'.\n", port);
+    LOG_VERBOSE("Started agent transformation server on port '%d'.\n", port);
 
     // build the transformer JVM start command
     g_transformer_jvm_cmd = new char *[7];
