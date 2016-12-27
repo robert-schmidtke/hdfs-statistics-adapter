@@ -15,6 +15,7 @@ import java.nio.file.Paths;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
+import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.functions.FlatMapFunction;
 import org.apache.flink.api.java.ExecutionEnvironment;
 import org.apache.flink.api.java.utils.ParameterTool;
@@ -36,6 +37,7 @@ public class SfsAnalysis {
                 .getExecutionEnvironment();
 
         env.fromElements(inputPath)
+                .setParallelism(ExecutionConfig.PARALLELISM_DEFAULT)
                 .flatMap(new FlatMapFunction<String, String>() {
                     private static final long serialVersionUID = -4182178352545729395L;
 
