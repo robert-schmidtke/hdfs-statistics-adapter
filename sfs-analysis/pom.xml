@@ -181,7 +181,7 @@
               <transformers>
                 <transformer
                   implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                  <mainClass>de.zib.sfs.SfsAnalysis</mainClass>
+                  <mainClass>de.zib.sfs.analysis.SfsAnalysis</mainClass>
                 </transformer>
               </transformers>
               <createDependencyReducedPom>false</createDependencyReducedPom>
