@@ -200,7 +200,7 @@ $FLINK_HOME/bin/flink run \
   --class de.zib.sfs.analysis.SfsAnalysis \
   --parallelism ${#NODES[@]} \
   $SFS_DIRECTORY/sfs-analysis/target/sfs-analysis-1.0-SNAPSHOT.jar \
-  /local/$USER/sfs
+  --inputPath /local/$USER/sfs
 echo "$(date): Running Analysis done"
 
 #mkdir $HOME/$SLURM_JOB_ID-output
