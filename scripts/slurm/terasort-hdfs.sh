@@ -199,7 +199,7 @@ $FLINK_HOME/bin/flink run \
   --yarntaskManagerMemory $TASKMANAGER_MEMORY \
   --class de.zib.sfs.analysis.SfsAnalysis \
   --parallelism ${#NODES[@]} \
-  $SFS_DIRECTORY/sfs-analysis/target/sfs-analysis/target/sfs-analysis-1.0-SNAPSHOT.jar \
+  $SFS_DIRECTORY/sfs-analysis/target/sfs-analysis-1.0-SNAPSHOT.jar \
   /local/$USER/sfs
 echo "$(date): Running Analysis done"
 
