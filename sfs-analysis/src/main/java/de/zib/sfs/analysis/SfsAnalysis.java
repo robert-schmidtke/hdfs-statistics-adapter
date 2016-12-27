@@ -12,6 +12,7 @@ import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Collections;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
@@ -36,7 +37,7 @@ public class SfsAnalysis {
         final ExecutionEnvironment env = ExecutionEnvironment
                 .getExecutionEnvironment();
 
-        env.fromElements(inputPath)
+        env.fromCollection(Collections.nCopies(env.getParallelism(), inputPath))
                 .setParallelism(ExecutionConfig.PARALLELISM_DEFAULT)
                 .flatMap(new FlatMapFunction<String, String>() {
                     private static final long serialVersionUID = -4182178352545729395L;
