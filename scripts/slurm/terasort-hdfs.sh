@@ -134,10 +134,10 @@ done
 echo "$(date): Starting HDFS done"
 
 TASK_SLOTS=16
+JOBMANAGER_MEMORY=4096
+TASKMANAGER_MEMORY=40960
 if [ "$ENGINE" == "flink" ]; then
-  echo "$(date): Configuring Flink"
-  JOBMANAGER_MEMORY=4096
-  TASKMANAGER_MEMORY=40960
+  echo "$(date): Configuring Flink for TeraSort"
   cp $FLINK_HOME/conf/flink-conf.yaml.template $FLINK_HOME/conf/flink-conf.yaml
   sed -i "/^# taskmanager\.network\.numberOfBuffers/c\taskmanager.network.numberOfBuffers: $(($TASK_SLOTS * $TASK_SLOTS * ${#NODES[@]} * 4))" $FLINK_HOME/conf/flink-conf.yaml
   sed -i "/^# fs\.hdfs\.hadoopconf/c\fs.hdfs.hadoopconf: $HADOOP_HOME/etc/hadoop" $FLINK_HOME/conf/flink-conf.yaml
@@ -145,7 +145,7 @@ if [ "$ENGINE" == "flink" ]; then
 taskmanager.memory.off-heap: true
 env.java.opts: $OPTS,log_file_name=/local/$USER/sfs/sfs.log.flink
 EOF
-  echo "$(date): Configuring Flink done"
+  echo "$(date): Configuring Flink for TeraSort done"
 fi
 
 rm -rf $FLINK_HOME/log/*
@@ -162,6 +162,7 @@ echo "$(date): Generating TeraSort data on HDFS done"
 
 $HADOOP_HOME/bin/hadoop fs -mkdir -p hdfs://$MASTER:8020/user/$USER/output
 
+echo "$(date): Running TeraSort"
 if [ "$ENGINE" == "flink" ]; then
   $FLINK_HOME/bin/flink run \
     --jobmanager yarn-cluster \
@@ -179,6 +180,28 @@ else
     -Dmapreduce.job.reduces=$((${#NODES[@]} * ${TASK_SLOTS})) \
     sfs://$MASTER:8020/user/$USER/input sfs://$MASTER:8020/user/$USER/output
 fi
+echo "$(date): Running TeraSort done"
+
+echo "$(date): Configuring Flink for Analysis"
+cp $FLINK_HOME/conf/flink-conf.yaml.template $FLINK_HOME/conf/flink-conf.yaml
+sed -i "/^# taskmanager\.network\.numberOfBuffers/c\taskmanager.network.numberOfBuffers: $(($TASK_SLOTS * ${#NODES[@]} * 4))" $FLINK_HOME/conf/flink-conf.yaml
+cat >> $FLINK_HOME/conf/flink-conf.yaml << EOF
+taskmanager.memory.off-heap: true
+EOF
+echo "$(date): Configuring Flink for Analysis done"
+
+echo "$(date): Running Analysis"
+$FLINK_HOME/bin/flink run \
+  --jobmanager yarn-cluster \
+  --yarncontainer ${#NODES[@]} \
+  --yarnslots 1 \
+  --yarnjobManagerMemory $JOBMANAGER_MEMORY \
+  --yarntaskManagerMemory $TASKMANAGER_MEMORY \
+  --class de.zib.sfs.analysis.SfsAnalysis \
+  --parallelism ${#NODES[@]} \
+  $SFS_DIRECTORY/sfs-analysis/target/sfs-analysis/target/sfs-analysis-1.0-SNAPSHOT.jar \
+  /local/$USER/sfs
+echo "$(date): Running Analysis done"
 
 #mkdir $HOME/$SLURM_JOB_ID-output
 #echo "$(date): Copying output data from HDFS"
