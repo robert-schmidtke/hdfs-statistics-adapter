@@ -144,7 +144,7 @@ public class SfsInputFormat extends
             try {
                 return OperationInfoFactory.parseFromLogLine(line);
             } catch (Exception e) {
-                throw new IOException("Error parsing log line: " + line);
+                throw new IOException("Error parsing log line: " + line, e);
             }
         } else {
             return null;
