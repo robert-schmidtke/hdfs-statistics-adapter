@@ -182,6 +182,24 @@ else
 fi
 echo "$(date): Running TeraSort done"
 
+echo "$(date): Stopping HDFS"
+cp ./stop-hdfs-slurm.sh $HADOOP_HOME/sbin
+srun --nodelist=$MASTER --nodes=1-1 --chdir=$HADOOP_HOME/sbin ./stop-hdfs-slurm.sh --colocate-datanode-with-namenode
+echo "$(date): Stopping HDFS done"
+
+echo "$(date): Stopping transformer JVMs"
+stop_transformer_jvm_script="${SLURM_JOB_ID}-stop-transformer-jvm.sh"
+cat >> $stop_transformer_jvm_script << EOF
+#!/bin/bash
+kill \$(</local/$USER/sfs/transformer.pid)
+echo "Transformer log on \$(hostname):"
+cat /local/$USER/sfs/transformer.log
+EOF
+chmod +x $stop_transformer_jvm_script
+srun -N$SLURM_JOB_NUM_NODES $stop_transformer_jvm_script
+rm $stop_transformer_jvm_script
+echo "$(date): Stopping transformer JVMs done"
+
 echo "$(date): Configuring Flink for Analysis"
 cp $FLINK_HOME/conf/flink-conf.yaml.template $FLINK_HOME/conf/flink-conf.yaml
 sed -i "/^# taskmanager\.network\.numberOfBuffers/c\taskmanager.network.numberOfBuffers: $(($TASK_SLOTS * ${#NODES[@]} * 4))" $FLINK_HOME/conf/flink-conf.yaml
@@ -207,36 +225,6 @@ $FLINK_HOME/bin/flink run \
   --hosts $HOSTS \
   --slotsPerHost $TASK_SLOTS
 echo "$(date): Running Analysis done"
-
-#mkdir $HOME/$SLURM_JOB_ID-output
-#echo "$(date): Copying output data from HDFS"
-#$HADOOP_HOME/bin/hadoop fs -copyToLocal hdfs://$MASTER:8020/user/$USER/output file://$SFS_DIRECTORY/terasort-$SLURM_JOB_ID-output
-#echo "$(date): Copying output data from HDFS done"
-
-#echo "$(date): Validating output"
-#$HADOOP_HOME/bin/hadoop jar \
-#  $HADOOP_HOME/share/hadoop/mapreduce/hadoop-mapreduce-examples-${HADOOP_VERSION}.jar teravalidate \
-#  hdfs://$MASTER:8020/user/$USER/output hdfs://$MASTER:8020/user/$USER/report
-#$HADOOP_HOME/bin/hadoop fs -copyToLocal hdfs://$MASTER:8020/user/$USER/report file://$SFS_DIRECTORY/terasort-$SLURM_JOB_ID-output
-#echo "$(date): Validating output done"
-
-echo "$(date): Stopping HDFS"
-cp ./stop-hdfs-slurm.sh $HADOOP_HOME/sbin
-srun --nodelist=$MASTER --nodes=1-1 --chdir=$HADOOP_HOME/sbin ./stop-hdfs-slurm.sh --colocate-datanode-with-namenode
-echo "$(date): Stopping HDFS done"
-
-echo "$(date): Stopping transformer JVMs"
-stop_transformer_jvm_script="${SLURM_JOB_ID}-stop-transformer-jvm.sh"
-cat >> $stop_transformer_jvm_script << EOF
-#!/bin/bash
-kill \$(</local/$USER/sfs/transformer.pid)
-echo "Transformer log on \$(hostname):"
-cat /local/$USER/sfs/transformer.log
-EOF
-chmod +x $stop_transformer_jvm_script
-srun -N$SLURM_JOB_NUM_NODES $stop_transformer_jvm_script
-rm $stop_transformer_jvm_script
-echo "$(date): Stopping transformer JVMs done"
 
 echo "$(date): Cleaning Java processes"
 srun -N$SLURM_JOB_NUM_NODES killall -sSIGKILL java
