@@ -10,6 +10,7 @@ package de.zib.sfs.analysis.io;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
+import java.io.FilenameFilter;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Stack;
@@ -32,7 +33,7 @@ public class SfsInputFormat extends
     private static final Logger LOG = LoggerFactory
             .getLogger(SfsInputFormat.class);
 
-    private final String path;
+    private final String path, prefix;
 
     private final String[] hosts;
 
@@ -44,8 +45,10 @@ public class SfsInputFormat extends
 
     private BufferedReader reader;
 
-    public SfsInputFormat(String path, String[] hosts, int slotsPerHost) {
+    public SfsInputFormat(String path, String prefix, String[] hosts,
+            int slotsPerHost) {
         this.path = path;
+        this.prefix = prefix;
         this.hosts = hosts;
         this.slotsPerHost = slotsPerHost;
         reachedEnd = false;
@@ -92,7 +95,12 @@ public class SfsInputFormat extends
     @Override
     public void open(SfsInputSplit split) throws IOException {
         // obtain file list of target directory in deterministic order
-        File[] files = new File(path).listFiles();
+        File[] files = new File(path).listFiles(new FilenameFilter() {
+            @Override
+            public boolean accept(File dir, String name) {
+                return prefix == null || name.startsWith(prefix);
+            }
+        });
         Arrays.sort(files);
 
         // roughly assign the same number of files for each split

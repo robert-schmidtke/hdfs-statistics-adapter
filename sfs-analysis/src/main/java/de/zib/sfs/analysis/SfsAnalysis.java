@@ -15,6 +15,7 @@ import de.zib.sfs.analysis.io.SfsInputFormat;
 public class SfsAnalysis {
 
     private static final String INPUT_PATH_KEY = "inputPath";
+    private static final String PREFIX_KEY = "prefix";
 
     private static final String HOSTS_KEY = "hosts";
 
@@ -28,6 +29,7 @@ public class SfsAnalysis {
             throw new IllegalArgumentException(INPUT_PATH_KEY
                     + " cannot be empty");
         }
+        String prefix = params.get(PREFIX_KEY);
 
         String[] hosts;
         int slotsPerHost;
@@ -41,7 +43,8 @@ public class SfsAnalysis {
         final ExecutionEnvironment env = ExecutionEnvironment
                 .getExecutionEnvironment();
         long count = env.createInput(
-                new SfsInputFormat(inputPath, hosts, slotsPerHost)).count();
+                new SfsInputFormat(inputPath, prefix, hosts, slotsPerHost))
+                .count();
         System.out.println("Processed " + count + " operations.");
     }
 }
