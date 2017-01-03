@@ -30,6 +30,14 @@ public class WrappedFSDataOutputStream extends FSDataOutputStream {
     }
 
     @Override
+    public synchronized void write(int b) throws IOException {
+        long startTime = System.currentTimeMillis();
+        super.write(b);
+        long duration = System.currentTimeMillis() - startTime;
+        logger.info("{}:{}.write({}):void", duration, this, b);
+    }
+
+    @Override
     public void write(byte[] b) throws IOException {
         long startTime = System.currentTimeMillis();
         super.write(b);
@@ -45,14 +53,6 @@ public class WrappedFSDataOutputStream extends FSDataOutputStream {
         long duration = System.currentTimeMillis() - startTime;
         logger.info("{}:{}.write([{}],{},{}):void", duration, this, b.length,
                 off, len);
-    }
-
-    @Override
-    public synchronized void write(int b) throws IOException {
-        long startTime = System.currentTimeMillis();
-        super.write(b);
-        long duration = System.currentTimeMillis() - startTime;
-        logger.info("{}:{}.write({}):void", duration, this, b);
     }
 
 }
