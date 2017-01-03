@@ -47,53 +47,277 @@ public class OperationInfoFactory {
         String args[] = line.substring(0, index).split(",");
         line = line.substring(index + 2, line.length());
 
-        OperationInfo operationInfo;
-        switch (operation) {
-        case "read": {
-            // next is result->
-            index = line.indexOf("->");
-            long data = Long.parseLong(line.substring(0, index));
-            line = line.substring(index + 2, line.length());
-
-            if (args.length == 0) {
-                // 1 byte read, returns -1 if EOF
-                data = data == -1 ? 0 : 1;
-            } else if (args.length == 1 || args.length == 3 || args.length == 4) {
-                // data is already correct
-                data = data == -1 ? 0 : data;
-            } else {
-                // illegal number of arguments
-                throw new IllegalArgumentException(
-                        "Unrecognized read operation: " + logLine);
-            }
-
-            // line now only contains the remote host that was read from, if any
-            operationInfo = new ReadDataOperationInfo(hostname, operation,
-                    endTime - duration, endTime, data, line);
-            break;
+        // next is result->targetHostname or result
+        index = line.indexOf("->");
+        String result, targetHostname;
+        if (index != -1) {
+            result = line.substring(0, index);
+            targetHostname = line.substring(index + 2, line.length());
+        } else {
+            result = line;
+            targetHostname = null;
         }
-        case "readFully": {
-            // next is void->
-            index = line.indexOf("->");
-            line = line.substring(index + 2, line.length());
 
+        switch (className) {
+        case "java.io.FileInputStream":
+            return parseFileInputStreamOperationInfo(hostname, endTime,
+                    duration, instance, operation, args, result, targetHostname);
+        case "java.io.FileOutputStream":
+            return parseFileOutputStreamOperationInfo(hostname, endTime,
+                    duration, instance, operation, args, result, targetHostname);
+        case "java.io.RandomAccessFile":
+            return parseRandomAccessFileOperationInfo(hostname, endTime,
+                    duration, instance, operation, args, result, targetHostname);
+        case "sun.nio.ch.FileChannelImpl":
+            return parseFileChannelImplOperationInfo(hostname, endTime,
+                    duration, instance, operation, args, result, targetHostname);
+        case "de.zib.sfs.StatisticsFileSystem":
+            return parseStatisticsFileSystemOperationInfo(hostname, endTime,
+                    duration, instance, operation, args, result, targetHostname);
+        case "de.zib.sfs.WrappedFSDataInputStream":
+            return parseWrappedFSDataInputStreamOperationInfo(hostname,
+                    endTime, duration, instance, operation, args, result,
+                    targetHostname);
+        case "de.zib.sfs.WrappedFSDataOutputStream":
+            return parseWrappedFSDataOutputStreamOperationInfo(hostname,
+                    endTime, duration, instance, operation, args, result,
+                    targetHostname);
+        default:
+            throw new IllegalArgumentException("Unknown class " + className
+                    + " found in line " + logLine);
+        }
+    }
+
+    private static OperationInfo parseFileInputStreamOperationInfo(
+            String hostname, long endTime, long duration, String instance,
+            String operation, String[] args, String result,
+            String targetHostname) {
+        switch (operation) {
+        // {}:{}.open({}):void
+        case "open": {
+            return new OperationInfo(hostname, operation, endTime - duration,
+                    endTime);
+        }
+        // {}:{}.read():{}->{}
+        case "read": {
+            // 1 byte read, -1 indicates EOF
+            long data = Long.parseLong(result) == -1 ? 0 : 1;
+            return new ReadDataOperationInfo(hostname, operation, endTime
+                    - duration, endTime, data, targetHostname);
+        }
+        // {}:{}.readBytes([{}],{},{}):{}->{}
+        case "readBytes": {
+            long data = Long.parseLong(result);
+            data = data == -1 ? 0 : data;
+            return new ReadDataOperationInfo(hostname, operation, endTime
+                    - duration, endTime, data, targetHostname);
+        }
+        default:
+            throw new IllegalArgumentException("Unknown operation " + operation
+                    + " for FileInputStream");
+        }
+    }
+
+    private static OperationInfo parseFileOutputStreamOperationInfo(
+            String hostname, long endTime, long duration, String instance,
+            String operation, String[] args, String result,
+            String targetHostname) {
+        switch (operation) {
+        // {}:{}.open({},{}):void
+        case "open": {
+            return new OperationInfo(hostname, operation, endTime - duration,
+                    endTime);
+        }
+        // {}:{}.write({},{}):void
+        case "write": {
+            // 1 byte write
+            return new DataOperationInfo(hostname, operation, endTime
+                    - duration, endTime, 1);
+        }
+        // {}:{}.writeBytes([{}],{},{},{}):void
+        case "writeBytes": {
+            long data = Long.parseLong(args[2]);
+            return new DataOperationInfo(hostname, operation, endTime
+                    - duration, endTime, data);
+        }
+        default:
+            throw new IllegalArgumentException("Unknown operation " + operation
+                    + " for FileOutputStream");
+        }
+    }
+
+    private static OperationInfo parseRandomAccessFileOperationInfo(
+            String hostname, long endTime, long duration, String instance,
+            String operation, String[] args, String result,
+            String targetHostname) {
+        switch (operation) {
+        // {}:{}.open({},{}):void
+        case "open": {
+            return new OperationInfo(hostname, operation, endTime - duration,
+                    endTime);
+        }
+        // {}:{}.read():{}->{}
+        case "read": {
+            // 1 byte read, -1 indicates EOF
+            long data = Long.parseLong(result) == -1 ? 0 : 1;
+            return new ReadDataOperationInfo(hostname, operation, endTime
+                    - duration, endTime, data, targetHostname);
+        }
+        // {}:{}.readBytes([{}],{},{}):{}->{}
+        case "readBytes": {
+            long data = Long.parseLong(result);
+            data = data == -1 ? 0 : data;
+            return new ReadDataOperationInfo(hostname, operation, endTime
+                    - duration, endTime, data, targetHostname);
+        }
+        // {}:{}.write({}):void
+        case "write": {
+            // 1 byte write
+            return new DataOperationInfo(hostname, operation, endTime
+                    - duration, endTime, 1);
+        }
+        // {}:{}.writeBytes([{}],{},{}):void
+        case "writeBytes": {
+            long data = Long.parseLong(args[2]);
+            return new DataOperationInfo(hostname, operation, endTime
+                    - duration, endTime, data);
+        }
+        default:
+            throw new IllegalArgumentException("Unknown operation " + operation
+                    + " for RandomAccessFile");
+        }
+    }
+
+    private static OperationInfo parseFileChannelImplOperationInfo(
+            String hostname, long endTime, long duration, String instance,
+            String operation, String[] args, String result,
+            String targetHostname) {
+        switch (operation) {
+        // {}:{}.read({}):{}->{}
+        // {}:{}.read([{}],{},{}):{}->{}
+        case "read": {
+            long data = Long.parseLong(result);
+            data = data == -1 ? 0 : data;
+            return new ReadDataOperationInfo(hostname, operation, endTime
+                    - duration, endTime, data, targetHostname);
+        }
+        // {}:{}.write({}):{}
+        // {}:{}.write([{}],{},{}):{}
+        case "write": {
+            long data = Long.parseLong(result);
+            return new DataOperationInfo(hostname, operation, endTime
+                    - duration, endTime, data);
+        }
+        default:
+            throw new IllegalArgumentException("Unknown operation " + operation
+                    + " for FileChannelImpl");
+        }
+    }
+
+    private static OperationInfo parseStatisticsFileSystemOperationInfo(
+            String hostname, long endTime, long duration, String instance,
+            String operation, String[] args, String result,
+            String targetHostname) {
+        switch (operation) {
+        // {}:{}.append({},{}):{}
+        case "append": {
+            // fall through
+        }
+        // {}:{}.create({},{},{},{},{},{}):{}
+        case "create": {
+            // fall through
+        }
+        // {}:{}.delete({},{}):{}
+        case "delete": {
+            // fall through
+        }
+        // {}:{}.getFileBlockLocations({},{},{}):{}
+        case "getFileBlockLocations": {
+            // fall through
+        }
+        // {}:{}.getFileStatus({}):{}
+        case "getFileStatus": {
+            // fall through
+        }
+        // {}:{}.listStatus({}):{}
+        case "listStatus": {
+            // fall through
+        }
+        // {}:{}.mkdirs({},{}):{}
+        case "mkdirs": {
+            // fall through
+        }
+        // {}:{}.open({},{}):{}
+        case "open": {
+            // fall through
+        }
+        // {}:{}.rename({},{}):{}
+        case "rename": {
+            return new OperationInfo(hostname, operation, endTime - duration,
+                    endTime);
+        }
+        default:
+            throw new IllegalArgumentException("Unknown operation " + operation
+                    + " for StatisticsFileSystem");
+        }
+    }
+
+    private static OperationInfo parseWrappedFSDataInputStreamOperationInfo(
+            String hostname, long endTime, long duration, String instance,
+            String operation, String[] args, String result,
+            String targetHostname) {
+        switch (operation) {
+        // {}:{}.read():{}->{}
+        // {}:{}.read([{}],{},{}):{}->{}
+        // {}:{}.read([{}]):{}->{}
+        // {}:{}.read({},[{}],{},{}):{}->{}
+        case "read": {
+            long data = Long.parseLong(result);
+            if (args.length == 0) {
+                // 1 byte read, -1 indicates EOF
+                data = data == -1 ? 0 : 1;
+            } else {
+                data = data == -1 ? 0 : data;
+            }
+            return new ReadDataOperationInfo(hostname, operation, endTime
+                    - duration, endTime, data, targetHostname);
+        }
+        // {}:{}.readFully({},[{}]):void->{}
+        // {}:{}.readFully({},[{}],{},{}):void->{}
+        case "readFully": {
             long data;
             if (args.length == 2) {
                 data = Long
                         .parseLong(args[1].substring(1, args[1].length() - 1));
-            } else if (args.length == 4) {
-                data = Long.parseLong(args[3]);
             } else {
-                // illegal number of arguments
-                throw new IllegalArgumentException(
-                        "Unrecognized readFully operation: " + logLine);
+                data = Long.parseLong(args[3]);
             }
-
-            // line now only contains the remote host that was read from, if any
-            operationInfo = new ReadDataOperationInfo(hostname, operation,
-                    endTime - duration, endTime, data, line);
-            break;
+            return new ReadDataOperationInfo(hostname, operation, endTime
+                    - duration, endTime, data, targetHostname);
         }
+        // {}:{}.seek({}):void->{}
+        case "seek": {
+            // fall through
+        }
+        // {}:{}.seekToNewSource({}):{}->{}
+        case "seekToNewSource": {
+            return new OperationInfo(hostname, operation, endTime - duration,
+                    endTime);
+        }
+        default:
+            throw new IllegalArgumentException("Unknown operation " + operation
+                    + " for WrappedFSDataInputStream");
+        }
+    }
+
+    private static OperationInfo parseWrappedFSDataOutputStreamOperationInfo(
+            String hostname, long endTime, long duration, String instance,
+            String operation, String[] args, String result,
+            String targetHostname) {
+        switch (operation) {
+        // {}:{}.write({}):void
+        // {}:{}.write([{}]):void
+        // {}:{}.write([{}],{},{}):void
         case "write": {
             long data;
             if (args.length == 1) {
@@ -104,25 +328,16 @@ public class OperationInfoFactory {
                     // 1 byte write
                     data = 1;
                 }
-            } else if (args.length == 3) {
-                data = Long.parseLong(args[2]);
             } else {
-                // illegal number of arguments
-                throw new IllegalArgumentException(
-                        "Unrecognized write operation: " + logLine);
+                data = Long.parseLong(args[2]);
             }
-
-            operationInfo = new DataOperationInfo(hostname, operation, endTime
+            return new DataOperationInfo(hostname, operation, endTime
                     - duration, endTime, data);
-            break;
         }
         default:
-            operationInfo = new OperationInfo(hostname, operation, endTime
-                    - duration, endTime);
-            break;
+            throw new IllegalArgumentException("Unknown operation " + operation
+                    + " for WrappedFSDataOutputStream");
         }
-
-        return operationInfo;
     }
 
 }
