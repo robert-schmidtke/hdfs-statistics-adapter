@@ -18,6 +18,8 @@ import org.apache.flink.api.common.io.RichInputFormat;
 import org.apache.flink.api.common.io.statistics.BaseStatistics;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.io.InputSplitAssigner;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import de.zib.sfs.analysis.OperationInfo;
 import de.zib.sfs.analysis.OperationInfoFactory;
@@ -26,6 +28,9 @@ public class SfsInputFormat extends
         RichInputFormat<OperationInfo, SfsInputSplit> {
 
     private static final long serialVersionUID = -5409113748371926578L;
+
+    private static final Logger LOG = LoggerFactory
+            .getLogger(SfsInputFormat.class);
 
     private final String path;
 
@@ -67,7 +72,15 @@ public class SfsInputFormat extends
             for (int slot = 0; slot < slotsPerHost; ++slot) {
                 splits[i] = new SfsInputSplit(i, host, slot);
                 ++i;
+
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Created split: {}", splits[i]);
+                }
             }
+        }
+
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Created {} splits", i);
         }
         return splits;
     }
@@ -85,12 +98,17 @@ public class SfsInputFormat extends
 
         // roughly assign the same number of files for each split
         for (int i = split.getLocalIndex(); i < files.length; i += slotsPerHost) {
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Adding file {} for split {} on host", files[i],
+                        split.getLocalIndex(), split.getHost());
+            }
             this.files.push(files[i]);
         }
 
         // check that we have at least one file to process
         reachedEnd = this.files.size() == 0;
         if (!reachedEnd) {
+            LOG.debug("Opening file {}", this.files.peek());
             reader = new BufferedReader(new FileReader(this.files.pop()));
         }
     }
@@ -109,13 +127,18 @@ public class SfsInputFormat extends
             reader.close();
             reachedEnd = this.files.size() == 0;
             if (!reachedEnd) {
+                LOG.debug("Opening file {}", this.files.peek());
                 reader = new BufferedReader(new FileReader(this.files.pop()));
                 line = reader.readLine();
             }
         }
 
         if (line != null) {
-            return OperationInfoFactory.parseFromLogLine(line);
+            try {
+                return OperationInfoFactory.parseFromLogLine(line);
+            } catch (Exception e) {
+                throw new IOException("Error parsing log line: " + line);
+            }
         } else {
             return null;
         }
