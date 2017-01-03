@@ -200,7 +200,7 @@ $FLINK_HOME/bin/flink run \
   --yarnjobManagerMemory $JOBMANAGER_MEMORY \
   --yarntaskManagerMemory $TASKMANAGER_MEMORY \
   --class de.zib.sfs.analysis.SfsAnalysis \
-  --parallelism ${#NODES[@]} \
+  --parallelism $((${#NODES[@]} * $TASK_SLOTS)) \
   $SFS_DIRECTORY/sfs-analysis/target/sfs-analysis-1.0-SNAPSHOT.jar \
   --inputPath /local/$USER/sfs \
   --prefix "sfs.log." \
