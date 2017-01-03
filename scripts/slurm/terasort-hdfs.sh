@@ -191,16 +191,21 @@ EOF
 echo "$(date): Configuring Flink for Analysis done"
 
 echo "$(date): Running Analysis"
+HOSTS=$(printf ",%s" "${NODES[@]}")
+HOSTS=${HOSTS:1}
 $FLINK_HOME/bin/flink run \
   --jobmanager yarn-cluster \
   --yarncontainer ${#NODES[@]} \
-  --yarnslots 1 \
+  --yarnslots $TASK_SLOTS \
   --yarnjobManagerMemory $JOBMANAGER_MEMORY \
   --yarntaskManagerMemory $TASKMANAGER_MEMORY \
   --class de.zib.sfs.analysis.SfsAnalysis \
   --parallelism ${#NODES[@]} \
   $SFS_DIRECTORY/sfs-analysis/target/sfs-analysis-1.0-SNAPSHOT.jar \
-  --inputPath /local/$USER/sfs
+  --inputPath /local/$USER/sfs \
+  --prefix "sfs.log." \
+  --hosts $HOSTS \
+  --slotsPerHost $TASK_SLOTS
 echo "$(date): Running Analysis done"
 
 #mkdir $HOME/$SLURM_JOB_ID-output
