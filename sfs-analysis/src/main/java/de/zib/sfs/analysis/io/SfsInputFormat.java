@@ -71,11 +71,10 @@ public class SfsInputFormat extends
         for (String host : hosts) {
             for (int slot = 0; slot < slotsPerHost; ++slot) {
                 splits[i] = new SfsInputSplit(i, host, slot);
-                ++i;
-
                 if (LOG.isDebugEnabled()) {
                     LOG.debug("Created split: {}", splits[i]);
                 }
+                ++i;
             }
         }
 
