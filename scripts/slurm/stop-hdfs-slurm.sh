@@ -46,13 +46,15 @@ echo "Stopping Hadoop NameNode on '$HADOOP_NAMENODE' and DataNode(s) on '${HADOO
 
 mkdir -p $HADOOP_PREFIX/log-$SLURM_JOB_ID
 
-echo "Stopping NameNode."
+echo "$(date): Stopping NameNode."
 pidfile=/local/$HDFS_LOCAL_DIR/namenode-$(hostname).pid
 if [ -f $pidfile ]; then
   pid=`cat $pidfile`
   if [ -e /proc/$pid ]; then
     kill $pid
-    echo "Result: $?"
+    echo "$(date): Waiting for process $pid to stop after kill: $?"
+    wait $pid
+    echo "$(date): Process $pid stopped, result: $?"
   fi
   rm $pidfile
   cp /local/$HDFS_LOCAL_LOG_DIR/namenode-$(hostname).log $HADOOP_PREFIX/log-$SLURM_JOB_ID/namenode-$(hostname).log
@@ -62,7 +64,7 @@ fi
 echo "Stopping NameNode done."
 
 for datanode in ${HADOOP_DATANODES[@]}; do
-  echo "Stopping DataNode on $datanode."
+  echo "$(date): Stopping DataNode on $datanode."
   datanode_script=$(dirname $0)/${SLURM_JOB_ID}-${datanode}-stop-datanode.sh
 
   cat > $datanode_script << EOF
@@ -73,7 +75,9 @@ if [ -f \$pidfile ]; then
   pid=\$(cat \$pidfile)
   if [ -e /proc/\$pid ]; then
     kill \$pid
-    echo "Result: \$?"
+    echo "\$(date): Waiting for process \$pid to stop after kill: \$?"
+    wait \$pid
+    echo "\$(date): Process \$pid stopped, result: \$?"
   else
     echo "DataNode PID \$pid does not exist"
   fi
@@ -82,21 +86,6 @@ if [ -f \$pidfile ]; then
 else
   echo "DataNode PID file \$pidfile does not exist."
 fi
-
-#pidfile=/local/$HDFS_LOCAL_DIR/datanode-jstat-$datanode.pid
-#if [ -f \$pidfile ]; then
-#  pid=\$(cat \$pidfile)
-#  if [ -e /proc/\$pid ]; then
-#    kill -9 \$pid
-#    echo "Result: \$?"
-#  else
-#    echo "jstat PID \$pid does not exist"
-#  fi
-#  rm \$pidfile
-#  cp /local/$HDFS_LOCAL_LOG_DIR/datanode-jstat-$datanode.log $HADOOP_PREFIX/log-$SLURM_JOB_ID/datanode-jstat-$datanode.log
-#else
-#  echo "jstat PID file \$pidfile does not exist."
-#fi
 EOF
 
   chmod +x $datanode_script
@@ -105,13 +94,15 @@ EOF
   rm $datanode_script
 done
 
-echo "Stopping ResourceManager."
+echo "$(date): Stopping ResourceManager."
 pidfile=/local/$HDFS_LOCAL_DIR/resourcemanager-$(hostname).pid
 if [ -f $pidfile ]; then
   pid=`cat $pidfile`
   if [ -e /proc/$pid ]; then
     kill $pid
-    echo "Result: $?"
+    echo "$(date): Waiting for process $pid to stop after kill: $?"
+    wait $pid
+    echo "$(date): Process $pid stopped, result: $?"
   fi
   rm $pidfile
   cp /local/$HDFS_LOCAL_LOG_DIR/resourcemanager-$(hostname).log $HADOOP_PREFIX/log-$SLURM_JOB_ID/resourcemanager-$(hostname).log
@@ -120,13 +111,15 @@ else
 fi
 echo "Stopping ResourceManager done."
 
-echo "Stopping JobHistory Server."
+echo "$(date): Stopping JobHistory Server."
 pidfile=/local/$HDFS_LOCAL_DIR/jobhistory_server-$(hostname).pid
 if [ -f $pidfile ]; then
   pid=`cat $pidfile`
   if [ -e /proc/$pid ]; then
     kill $pid
-    echo "Result: $?"
+    echo "$(date): Waiting for process $pid to stop after kill: $?"
+    wait $pid
+    echo "$(date): Process $pid stopped, result: $?"
   fi
   rm $pidfile
   cp /local/$HDFS_LOCAL_LOG_DIR/jobhistory_server-$(hostname).log $HADOOP_PREFIX/log-$SLURM_JOB_ID/jobhistory_server-$(hostname).log
@@ -136,7 +129,9 @@ fi
 echo "Stopping JobHistory Server done."
 
 for datanode in ${HADOOP_DATANODES[@]}; do
+  echo "$(date): Stopping NodeManager on $datanode."
   nodemanager_script=$(dirname $0)/${SLURM_JOB_ID}-${datanode}-stop-nodemanager.sh
+
   cat > $nodemanager_script << EOF
 #!/bin/bash
 
@@ -145,7 +140,9 @@ if [ -f \$pidfile ]; then
   pid=\$(cat \$pidfile)
   if [ -e /proc/\$pid ]; then
     kill \$pid
-    echo "Result: \$?"
+    echo "\$(date): Waiting for process \$pid to stop after kill: \$?"
+    wait \$pid
+    echo "\$(date): Process \$pid stopped, result: \$?"
   fi
   rm \$pidfile
   cp /local/$HDFS_LOCAL_LOG_DIR/nodemanager-$datanode.log $HADOOP_PREFIX/log-$SLURM_JOB_ID/nodemanager-$datanode.log
@@ -154,21 +151,6 @@ if [ -f \$pidfile ]; then
 else
   echo "PID file \$pidfile does not exist."
 fi
-
-#pidfile=/local/$HDFS_LOCAL_DIR/nodemanager-jstat-$datanode.pid
-#if [ -f \$pidfile ]; then
-#  pid=\$(cat \$pidfile)
-#  if [ -e /proc/\$pid ]; then
-#    kill -9 \$pid
-#    echo "Result: \$?"
-#  fi
-#  rm \$pidfile
-#  cp /local/$HDFS_LOCAL_LOG_DIR/nodemanager-jstat-$datanode.log $HADOOP_PREFIX/log-$SLURM_JOB_ID/nodemanager-jstat-$datanode.log
-#  rm -rf /local/$HDFS_LOCAL_LOG_DIR
-#  rm -rf /local/$HDFS_LOCAL_DIR
-#else
-#  echo "jstat PID file \$pidfile does not exist."
-#fi
 EOF
   chmod +x $nodemanager_script
 
