@@ -80,11 +80,13 @@ echo "$(date): Cleaning Java processes done"
 echo "$(date): Cleaning local directories"
 srun -N$SLURM_JOB_NUM_NODES rm -rf /local/$USER/hdfs
 srun -N$SLURM_JOB_NUM_NODES rm -rf /local/$USER/sfs
+srun -N$SLURM_JOB_NUM_NODES rm -rf /local/$USER/flink
 echo "$(date): Cleaning local directories done"
 
 echo "$(date): Creating local folders"
 srun -N$SLURM_JOB_NUM_NODES mkdir -p /local/$USER/hdfs
 srun -N$SLURM_JOB_NUM_NODES mkdir -p /local/$USER/sfs
+srun -N$SLURM_JOB_NUM_NODES mkdir -p /local/$USER/flink
 echo "$(date): Creating local folders done"
 
 echo "$(date): Starting transformer JVMs"
@@ -267,4 +269,5 @@ echo "$(date): Copying logs done"
 echo "$(date): Cleaning local directories"
 srun -N$SLURM_JOB_NUM_NODES rm -rf /local/$USER/hdfs
 srun -N$SLURM_JOB_NUM_NODES rm -rf /local/$USER/sfs
+srun -N$SLURM_JOB_NUM_NODES rm -rf /local/$USER/flink
 echo "$(date): Cleaning local directories done"
