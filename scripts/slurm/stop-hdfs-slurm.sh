@@ -89,9 +89,14 @@ fi
 EOF
 
   chmod +x $datanode_script
-  srun --nodes=1-1 --nodelist=$datanode $datanode_script
-  echo "Stopping DataNode on $datanode done."
-  rm $datanode_script
+  srun --nodes=1-1 --nodelist=$datanode $datanode_script &
+done
+
+echo "$(date): Waiting for all DataNodes to stop"
+wait
+for datanode in ${HADOOP_DATANODES[@]}; do
+  echo "$(date): Stopping DataNode on $datanode done."
+  rm $(dirname $0)/${SLURM_JOB_ID}-${datanode}-stop-datanode.sh
 done
 
 echo "$(date): Stopping ResourceManager."
@@ -155,8 +160,13 @@ EOF
   chmod +x $nodemanager_script
 
   echo "Stopping NodeManager on $datanode."
-  srun --nodes=1-1 --nodelist=$datanode $nodemanager_script
-  echo "Stopping NodeManager on $datanode done."
+  srun --nodes=1-1 --nodelist=$datanode $nodemanager_script &
+done
+
+echo "$(date): Waiting for all NodeManagers to stop"
+wait
+for datanode in ${HADOOP_DATANODES[@]}; do
+  echo "$(date): Stopping NodeManager on $datanode done."
   rm $nodemanager_script
 done
 
