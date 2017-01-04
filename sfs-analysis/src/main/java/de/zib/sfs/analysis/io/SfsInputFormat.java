@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Arrays;
 import java.util.Stack;
+import java.util.regex.Pattern;
 import java.util.zip.GZIPInputStream;
 
 import org.apache.flink.api.common.io.RichInputFormat;
@@ -49,6 +50,8 @@ public class SfsInputFormat extends
 
     private BufferedReader reader;
 
+    private final Pattern gzPattern;
+
     public SfsInputFormat(String path, String prefix, String[] hosts,
             int slotsPerHost) {
         this.path = path;
@@ -56,6 +59,10 @@ public class SfsInputFormat extends
         this.hosts = hosts;
         this.slotsPerHost = slotsPerHost;
         reachedEnd = false;
+
+        // .gz and .gz.1 etc. are GZ suffixes we need to handle
+        gzPattern = Pattern.compile("^" + Pattern.quote(prefix)
+                + ".*\\.gz(\\.\\d+)?$");
     }
 
     @Override
@@ -164,7 +171,8 @@ public class SfsInputFormat extends
 
     private void openNextFile() throws FileNotFoundException, IOException {
         LOG.debug("Opening file {}", this.files.peek());
-        if (this.files.peek().getName().toLowerCase().endsWith(".gz")) {
+        if (gzPattern.matcher(this.files.peek().getName().toLowerCase())
+                .matches()) {
             reader = new BufferedReader(new InputStreamReader(
                     new GZIPInputStream(new FileInputStream(this.files.pop()))));
         } else {
