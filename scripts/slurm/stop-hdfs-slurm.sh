@@ -51,7 +51,7 @@ pidfile=/local/$HDFS_LOCAL_DIR/namenode-$(hostname).pid
 if [ -f $pidfile ]; then
   pid=`cat $pidfile`
   if [ -e /proc/$pid ]; then
-    kill -9 $pid
+    kill $pid
     echo "Result: $?"
   fi
   rm $pidfile
@@ -72,7 +72,7 @@ pidfile=/local/$HDFS_LOCAL_DIR/datanode-$datanode.pid
 if [ -f \$pidfile ]; then
   pid=\$(cat \$pidfile)
   if [ -e /proc/\$pid ]; then
-    kill -9 \$pid
+    kill \$pid
     echo "Result: \$?"
   else
     echo "DataNode PID \$pid does not exist"
@@ -110,7 +110,7 @@ pidfile=/local/$HDFS_LOCAL_DIR/resourcemanager-$(hostname).pid
 if [ -f $pidfile ]; then
   pid=`cat $pidfile`
   if [ -e /proc/$pid ]; then
-    kill -9 $pid
+    kill $pid
     echo "Result: $?"
   fi
   rm $pidfile
@@ -125,7 +125,7 @@ pidfile=/local/$HDFS_LOCAL_DIR/jobhistory_server-$(hostname).pid
 if [ -f $pidfile ]; then
   pid=`cat $pidfile`
   if [ -e /proc/$pid ]; then
-    kill -9 $pid
+    kill $pid
     echo "Result: $?"
   fi
   rm $pidfile
@@ -144,7 +144,7 @@ pidfile=/local/$HDFS_LOCAL_DIR/nodemanager-$datanode.pid
 if [ -f \$pidfile ]; then
   pid=\$(cat \$pidfile)
   if [ -e /proc/\$pid ]; then
-    kill -9 \$pid
+    kill \$pid
     echo "Result: \$?"
   fi
   rm \$pidfile
