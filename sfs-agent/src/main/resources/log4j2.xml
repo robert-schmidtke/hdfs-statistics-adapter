@@ -12,7 +12,7 @@
       immediateFlush="false">
       <PatternLayout pattern="${sys:de.zib.sfs.hostname}:%date{UNIX_MILLIS}-%message%n" />
       <Policies>
-        <SizeBasedTriggeringPolicy size="128MB" />
+        <SizeBasedTriggeringPolicy size="4GB" />
       </Policies>
     </RollingRandomAccessFile>
   </Appenders>
