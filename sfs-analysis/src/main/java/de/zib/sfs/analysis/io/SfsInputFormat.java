@@ -9,11 +9,15 @@ package de.zib.sfs.analysis.io;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FilenameFilter;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.Arrays;
 import java.util.Stack;
+import java.util.zip.GZIPInputStream;
 
 import org.apache.flink.api.common.io.RichInputFormat;
 import org.apache.flink.api.common.io.statistics.BaseStatistics;
@@ -115,8 +119,7 @@ public class SfsInputFormat extends
         // check that we have at least one file to process
         reachedEnd = this.files.size() == 0;
         if (!reachedEnd) {
-            LOG.debug("Opening file {}", this.files.peek());
-            reader = new BufferedReader(new FileReader(this.files.pop()));
+            openNextFile();
         }
     }
 
@@ -134,8 +137,7 @@ public class SfsInputFormat extends
             reader.close();
             reachedEnd = this.files.size() == 0;
             if (!reachedEnd) {
-                LOG.debug("Opening file {}", this.files.peek());
-                reader = new BufferedReader(new FileReader(this.files.pop()));
+                openNextFile();
                 line = reader.readLine();
             }
         }
@@ -155,6 +157,18 @@ public class SfsInputFormat extends
     public void close() throws IOException {
         if (reader != null) {
             reader.close();
+        }
+    }
+
+    // Helper methods
+
+    private void openNextFile() throws FileNotFoundException, IOException {
+        LOG.debug("Opening file {}", this.files.peek());
+        if (this.files.peek().getName().toLowerCase().endsWith(".gz")) {
+            reader = new BufferedReader(new InputStreamReader(
+                    new GZIPInputStream(new FileInputStream(this.files.pop()))));
+        } else {
+            reader = new BufferedReader(new FileReader(this.files.pop()));
         }
     }
 
