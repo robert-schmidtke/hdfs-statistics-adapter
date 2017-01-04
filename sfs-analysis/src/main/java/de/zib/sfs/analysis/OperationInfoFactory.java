@@ -93,19 +93,19 @@ public class OperationInfoFactory {
             String operation, String[] args, String result,
             String targetHostname) {
         switch (operation) {
-        // {}:{}.open({}):void
+        // <duration>:<class>@<instance>.open(<name>):void
         case "open": {
             return new OperationInfo(hostname, operation, endTime - duration,
                     endTime);
         }
-        // {}:{}.read():{}->{}
+        // <duration>:<class>@<instance>.read():<byte>-><targetHostname>
         case "read": {
             // 1 byte read, -1 indicates EOF
             long data = Long.parseLong(result) == -1 ? 0 : 1;
             return new ReadDataOperationInfo(hostname, operation, endTime
                     - duration, endTime, data, targetHostname);
         }
-        // {}:{}.readBytes([{}],{},{}):{}->{}
+        // <duration>:<class>@<instance>.readBytes(<[bufferSize]>,<off>,<len>):<numBytes>-><targetHostname>
         case "readBytes": {
             long data = Long.parseLong(result);
             data = data == -1 ? 0 : data;
@@ -123,18 +123,18 @@ public class OperationInfoFactory {
             String operation, String[] args, String result,
             String targetHostname) {
         switch (operation) {
-        // {}:{}.open({},{}):void
+        // <duration>:<class>@<instance>.open(<name>,<append>):void
         case "open": {
             return new OperationInfo(hostname, operation, endTime - duration,
                     endTime);
         }
-        // {}:{}.write({},{}):void
+        // <duration>:<class>@<instance>.write(<byte>,<append>):void
         case "write": {
             // 1 byte write
             return new DataOperationInfo(hostname, operation, endTime
                     - duration, endTime, 1);
         }
-        // {}:{}.writeBytes([{}],{},{},{}):void
+        // <duration>:<class>@<instance>.writeBytes(<[bufferSize]>,<off>,<len>,<append>):void
         case "writeBytes": {
             long data = Long.parseLong(args[2]);
             return new DataOperationInfo(hostname, operation, endTime
@@ -151,32 +151,32 @@ public class OperationInfoFactory {
             String operation, String[] args, String result,
             String targetHostname) {
         switch (operation) {
-        // {}:{}.open({},{}):void
+        // <duration>:<class>@<instance>.open(<name>,<append>):void
         case "open": {
             return new OperationInfo(hostname, operation, endTime - duration,
                     endTime);
         }
-        // {}:{}.read():{}->{}
+        // <duration>:<class>@<instance>.read():<byte>-><targetHostname>
         case "read": {
             // 1 byte read, -1 indicates EOF
             long data = Long.parseLong(result) == -1 ? 0 : 1;
             return new ReadDataOperationInfo(hostname, operation, endTime
                     - duration, endTime, data, targetHostname);
         }
-        // {}:{}.readBytes([{}],{},{}):{}->{}
+        // <duration>:<class>@<instance>.readBytes(<[bufferSize]>,<off>,<len>):<numBytes>-><targetHostname>
         case "readBytes": {
             long data = Long.parseLong(result);
             data = data == -1 ? 0 : data;
             return new ReadDataOperationInfo(hostname, operation, endTime
                     - duration, endTime, data, targetHostname);
         }
-        // {}:{}.write({}):void
+        // <duration>:<class>@<instance>.write(<byte>):void
         case "write": {
             // 1 byte write
             return new DataOperationInfo(hostname, operation, endTime
                     - duration, endTime, 1);
         }
-        // {}:{}.writeBytes([{}],{},{}):void
+        // <duration>:<class>@<instance>.writeBytes(<[bufferSize]>,<off>,<len>):void
         case "writeBytes": {
             long data = Long.parseLong(args[2]);
             return new DataOperationInfo(hostname, operation, endTime
@@ -193,16 +193,16 @@ public class OperationInfoFactory {
             String operation, String[] args, String result,
             String targetHostname) {
         switch (operation) {
-        // {}:{}.read({}):{}->{}
-        // {}:{}.read([{}],{},{}):{}->{}
+        // <duration>:<class>@<instance>.read(<bufferInstance>):<numBytes>-><targetHostname>
+        // <duration>:<class>@<instance>.read(<[bufferInstances]>,<off>,<len>):<numBytes>-><targetHostname>
         case "read": {
             long data = Long.parseLong(result);
             data = data == -1 ? 0 : data;
             return new ReadDataOperationInfo(hostname, operation, endTime
                     - duration, endTime, data, targetHostname);
         }
-        // {}:{}.write({}):{}
-        // {}:{}.write([{}],{},{}):{}
+        // <duration>:<class>@<instance>.write(<bufferInstance>):<numBytes>
+        // <duration>:<class>@<instance>.write(<[bufferInstances]>,<off>,<len>):<numBytes>
         case "write": {
             long data = Long.parseLong(result);
             return new DataOperationInfo(hostname, operation, endTime
@@ -219,39 +219,39 @@ public class OperationInfoFactory {
             String operation, String[] args, String result,
             String targetHostname) {
         switch (operation) {
-        // {}:{}.append({},{}):{}
+        // <duration>:<class>@<instance>.append(<path>,<bufferSize>):<outputStreamInstance>
         case "append": {
             // fall through
         }
-        // {}:{}.create({},{},{},{},{},{}):{}
+        // <duration>:<class>@<instance>.create(<path>,<permission>,<overwrite>,<bufferSize>,<replication>,<blockSize>):<outputStramInstance>
         case "create": {
             // fall through
         }
-        // {}:{}.delete({},{}):{}
+        // <duration>:<class>@<instance>.delete(<path>,<recursive>):<success>
         case "delete": {
             // fall through
         }
-        // {}:{}.getFileBlockLocations({},{},{}):{}
+        // <duration>:<class>@<instance>.getFileBlockLocations(<fileStatus>,<start>,<len>):<[blockLocations]>
         case "getFileBlockLocations": {
             // fall through
         }
-        // {}:{}.getFileStatus({}):{}
+        // <duration>:<class>@<instance>.getFileStatus(<path>):<fileStatus>
         case "getFileStatus": {
             // fall through
         }
-        // {}:{}.listStatus({}):{}
+        // <duration>:<class>@<instance>.listStatus(<path>):<[fileStatus]>
         case "listStatus": {
             // fall through
         }
-        // {}:{}.mkdirs({},{}):{}
+        // <duration>:<class>@<instance>.mkdirs(<path>,<permission>):<success>
         case "mkdirs": {
             // fall through
         }
-        // {}:{}.open({},{}):{}
+        // <duration>:<class>@<instance>.open(<path>,<bufferSize>):<inputStreamInstance>
         case "open": {
             // fall through
         }
-        // {}:{}.rename({},{}):{}
+        // <duration>:<class>@<instance>.rename(<src>,<dst>):<success>
         case "rename": {
             return new OperationInfo(hostname, operation, endTime - duration,
                     endTime);
@@ -267,10 +267,10 @@ public class OperationInfoFactory {
             String operation, String[] args, String result,
             String targetHostname) {
         switch (operation) {
-        // {}:{}.read():{}->{}
-        // {}:{}.read([{}],{},{}):{}->{}
-        // {}:{}.read([{}]):{}->{}
-        // {}:{}.read({},[{}],{},{}):{}->{}
+        // <duration>:<class>@<instance>.read():<byte>-><targetHostname>
+        // <duration>:<class>@<instance>.read(<[bufferSize]>,<off>,<len>):<numBytes>-><targetHostname>
+        // <duration>:<class>@<instance>.read(<[bufferSize]>):<numBytes>-><targetHostname>
+        // <duration>:<class>@<instance>.read(<position>,<[bufferSize]>,<off>,<len>):<numBytes>-><targetHostname>
         case "read": {
             long data = Long.parseLong(result);
             if (args.length == 0) {
@@ -282,8 +282,8 @@ public class OperationInfoFactory {
             return new ReadDataOperationInfo(hostname, operation, endTime
                     - duration, endTime, data, targetHostname);
         }
-        // {}:{}.readFully({},[{}]):void->{}
-        // {}:{}.readFully({},[{}],{},{}):void->{}
+        // <duration>:<class>@<instance>.readFully(<position>,<[bufferSize]>):void-><targetHostname>
+        // <duration>:<class>@<instance>.readFully(<position>,<[bufferSize]>,<off>,<len>):void-><targetHostname>
         case "readFully": {
             long data;
             if (args.length == 2) {
@@ -295,11 +295,11 @@ public class OperationInfoFactory {
             return new ReadDataOperationInfo(hostname, operation, endTime
                     - duration, endTime, data, targetHostname);
         }
-        // {}:{}.seek({}):void->{}
+        // <duration>:<class>@<instance>.seek(<position>):void-><targetHostname>
         case "seek": {
             // fall through
         }
-        // {}:{}.seekToNewSource({}):{}->{}
+        // <duration>:<class>@<instance>.seekToNewSource(<position>):<success>-><targetHostname>
         case "seekToNewSource": {
             return new OperationInfo(hostname, operation, endTime - duration,
                     endTime);
@@ -315,9 +315,9 @@ public class OperationInfoFactory {
             String operation, String[] args, String result,
             String targetHostname) {
         switch (operation) {
-        // {}:{}.write({}):void
-        // {}:{}.write([{}]):void
-        // {}:{}.write([{}],{},{}):void
+        // <duration>:<class>@<instance>.write(<byte>):void
+        // <duration>:<class>@<instance>.write(<[bufferSize]>):void
+        // <duration>:<class>@<instance>.write(<[bufferSize]>,<off>,<len>):void
         case "write": {
             long data;
             if (args.length == 1) {
