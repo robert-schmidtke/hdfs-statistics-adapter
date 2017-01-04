@@ -167,7 +167,7 @@ echo "$(date): Waiting for all NodeManagers to stop"
 wait
 for datanode in ${HADOOP_DATANODES[@]}; do
   echo "$(date): Stopping NodeManager on $datanode done."
-  rm $nodemanager_script
+  rm $(dirname $0)/${SLURM_JOB_ID}-${datanode}-stop-nodemanager.sh
 done
 
 rm -rf /local/$HDFS_LOCAL_LOG_DIR
