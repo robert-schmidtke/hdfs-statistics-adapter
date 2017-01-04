@@ -110,7 +110,7 @@ public class SfsInputFormat extends
         // roughly assign the same number of files for each split
         for (int i = split.getLocalIndex(); i < files.length; i += slotsPerHost) {
             if (LOG.isDebugEnabled()) {
-                LOG.debug("Adding file {} for split {} on host", files[i],
+                LOG.debug("Adding file {} for split {} on host {}", files[i],
                         split.getLocalIndex(), split.getHost());
             }
             this.files.push(files[i]);
