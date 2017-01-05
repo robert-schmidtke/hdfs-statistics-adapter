@@ -39,9 +39,10 @@ public class ReadDataOperationInfo extends DataOperationInfo {
 
     }
 
-    public ReadDataOperationInfo(String hostname, String name, long startTime,
-            long endTime, long data, String remoteHostname) {
-        super(hostname, name, startTime, endTime, data);
+    public ReadDataOperationInfo(String hostname, String className,
+            String name, long startTime, long endTime, long data,
+            String remoteHostname) {
+        super(hostname, className, name, startTime, endTime, data);
         if (remoteHostname == null) {
             this.remoteHostname = null;
         } else {

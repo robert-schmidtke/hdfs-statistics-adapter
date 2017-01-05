@@ -49,9 +49,9 @@ public class DataOperationInfo extends OperationInfo {
 
     }
 
-    public DataOperationInfo(String hostname, String name, long startTime,
-            long endTime, long data) {
-        super(hostname, name, startTime, endTime);
+    public DataOperationInfo(String hostname, String className, String name,
+            long startTime, long endTime, long data) {
+        super(hostname, className, name, startTime, endTime);
         this.data = data;
     }
 

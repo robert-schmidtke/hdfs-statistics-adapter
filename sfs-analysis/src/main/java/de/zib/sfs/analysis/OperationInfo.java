@@ -11,7 +11,9 @@ public class OperationInfo {
 
     protected final long startTime, endTime, duration;
 
-    protected final String hostname, name;
+    protected final String hostname, className, name;
+
+    protected final OperationSource source;
 
     public static class Aggregator {
 
@@ -51,17 +53,39 @@ public class OperationInfo {
 
     }
 
-    public OperationInfo(String hostname, String name, long startTime,
-            long endTime) {
+    public OperationInfo(String hostname, String className, String name,
+            long startTime, long endTime) {
         this.hostname = hostname;
+        this.className = className;
         this.name = name;
         this.startTime = startTime;
         this.endTime = endTime;
         duration = endTime - startTime;
+
+        switch (className) {
+        case "java.io.FileInputStream":
+        case "java.io.FileOutputStream":
+        case "java.io.RandomAccessFile":
+        case "sun.nio.ch.FileChannelImpl":
+            source = OperationSource.JVM;
+            break;
+        case "de.zib.sfs.StatisticsFileSystem":
+        case "de.zib.sfs.WrappedFSDataInputStream":
+        case "de.zib.sfs.WrappedFSDataOutputStream":
+            source = OperationSource.SFS;
+            break;
+        default:
+            throw new IllegalArgumentException(
+                    "Could not determine source from class " + className);
+        }
     }
 
     public String getHostname() {
         return hostname;
+    }
+
+    public String getClassName() {
+        return className;
     }
 
     public String getName() {
@@ -78,6 +102,10 @@ public class OperationInfo {
 
     public long getDuration() {
         return duration;
+    }
+
+    public OperationSource getSource() {
+        return source;
     }
 
     public Aggregator getAggregator() {

@@ -7,6 +7,7 @@
  */
 package de.zib.sfs.analysis;
 
+import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.ExecutionEnvironment;
 import org.apache.flink.api.java.utils.ParameterTool;
 
@@ -42,9 +43,10 @@ public class SfsAnalysis {
 
         final ExecutionEnvironment env = ExecutionEnvironment
                 .getExecutionEnvironment();
-        long count = env.createInput(
-                new SfsInputFormat(inputPath, prefix, hosts, slotsPerHost))
-                .count();
-        System.out.println("Processed " + count + " operations.");
+
+        DataSet<OperationInfo> operationInfos = env
+                .createInput(new SfsInputFormat(inputPath, prefix, hosts,
+                        slotsPerHost));
+        
     }
 }
