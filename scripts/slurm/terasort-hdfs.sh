@@ -5,7 +5,7 @@
 #SBATCH --open-mode=append
 
 usage() {
-  echo "Usage: sbatch --nodes=<NODES> flink-terasort.sh"
+  echo "Usage: sbatch --nodes=<NODES> terasort-hdfs.sh"
   echo "  -e|--engine <flink|hadoop> (default: not specified)"
 }
 
