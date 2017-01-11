@@ -130,9 +130,9 @@ public class SfsAnalysis {
 
         // group by host, source and category
         UnsortedGrouping<OperationStatistics> groupedOperationStatistics = aggregatedOperationStatistics
-                .groupBy("getHostname()", "getSource()", "getCategory()");
+                .groupBy("hostname", "source", "category");
         SortedGrouping<OperationStatistics> sortedOperationStatistics = groupedOperationStatistics
-                .sortGroup("getMinStartTime()", Order.ASCENDING);
+                .sortGroup("startTime", Order.ASCENDING);
 
         // print some String representation for testing
         sortedOperationStatistics.reduceGroup(
