@@ -74,26 +74,4 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
                 startTime, endTime, data, remoteHostname);
     }
 
-    @Override
-    public int compareTo(OperationStatistics o) {
-        int result = super.compareTo(o);
-        if (result != 0) {
-            return result;
-        }
-
-        ReadDataOperationStatistics rdos = (ReadDataOperationStatistics) o;
-        result = localCount < rdos.getLocalCount() ? -1 : localCount > rdos
-                .getLocalCount() ? 1 : 0;
-        if (result != 0) {
-            return result;
-        }
-
-        result = remoteHostname.compareTo(rdos.getRemoteHostname());
-        if (result != 0) {
-            return result;
-        }
-
-        return 0;
-    }
-
 }
