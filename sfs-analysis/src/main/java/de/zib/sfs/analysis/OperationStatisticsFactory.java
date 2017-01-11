@@ -7,9 +7,9 @@
  */
 package de.zib.sfs.analysis;
 
-public class OperationInfoFactory {
+public class OperationStatisticsFactory {
 
-    public static OperationInfo parseFromLogLine(String logLine) {
+    public static OperationStatistics parseFromLogLine(String logLine) {
         String line = logLine;
 
         // line starts with hostname:
@@ -60,31 +60,31 @@ public class OperationInfoFactory {
 
         switch (className) {
         case "java.io.FileInputStream":
-            return parseFileInputStreamOperationInfo(hostname, endTime,
+            return parseFileInputStreamOperationStatistics(hostname, endTime,
                     duration, instance, className, operation, args, result,
                     targetHostname);
         case "java.io.FileOutputStream":
-            return parseFileOutputStreamOperationInfo(hostname, endTime,
+            return parseFileOutputStreamOperationStatistics(hostname, endTime,
                     duration, instance, className, operation, args, result,
                     targetHostname);
         case "java.io.RandomAccessFile":
-            return parseRandomAccessFileOperationInfo(hostname, endTime,
+            return parseRandomAccessFileOperationStatistics(hostname, endTime,
                     duration, instance, className, operation, args, result,
                     targetHostname);
         case "sun.nio.ch.FileChannelImpl":
-            return parseFileChannelImplOperationInfo(hostname, endTime,
+            return parseFileChannelImplOperationStatistics(hostname, endTime,
                     duration, instance, className, operation, args, result,
                     targetHostname);
         case "de.zib.sfs.StatisticsFileSystem":
-            return parseStatisticsFileSystemOperationInfo(hostname, endTime,
-                    duration, instance, className, operation, args, result,
-                    targetHostname);
+            return parseStatisticsFileSystemOperationStatistics(hostname,
+                    endTime, duration, instance, className, operation, args,
+                    result, targetHostname);
         case "de.zib.sfs.WrappedFSDataInputStream":
-            return parseWrappedFSDataInputStreamOperationInfo(hostname,
+            return parseWrappedFSDataInputStreamOperationStatistics(hostname,
                     endTime, duration, instance, className, operation, args,
                     result, targetHostname);
         case "de.zib.sfs.WrappedFSDataOutputStream":
-            return parseWrappedFSDataOutputStreamOperationInfo(hostname,
+            return parseWrappedFSDataOutputStreamOperationStatistics(hostname,
                     endTime, duration, instance, className, operation, args,
                     result, targetHostname);
         default:
@@ -93,29 +93,31 @@ public class OperationInfoFactory {
         }
     }
 
-    private static OperationInfo parseFileInputStreamOperationInfo(
+    private static OperationStatistics parseFileInputStreamOperationStatistics(
             String hostname, long endTime, long duration, String instance,
             String className, String operation, String[] args, String result,
             String targetHostname) {
         switch (operation) {
         // <duration>:<class>@<instance>.open(<name>):void
         case "open": {
-            return new OperationInfo(hostname, className, operation, endTime
-                    - duration, endTime);
+            return new OperationStatistics(hostname, className, operation,
+                    endTime - duration, endTime);
         }
         // <duration>:<class>@<instance>.read():<byte>-><targetHostname>
         case "read": {
             // 1 byte read, -1 indicates EOF
             long data = Long.parseLong(result) == -1 ? 0 : 1;
-            return new ReadDataOperationInfo(hostname, className, operation,
-                    endTime - duration, endTime, data, targetHostname);
+            return new ReadDataOperationStatistics(hostname, className,
+                    operation, endTime - duration, endTime, data,
+                    targetHostname);
         }
         // <duration>:<class>@<instance>.readBytes(<[bufferSize]>,<off>,<len>):<numBytes>-><targetHostname>
         case "readBytes": {
             long data = Long.parseLong(result);
             data = data == -1 ? 0 : data;
-            return new ReadDataOperationInfo(hostname, className, operation,
-                    endTime - duration, endTime, data, targetHostname);
+            return new ReadDataOperationStatistics(hostname, className,
+                    operation, endTime - duration, endTime, data,
+                    targetHostname);
         }
         default:
             throw new IllegalArgumentException("Unknown operation " + operation
@@ -123,26 +125,26 @@ public class OperationInfoFactory {
         }
     }
 
-    private static OperationInfo parseFileOutputStreamOperationInfo(
+    private static OperationStatistics parseFileOutputStreamOperationStatistics(
             String hostname, long endTime, long duration, String instance,
             String className, String operation, String[] args, String result,
             String targetHostname) {
         switch (operation) {
         // <duration>:<class>@<instance>.open(<name>,<append>):void
         case "open": {
-            return new OperationInfo(hostname, className, operation, endTime
-                    - duration, endTime);
+            return new OperationStatistics(hostname, className, operation,
+                    endTime - duration, endTime);
         }
         // <duration>:<class>@<instance>.write(<byte>,<append>):void
         case "write": {
             // 1 byte write
-            return new DataOperationInfo(hostname, className, operation,
+            return new DataOperationStatistics(hostname, className, operation,
                     endTime - duration, endTime, 1);
         }
         // <duration>:<class>@<instance>.writeBytes(<[bufferSize]>,<off>,<len>,<append>):void
         case "writeBytes": {
             long data = Long.parseLong(args[2]);
-            return new DataOperationInfo(hostname, className, operation,
+            return new DataOperationStatistics(hostname, className, operation,
                     endTime - duration, endTime, data);
         }
         default:
@@ -151,40 +153,42 @@ public class OperationInfoFactory {
         }
     }
 
-    private static OperationInfo parseRandomAccessFileOperationInfo(
+    private static OperationStatistics parseRandomAccessFileOperationStatistics(
             String hostname, long endTime, long duration, String instance,
             String className, String operation, String[] args, String result,
             String targetHostname) {
         switch (operation) {
         // <duration>:<class>@<instance>.open(<name>,<append>):void
         case "open": {
-            return new OperationInfo(hostname, className, operation, endTime
-                    - duration, endTime);
+            return new OperationStatistics(hostname, className, operation,
+                    endTime - duration, endTime);
         }
         // <duration>:<class>@<instance>.read():<byte>-><targetHostname>
         case "read": {
             // 1 byte read, -1 indicates EOF
             long data = Long.parseLong(result) == -1 ? 0 : 1;
-            return new ReadDataOperationInfo(hostname, className, operation,
-                    endTime - duration, endTime, data, targetHostname);
+            return new ReadDataOperationStatistics(hostname, className,
+                    operation, endTime - duration, endTime, data,
+                    targetHostname);
         }
         // <duration>:<class>@<instance>.readBytes(<[bufferSize]>,<off>,<len>):<numBytes>-><targetHostname>
         case "readBytes": {
             long data = Long.parseLong(result);
             data = data == -1 ? 0 : data;
-            return new ReadDataOperationInfo(hostname, className, operation,
-                    endTime - duration, endTime, data, targetHostname);
+            return new ReadDataOperationStatistics(hostname, className,
+                    operation, endTime - duration, endTime, data,
+                    targetHostname);
         }
         // <duration>:<class>@<instance>.write(<byte>):void
         case "write": {
             // 1 byte write
-            return new DataOperationInfo(hostname, className, operation,
+            return new DataOperationStatistics(hostname, className, operation,
                     endTime - duration, endTime, 1);
         }
         // <duration>:<class>@<instance>.writeBytes(<[bufferSize]>,<off>,<len>):void
         case "writeBytes": {
             long data = Long.parseLong(args[2]);
-            return new DataOperationInfo(hostname, className, operation,
+            return new DataOperationStatistics(hostname, className, operation,
                     endTime - duration, endTime, data);
         }
         default:
@@ -193,7 +197,7 @@ public class OperationInfoFactory {
         }
     }
 
-    private static OperationInfo parseFileChannelImplOperationInfo(
+    private static OperationStatistics parseFileChannelImplOperationStatistics(
             String hostname, long endTime, long duration, String instance,
             String className, String operation, String[] args, String result,
             String targetHostname) {
@@ -203,14 +207,15 @@ public class OperationInfoFactory {
         case "read": {
             long data = Long.parseLong(result);
             data = data == -1 ? 0 : data;
-            return new ReadDataOperationInfo(hostname, className, operation,
-                    endTime - duration, endTime, data, targetHostname);
+            return new ReadDataOperationStatistics(hostname, className,
+                    operation, endTime - duration, endTime, data,
+                    targetHostname);
         }
         // <duration>:<class>@<instance>.write(<bufferInstance>):<numBytes>
         // <duration>:<class>@<instance>.write(<[bufferInstances]>,<off>,<len>):<numBytes>
         case "write": {
             long data = Long.parseLong(result);
-            return new DataOperationInfo(hostname, className, operation,
+            return new DataOperationStatistics(hostname, className, operation,
                     endTime - duration, endTime, data);
         }
         default:
@@ -219,7 +224,7 @@ public class OperationInfoFactory {
         }
     }
 
-    private static OperationInfo parseStatisticsFileSystemOperationInfo(
+    private static OperationStatistics parseStatisticsFileSystemOperationStatistics(
             String hostname, long endTime, long duration, String instance,
             String className, String operation, String[] args, String result,
             String targetHostname) {
@@ -258,8 +263,8 @@ public class OperationInfoFactory {
         }
         // <duration>:<class>@<instance>.rename(<src>,<dst>):<success>
         case "rename": {
-            return new OperationInfo(hostname, className, operation, endTime
-                    - duration, endTime);
+            return new OperationStatistics(hostname, className, operation,
+                    endTime - duration, endTime);
         }
         default:
             throw new IllegalArgumentException("Unknown operation " + operation
@@ -267,7 +272,7 @@ public class OperationInfoFactory {
         }
     }
 
-    private static OperationInfo parseWrappedFSDataInputStreamOperationInfo(
+    private static OperationStatistics parseWrappedFSDataInputStreamOperationStatistics(
             String hostname, long endTime, long duration, String instance,
             String className, String operation, String[] args, String result,
             String targetHostname) {
@@ -284,8 +289,9 @@ public class OperationInfoFactory {
             } else {
                 data = data == -1 ? 0 : data;
             }
-            return new ReadDataOperationInfo(hostname, className, operation,
-                    endTime - duration, endTime, data, targetHostname);
+            return new ReadDataOperationStatistics(hostname, className,
+                    operation, endTime - duration, endTime, data,
+                    targetHostname);
         }
         // <duration>:<class>@<instance>.readFully(<position>,<[bufferSize]>):void-><targetHostname>
         // <duration>:<class>@<instance>.readFully(<position>,<[bufferSize]>,<off>,<len>):void-><targetHostname>
@@ -297,8 +303,9 @@ public class OperationInfoFactory {
             } else {
                 data = Long.parseLong(args[3]);
             }
-            return new ReadDataOperationInfo(hostname, className, operation,
-                    endTime - duration, endTime, data, targetHostname);
+            return new ReadDataOperationStatistics(hostname, className,
+                    operation, endTime - duration, endTime, data,
+                    targetHostname);
         }
         // <duration>:<class>@<instance>.seek(<position>):void-><targetHostname>
         case "seek": {
@@ -306,8 +313,8 @@ public class OperationInfoFactory {
         }
         // <duration>:<class>@<instance>.seekToNewSource(<position>):<success>-><targetHostname>
         case "seekToNewSource": {
-            return new OperationInfo(hostname, className, operation, endTime
-                    - duration, endTime);
+            return new OperationStatistics(hostname, className, operation,
+                    endTime - duration, endTime);
         }
         default:
             throw new IllegalArgumentException("Unknown operation " + operation
@@ -315,7 +322,7 @@ public class OperationInfoFactory {
         }
     }
 
-    private static OperationInfo parseWrappedFSDataOutputStreamOperationInfo(
+    private static OperationStatistics parseWrappedFSDataOutputStreamOperationStatistics(
             String hostname, long endTime, long duration, String instance,
             String className, String operation, String[] args, String result,
             String targetHostname) {
@@ -336,7 +343,7 @@ public class OperationInfoFactory {
             } else {
                 data = Long.parseLong(args[2]);
             }
-            return new DataOperationInfo(hostname, className, operation,
+            return new DataOperationStatistics(hostname, className, operation,
                     endTime - duration, endTime, data);
         }
         default:

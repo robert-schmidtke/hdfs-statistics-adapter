@@ -24,12 +24,12 @@ public class Analyzer {
      * Map from hostname to a map from time bin to a map from operation name to
      * aggregate operation information (i.e. aggregate information per host).
      */
-    private static Map<String, Map<Long, Map<String, OperationInfo.Aggregator>>> aggregateOperationInfos;
+    private static Map<String, Map<Long, Map<String, OperationStatistics>>> aggregateOperationInfos;
 
     public static void main(String[] args) throws IOException {
-        aggregateOperationInfos = new HashMap<String, Map<Long, Map<String, OperationInfo.Aggregator>>>();
+        aggregateOperationInfos = new HashMap<String, Map<Long, Map<String, OperationStatistics>>>();
         aggregateOperationInfos.put("all",
-                new TreeMap<Long, Map<String, OperationInfo.Aggregator>>());
+                new TreeMap<Long, Map<String, OperationStatistics>>());
 
         File logFileDirectory = new File(args[0]);
         final String fileNamePattern = args[1];
@@ -56,7 +56,7 @@ public class Analyzer {
             BufferedReader in = new BufferedReader(new FileReader(logFile));
             String line = null;
             while ((line = in.readLine()) != null) {
-                OperationInfo operationInfo = OperationInfoFactory
+                OperationStatistics operationInfo = OperationStatisticsFactory
                         .parseFromLogLine(line);
 
                 // and per host per second
@@ -68,39 +68,38 @@ public class Analyzer {
                 for (String hostname : new String[] {
                         operationInfo.getHostname(), "all" }) {
                     // get the appropriate hostname information
-                    Map<Long, Map<String, OperationInfo.Aggregator>> aggregateOperationInfosPerHost = getOperationInfosPerHost(hostname);
+                    Map<Long, Map<String, OperationStatistics>> aggregateOperationInfosPerHost = getOperationInfosPerHost(hostname);
 
                     // get the appropriate time information for this host
-                    Map<String, OperationInfo.Aggregator> aggregateOperationInfosPerHostPerTime = getOperationInfosPerHostPerTime(
+                    Map<String, OperationStatistics> aggregateOperationInfosPerHostPerTime = getOperationInfosPerHostPerTime(
                             aggregateOperationInfosPerHost, timeBin);
 
                     // get the appropriate operation information for this host
                     // and time
-                    OperationInfo.Aggregator operationInfoAggregator = getOperationInfoAggregator(
+                    OperationStatistics operationInfoAggregator = getOperationInfoAggregator(
                             aggregateOperationInfosPerHostPerTime,
                             operationInfo, operationInfo.getName());
-                    operationInfoAggregator.aggregate(operationInfo);
+                    operationInfoAggregator.add(operationInfo);
                 }
 
                 // if the operation was a non-local read, add it as special
                 // remoteRead to the remote host and overall
-                if (operationInfo instanceof ReadDataOperationInfo) {
-                    ReadDataOperationInfo readDataOperationInfo = (ReadDataOperationInfo) operationInfo;
+                if (operationInfo instanceof ReadDataOperationStatistics) {
+                    ReadDataOperationStatistics readDataOperationInfo = (ReadDataOperationStatistics) operationInfo;
                     if (!readDataOperationInfo.isLocal()) {
                         for (String hostname : new String[] {
                                 readDataOperationInfo.getRemoteHostname(),
                                 "all" }) {
                             // same procedure as above, except set the operation
                             // name to "remoteRead"
-                            Map<Long, Map<String, OperationInfo.Aggregator>> aggregateOperationInfosPerRemoteHost = getOperationInfosPerHost(hostname);
-                            Map<String, OperationInfo.Aggregator> aggregateOperationInfosPerRemoteHostPerTime = getOperationInfosPerHostPerTime(
+                            Map<Long, Map<String, OperationStatistics>> aggregateOperationInfosPerRemoteHost = getOperationInfosPerHost(hostname);
+                            Map<String, OperationStatistics> aggregateOperationInfosPerRemoteHostPerTime = getOperationInfosPerHostPerTime(
                                     aggregateOperationInfosPerRemoteHost,
                                     timeBin);
-                            OperationInfo.Aggregator operationInfoAggregator = getOperationInfoAggregator(
+                            OperationStatistics operationInfoAggregator = getOperationInfoAggregator(
                                     aggregateOperationInfosPerRemoteHostPerTime,
                                     readDataOperationInfo, "remoteRead");
-                            operationInfoAggregator
-                                    .aggregate(readDataOperationInfo);
+                            operationInfoAggregator.add(readDataOperationInfo);
                         }
                     }
                 }
@@ -118,7 +117,7 @@ public class Analyzer {
                     + (long) (speed * 1000 / 1048576) + " MB/s)");
         }
 
-        for (Map.Entry<String, Map<Long, Map<String, OperationInfo.Aggregator>>> aggregateOperationInfosPerHost : aggregateOperationInfos
+        for (Map.Entry<String, Map<Long, Map<String, OperationStatistics>>> aggregateOperationInfosPerHost : aggregateOperationInfos
                 .entrySet()) {
             String hostname = aggregateOperationInfosPerHost.getKey();
             System.out.println("Writing data for " + hostname);
@@ -127,7 +126,7 @@ public class Analyzer {
                     logFileDirectory, hostname + ".csv")));
 
             boolean writeHeaders = true;
-            for (Map.Entry<Long, Map<String, OperationInfo.Aggregator>> aggregateOperationInfosPerTime : aggregateOperationInfosPerHost
+            for (Map.Entry<Long, Map<String, OperationStatistics>> aggregateOperationInfosPerTime : aggregateOperationInfosPerHost
                     .getValue().entrySet()) {
                 long timeBin = aggregateOperationInfosPerTime.getKey();
                 if (writeHeaders) {
@@ -146,45 +145,59 @@ public class Analyzer {
                 } else {
                     out.write(Long.toString(timeBin - minTimeBin));
 
-                    ReadDataOperationInfo.Aggregator readAggregator = (ReadDataOperationInfo.Aggregator) aggregateOperationInfosPerTime
+                    ReadDataOperationStatistics readAggregator = (ReadDataOperationStatistics) aggregateOperationInfosPerTime
                             .getValue().get("read");
                     if (readAggregator != null) {
                         out.write("," + readAggregator.getCount());
                         out.write("," + readAggregator.getLocalCount());
                         out.write("," + readAggregator.getDuration());
-                        out.write("," + readAggregator.getMinDuration());
-                        out.write("," + readAggregator.getMaxDuration());
+                        // out.write("," + readAggregator.getMinDuration());
+                        out.write(",0");
+                        // out.write("," + readAggregator.getMaxDuration());
+                        out.write(",0");
                         out.write("," + readAggregator.getData());
-                        out.write("," + readAggregator.getMinData());
-                        out.write("," + readAggregator.getMaxData());
+                        // out.write("," + readAggregator.getMinData());
+                        out.write(",0");
+                        // out.write("," + readAggregator.getMaxData());
+                        out.write(",0");
                     } else {
                         out.write(",0,0,0,0,0,0,0,0");
                     }
 
-                    ReadDataOperationInfo.Aggregator remoteReadAggregator = (ReadDataOperationInfo.Aggregator) aggregateOperationInfosPerTime
+                    ReadDataOperationStatistics remoteReadAggregator = (ReadDataOperationStatistics) aggregateOperationInfosPerTime
                             .getValue().get("remoteRead");
                     if (remoteReadAggregator != null) {
                         out.write("," + remoteReadAggregator.getCount());
                         out.write("," + remoteReadAggregator.getDuration());
-                        out.write("," + remoteReadAggregator.getMinDuration());
-                        out.write("," + remoteReadAggregator.getMaxDuration());
+                        // out.write("," +
+                        // remoteReadAggregator.getMinDuration());
+                        out.write(",0");
+                        // out.write("," +
+                        // remoteReadAggregator.getMaxDuration());
+                        out.write(",0");
                         out.write("," + remoteReadAggregator.getData());
-                        out.write("," + remoteReadAggregator.getMinData());
-                        out.write("," + remoteReadAggregator.getMaxData());
+                        // out.write("," + remoteReadAggregator.getMinData());
+                        out.write(",0");
+                        // out.write("," + remoteReadAggregator.getMaxData());
+                        out.write(",0");
                     } else {
                         out.write(",0,0,0,0,0,0,0");
                     }
 
-                    DataOperationInfo.Aggregator writeAggregator = (DataOperationInfo.Aggregator) aggregateOperationInfosPerTime
+                    DataOperationStatistics writeAggregator = (DataOperationStatistics) aggregateOperationInfosPerTime
                             .getValue().get("write");
                     if (writeAggregator != null) {
                         out.write("," + writeAggregator.getCount());
                         out.write("," + writeAggregator.getDuration());
-                        out.write("," + writeAggregator.getMinDuration());
-                        out.write("," + writeAggregator.getMaxDuration());
+                        // out.write("," + writeAggregator.getMinDuration());
+                        out.write(",0");
+                        // out.write("," + writeAggregator.getMaxDuration());
+                        out.write(",0");
                         out.write("," + writeAggregator.getData());
-                        out.write("," + writeAggregator.getMinData());
-                        out.write("," + writeAggregator.getMaxData());
+                        // out.write("," + writeAggregator.getMinData());
+                        out.write(",0");
+                        // out.write("," + writeAggregator.getMaxData());
+                        out.write(",0");
                     } else {
                         out.write(",0,0,0,0,0,0,0");
                     }
@@ -196,38 +209,38 @@ public class Analyzer {
         }
     }
 
-    private static Map<Long, Map<String, OperationInfo.Aggregator>> getOperationInfosPerHost(
+    private static Map<Long, Map<String, OperationStatistics>> getOperationInfosPerHost(
             String hostname) {
-        Map<Long, Map<String, OperationInfo.Aggregator>> aggregateOperationInfosPerHost = aggregateOperationInfos
+        Map<Long, Map<String, OperationStatistics>> aggregateOperationInfosPerHost = aggregateOperationInfos
                 .get(hostname);
         if (aggregateOperationInfosPerHost == null) {
-            aggregateOperationInfosPerHost = new TreeMap<Long, Map<String, OperationInfo.Aggregator>>();
+            aggregateOperationInfosPerHost = new TreeMap<Long, Map<String, OperationStatistics>>();
             aggregateOperationInfos.put(hostname,
                     aggregateOperationInfosPerHost);
         }
         return aggregateOperationInfosPerHost;
     }
 
-    private static Map<String, OperationInfo.Aggregator> getOperationInfosPerHostPerTime(
-            Map<Long, Map<String, OperationInfo.Aggregator>> aggregateOperationInfosPerHost,
+    private static Map<String, OperationStatistics> getOperationInfosPerHostPerTime(
+            Map<Long, Map<String, OperationStatistics>> aggregateOperationInfosPerHost,
             long timeBin) {
-        Map<String, OperationInfo.Aggregator> aggregateOperationInfosPerHostPerTime = aggregateOperationInfosPerHost
+        Map<String, OperationStatistics> aggregateOperationInfosPerHostPerTime = aggregateOperationInfosPerHost
                 .get(timeBin);
         if (aggregateOperationInfosPerHostPerTime == null) {
-            aggregateOperationInfosPerHostPerTime = new TreeMap<String, OperationInfo.Aggregator>();
+            aggregateOperationInfosPerHostPerTime = new TreeMap<String, OperationStatistics>();
             aggregateOperationInfosPerHost.put(timeBin,
                     aggregateOperationInfosPerHostPerTime);
         }
         return aggregateOperationInfosPerHostPerTime;
     }
 
-    private static OperationInfo.Aggregator getOperationInfoAggregator(
-            Map<String, OperationInfo.Aggregator> aggregateOperationInfosPerHostPerTime,
-            OperationInfo operationInfo, String operationName) {
-        OperationInfo.Aggregator operationInfoAggregator = aggregateOperationInfosPerHostPerTime
+    private static OperationStatistics getOperationInfoAggregator(
+            Map<String, OperationStatistics> aggregateOperationInfosPerHostPerTime,
+            OperationStatistics operationInfo, String operationName) {
+        OperationStatistics operationInfoAggregator = aggregateOperationInfosPerHostPerTime
                 .get(operationName);
         if (operationInfoAggregator == null) {
-            operationInfoAggregator = operationInfo.getAggregator();
+            operationInfoAggregator = operationInfo;
             aggregateOperationInfosPerHostPerTime.put(operationName,
                     operationInfoAggregator);
         }

@@ -26,11 +26,11 @@ import org.apache.flink.core.io.InputSplitAssigner;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import de.zib.sfs.analysis.OperationInfo;
-import de.zib.sfs.analysis.OperationInfoFactory;
+import de.zib.sfs.analysis.OperationStatistics;
+import de.zib.sfs.analysis.OperationStatisticsFactory;
 
 public class SfsInputFormat extends
-        RichInputFormat<OperationInfo, SfsInputSplit> {
+        RichInputFormat<OperationStatistics, SfsInputSplit> {
 
     private static final long serialVersionUID = -5409113748371926578L;
 
@@ -129,7 +129,7 @@ public class SfsInputFormat extends
     }
 
     @Override
-    public OperationInfo nextRecord(OperationInfo reuse) throws IOException {
+    public OperationStatistics nextRecord(OperationStatistics reuse) throws IOException {
         String line = reader.readLine();
 
         // try the next file if possible
@@ -144,7 +144,7 @@ public class SfsInputFormat extends
 
         if (line != null) {
             try {
-                return OperationInfoFactory.parseFromLogLine(line);
+                return OperationStatisticsFactory.parseFromLogLine(line);
             } catch (Exception e) {
                 throw new IOException("Error parsing log line: " + line, e);
             }

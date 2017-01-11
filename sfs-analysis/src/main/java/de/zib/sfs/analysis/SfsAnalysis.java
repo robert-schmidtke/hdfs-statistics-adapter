@@ -58,62 +58,69 @@ public class SfsAnalysis {
                 .getExecutionEnvironment();
 
         // read all input files
-        DataSet<OperationInfo> operationInfos = env
+        DataSet<OperationStatistics> operationStatistics = env
                 .createInput(new SfsInputFormat(inputPath, prefix, hosts,
                         slotsPerHost));
 
-        // aggregate operation information per host, operation and time bin
-        GroupReduceOperator<OperationInfo, OperationInfo.Aggregator> aggregatedOperationInfos = operationInfos
-                .reduceGroup(new RichGroupReduceFunction<OperationInfo, OperationInfo.Aggregator>() {
+        // aggregate operation statistics per host, operation and time bin
+        GroupReduceOperator<OperationStatistics, OperationStatistics> aggregatedOperationStatistics = operationStatistics
+                .reduceGroup(new RichGroupReduceFunction<OperationStatistics, OperationStatistics>() {
 
                     private static final long serialVersionUID = 8061425400468716923L;
 
                     @Override
-                    public void reduce(Iterable<OperationInfo> values,
-                            Collector<OperationInfo.Aggregator> out)
+                    public void reduce(Iterable<OperationStatistics> values,
+                            Collector<OperationStatistics> out)
                             throws Exception {
-                        Map<String, OperationInfo.Aggregator> aggregatedOperationInfos = new HashMap<>();
+                        Map<String, OperationStatistics> aggregatedOperationStatistics = new HashMap<>();
 
                         // keep the time so we can create time bins
                         long lastTime = Long.MAX_VALUE;
-                        for (final OperationInfo operationInfo : values) {
-                            long currentTime = operationInfo.getStartTime();
+                        for (final OperationStatistics operationStatistics : values) {
+                            long currentTime = operationStatistics
+                                    .getStartTime();
 
-                            // get unique aggregator for current
-                            // operation type
-                            String operationID = operationInfo.getHostname()
-                                    + ":" + operationInfo.getClassName() + "."
-                                    + operationInfo.getName();
-                            OperationInfo.Aggregator aggregator = aggregatedOperationInfos
-                                    .computeIfAbsent(operationID,
-                                            k -> operationInfo.getAggregator());
+                            // get unique aggregator for current operation type
+                            // and aggregate
+                            String operationID = operationStatistics
+                                    .getHostname()
+                                    + ":"
+                                    + operationStatistics.getClassName()
+                                    + "."
+                                    + operationStatistics.getName();
+                            OperationStatistics aggregator = aggregatedOperationStatistics
+                                    .computeIfAbsent(operationID, k -> {
+                                        try {
+                                            return operationStatistics.clone();
+                                        } catch (CloneNotSupportedException e) {
+                                            throw new RuntimeException(e);
+                                        }
+                                    });
+                            aggregator.add(operationStatistics);
 
-                            // collect information
-                            aggregator.aggregate(operationInfo);
-
-                            // make sure lastTime is initialized in the
-                            // first iteration
+                            // make sure lastTime is initialized in the first
+                            // iteration
                             lastTime = Math.min(currentTime, lastTime);
 
                             // if the current time and the last checkpoint are
                             // more than the specified time per bin apart,
-                            // collect the aggregated information
+                            // collect the aggregated statistics
                             if (currentTime - lastTime >= timeBinDuration) {
                                 lastTime = currentTime;
 
-                                for (OperationInfo.Aggregator a : aggregatedOperationInfos
+                                for (OperationStatistics a : aggregatedOperationStatistics
                                         .values()) {
                                     out.collect(a);
                                 }
 
-                                // reset aggregate operation information
-                                aggregatedOperationInfos.clear();
+                                // reset aggregate operation statistics
+                                aggregatedOperationStatistics.clear();
                             }
                         }
 
                         // no more inputs, collect remaining and close output as
                         // well
-                        for (OperationInfo.Aggregator a : aggregatedOperationInfos
+                        for (OperationStatistics a : aggregatedOperationStatistics
                                 .values()) {
                             out.collect(a);
                         }
@@ -122,48 +129,43 @@ public class SfsAnalysis {
                 });
 
         // group by host, source and category
-        UnsortedGrouping<OperationInfo.Aggregator> groupedOperationInfos = aggregatedOperationInfos
+        UnsortedGrouping<OperationStatistics> groupedOperationStatistics = aggregatedOperationStatistics
                 .groupBy("getHostname()", "getSource()", "getCategory()");
-        SortedGrouping<OperationInfo.Aggregator> sortedOperationInfos = groupedOperationInfos
+        SortedGrouping<OperationStatistics> sortedOperationStatistics = groupedOperationStatistics
                 .sortGroup("getMinStartTime()", Order.ASCENDING);
 
         // print some String representation for testing
-        sortedOperationInfos
-                .reduceGroup(
-                        new RichGroupReduceFunction<OperationInfo.Aggregator, String>() {
+        sortedOperationStatistics.reduceGroup(
+                new RichGroupReduceFunction<OperationStatistics, String>() {
 
-                            private static final long serialVersionUID = 7109785107772492236L;
+                    private static final long serialVersionUID = 7109785107772492236L;
 
-                            @Override
-                            public void reduce(
-                                    Iterable<OperationInfo.Aggregator> values,
-                                    Collector<String> out) throws Exception {
-                                for (OperationInfo.Aggregator aggregator : values) {
-                                    String output = aggregator.getHostname()
-                                            + ": "
-                                            + aggregator.getMinStartTime()
-                                            + "-" + aggregator.getMaxEndTime()
-                                            + ": "
-                                            + aggregator.getSource().name()
-                                            + ": ";
-                                    switch (aggregator.getCategory()) {
-                                    case READ:
-                                        output += ((ReadDataOperationInfo.Aggregator) aggregator)
-                                                .getData();
-                                        break;
-                                    case WRITE:
-                                        output += ((ReadDataOperationInfo.Aggregator) aggregator)
-                                                .getData();
-                                        break;
-                                    case OTHER:
-                                        output += aggregator.getName() + " x "
-                                                + aggregator.getCount();
-                                        break;
-                                    }
-                                    out.collect(output);
-                                }
-                                out.close();
+                    @Override
+                    public void reduce(Iterable<OperationStatistics> values,
+                            Collector<String> out) throws Exception {
+                        for (OperationStatistics aggregator : values) {
+                            String output = aggregator.getHostname() + ": "
+                                    + aggregator.getStartTime() + "-"
+                                    + aggregator.getEndTime() + ": "
+                                    + aggregator.getSource().name() + ": ";
+                            switch (aggregator.getCategory()) {
+                            case READ:
+                                output += ((ReadDataOperationStatistics) aggregator)
+                                        .getData();
+                                break;
+                            case WRITE:
+                                output += ((ReadDataOperationStatistics) aggregator)
+                                        .getData();
+                                break;
+                            case OTHER:
+                                output += aggregator.getName() + " x "
+                                        + aggregator.getCount();
+                                break;
                             }
-                        }).print();
+                            out.collect(output);
+                        }
+                        out.close();
+                    }
+                }).print();
     }
 }
