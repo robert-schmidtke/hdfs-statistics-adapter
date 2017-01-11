@@ -11,6 +11,9 @@ public class DataOperationStatistics extends OperationStatistics {
 
     protected long data;
 
+    public DataOperationStatistics() {
+    }
+
     public DataOperationStatistics(String hostname, String className,
             String name, long startTime, long endTime, long data) {
         super(hostname, className, name, startTime, endTime);

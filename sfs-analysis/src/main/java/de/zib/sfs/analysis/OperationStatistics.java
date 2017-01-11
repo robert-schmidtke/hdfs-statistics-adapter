@@ -19,6 +19,9 @@ public class OperationStatistics implements Cloneable {
 
     protected OperationCategory category;
 
+    public OperationStatistics() {
+    }
+
     public OperationStatistics(String hostname, String className, String name,
             long startTime, long endTime) {
         count = 1L;

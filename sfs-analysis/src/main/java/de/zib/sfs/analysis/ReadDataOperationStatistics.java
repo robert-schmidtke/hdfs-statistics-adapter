@@ -13,6 +13,9 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
 
     protected String remoteHostname;
 
+    public ReadDataOperationStatistics() {
+    }
+
     public ReadDataOperationStatistics(String hostname, String className,
             String name, long startTime, long endTime, long data,
             String remoteHostname) {
