@@ -66,6 +66,7 @@ public class OperationStatistics implements Cloneable {
         case "getFileStatus":
         case "listStatus":
         case "mkdirs":
+        case "open":
         case "rename":
         case "seek":
         case "seekToNewSource":
