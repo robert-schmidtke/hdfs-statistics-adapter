@@ -154,7 +154,7 @@ public class SfsAnalysis {
                                         .getData();
                                 break;
                             case WRITE:
-                                output += ((ReadDataOperationStatistics) aggregator)
+                                output += ((DataOperationStatistics) aggregator)
                                         .getData();
                                 break;
                             case OTHER:
