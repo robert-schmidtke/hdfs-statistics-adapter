@@ -208,7 +208,7 @@ sed -i "/^jobmanager\.rpc\.address/c\jobmanager.rpc.address: $MASTER" $FLINK_HOM
 sed -i "/^jobmanager\.heap\.mb/c\jobmanager.heap.mb: $JOBMANAGER_MEMORY" $FLINK_HOME/conf/flink-conf.yaml
 sed -i "/^taskmanager\.heap\.mb/c\taskmanager.heap.mb: $TASKMANAGER_MEMORY" $FLINK_HOME/conf/flink-conf.yaml
 sed -i "/^taskmanager\.numberOfTaskSlots/c\taskmanager.numberOfTaskSlots: $TASK_SLOTS" $FLINK_HOME/conf/flink-conf.yaml
-sed -i "/^# taskmanager\.network\.numberOfBuffers/c\taskmanager.network.numberOfBuffers: $(($TASK_SLOTS * ${#NODES[@]} * 4))" $FLINK_HOME/conf/flink-conf.yaml
+sed -i "/^# taskmanager\.network\.numberOfBuffers/c\taskmanager.network.numberOfBuffers: $(($TASK_SLOTS * $TASK_SLOTS * ${#NODES[@]} * 4))" $FLINK_HOME/conf/flink-conf.yaml
 sed -i "/^# taskmanager\.tmp\.dirs/c\taskmanager.tmp.dirs: /local/$USER/flink" $FLINK_HOME/conf/flink-conf.yaml
 printf "%s\n" "${NODES[@]}" > $FLINK_HOME/conf/slaves
 cat >> $FLINK_HOME/conf/flink-conf.yaml << EOF
