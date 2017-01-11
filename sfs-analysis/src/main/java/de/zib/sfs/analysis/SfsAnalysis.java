@@ -62,8 +62,14 @@ public class SfsAnalysis {
                 .createInput(new SfsInputFormat(inputPath, prefix, hosts,
                         slotsPerHost));
 
+        // group by host, source and category
+        UnsortedGrouping<OperationStatistics> groupedOperationStatistics = operationStatistics
+                .groupBy("hostname", "source", "category");
+        SortedGrouping<OperationStatistics> sortedOperationStatistics = groupedOperationStatistics
+                .sortGroup("startTime", Order.ASCENDING);
+
         // aggregate operation statistics per host, operation and time bin
-        GroupReduceOperator<OperationStatistics, OperationStatistics> aggregatedOperationStatistics = operationStatistics
+        GroupReduceOperator<OperationStatistics, OperationStatistics> aggregatedOperationStatistics = sortedOperationStatistics
                 .reduceGroup(new RichGroupReduceFunction<OperationStatistics, OperationStatistics>() {
 
                     private static final long serialVersionUID = 8061425400468716923L;
@@ -128,14 +134,8 @@ public class SfsAnalysis {
                     }
                 });
 
-        // group by host, source and category
-        UnsortedGrouping<OperationStatistics> groupedOperationStatistics = aggregatedOperationStatistics
-                .groupBy("hostname", "source", "category");
-        SortedGrouping<OperationStatistics> sortedOperationStatistics = groupedOperationStatistics
-                .sortGroup("startTime", Order.ASCENDING);
-
         // print some String representation for testing
-        sortedOperationStatistics.reduceGroup(
+        aggregatedOperationStatistics.reduceGroup(
                 new RichGroupReduceFunction<OperationStatistics, String>() {
 
                     private static final long serialVersionUID = 7109785107772492236L;
