@@ -7,7 +7,8 @@
  */
 package de.zib.sfs.analysis;
 
-public class OperationStatistics implements Cloneable {
+public class OperationStatistics implements Cloneable,
+        Comparable<OperationStatistics> {
 
     private long count;
 
@@ -182,5 +183,42 @@ public class OperationStatistics implements Cloneable {
     public OperationStatistics clone() throws CloneNotSupportedException {
         return new OperationStatistics(hostname, className, name, startTime,
                 endTime);
+    }
+
+    @Override
+    public int compareTo(OperationStatistics o) {
+        int result = hostname.compareTo(o.getHostname());
+        if (result != 0) {
+            return result;
+        }
+
+        result = className.compareTo(o.getClassName());
+        if (result != 0) {
+            return result;
+        }
+
+        result = name.compareTo(o.getName());
+        if (result != 0) {
+            return result;
+        }
+
+        result = count < o.getCount() ? -1 : count > o.getCount() ? 1 : 0;
+        if (result != 0) {
+            return result;
+        }
+
+        result = startTime < o.getStartTime() ? -1 : startTime > o
+                .getStartTime() ? 1 : 0;
+        if (result != 0) {
+            return result;
+        }
+
+        result = endTime < o.getEndTime() ? -1 : endTime > o.getEndTime() ? 1
+                : 0;
+        if (result != 0) {
+            return result;
+        }
+
+        return 0;
     }
 }

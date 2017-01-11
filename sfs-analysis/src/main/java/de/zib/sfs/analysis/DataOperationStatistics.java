@@ -42,4 +42,16 @@ public class DataOperationStatistics extends OperationStatistics {
         return new DataOperationStatistics(hostname, className, name,
                 startTime, endTime, data);
     }
+
+    @Override
+    public int compareTo(OperationStatistics o) {
+        int result = super.compareTo(o);
+        if (result != 0) {
+            return result;
+        }
+
+        DataOperationStatistics dos = (DataOperationStatistics) o;
+        result = data < dos.getData() ? -1 : data > dos.getData() ? 1 : 0;
+        return result;
+    }
 }
