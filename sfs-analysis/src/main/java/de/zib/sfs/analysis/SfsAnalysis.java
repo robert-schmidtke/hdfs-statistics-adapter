@@ -10,13 +10,11 @@ package de.zib.sfs.analysis;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.flink.api.common.functions.GroupReduceFunction;
 import org.apache.flink.api.common.functions.RichGroupReduceFunction;
-import org.apache.flink.api.common.operators.Order;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.ExecutionEnvironment;
-import org.apache.flink.api.java.operators.GroupReduceOperator;
-import org.apache.flink.api.java.operators.SortedGrouping;
-import org.apache.flink.api.java.operators.UnsortedGrouping;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.util.Collector;
 
@@ -57,82 +55,86 @@ public class SfsAnalysis {
         final ExecutionEnvironment env = ExecutionEnvironment
                 .getExecutionEnvironment();
 
-        // read all input files
+        // Read all input files, each split containing zero or more files, one
+        // file per process and per host. Each file contains chronologically
+        // ordered log lines for I/O operations, one operation per line.
         DataSet<OperationStatistics> operationStatistics = env
                 .createInput(new SfsInputFormat(inputPath, prefix, hosts,
                         slotsPerHost));
 
-        // group by host, source and category
-        UnsortedGrouping<OperationStatistics> groupedOperationStatistics = operationStatistics
-                .groupBy("hostname", "source", "category");
-        SortedGrouping<OperationStatistics> sortedOperationStatistics = groupedOperationStatistics
-                .sortGroup("startTime", Order.ASCENDING);
+        // For each host/process/source/category combination, aggregate
+        // statistics over the specified time bin.
+        DataSet<OperationStatistics> aggregatedOperationStatistics = operationStatistics
+                .groupBy("hostname")
+                .reduceGroup(
+                        new GroupReduceFunction<OperationStatistics, OperationStatistics>() {
 
-        // aggregate operation statistics per host, operation and time bin
-        GroupReduceOperator<OperationStatistics, OperationStatistics> aggregatedOperationStatistics = sortedOperationStatistics
-                .reduceGroup(new RichGroupReduceFunction<OperationStatistics, OperationStatistics>() {
+                            private static final long serialVersionUID = -6279446327088687733L;
 
-                    private static final long serialVersionUID = 8061425400468716923L;
+                            @Override
+                            public void reduce(
+                                    Iterable<OperationStatistics> values,
+                                    final Collector<OperationStatistics> out)
+                                    throws Exception {
+                                // some state to keep during iteration
+                                int pid = Integer.MIN_VALUE;
+                                long startTime = Long.MIN_VALUE;
+                                Map<Tuple2<OperationSource, OperationCategory>, OperationStatistics> aggregates = new HashMap<>();
 
-                    @Override
-                    public void reduce(Iterable<OperationStatistics> values,
-                            Collector<OperationStatistics> out)
-                            throws Exception {
-                        Map<String, OperationStatistics> aggregatedOperationStatistics = new HashMap<>();
+                                for (OperationStatistics value : values) {
+                                    // get the current aggregate for this source
+                                    // and category
+                                    Tuple2<OperationSource, OperationCategory> aggregateKey = Tuple2
+                                            .of(value.getSource(),
+                                                    value.getCategory());
+                                    OperationStatistics aggregate = aggregates
+                                            .get(aggregateKey);
 
-                        // keep the time so we can create time bins
-                        long lastTime = Long.MAX_VALUE;
-                        for (final OperationStatistics operationStatistics : values) {
-                            long currentTime = operationStatistics
-                                    .getStartTime();
+                                    // The PIDs may change. This indicates a
+                                    // switch to a new file, which begins with a
+                                    // new time.
+                                    if (pid != value.getPid()) {
+                                        pid = value.getPid();
 
-                            // get unique aggregator for current operation type
-                            // and aggregate
-                            String operationID = operationStatistics
-                                    .getHostname()
-                                    + ":"
-                                    + operationStatistics.getClassName()
-                                    + "."
-                                    + operationStatistics.getName();
-                            OperationStatistics aggregator = aggregatedOperationStatistics
-                                    .computeIfAbsent(operationID, k -> {
-                                        try {
-                                            return operationStatistics.clone();
-                                        } catch (CloneNotSupportedException e) {
-                                            throw new RuntimeException(e);
+                                        // if we have a current aggregate, emit
+                                        // it (will only be null on the first
+                                        // iteration for each source/category
+                                        // and time bin)
+                                        if (aggregate != null) {
+                                            out.collect(aggregate);
                                         }
-                                    });
-                            aggregator.add(operationStatistics);
 
-                            // make sure lastTime is initialized in the first
-                            // iteration
-                            lastTime = Math.min(currentTime, lastTime);
+                                        // start new aggregation for this
+                                        // source/category and time bin
+                                        aggregate = value.clone();
+                                        aggregates.put(aggregateKey, aggregate);
 
-                            // if the current time and the last checkpoint are
-                            // more than the specified time per bin apart,
-                            // collect the aggregated statistics
-                            if (currentTime - lastTime >= timeBinDuration) {
-                                lastTime = currentTime;
+                                        startTime = value.getStartTime();
+                                    } else {
+                                        // same PID, but the time bin may be
+                                        // full
+                                        if (value.getStartTime() - startTime >= timeBinDuration) {
+                                            // emit current aggregate and put
+                                            // the value in the next time bin
+                                            out.collect(aggregate);
 
-                                for (OperationStatistics a : aggregatedOperationStatistics
-                                        .values()) {
-                                    out.collect(a);
+                                            aggregate = value.clone();
+                                            aggregates.put(aggregateKey,
+                                                    aggregate);
+
+                                            startTime = value.getStartTime();
+                                        } else {
+                                            // just aggregate the current
+                                            // statistics
+                                            aggregate.add(value);
+                                        }
+                                    }
                                 }
 
-                                // reset aggregate operation statistics
-                                aggregatedOperationStatistics.clear();
+                                // collect remaining aggregates
+                                aggregates.forEach((key, v) -> out.collect(v));
                             }
-                        }
-
-                        // no more inputs, collect remaining and close output as
-                        // well
-                        for (OperationStatistics a : aggregatedOperationStatistics
-                                .values()) {
-                            out.collect(a);
-                        }
-                        out.close();
-                    }
-                });
+                        });
 
         // print some String representation for testing
         aggregatedOperationStatistics.reduceGroup(
