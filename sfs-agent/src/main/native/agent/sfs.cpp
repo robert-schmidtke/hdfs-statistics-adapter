@@ -399,6 +399,14 @@ static void JNICALL VMInitCallback(jvmtiEnv *jvmti_env, JNIEnv *jni_env,
                                   jni_env->NewStringUTF(hostname));
   }
 
+  // repeat for the PID
+  LOG_VERBOSE("Setting system property '%s'='%s'.\n",
+              std::string("de.zib.sfs.pid").c_str(), hostname);
+  jni_env->CallStaticVoidMethod(
+      system_class, set_property_method_id,
+      jni_env->NewStringUTF("de.zib.sfs.pid"),
+      jni_env->NewStringUTF(std::to_string(getpid()).c_str()));
+
   LOG_VERBOSE("VM initialized successfully.\n");
 }
 

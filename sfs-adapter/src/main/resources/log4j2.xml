@@ -10,7 +10,7 @@
       filePattern="${sys:de.zib.sfs.logFile.name}.%i.gz"
       append="true"
       immediateFlush="false">
-      <PatternLayout pattern="${sys:de.zib.sfs.hostname}:%date{UNIX_MILLIS}-%message%n" />
+      <PatternLayout pattern="${sys:de.zib.sfs.pid}@${sys:de.zib.sfs.hostname}:%date{UNIX_MILLIS}-%message%n" />
       <Policies>
         <SizeBasedTriggeringPolicy size="4GB" />
       </Policies>

@@ -14,9 +14,9 @@ public class DataOperationStatistics extends OperationStatistics {
     public DataOperationStatistics() {
     }
 
-    public DataOperationStatistics(String hostname, String className,
+    public DataOperationStatistics(String hostname, int pid, String className,
             String name, long startTime, long endTime, long data) {
-        super(hostname, className, name, startTime, endTime);
+        super(hostname, pid, className, name, startTime, endTime);
         this.data = data;
     }
 
@@ -42,7 +42,7 @@ public class DataOperationStatistics extends OperationStatistics {
 
     @Override
     public DataOperationStatistics clone() throws CloneNotSupportedException {
-        return new DataOperationStatistics(hostname, className, name,
+        return new DataOperationStatistics(hostname, pid, className, name,
                 startTime, endTime, data);
     }
 }

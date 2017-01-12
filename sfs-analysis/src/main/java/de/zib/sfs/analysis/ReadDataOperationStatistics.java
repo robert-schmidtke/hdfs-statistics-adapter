@@ -16,10 +16,10 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
     public ReadDataOperationStatistics() {
     }
 
-    public ReadDataOperationStatistics(String hostname, String className,
-            String name, long startTime, long endTime, long data,
-            String remoteHostname) {
-        super(hostname, className, name, startTime, endTime, data);
+    public ReadDataOperationStatistics(String hostname, int pid,
+            String className, String name, long startTime, long endTime,
+            long data, String remoteHostname) {
+        super(hostname, pid, className, name, startTime, endTime, data);
         if (remoteHostname == null) {
             this.remoteHostname = null;
         } else {
@@ -73,7 +73,7 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
     @Override
     public ReadDataOperationStatistics clone()
             throws CloneNotSupportedException {
-        return new ReadDataOperationStatistics(hostname, className, name,
+        return new ReadDataOperationStatistics(hostname, pid, className, name,
                 startTime, endTime, data, remoteHostname);
     }
 

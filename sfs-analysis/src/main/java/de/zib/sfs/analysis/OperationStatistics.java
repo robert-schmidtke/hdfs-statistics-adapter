@@ -15,6 +15,8 @@ public class OperationStatistics implements Cloneable {
 
     protected String hostname, className, name;
 
+    protected int pid;
+
     protected OperationSource source;
 
     protected OperationCategory category;
@@ -22,10 +24,11 @@ public class OperationStatistics implements Cloneable {
     public OperationStatistics() {
     }
 
-    public OperationStatistics(String hostname, String className, String name,
-            long startTime, long endTime) {
+    public OperationStatistics(String hostname, int pid, String className,
+            String name, long startTime, long endTime) {
         count = 1L;
         this.hostname = hostname;
+        this.pid = pid;
         this.className = className;
         this.name = name;
         this.startTime = startTime;
@@ -82,6 +85,11 @@ public class OperationStatistics implements Cloneable {
         if (!other.getHostname().equals(hostname)) {
             throw new IllegalArgumentException("Hostnames do not match: "
                     + hostname + ", " + other.getHostname());
+        }
+
+        if (other.getPid() != pid) {
+            throw new IllegalArgumentException("Pids do not match: " + pid
+                    + ", " + other.getPid());
         }
 
         if (!other.getClassName().equals(className)) {
@@ -150,6 +158,14 @@ public class OperationStatistics implements Cloneable {
         this.hostname = hostname;
     }
 
+    public int getPid() {
+        return pid;
+    }
+
+    public void setPid(int pid) {
+        this.pid = pid;
+    }
+
     public String getClassName() {
         return className;
     }
@@ -184,7 +200,7 @@ public class OperationStatistics implements Cloneable {
 
     @Override
     public OperationStatistics clone() throws CloneNotSupportedException {
-        return new OperationStatistics(hostname, className, name, startTime,
-                endTime);
+        return new OperationStatistics(hostname, pid, className, name,
+                startTime, endTime);
     }
 }

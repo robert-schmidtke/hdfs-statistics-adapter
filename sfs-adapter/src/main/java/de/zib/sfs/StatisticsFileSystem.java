@@ -14,6 +14,7 @@ import java.io.InputStreamReader;
 import java.lang.reflect.Constructor;
 import java.net.URI;
 import java.util.Arrays;
+import java.util.Random;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -149,6 +150,14 @@ public class StatisticsFileSystem extends FileSystem {
                         + SFS_LOG_FILE_NAME_KEY + "' not set.");
             }
             System.setProperty("de.zib.sfs.logFile.name", logFileName);
+        }
+
+        if (System.getProperty("de.zib.sfs.pid") == null) {
+            LOG.warn("'de.zib.sfs.pid' not set, did the agent start properly?");
+
+            // use negative random number to indicate it's no real PID
+            int pid = -new Random().nextInt(Integer.MAX_VALUE);
+            System.setProperty("de.zib.sfs.pid", Integer.toString(pid));
         }
 
         fsLogger = LogManager.getLogger("de.zib.sfs.AsyncLogger");
