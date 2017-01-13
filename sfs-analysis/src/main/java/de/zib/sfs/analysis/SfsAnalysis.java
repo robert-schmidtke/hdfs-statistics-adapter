@@ -97,7 +97,7 @@ public class SfsAnalysis {
                 .groupBy("hostname", "className", "name")
                 .reduceGroup(
                         new OperationStatisticsGroupReducer(timeBinDuration,
-                                false));
+                                true));
 
         // for each host/source/category combination, sort the aggregated
         // statistics records in ascending time
