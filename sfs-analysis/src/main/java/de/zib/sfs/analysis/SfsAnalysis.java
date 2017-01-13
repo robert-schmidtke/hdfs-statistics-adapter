@@ -100,7 +100,7 @@ public class SfsAnalysis {
         // for each host/source/category combination, sort the aggregated
         // statistics records in ascending time
         DataSet<OperationStatistics.Aggregator> sortedAggregatedOperationStatistics = aggregatedOperationStatistics
-                .groupBy("hostname", "source", "category")
+                .groupBy("source", "category")
                 .sortGroup("startTime", Order.ASCENDING)
                 .reduceGroup(
                         new GroupReduceFunction<OperationStatistics.Aggregator, OperationStatistics.Aggregator>() {
