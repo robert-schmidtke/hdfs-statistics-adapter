@@ -129,7 +129,8 @@ public class SfsInputFormat extends
     }
 
     @Override
-    public OperationStatistics nextRecord(OperationStatistics reuse) throws IOException {
+    public OperationStatistics nextRecord(OperationStatistics reuse)
+            throws IOException {
         String line = reader.readLine();
 
         // try the next file if possible
@@ -163,7 +164,7 @@ public class SfsInputFormat extends
     // Helper methods
 
     private void openNextFile() throws FileNotFoundException, IOException {
-        LOG.debug("Opening file {}", this.files.peek());
+        LOG.debug("Opening file {} for reading", this.files.peek());
         if (this.files.peek().getName().toLowerCase().endsWith(".gz")) {
             reader = new BufferedReader(new InputStreamReader(
                     new GZIPInputStream(new FileInputStream(this.files.pop()))));
