@@ -237,6 +237,7 @@ $FLINK_HOME/bin/flink run \
   --parallelism $((${#NODES[@]} * $TASK_SLOTS)) \
   $SFS_DIRECTORY/sfs-analysis/target/sfs-analysis-1.0-SNAPSHOT.jar \
   --inputPath /local/$USER/sfs \
+  --outputPath $SFS_TARGET_DIRECTORY/sfs \
   --prefix "sfs.log" \
   --hosts $HOSTS \
   --slotsPerHost $TASK_SLOTS
