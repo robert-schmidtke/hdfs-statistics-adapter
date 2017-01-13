@@ -36,6 +36,8 @@ public class SfsAnalysis {
 
     private static final String TIME_BIN_DURATION_KEY = "timeBinDuration";
 
+    private static final String PRINT_EXECUTION_PLAN_ONLY_KEY = "printExecutionPlanOnly";
+
     public static void main(String[] args) throws Exception {
         ParameterTool params = ParameterTool.fromArgs(args);
 
@@ -56,10 +58,13 @@ public class SfsAnalysis {
         String[] hosts;
         int slotsPerHost;
         final long timeBinDuration;
+        final boolean printExecutionPlanOnly;
         try {
             hosts = params.get(HOSTS_KEY).split(",");
             slotsPerHost = params.getInt(SLOTS_PER_HOST_KEY, 1);
             timeBinDuration = params.getLong(TIME_BIN_DURATION_KEY, 1000);
+            printExecutionPlanOnly = params.getBoolean(
+                    PRINT_EXECUTION_PLAN_ONLY_KEY, false);
         } catch (Exception e) {
             throw new IllegalArgumentException(e);
         }
@@ -116,8 +121,8 @@ public class SfsAnalysis {
 
         // currently printing the execution plan and executing the program are
         // mutually exclusive
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("ExecutionPlan: {}", env.getExecutionPlan());
+        if (printExecutionPlanOnly) {
+            LOG.info("ExecutionPlan: {}", env.getExecutionPlan());
         } else {
             // now run the entire thing
             env.execute(SfsAnalysis.class.getName());
