@@ -114,11 +114,13 @@ public class SfsAnalysis {
         sortedAggregatedOperationStatistics.output(new SfsOutputFormat(
                 outputPath, ",", hosts, slotsPerHost));
 
+        // currently printing the execution plan and executing the program are
+        // mutually exclusive
         if (LOG.isDebugEnabled()) {
             LOG.debug("ExecutionPlan: {}", env.getExecutionPlan());
+        } else {
+            // now run the entire thing
+            env.execute(SfsAnalysis.class.getName());
         }
-
-        // now run the entire thing
-        env.execute(SfsAnalysis.class.getName());
     }
 }
