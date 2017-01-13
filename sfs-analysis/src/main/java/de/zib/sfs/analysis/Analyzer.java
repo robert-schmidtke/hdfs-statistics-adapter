@@ -79,7 +79,7 @@ public class Analyzer {
                     OperationStatistics operationInfoAggregator = getOperationInfoAggregator(
                             aggregateOperationInfosPerHostPerTime,
                             operationInfo, operationInfo.getName());
-                    operationInfoAggregator.add(operationInfo);
+                    operationInfoAggregator.add(operationInfo, true);
                 }
 
                 // if the operation was a non-local read, add it as special
@@ -99,7 +99,8 @@ public class Analyzer {
                             OperationStatistics operationInfoAggregator = getOperationInfoAggregator(
                                     aggregateOperationInfosPerRemoteHostPerTime,
                                     readDataOperationInfo, "remoteRead");
-                            operationInfoAggregator.add(readDataOperationInfo);
+                            operationInfoAggregator.add(readDataOperationInfo,
+                                    true);
                         }
                     }
                 }
