@@ -89,30 +89,28 @@ public class SfsAnalysis {
         // statistics over the specified time bin, then repeat for
         // host/class/operation (this reduces parallelism by a
         // factor of slotsPerHost).
-        DataSet<OperationStatistics> aggregatedOperationStatistics = operationStatistics
+        DataSet<OperationStatistics.Aggregator> aggregatedOperationStatistics = operationStatistics
                 .groupBy("hostname", "internalId", "className", "name")
                 .reduceGroup(
-                        new OperationStatisticsGroupReducer(timeBinDuration,
-                                true))
-                .groupBy("hostname", "className", "name")
-                .reduceGroup(
-                        new OperationStatisticsGroupReducer(timeBinDuration,
-                                true));
+                        new OperationStatisticsGroupReducer(timeBinDuration));
+        // .groupBy("hostname", "className", "name")
+        // .reduceGroup(
+        // new OperationStatisticsGroupReducer(timeBinDuration));
 
         // for each host/source/category combination, sort the aggregated
         // statistics records in ascending time
-        DataSet<OperationStatistics> sortedAggregatedOperationStatistics = aggregatedOperationStatistics
+        DataSet<OperationStatistics.Aggregator> sortedAggregatedOperationStatistics = aggregatedOperationStatistics
                 .groupBy("hostname", "source", "category")
                 .sortGroup("startTime", Order.ASCENDING)
                 .reduceGroup(
-                        new GroupReduceFunction<OperationStatistics, OperationStatistics>() {
+                        new GroupReduceFunction<OperationStatistics.Aggregator, OperationStatistics.Aggregator>() {
 
                             private static final long serialVersionUID = 2289217231165874999L;
 
                             @Override
                             public void reduce(
-                                    Iterable<OperationStatistics> values,
-                                    Collector<OperationStatistics> out)
+                                    Iterable<OperationStatistics.Aggregator> values,
+                                    Collector<OperationStatistics.Aggregator> out)
                                     throws Exception {
                                 values.forEach(v -> out.collect(v));
                             }

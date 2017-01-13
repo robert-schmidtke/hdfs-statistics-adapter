@@ -9,7 +9,52 @@ package de.zib.sfs.analysis;
 
 public class DataOperationStatistics extends OperationStatistics {
 
-    protected long data;
+    public static class Aggregator extends OperationStatistics.Aggregator {
+
+        private long data;
+
+        public Aggregator(DataOperationStatistics statistics) {
+            super(statistics);
+            data += statistics.getData();
+        }
+
+        public long getData() {
+            return data;
+        }
+
+        public void setData(long data) {
+            this.data = data;
+        }
+
+        @Override
+        public void aggregate(OperationStatistics.Aggregator aggregator) {
+            if (!(aggregator instanceof Aggregator)) {
+                throw new IllegalArgumentException(
+                        "aggregator must be of type " + getClass().getName());
+            }
+            super.aggregate(aggregator);
+
+            data += ((Aggregator) aggregator).getData();
+        }
+
+        @Override
+        public String getCsvHeaders(String separator) {
+            StringBuilder sb = new StringBuilder();
+            sb.append(super.getCsvHeaders(separator));
+            sb.append(separator).append("data");
+            return sb.toString();
+        }
+
+        @Override
+        public String toCsv(String separator) {
+            StringBuilder sb = new StringBuilder();
+            sb.append(super.toCsv(separator));
+            sb.append(separator).append(data);
+            return sb.toString();
+        }
+    }
+
+    private long data;
 
     public DataOperationStatistics() {
     }
@@ -23,18 +68,6 @@ public class DataOperationStatistics extends OperationStatistics {
     public DataOperationStatistics(DataOperationStatistics other) {
         super(other);
         setData(other.getData());
-    }
-
-    @Override
-    public void add(OperationStatistics other, boolean strict) {
-        if (!(other instanceof DataOperationStatistics)) {
-            throw new IllegalArgumentException(
-                    "OperationStatistics types do not match: " + getClass()
-                            + ", " + other.getClass());
-        }
-        data += ((DataOperationStatistics) other).getData();
-
-        super.add(other, strict);
     }
 
     public long getData() {
@@ -51,18 +84,7 @@ public class DataOperationStatistics extends OperationStatistics {
     }
 
     @Override
-    public String getCsvHeaders(String separator) {
-        StringBuilder sb = new StringBuilder();
-        sb.append(super.getCsvHeaders(separator));
-        sb.append(separator).append("data");
-        return sb.toString();
-    }
-
-    @Override
-    public String toCsv(String separator) {
-        StringBuilder sb = new StringBuilder();
-        sb.append(super.toCsv(separator));
-        sb.append(separator).append(data);
-        return sb.toString();
+    public Aggregator getAggregator() {
+        return new Aggregator(this);
     }
 }

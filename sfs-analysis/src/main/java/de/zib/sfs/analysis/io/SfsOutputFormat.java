@@ -19,7 +19,8 @@ import org.slf4j.LoggerFactory;
 
 import de.zib.sfs.analysis.OperationStatistics;
 
-public class SfsOutputFormat extends RichOutputFormat<OperationStatistics> {
+public class SfsOutputFormat extends
+        RichOutputFormat<OperationStatistics.Aggregator> {
 
     private static final long serialVersionUID = -3809547644140153265L;
 
@@ -65,7 +66,8 @@ public class SfsOutputFormat extends RichOutputFormat<OperationStatistics> {
     }
 
     @Override
-    public void writeRecord(OperationStatistics record) throws IOException {
+    public void writeRecord(OperationStatistics.Aggregator record)
+            throws IOException {
         if (!wroteHeaders) {
             writer.write(record.getCsvHeaders(separator));
             writer.newLine();

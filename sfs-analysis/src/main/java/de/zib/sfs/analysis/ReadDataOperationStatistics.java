@@ -9,9 +9,52 @@ package de.zib.sfs.analysis;
 
 public class ReadDataOperationStatistics extends DataOperationStatistics {
 
-    protected long localCount;
+    public static class Aggregator extends DataOperationStatistics.Aggregator {
 
-    protected String remoteHostname;
+        private long localCount;
+
+        public Aggregator(ReadDataOperationStatistics statistics) {
+            super(statistics);
+            localCount += statistics.isLocal() ? 1 : 0;
+        }
+
+        public long getLocalCount() {
+            return localCount;
+        }
+
+        public void setLocalCount(long localCount) {
+            this.localCount = localCount;
+        }
+
+        @Override
+        public void aggregate(OperationStatistics.Aggregator aggregator) {
+            if (!(aggregator instanceof Aggregator)) {
+                throw new IllegalArgumentException(
+                        "aggregator must be of type " + getClass().getName());
+            }
+            super.aggregate(aggregator);
+
+            localCount += ((Aggregator) aggregator).getLocalCount();
+        }
+
+        @Override
+        public String getCsvHeaders(String separator) {
+            StringBuilder sb = new StringBuilder();
+            sb.append(super.getCsvHeaders(separator));
+            sb.append(separator).append("localCount");
+            return sb.toString();
+        }
+
+        @Override
+        public String toCsv(String separator) {
+            StringBuilder sb = new StringBuilder();
+            sb.append(super.toCsv(separator));
+            sb.append(separator).append(localCount);
+            return sb.toString();
+        }
+    }
+
+    private String remoteHostname;
 
     public ReadDataOperationStatistics() {
     }
@@ -33,35 +76,11 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
                 this.remoteHostname = remoteHostname;
             }
         }
-
-        localCount = isLocal() ? 1L : 0L;
     }
 
     public ReadDataOperationStatistics(ReadDataOperationStatistics other) {
         super(other);
         setRemoteHostname(other.getRemoteHostname());
-        setLocalCount(other.getLocalCount());
-    }
-
-    @Override
-    public void add(OperationStatistics other, boolean strict) {
-        if (!(other instanceof ReadDataOperationStatistics)) {
-            throw new IllegalArgumentException(
-                    "OperationStatistics types do not match: " + getClass()
-                            + ", " + other.getClass());
-        }
-        localCount += ((ReadDataOperationStatistics) other).getLocalCount();
-        remoteHostname = null;
-
-        super.add(other, strict);
-    }
-
-    public long getLocalCount() {
-        return localCount;
-    }
-
-    public void setLocalCount(long localCount) {
-        this.localCount = localCount;
     }
 
     public String getRemoteHostname() {
@@ -74,7 +93,7 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
 
     public boolean isLocal() {
         return "localhost".equals(remoteHostname)
-                || hostname.equals(remoteHostname);
+                || getHostname().equals(remoteHostname);
     }
 
     @Override
@@ -83,21 +102,8 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
     }
 
     @Override
-    public String getCsvHeaders(String separator) {
-        StringBuilder sb = new StringBuilder();
-        sb.append(super.getCsvHeaders(separator));
-        sb.append(separator).append("localCount");
-        sb.append(separator).append("remoteHostname");
-        return sb.toString();
-    }
-
-    @Override
-    public String toCsv(String separator) {
-        StringBuilder sb = new StringBuilder();
-        sb.append(super.toCsv(separator));
-        sb.append(separator).append(localCount);
-        sb.append(separator).append(remoteHostname);
-        return sb.toString();
+    public Aggregator getAggregator() {
+        return new Aggregator(this);
     }
 
 }
