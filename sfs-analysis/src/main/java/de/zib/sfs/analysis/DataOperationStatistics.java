@@ -20,6 +20,11 @@ public class DataOperationStatistics extends OperationStatistics {
         this.data = data;
     }
 
+    public DataOperationStatistics(DataOperationStatistics other) {
+        super(other);
+        setData(other.getData());
+    }
+
     @Override
     public void add(OperationStatistics other, boolean strict) {
         if (!(other instanceof DataOperationStatistics)) {
@@ -41,6 +46,11 @@ public class DataOperationStatistics extends OperationStatistics {
     }
 
     @Override
+    public DataOperationStatistics copy() {
+        return new DataOperationStatistics(this);
+    }
+
+    @Override
     public String getCsvHeaders(String separator) {
         StringBuilder sb = new StringBuilder();
         sb.append(super.getCsvHeaders(separator));
@@ -54,11 +64,5 @@ public class DataOperationStatistics extends OperationStatistics {
         sb.append(super.toCsv(separator));
         sb.append(separator).append(data);
         return sb.toString();
-    }
-
-    @Override
-    public DataOperationStatistics clone() throws CloneNotSupportedException {
-        return new DataOperationStatistics(hostname, pid, className, name,
-                startTime, endTime, data);
     }
 }

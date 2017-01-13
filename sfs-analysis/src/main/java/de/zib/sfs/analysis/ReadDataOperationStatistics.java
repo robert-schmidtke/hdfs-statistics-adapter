@@ -37,6 +37,12 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
         localCount = isLocal() ? 1L : 0L;
     }
 
+    public ReadDataOperationStatistics(ReadDataOperationStatistics other) {
+        super(other);
+        setRemoteHostname(other.getRemoteHostname());
+        setLocalCount(other.getLocalCount());
+    }
+
     @Override
     public void add(OperationStatistics other, boolean strict) {
         if (!(other instanceof ReadDataOperationStatistics)) {
@@ -72,6 +78,11 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
     }
 
     @Override
+    public ReadDataOperationStatistics copy() {
+        return new ReadDataOperationStatistics(this);
+    }
+
+    @Override
     public String getCsvHeaders(String separator) {
         StringBuilder sb = new StringBuilder();
         sb.append(super.getCsvHeaders(separator));
@@ -87,13 +98,6 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
         sb.append(separator).append(localCount);
         sb.append(separator).append(remoteHostname);
         return sb.toString();
-    }
-
-    @Override
-    public ReadDataOperationStatistics clone()
-            throws CloneNotSupportedException {
-        return new ReadDataOperationStatistics(hostname, pid, className, name,
-                startTime, endTime, data, remoteHostname);
     }
 
 }

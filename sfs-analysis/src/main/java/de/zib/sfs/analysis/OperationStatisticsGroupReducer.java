@@ -54,8 +54,8 @@ public class OperationStatisticsGroupReducer implements
                 }
 
                 // start new aggregation for this source/category and time bin
-                aggregate = value.clone();
-                aggregates.put(aggregateKey, aggregate);
+                aggregate = aggregates.compute(aggregateKey,
+                        (k, v) -> value.copy());
 
                 startTime = value.getStartTime();
             } else {
@@ -65,8 +65,8 @@ public class OperationStatisticsGroupReducer implements
                     // bin
                     out.collect(aggregate);
 
-                    aggregate = value.clone();
-                    aggregates.put(aggregateKey, aggregate);
+                    aggregate = aggregates.compute(aggregateKey,
+                            (k, v) -> value.copy());
 
                     startTime = value.getStartTime();
                 } else {

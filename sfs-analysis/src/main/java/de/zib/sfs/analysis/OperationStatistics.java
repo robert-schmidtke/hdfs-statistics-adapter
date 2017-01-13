@@ -10,7 +10,7 @@ package de.zib.sfs.analysis;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class OperationStatistics implements Cloneable {
+public class OperationStatistics {
 
     private static final Logger LOG = LoggerFactory
             .getLogger(OperationStatistics.class);
@@ -90,6 +90,13 @@ public class OperationStatistics implements Cloneable {
         }
 
         internalId = -1;
+    }
+
+    public OperationStatistics(OperationStatistics other) {
+        this(other.getHostname(), other.getPid(), other.getClassName(), other
+                .getName(), other.getStartTime(), other.getEndTime());
+        setCount(other.getCount());
+        setInternalId(other.getInternalId());
     }
 
     public void add(OperationStatistics other, boolean strict) {
@@ -255,6 +262,10 @@ public class OperationStatistics implements Cloneable {
         this.internalId = internalId;
     }
 
+    public OperationStatistics copy() {
+        return new OperationStatistics(this);
+    }
+
     public String getCsvHeaders(String separator) {
         StringBuilder sb = new StringBuilder();
         sb.append("hostname");
@@ -283,11 +294,5 @@ public class OperationStatistics implements Cloneable {
         sb.append(separator).append(endTime);
         sb.append(separator).append(duration);
         return sb.toString();
-    }
-
-    @Override
-    public OperationStatistics clone() throws CloneNotSupportedException {
-        return new OperationStatistics(hostname, pid, className, name,
-                startTime, endTime);
     }
 }
