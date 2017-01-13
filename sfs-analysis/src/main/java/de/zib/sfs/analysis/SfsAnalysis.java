@@ -62,10 +62,10 @@ public class SfsAnalysis {
                 .createInput(new SfsInputFormat(inputPath, prefix, hosts,
                         slotsPerHost));
 
-        // For each host/process/source/category combination, aggregate
-        // statistics over the specified time bin.
+        // For each host/class/operation combination, aggregate statistics over
+        // the specified time bin.
         DataSet<OperationStatistics> aggregatedOperationStatistics = operationStatistics
-                .groupBy("hostname")
+                .groupBy("hostname", "className", "name")
                 .reduceGroup(
                         new GroupReduceFunction<OperationStatistics, OperationStatistics>() {
 
@@ -137,37 +137,42 @@ public class SfsAnalysis {
                         });
 
         // print some String representation for testing
-        aggregatedOperationStatistics.reduceGroup(
-                new RichGroupReduceFunction<OperationStatistics, String>() {
+        aggregatedOperationStatistics
+                .groupBy("source", "category")
+                .reduceGroup(
+                        new RichGroupReduceFunction<OperationStatistics, String>() {
 
-                    private static final long serialVersionUID = 7109785107772492236L;
+                            private static final long serialVersionUID = 7109785107772492236L;
 
-                    @Override
-                    public void reduce(Iterable<OperationStatistics> values,
-                            Collector<String> out) throws Exception {
-                        for (OperationStatistics aggregator : values) {
-                            String output = aggregator.getHostname() + ": "
-                                    + aggregator.getStartTime() + "-"
-                                    + aggregator.getEndTime() + ": "
-                                    + aggregator.getSource().name() + ": ";
-                            switch (aggregator.getCategory()) {
-                            case READ:
-                                output += ((ReadDataOperationStatistics) aggregator)
-                                        .getData();
-                                break;
-                            case WRITE:
-                                output += ((DataOperationStatistics) aggregator)
-                                        .getData();
-                                break;
-                            case OTHER:
-                                output += aggregator.getName() + " x "
-                                        + aggregator.getCount();
-                                break;
+                            @Override
+                            public void reduce(
+                                    Iterable<OperationStatistics> values,
+                                    Collector<String> out) throws Exception {
+                                for (OperationStatistics aggregator : values) {
+                                    String output = aggregator.getHostname()
+                                            + ": " + aggregator.getStartTime()
+                                            + "-" + aggregator.getEndTime()
+                                            + ": "
+                                            + aggregator.getSource().name()
+                                            + ": ";
+                                    switch (aggregator.getCategory()) {
+                                    case READ:
+                                        output += ((ReadDataOperationStatistics) aggregator)
+                                                .getData();
+                                        break;
+                                    case WRITE:
+                                        output += ((DataOperationStatistics) aggregator)
+                                                .getData();
+                                        break;
+                                    case OTHER:
+                                        output += aggregator.getName() + " x "
+                                                + aggregator.getCount();
+                                        break;
+                                    }
+                                    out.collect(output);
+                                }
+                                out.close();
                             }
-                            out.collect(output);
-                        }
-                        out.close();
-                    }
-                }).print();
+                        }).print();
     }
 }
