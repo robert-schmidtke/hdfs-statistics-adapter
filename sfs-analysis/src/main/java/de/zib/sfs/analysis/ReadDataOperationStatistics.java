@@ -71,6 +71,24 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
     }
 
     @Override
+    public String getCsvHeaders(String separator) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(super.getCsvHeaders(separator));
+        sb.append(separator).append("localCount");
+        sb.append(separator).append("remoteHostname");
+        return sb.toString();
+    }
+
+    @Override
+    public String toCsv(String separator) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(super.toCsv(separator));
+        sb.append(separator).append(localCount);
+        sb.append(separator).append(remoteHostname);
+        return sb.toString();
+    }
+
+    @Override
     public ReadDataOperationStatistics clone()
             throws CloneNotSupportedException {
         return new ReadDataOperationStatistics(hostname, pid, className, name,

@@ -41,6 +41,22 @@ public class DataOperationStatistics extends OperationStatistics {
     }
 
     @Override
+    public String getCsvHeaders(String separator) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(super.getCsvHeaders(separator));
+        sb.append(separator).append("data");
+        return sb.toString();
+    }
+
+    @Override
+    public String toCsv(String separator) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(super.toCsv(separator));
+        sb.append(separator).append(data);
+        return sb.toString();
+    }
+
+    @Override
     public DataOperationStatistics clone() throws CloneNotSupportedException {
         return new DataOperationStatistics(hostname, pid, className, name,
                 startTime, endTime, data);

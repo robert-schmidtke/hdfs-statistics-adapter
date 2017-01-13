@@ -10,8 +10,8 @@ package de.zib.sfs.analysis;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.flink.api.common.functions.GroupReduceFunction;
-import org.apache.flink.api.common.functions.RichGroupReduceFunction;
+import org.apache.flink.api.common.functions.GroupCombineFunction;
+import org.apache.flink.api.common.operators.Order;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.ExecutionEnvironment;
 import org.apache.flink.api.java.tuple.Tuple2;
@@ -19,10 +19,13 @@ import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.util.Collector;
 
 import de.zib.sfs.analysis.io.SfsInputFormat;
+import de.zib.sfs.analysis.io.SfsOutputFormat;
 
 public class SfsAnalysis {
 
     private static final String INPUT_PATH_KEY = "inputPath";
+    private static final String OUTPUT_PATH_KEY = "outputPath";
+
     private static final String PREFIX_KEY = "prefix";
 
     private static final String HOSTS_KEY = "hosts";
@@ -39,6 +42,13 @@ public class SfsAnalysis {
             throw new IllegalArgumentException(INPUT_PATH_KEY
                     + " cannot be empty");
         }
+
+        String outputPath = params.get(OUTPUT_PATH_KEY);
+        if (outputPath == null || outputPath.isEmpty()) {
+            throw new IllegalArgumentException(OUTPUT_PATH_KEY
+                    + " cannot be empty");
+        }
+
         String prefix = params.get(PREFIX_KEY);
 
         String[] hosts;
@@ -66,13 +76,13 @@ public class SfsAnalysis {
         // the specified time bin.
         DataSet<OperationStatistics> aggregatedOperationStatistics = operationStatistics
                 .groupBy("hostname", "className", "name")
-                .reduceGroup(
-                        new GroupReduceFunction<OperationStatistics, OperationStatistics>() {
+                .combineGroup(
+                        new GroupCombineFunction<OperationStatistics, OperationStatistics>() {
 
                             private static final long serialVersionUID = -6279446327088687733L;
 
                             @Override
-                            public void reduce(
+                            public void combine(
                                     Iterable<OperationStatistics> values,
                                     final Collector<OperationStatistics> out)
                                     throws Exception {
@@ -136,43 +146,30 @@ public class SfsAnalysis {
                             }
                         });
 
-        // print some String representation for testing
-        aggregatedOperationStatistics
-                .groupBy("source", "category")
-                .reduceGroup(
-                        new RichGroupReduceFunction<OperationStatistics, String>() {
+        // for each host/source/gategory combination, sort the aggregated
+        // statistics records in ascending time
+        DataSet<OperationStatistics> sortedAggregatedOperationStatistics = aggregatedOperationStatistics
+                .groupBy("hostname", "source", "category")
+                .sortGroup("startTime", Order.ASCENDING)
+                .combineGroup(
+                        new GroupCombineFunction<OperationStatistics, OperationStatistics>() {
 
-                            private static final long serialVersionUID = 7109785107772492236L;
+                            private static final long serialVersionUID = 2289217231165874999L;
 
                             @Override
-                            public void reduce(
+                            public void combine(
                                     Iterable<OperationStatistics> values,
-                                    Collector<String> out) throws Exception {
-                                for (OperationStatistics aggregator : values) {
-                                    String output = aggregator.getHostname()
-                                            + ": " + aggregator.getStartTime()
-                                            + "-" + aggregator.getEndTime()
-                                            + ": "
-                                            + aggregator.getSource().name()
-                                            + ": ";
-                                    switch (aggregator.getCategory()) {
-                                    case READ:
-                                        output += ((ReadDataOperationStatistics) aggregator)
-                                                .getData();
-                                        break;
-                                    case WRITE:
-                                        output += ((DataOperationStatistics) aggregator)
-                                                .getData();
-                                        break;
-                                    case OTHER:
-                                        output += aggregator.getName() + " x "
-                                                + aggregator.getCount();
-                                        break;
-                                    }
-                                    out.collect(output);
-                                }
-                                out.close();
+                                    Collector<OperationStatistics> out)
+                                    throws Exception {
+                                values.forEach(v -> out.collect(v));
                             }
-                        }).print();
+                        });
+
+        // write the output (one file per host, source and category)
+        sortedAggregatedOperationStatistics.output(new SfsOutputFormat(
+                outputPath, ",", hosts, slotsPerHost));
+
+        // now run the entire thing
+        env.execute(SfsAnalysis.class.getName());
     }
 }

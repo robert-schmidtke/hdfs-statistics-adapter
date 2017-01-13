@@ -198,6 +198,36 @@ public class OperationStatistics implements Cloneable {
         this.category = category;
     }
 
+    public String getCsvHeaders(String separator) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("hostname");
+        sb.append(separator).append("pid");
+        sb.append(separator).append("className");
+        sb.append(separator).append("name");
+        sb.append(separator).append("source");
+        sb.append(separator).append("category");
+        sb.append(separator).append("count");
+        sb.append(separator).append("startTime");
+        sb.append(separator).append("endTime");
+        sb.append(separator).append("duration");
+        return sb.toString();
+    }
+
+    public String toCsv(String separator) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(hostname);
+        sb.append(separator).append(pid);
+        sb.append(separator).append(className);
+        sb.append(separator).append(name);
+        sb.append(separator).append(source);
+        sb.append(separator).append(category);
+        sb.append(separator).append(count);
+        sb.append(separator).append(startTime);
+        sb.append(separator).append(endTime);
+        sb.append(separator).append(duration);
+        return sb.toString();
+    }
+
     @Override
     public OperationStatistics clone() throws CloneNotSupportedException {
         return new OperationStatistics(hostname, pid, className, name,
