@@ -7,21 +7,23 @@
  */
 package de.zib.sfs.analysis;
 
-import java.util.HashMap;
-import java.util.Map;
-
-import org.apache.flink.api.common.functions.GroupCombineFunction;
+import org.apache.flink.api.common.functions.GroupReduceFunction;
 import org.apache.flink.api.common.operators.Order;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.ExecutionEnvironment;
-import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.api.java.operators.DataSource;
 import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.util.Collector;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import de.zib.sfs.analysis.io.SfsInputFormat;
 import de.zib.sfs.analysis.io.SfsOutputFormat;
 
 public class SfsAnalysis {
+
+    private static final Logger LOG = LoggerFactory
+            .getLogger(SfsAnalysis.class);
 
     private static final String INPUT_PATH_KEY = "inputPath";
     private static final String OUTPUT_PATH_KEY = "outputPath";
@@ -68,96 +70,39 @@ public class SfsAnalysis {
         // Read all input files, each split containing zero or more files, one
         // file per process and per host. Each file contains chronologically
         // ordered log lines for I/O operations, one operation per line.
-        DataSet<OperationStatistics> operationStatistics = env
+        DataSource<OperationStatistics> operationStatistics = env
                 .createInput(new SfsInputFormat(inputPath, prefix, hosts,
                         slotsPerHost));
 
-        // For each host/class/operation combination, aggregate statistics over
-        // the specified time bin.
+        // make the grouping and partitioning information available to Flink
+        operationStatistics.getSplitDataProperties().splitsGroupedBy(
+                "hostname;internalId");
+        operationStatistics.getSplitDataProperties().splitsPartitionedBy(
+                "hostname;internalId");
+
+        // For each host/source/class/operation combination, aggregate
+        // statistics over the specified time bin, then repeat for
+        // host/class/operation (this reduces parallelism by a
+        // factor of slotsPerHost).
+        OperationStatisticsGroupReducer reducer = new OperationStatisticsGroupReducer(
+                timeBinDuration);
         DataSet<OperationStatistics> aggregatedOperationStatistics = operationStatistics
-                .groupBy("hostname", "className", "name")
-                .combineGroup(
-                        new GroupCombineFunction<OperationStatistics, OperationStatistics>() {
+                .groupBy("hostname", "internalId", "className", "name")
+                .reduceGroup(reducer).groupBy("hostname", "className", "name")
+                .reduceGroup(reducer);
 
-                            private static final long serialVersionUID = -6279446327088687733L;
-
-                            @Override
-                            public void combine(
-                                    Iterable<OperationStatistics> values,
-                                    final Collector<OperationStatistics> out)
-                                    throws Exception {
-                                // some state to keep during iteration
-                                int pid = Integer.MIN_VALUE;
-                                long startTime = Long.MIN_VALUE;
-                                Map<Tuple2<OperationSource, OperationCategory>, OperationStatistics> aggregates = new HashMap<>();
-
-                                for (OperationStatistics value : values) {
-                                    // get the current aggregate for this source
-                                    // and category
-                                    Tuple2<OperationSource, OperationCategory> aggregateKey = Tuple2
-                                            .of(value.getSource(),
-                                                    value.getCategory());
-                                    OperationStatistics aggregate = aggregates
-                                            .get(aggregateKey);
-
-                                    // The PIDs may change. This indicates a
-                                    // switch to a new file, which begins with a
-                                    // new time.
-                                    if (pid != value.getPid()) {
-                                        pid = value.getPid();
-
-                                        // if we have a current aggregate, emit
-                                        // it (will only be null on the first
-                                        // iteration for each source/category
-                                        // and time bin)
-                                        if (aggregate != null) {
-                                            out.collect(aggregate);
-                                        }
-
-                                        // start new aggregation for this
-                                        // source/category and time bin
-                                        aggregate = value.clone();
-                                        aggregates.put(aggregateKey, aggregate);
-
-                                        startTime = value.getStartTime();
-                                    } else {
-                                        // same PID, but the time bin may be
-                                        // full
-                                        if (value.getStartTime() - startTime >= timeBinDuration) {
-                                            // emit current aggregate and put
-                                            // the value in the next time bin
-                                            out.collect(aggregate);
-
-                                            aggregate = value.clone();
-                                            aggregates.put(aggregateKey,
-                                                    aggregate);
-
-                                            startTime = value.getStartTime();
-                                        } else {
-                                            // just aggregate the current
-                                            // statistics
-                                            aggregate.add(value);
-                                        }
-                                    }
-                                }
-
-                                // collect remaining aggregates
-                                aggregates.forEach((key, v) -> out.collect(v));
-                            }
-                        });
-
-        // for each host/source/gategory combination, sort the aggregated
+        // for each host/source/category combination, sort the aggregated
         // statistics records in ascending time
         DataSet<OperationStatistics> sortedAggregatedOperationStatistics = aggregatedOperationStatistics
                 .groupBy("hostname", "source", "category")
                 .sortGroup("startTime", Order.ASCENDING)
-                .combineGroup(
-                        new GroupCombineFunction<OperationStatistics, OperationStatistics>() {
+                .reduceGroup(
+                        new GroupReduceFunction<OperationStatistics, OperationStatistics>() {
 
                             private static final long serialVersionUID = 2289217231165874999L;
 
                             @Override
-                            public void combine(
+                            public void reduce(
                                     Iterable<OperationStatistics> values,
                                     Collector<OperationStatistics> out)
                                     throws Exception {
@@ -168,6 +113,10 @@ public class SfsAnalysis {
         // write the output (one file per host, source and category)
         sortedAggregatedOperationStatistics.output(new SfsOutputFormat(
                 outputPath, ",", hosts, slotsPerHost));
+
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("ExecutionPlan: {}", env.getExecutionPlan());
+        }
 
         // now run the entire thing
         env.execute(SfsAnalysis.class.getName());

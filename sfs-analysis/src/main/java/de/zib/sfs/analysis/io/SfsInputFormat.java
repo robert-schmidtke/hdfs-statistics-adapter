@@ -43,6 +43,8 @@ public class SfsInputFormat extends
 
     private final int slotsPerHost;
 
+    private int localIndex;
+
     private final Stack<File> files = new Stack<File>();
 
     private boolean reachedEnd;
@@ -55,6 +57,7 @@ public class SfsInputFormat extends
         this.prefix = prefix;
         this.hosts = hosts;
         this.slotsPerHost = slotsPerHost;
+        localIndex = -1;
         reachedEnd = false;
     }
 
@@ -98,6 +101,12 @@ public class SfsInputFormat extends
 
     @Override
     public void open(SfsInputSplit split) throws IOException {
+        if (localIndex != -1) {
+            throw new IOException("localIndex is already assigned: "
+                    + localIndex);
+        }
+        localIndex = split.getLocalIndex();
+
         // obtain file list of target directory in deterministic order
         File[] files = new File(path).listFiles(new FilenameFilter() {
             @Override
@@ -145,7 +154,10 @@ public class SfsInputFormat extends
 
         if (line != null) {
             try {
-                return OperationStatisticsFactory.parseFromLogLine(line);
+                OperationStatistics statistics = OperationStatisticsFactory
+                        .parseFromLogLine(line);
+                statistics.setInternalId(localIndex);
+                return statistics;
             } catch (Exception e) {
                 throw new IOException("Error parsing log line: " + line, e);
             }

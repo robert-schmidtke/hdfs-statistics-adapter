@@ -21,6 +21,9 @@ public class OperationStatistics implements Cloneable {
 
     protected OperationCategory category;
 
+    /** Contains the node-local ID of the DataSource that produced this object. */
+    private int internalId;
+
     public OperationStatistics() {
     }
 
@@ -79,6 +82,8 @@ public class OperationStatistics implements Cloneable {
             throw new IllegalArgumentException(
                     "Could not determine category from operation " + name);
         }
+
+        internalId = -1;
     }
 
     public void add(OperationStatistics other) {
@@ -110,6 +115,11 @@ public class OperationStatistics implements Cloneable {
         if (!other.getCategory().equals(category)) {
             throw new IllegalArgumentException("Categories do not match: "
                     + category + ", " + other.getCategory());
+        }
+
+        if (other.getInternalId() != internalId) {
+            throw new IllegalArgumentException("InternalIds do not match: "
+                    + internalId + ", " + other.getInternalId());
         }
 
         count += other.getCount();
@@ -196,6 +206,14 @@ public class OperationStatistics implements Cloneable {
 
     public void setCategory(OperationCategory category) {
         this.category = category;
+    }
+
+    public int getInternalId() {
+        return internalId;
+    }
+
+    public void setInternalId(int internalId) {
+        this.internalId = internalId;
     }
 
     public String getCsvHeaders(String separator) {
