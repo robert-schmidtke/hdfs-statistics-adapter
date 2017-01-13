@@ -13,6 +13,9 @@ public class DataOperationStatistics extends OperationStatistics {
 
         private long data;
 
+        public Aggregator() {
+        }
+
         public Aggregator(DataOperationStatistics statistics) {
             super(statistics);
             data += statistics.getData();

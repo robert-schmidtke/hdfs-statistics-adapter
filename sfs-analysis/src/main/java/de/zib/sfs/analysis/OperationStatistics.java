@@ -19,6 +19,9 @@ public class OperationStatistics {
 
         private OperationCategory category;
 
+        public Aggregator() {
+        }
+
         public Aggregator(OperationStatistics statistics) {
             count = 1;
             startTime = statistics.getStartTime();

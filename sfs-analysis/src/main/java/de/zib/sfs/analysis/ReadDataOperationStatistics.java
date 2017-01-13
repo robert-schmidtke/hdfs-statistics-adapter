@@ -13,6 +13,9 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
 
         private long localCount;
 
+        public Aggregator() {
+        }
+
         public Aggregator(ReadDataOperationStatistics statistics) {
             super(statistics);
             localCount += statistics.isLocal() ? 1 : 0;
