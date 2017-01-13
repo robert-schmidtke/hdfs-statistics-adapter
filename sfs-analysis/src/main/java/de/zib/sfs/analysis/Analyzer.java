@@ -79,7 +79,7 @@ public class Analyzer {
                     OperationStatistics operationInfoAggregator = getOperationInfoAggregator(
                             aggregateOperationInfosPerHostPerTime,
                             operationInfo, operationInfo.getName());
-                    operationInfoAggregator.add(operationInfo, true);
+                    // operationInfoAggregator.add(operationInfo, true);
                 }
 
                 // if the operation was a non-local read, add it as special
@@ -99,8 +99,8 @@ public class Analyzer {
                             OperationStatistics operationInfoAggregator = getOperationInfoAggregator(
                                     aggregateOperationInfosPerRemoteHostPerTime,
                                     readDataOperationInfo, "remoteRead");
-                            operationInfoAggregator.add(readDataOperationInfo,
-                                    true);
+                            //operationInfoAggregator.add(readDataOperationInfo,
+                              //      true);
                         }
                     }
                 }
@@ -149,8 +149,8 @@ public class Analyzer {
                     ReadDataOperationStatistics readAggregator = (ReadDataOperationStatistics) aggregateOperationInfosPerTime
                             .getValue().get("read");
                     if (readAggregator != null) {
-                        out.write("," + readAggregator.getCount());
-                        out.write("," + readAggregator.getLocalCount());
+                        //out.write("," + readAggregator.getCount());
+                        //out.write("," + readAggregator.getLocalCount());
                         out.write("," + readAggregator.getDuration());
                         // out.write("," + readAggregator.getMinDuration());
                         out.write(",0");
@@ -168,7 +168,7 @@ public class Analyzer {
                     ReadDataOperationStatistics remoteReadAggregator = (ReadDataOperationStatistics) aggregateOperationInfosPerTime
                             .getValue().get("remoteRead");
                     if (remoteReadAggregator != null) {
-                        out.write("," + remoteReadAggregator.getCount());
+                        //out.write("," + remoteReadAggregator.getCount());
                         out.write("," + remoteReadAggregator.getDuration());
                         // out.write("," +
                         // remoteReadAggregator.getMinDuration());
@@ -188,7 +188,7 @@ public class Analyzer {
                     DataOperationStatistics writeAggregator = (DataOperationStatistics) aggregateOperationInfosPerTime
                             .getValue().get("write");
                     if (writeAggregator != null) {
-                        out.write("," + writeAggregator.getCount());
+                        //out.write("," + writeAggregator.getCount());
                         out.write("," + writeAggregator.getDuration());
                         // out.write("," + writeAggregator.getMinDuration());
                         out.write(",0");
