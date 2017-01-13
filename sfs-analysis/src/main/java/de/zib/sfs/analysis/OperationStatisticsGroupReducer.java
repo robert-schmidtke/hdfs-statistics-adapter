@@ -19,10 +19,13 @@ public class OperationStatisticsGroupReducer implements
 
     private static final long serialVersionUID = -6279446327088687733L;
 
+    private final boolean strict;
+
     private final long timeBinDuration;
 
-    public OperationStatisticsGroupReducer(long timeBinDuration) {
+    public OperationStatisticsGroupReducer(long timeBinDuration, boolean strict) {
         this.timeBinDuration = timeBinDuration;
+        this.strict = strict;
     }
 
     @Override
@@ -68,7 +71,7 @@ public class OperationStatisticsGroupReducer implements
                     startTime = value.getStartTime();
                 } else {
                     // just aggregate the current statistics
-                    aggregate.add(value);
+                    aggregate.add(value, strict);
                 }
             }
         }

@@ -38,15 +38,16 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
     }
 
     @Override
-    public void add(OperationStatistics other) {
+    public void add(OperationStatistics other, boolean strict) {
         if (!(other instanceof ReadDataOperationStatistics)) {
             throw new IllegalArgumentException(
                     "OperationStatistics types do not match: " + getClass()
                             + ", " + other.getClass());
         }
         localCount += ((ReadDataOperationStatistics) other).getLocalCount();
+        remoteHostname = null;
 
-        super.add(other);
+        super.add(other, strict);
     }
 
     public long getLocalCount() {

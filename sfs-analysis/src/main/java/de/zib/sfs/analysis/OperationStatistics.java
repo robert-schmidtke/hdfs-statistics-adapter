@@ -7,7 +7,13 @@
  */
 package de.zib.sfs.analysis;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public class OperationStatistics implements Cloneable {
+
+    private static final Logger LOG = LoggerFactory
+            .getLogger(OperationStatistics.class);
 
     private long count;
 
@@ -86,40 +92,73 @@ public class OperationStatistics implements Cloneable {
         internalId = -1;
     }
 
-    public void add(OperationStatistics other) {
+    public void add(OperationStatistics other, boolean strict) {
         if (!other.getHostname().equals(hostname)) {
-            throw new IllegalArgumentException("Hostnames do not match: "
-                    + hostname + ", " + other.getHostname());
+            if (strict) {
+                throw new IllegalArgumentException("Hostnames do not match: "
+                        + hostname + ", " + other.getHostname());
+            } else {
+                LOG.warn("Hostnames do not match: {}, {}", hostname,
+                        other.getHostname());
+            }
         }
 
         if (other.getPid() != pid) {
-            throw new IllegalArgumentException("Pids do not match: " + pid
-                    + ", " + other.getPid());
+            if (strict) {
+                throw new IllegalArgumentException("Pids do not match: " + pid
+                        + ", " + other.getPid());
+            } else {
+                LOG.warn("Pids do not match: {}, {}", pid, other.getPid());
+            }
         }
 
         if (!other.getClassName().equals(className)) {
-            throw new IllegalArgumentException("ClassNames do not match: "
-                    + className + ", " + other.getClassName());
+            if (strict) {
+                throw new IllegalArgumentException("ClassNames do not match: "
+                        + className + ", " + other.getClassName());
+            } else {
+                LOG.warn("ClassNames do not match: {}, {}", className,
+                        other.getClassName());
+            }
         }
 
         if (!other.getName().equals(name)) {
-            throw new IllegalArgumentException("Names do not match: " + name
-                    + ", " + other.getName());
+            if (strict) {
+                throw new IllegalArgumentException("Names do not match: "
+                        + name + ", " + other.getName());
+            } else {
+                LOG.warn("Names do not match: {}, {}", name, other.getName());
+            }
         }
 
         if (!other.getSource().equals(source)) {
-            throw new IllegalArgumentException("Sources do not match: "
-                    + source + ", " + other.getSource());
+            if (strict) {
+                throw new IllegalArgumentException("Sources do not match: "
+                        + source + ", " + other.getSource());
+            } else {
+                LOG.warn("Sources do not match: {}, {}", source,
+                        other.getSource());
+            }
         }
 
         if (!other.getCategory().equals(category)) {
-            throw new IllegalArgumentException("Categories do not match: "
-                    + category + ", " + other.getCategory());
+            if (strict) {
+                throw new IllegalArgumentException("Categories do not match: "
+                        + category + ", " + other.getCategory());
+            } else {
+                LOG.warn("Categories do not match: {}, {}", category,
+                        other.getCategory());
+            }
         }
 
         if (other.getInternalId() != internalId) {
-            throw new IllegalArgumentException("InternalIds do not match: "
-                    + internalId + ", " + other.getInternalId());
+            if (strict) {
+                throw new IllegalArgumentException("InternalIds do not match: "
+                        + internalId + ", " + other.getInternalId());
+            } else {
+                LOG.warn("InternalIds do not match: {}, {}", internalId,
+                        other.getInternalId());
+            }
         }
 
         count += other.getCount();

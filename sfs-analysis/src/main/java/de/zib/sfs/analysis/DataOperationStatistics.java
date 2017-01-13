@@ -21,7 +21,7 @@ public class DataOperationStatistics extends OperationStatistics {
     }
 
     @Override
-    public void add(OperationStatistics other) {
+    public void add(OperationStatistics other, boolean strict) {
         if (!(other instanceof DataOperationStatistics)) {
             throw new IllegalArgumentException(
                     "OperationStatistics types do not match: " + getClass()
@@ -29,7 +29,7 @@ public class DataOperationStatistics extends OperationStatistics {
         }
         data += ((DataOperationStatistics) other).getData();
 
-        super.add(other);
+        super.add(other, strict);
     }
 
     public long getData() {
