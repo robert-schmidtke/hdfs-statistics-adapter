@@ -85,12 +85,14 @@ public class SfsAnalysis {
         operationStatistics.getSplitDataProperties().splitsPartitionedBy(
                 "hostname;internalId");
 
-        // For each host/source/class/operation combination, aggregate
+        // For each host/source combination, aggregate
         // statistics over the specified time bin.
         DataSet<OperationStatistics.Aggregator> aggregatedOperationStatistics = operationStatistics
-                .groupBy("hostname", "internalId", "className", "name")
-                .reduceGroup(
+                .groupBy("hostname", "internalId").reduceGroup(
                         new OperationStatisticsGroupReducer(timeBinDuration));
+
+        aggregatedOperationStatistics.output(new SfsOutputFormat(outputPath
+                + "_intermediate", ",", hosts, slotsPerHost));
 
         // for each host/source/category combination, sort the aggregated
         // statistics records in ascending time
