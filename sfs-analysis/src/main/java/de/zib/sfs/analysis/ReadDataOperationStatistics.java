@@ -81,11 +81,6 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
         }
     }
 
-    public ReadDataOperationStatistics(ReadDataOperationStatistics other) {
-        super(other);
-        setRemoteHostname(other.getRemoteHostname());
-    }
-
     public String getRemoteHostname() {
         return remoteHostname;
     }
@@ -97,11 +92,6 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
     public boolean isLocal() {
         return "localhost".equals(remoteHostname)
                 || getHostname().equals(remoteHostname);
-    }
-
-    @Override
-    public ReadDataOperationStatistics copy() {
-        return new ReadDataOperationStatistics(this);
     }
 
     @Override

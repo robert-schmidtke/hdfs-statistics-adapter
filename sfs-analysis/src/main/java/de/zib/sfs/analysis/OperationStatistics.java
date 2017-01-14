@@ -186,12 +186,6 @@ public class OperationStatistics {
         internalId = -1;
     }
 
-    public OperationStatistics(OperationStatistics other) {
-        this(other.getHostname(), other.getPid(), other.getClassName(), other
-                .getName(), other.getStartTime(), other.getEndTime());
-        setInternalId(other.getInternalId());
-    }
-
     public long getStartTime() {
         return startTime;
     }
@@ -254,10 +248,6 @@ public class OperationStatistics {
 
     public void setInternalId(int internalId) {
         this.internalId = internalId;
-    }
-
-    public OperationStatistics copy() {
-        return new OperationStatistics(this);
     }
 
     public Aggregator getAggregator() {

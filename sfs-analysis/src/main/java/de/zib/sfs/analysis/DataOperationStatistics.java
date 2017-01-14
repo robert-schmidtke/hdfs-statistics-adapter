@@ -68,22 +68,12 @@ public class DataOperationStatistics extends OperationStatistics {
         this.data = data;
     }
 
-    public DataOperationStatistics(DataOperationStatistics other) {
-        super(other);
-        setData(other.getData());
-    }
-
     public long getData() {
         return data;
     }
 
     public void setData(long data) {
         this.data = data;
-    }
-
-    @Override
-    public DataOperationStatistics copy() {
-        return new DataOperationStatistics(this);
     }
 
     @Override
