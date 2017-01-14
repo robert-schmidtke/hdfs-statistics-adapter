@@ -36,11 +36,10 @@ public class OperationStatisticsGroupReducer
         Map<Tuple2<OperationSource, OperationCategory>, OperationStatistics.Aggregator> aggregators = new HashMap<>();
 
         for (OperationStatistics value : values) {
-            // get the current aggregator for this source and category
+            // check if we already have an aggregator for this source and
+            // category
             OperationStatistics.Aggregator currentAggregator = value
                     .getAggregator();
-
-            // check if we already have an aggregator for this
             Tuple2<OperationSource, OperationCategory> aggregatorKey = Tuple2
                     .of(currentAggregator.getSource(),
                             currentAggregator.getCategory());
@@ -59,9 +58,7 @@ public class OperationStatisticsGroupReducer
                 }
 
                 // start new aggregation for this source/category and time bin
-                aggregator = aggregators.compute(aggregatorKey,
-                        (k, v) -> currentAggregator);
-
+                aggregators.put(aggregatorKey, currentAggregator);
                 startTime = value.getStartTime();
             } else {
                 // same PID, but the time bin may be full
@@ -69,10 +66,7 @@ public class OperationStatisticsGroupReducer
                     // emit current aggregate and put the value in the next time
                     // bin
                     out.collect(aggregator);
-
-                    aggregator = aggregators.compute(aggregatorKey,
-                            (k, v) -> currentAggregator);
-
+                    aggregators.put(aggregatorKey, currentAggregator);
                     startTime = value.getStartTime();
                 } else {
                     // just aggregate the current statistics
@@ -82,7 +76,7 @@ public class OperationStatisticsGroupReducer
         }
 
         // collect remaining aggregates
-        aggregators.forEach((key, v) -> out.collect(v));
+        aggregators.forEach((k, v) -> out.collect(v));
     }
 
 }

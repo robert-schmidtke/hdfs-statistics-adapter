@@ -86,16 +86,11 @@ public class SfsAnalysis {
                 "hostname;internalId");
 
         // For each host/source/class/operation combination, aggregate
-        // statistics over the specified time bin, then repeat for
-        // host/class/operation (this reduces parallelism by a
-        // factor of slotsPerHost).
+        // statistics over the specified time bin.
         DataSet<OperationStatistics.Aggregator> aggregatedOperationStatistics = operationStatistics
                 .groupBy("hostname", "internalId", "className", "name")
                 .reduceGroup(
                         new OperationStatisticsGroupReducer(timeBinDuration));
-        // .groupBy("hostname", "className", "name")
-        // .reduceGroup(
-        // new OperationStatisticsGroupReducer(timeBinDuration));
 
         // for each host/source/category combination, sort the aggregated
         // statistics records in ascending time
