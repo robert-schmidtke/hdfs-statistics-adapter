@@ -11,7 +11,21 @@ public class OperationStatistics {
 
     public static class Aggregator {
 
+        public static class NotAggregatableException extends Exception {
+            private static final long serialVersionUID = 2284196048334825540L;
+
+            public NotAggregatableException() {
+                super();
+            }
+
+            public NotAggregatableException(String message) {
+                super(message);
+            }
+        }
+
         private long count;
+
+        private String hostname;
 
         private long startTime, endTime, duration;
 
@@ -24,6 +38,7 @@ public class OperationStatistics {
 
         public Aggregator(OperationStatistics statistics) {
             count = 1;
+            hostname = statistics.getHostname();
             startTime = statistics.getStartTime();
             endTime = statistics.getEndTime();
             duration = statistics.getDuration();
@@ -84,6 +99,14 @@ public class OperationStatistics {
             this.count = count;
         }
 
+        public String getHostname() {
+            return hostname;
+        }
+
+        public void setHostname(String hostname) {
+            this.hostname = hostname;
+        }
+
         public long getStartTime() {
             return startTime;
         }
@@ -124,14 +147,20 @@ public class OperationStatistics {
             this.category = category;
         }
 
-        public void aggregate(Aggregator aggregator) {
+        public void aggregate(Aggregator aggregator)
+                throws NotAggregatableException {
+            if (!aggregator.getHostname().equals(hostname)) {
+                throw new NotAggregatableException("Hostnames do not match: "
+                        + hostname + ", " + aggregator.getHostname());
+            }
+
             if (!aggregator.getSource().equals(source)) {
-                throw new IllegalArgumentException("Sources do not match: "
+                throw new NotAggregatableException("Sources do not match: "
                         + source + ", " + aggregator.getSource());
             }
 
             if (!aggregator.getCategory().equals(category)) {
-                throw new IllegalArgumentException("Categories do not match: "
+                throw new NotAggregatableException("Categories do not match: "
                         + category + ", " + aggregator.getCategory());
             }
 

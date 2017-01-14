@@ -30,9 +30,10 @@ public class DataOperationStatistics extends OperationStatistics {
         }
 
         @Override
-        public void aggregate(OperationStatistics.Aggregator aggregator) {
+        public void aggregate(OperationStatistics.Aggregator aggregator)
+                throws NotAggregatableException {
             if (!(aggregator instanceof Aggregator)) {
-                throw new IllegalArgumentException(
+                throw new OperationStatistics.Aggregator.NotAggregatableException(
                         "aggregator must be of type " + getClass().getName());
             }
             super.aggregate(aggregator);

@@ -13,12 +13,17 @@ import java.util.Map;
 import org.apache.flink.api.common.functions.GroupReduceFunction;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.util.Collector;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class OperationStatisticsGroupReducer
         implements
         GroupReduceFunction<OperationStatistics, OperationStatistics.Aggregator> {
 
     private static final long serialVersionUID = -6279446327088687733L;
+
+    private static final Logger LOG = LoggerFactory
+            .getLogger(OperationStatisticsGroupReducer.class);
 
     private final long timeBinDuration;
 
@@ -72,7 +77,12 @@ public class OperationStatisticsGroupReducer
                 } else {
                     // just aggregate the current statistics
                     if (aggregator != null) {
-                        aggregator.aggregate(currentAggregator);
+                        try {
+                            aggregator.aggregate(currentAggregator);
+                        } catch (OperationStatistics.Aggregator.NotAggregatableException e) {
+                            LOG.warn("Could not aggregate statistics: {}",
+                                    e.getMessage());
+                        }
                     } else {
                         aggregators.put(aggregatorKey, currentAggregator);
                     }
