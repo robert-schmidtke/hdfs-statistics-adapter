@@ -51,8 +51,7 @@ public class OperationStatisticsGroupReducer
             if (pid != value.getPid()) {
                 pid = value.getPid();
 
-                // if we have a current aggregate, emit it (will only be null on
-                // the first iteration for each source/category and time bin)
+                // if we have a current aggregate, emit it
                 if (aggregator != null) {
                     out.collect(aggregator);
                 }
@@ -65,12 +64,18 @@ public class OperationStatisticsGroupReducer
                 if (value.getStartTime() - startTime >= timeBinDuration) {
                     // emit current aggregate and put the value in the next time
                     // bin
-                    out.collect(aggregator);
+                    if (aggregator != null) {
+                        out.collect(aggregator);
+                    }
                     aggregators.put(aggregatorKey, currentAggregator);
                     startTime = value.getStartTime();
                 } else {
                     // just aggregate the current statistics
-                    aggregator.aggregate(currentAggregator);
+                    if (aggregator != null) {
+                        aggregator.aggregate(currentAggregator);
+                    } else {
+                        aggregators.put(aggregatorKey, currentAggregator);
+                    }
                 }
             }
         }
