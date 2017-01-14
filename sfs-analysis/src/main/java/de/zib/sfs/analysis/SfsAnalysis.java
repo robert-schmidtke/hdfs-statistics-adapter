@@ -106,23 +106,7 @@ public class SfsAnalysis {
                                     Iterable<OperationStatistics.Aggregator> values,
                                     Collector<OperationStatistics.Aggregator> out)
                                     throws Exception {
-                                OperationStatistics.Aggregator first = null;
-                                for (OperationStatistics.Aggregator value : values) {
-                                    if (first == null) {
-                                        first = value;
-                                    }
-
-                                    if (!first.getHostname().equals(
-                                            value.getHostname())) {
-                                        throw new IllegalArgumentException(
-                                                "Hostnames do not match: "
-                                                        + first.getHostname()
-                                                        + ", "
-                                                        + value.getHostname());
-                                    }
-
-                                    out.collect(value);
-                                }
+                                values.forEach(v -> out.collect(v));
                             }
                         });
 
