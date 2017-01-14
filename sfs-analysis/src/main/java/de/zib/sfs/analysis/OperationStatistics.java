@@ -172,7 +172,8 @@ public class OperationStatistics {
 
         public String getCsvHeaders(String separator) {
             StringBuilder sb = new StringBuilder();
-            sb.append("source");
+            sb.append("hostname");
+            sb.append(separator).append("source");
             sb.append(separator).append("category");
             sb.append(separator).append("startTime");
             sb.append(separator).append("endTime");
@@ -182,7 +183,8 @@ public class OperationStatistics {
 
         public String toCsv(String separator) {
             StringBuilder sb = new StringBuilder();
-            sb.append(source);
+            sb.append(hostname);
+            sb.append(separator).append(source);
             sb.append(separator).append(category);
             sb.append(separator).append(startTime);
             sb.append(separator).append(endTime);
