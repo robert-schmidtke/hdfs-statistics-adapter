@@ -11,22 +11,36 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
 
     public static class Aggregator extends DataOperationStatistics.Aggregator {
 
-        private long localCount;
+        private long remoteCount, remoteData;
 
         public Aggregator() {
         }
 
         public Aggregator(ReadDataOperationStatistics statistics) {
             super(statistics);
-            localCount += statistics.isLocal() ? 1 : 0;
+            if (statistics.isRemote()) {
+                remoteCount = 1;
+                remoteData = statistics.getData();
+            } else {
+                remoteCount = 0;
+                remoteData = 0;
+            }
         }
 
-        public long getLocalCount() {
-            return localCount;
+        public long getRemoteCount() {
+            return remoteCount;
         }
 
-        public void setLocalCount(long localCount) {
-            this.localCount = localCount;
+        public void setRemoteCount(long remoteCount) {
+            this.remoteCount = remoteCount;
+        }
+
+        public long getRemoteData() {
+            return remoteData;
+        }
+
+        public void setRemoteData(long remoteData) {
+            this.remoteData = remoteData;
         }
 
         @Override
@@ -38,14 +52,16 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
             }
             super.aggregate(aggregator);
 
-            localCount += ((Aggregator) aggregator).getLocalCount();
+            remoteCount += ((Aggregator) aggregator).getRemoteCount();
+            remoteData += ((Aggregator) aggregator).getRemoteData();
         }
 
         @Override
         public String getCsvHeaders(String separator) {
             StringBuilder sb = new StringBuilder();
             sb.append(super.getCsvHeaders(separator));
-            sb.append(separator).append("localCount");
+            sb.append(separator).append("remoteCount");
+            sb.append(separator).append("remoteData");
             return sb.toString();
         }
 
@@ -53,7 +69,8 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
         public String toCsv(String separator) {
             StringBuilder sb = new StringBuilder();
             sb.append(super.toCsv(separator));
-            sb.append(separator).append(localCount);
+            sb.append(separator).append(remoteCount);
+            sb.append(separator).append(remoteData);
             return sb.toString();
         }
     }
@@ -90,9 +107,9 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
         this.remoteHostname = remoteHostname;
     }
 
-    public boolean isLocal() {
-        return "localhost".equals(remoteHostname)
-                || getHostname().equals(remoteHostname);
+    public boolean isRemote() {
+        return !("localhost".equals(remoteHostname) || getHostname().equals(
+                remoteHostname));
     }
 
     @Override
