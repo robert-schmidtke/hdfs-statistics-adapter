@@ -91,13 +91,10 @@ public class SfsAnalysis {
                 .groupBy("hostname", "internalId").reduceGroup(
                         new OperationStatisticsGroupReducer(timeBinDuration));
 
-        aggregatedOperationStatistics.output(new SfsOutputFormat(outputPath
-                + "_intermediate", ",", hosts, slotsPerHost));
-
         // for each host/source/category combination, sort the aggregated
         // statistics records in ascending time
         DataSet<OperationStatistics.Aggregator> sortedAggregatedOperationStatistics = aggregatedOperationStatistics
-                .groupBy("source", "category")
+                .groupBy("hostname", "source", "category")
                 .sortGroup("startTime", Order.ASCENDING)
                 .reduceGroup(
                         new GroupReduceFunction<OperationStatistics.Aggregator, OperationStatistics.Aggregator>() {
