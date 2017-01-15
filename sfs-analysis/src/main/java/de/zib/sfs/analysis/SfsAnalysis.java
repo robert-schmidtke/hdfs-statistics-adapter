@@ -104,7 +104,7 @@ public class SfsAnalysis {
                 .sortGroup("startTime", Order.ASCENDING)
                 .reduceGroup(
                         new AggregatedOperationStatisticsAggregator(
-                                timeBinDuration))
+                                timeBinDuration, timeBinCacheSize))
                 .withForwardedFields("hostname->hostname");
 
         // write the output (one file per host, source and category)
