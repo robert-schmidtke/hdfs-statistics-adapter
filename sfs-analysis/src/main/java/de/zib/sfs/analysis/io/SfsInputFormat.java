@@ -16,6 +16,7 @@ import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.Stack;
 import java.util.zip.GZIPInputStream;
 
@@ -128,10 +129,18 @@ public class SfsInputFormat extends
                 return prefix == null || name.startsWith(prefix);
             }
         });
-        Arrays.sort(files);
+
+        Arrays.sort(files, new Comparator<File>() {
+            @Override
+            public int compare(File o1, File o2) {
+                // larger files first, use regular comparison for equally sized
+                // files
+                return o1.length() > o2.length() ? -1 : o1.length() < o2
+                        .length() ? 1 : o1.compareTo(o2);
+            }
+        });
 
         // roughly assign the same number of files for each split
-        // TODO switch to assignment based on file sizes
         for (int i = split.getLocalIndex(); i < files.length; i += slotsPerHost) {
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Adding file {} for split {} on host {}", files[i],
