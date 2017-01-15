@@ -87,7 +87,8 @@ public class SfsAnalysis {
         // For each host/source combination, aggregate
         // statistics over the specified time bin.
         DataSet<OperationStatistics.Aggregator> aggregatedOperationStatistics = operationStatistics
-                .groupBy("hostname", "internalId")
+                .groupBy("hostname", "internalId", "pid", "className",
+                        "instance")
                 .reduceGroup(
                         new OperationStatisticsGroupReducer(timeBinDuration))
                 .withForwardedFields("hostname->hostname");
