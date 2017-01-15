@@ -112,7 +112,7 @@ public class SfsAnalysis {
                     public int partition(String key, int numPartitions) {
                         String[] splitKey = key.split(":");
 
-                        int hostId = 0;
+                        int hostId = -1;
                         for (int i = 0; i < hosts.length; ++i) {
                             if (hosts[i].equals(splitKey[0])) {
                                 hostId = i;
@@ -120,7 +120,7 @@ public class SfsAnalysis {
                             }
                         }
 
-                        if (hostId == 0) {
+                        if (hostId == -1) {
                             throw new IllegalArgumentException(
                                     "Unknown host as key: " + splitKey[0]);
                         }
