@@ -112,7 +112,7 @@ public class OperationStatistics {
             return customKey;
         }
 
-        public void setCustomKey(String customKey) {
+        public void setCustomKey(long customKey) {
             throw new UnsupportedOperationException("setCustomKey");
         }
 
