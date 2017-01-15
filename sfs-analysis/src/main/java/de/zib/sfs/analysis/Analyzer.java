@@ -18,6 +18,11 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
 
+import de.zib.sfs.analysis.statistics.DataOperationStatistics;
+import de.zib.sfs.analysis.statistics.OperationStatistics;
+import de.zib.sfs.analysis.statistics.OperationStatisticsFactory;
+import de.zib.sfs.analysis.statistics.ReadDataOperationStatistics;
+
 public class Analyzer {
 
     /**

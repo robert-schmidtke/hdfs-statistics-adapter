@@ -16,6 +16,10 @@ import org.apache.flink.util.Collector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import de.zib.sfs.analysis.statistics.OperationCategory;
+import de.zib.sfs.analysis.statistics.OperationSource;
+import de.zib.sfs.analysis.statistics.OperationStatistics;
+
 public class OperationStatisticsGroupReducer
         implements
         GroupReduceFunction<OperationStatistics, OperationStatistics.Aggregator> {

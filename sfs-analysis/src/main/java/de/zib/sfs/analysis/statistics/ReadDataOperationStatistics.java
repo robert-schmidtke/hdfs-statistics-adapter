@@ -5,7 +5,7 @@
  * Licensed under the BSD License, see LICENSE file for details.
  *
  */
-package de.zib.sfs.analysis;
+package de.zib.sfs.analysis.statistics;
 
 public class ReadDataOperationStatistics extends DataOperationStatistics {
 

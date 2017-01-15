@@ -17,7 +17,7 @@ import org.apache.flink.configuration.Configuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import de.zib.sfs.analysis.OperationStatistics;
+import de.zib.sfs.analysis.statistics.OperationStatistics;
 
 public class SfsOutputFormat extends
         RichOutputFormat<OperationStatistics.Aggregator> {

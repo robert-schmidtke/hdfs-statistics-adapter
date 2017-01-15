@@ -17,6 +17,7 @@ import org.slf4j.LoggerFactory;
 
 import de.zib.sfs.analysis.io.SfsInputFormat;
 import de.zib.sfs.analysis.io.SfsOutputFormat;
+import de.zib.sfs.analysis.statistics.OperationStatistics;
 
 public class SfsAnalysis {
 

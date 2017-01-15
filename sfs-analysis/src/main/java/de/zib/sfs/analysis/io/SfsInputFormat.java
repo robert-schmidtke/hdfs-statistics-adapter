@@ -26,8 +26,8 @@ import org.apache.flink.core.io.InputSplitAssigner;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import de.zib.sfs.analysis.OperationStatistics;
-import de.zib.sfs.analysis.OperationStatisticsFactory;
+import de.zib.sfs.analysis.statistics.OperationStatistics;
+import de.zib.sfs.analysis.statistics.OperationStatisticsFactory;
 
 public class SfsInputFormat extends
         RichInputFormat<OperationStatistics, SfsInputSplit> {
