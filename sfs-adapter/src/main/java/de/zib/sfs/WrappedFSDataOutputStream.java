@@ -34,7 +34,7 @@ public class WrappedFSDataOutputStream extends FSDataOutputStream {
         long startTime = System.currentTimeMillis();
         super.write(b);
         long duration = System.currentTimeMillis() - startTime;
-        logger.info("{}:{}.write({}):void", duration, this, b);
+        logger.info("{}-{}:{}.write({}):void", startTime, duration, this, b);
     }
 
     @Override
@@ -42,7 +42,8 @@ public class WrappedFSDataOutputStream extends FSDataOutputStream {
         long startTime = System.currentTimeMillis();
         super.write(b);
         long duration = System.currentTimeMillis() - startTime;
-        logger.info("{}:{}.write([{}]):void", duration, this, b.length);
+        logger.info("{}-{}:{}.write([{}]):void", startTime, duration, this,
+                b.length);
     }
 
     @Override
@@ -51,8 +52,8 @@ public class WrappedFSDataOutputStream extends FSDataOutputStream {
         long startTime = System.currentTimeMillis();
         super.write(b, off, len);
         long duration = System.currentTimeMillis() - startTime;
-        logger.info("{}:{}.write([{}],{},{}):void", duration, this, b.length,
-                off, len);
+        logger.info("{}-{}:{}.write([{}],{},{}):void", startTime, duration,
+                this, b.length, off, len);
     }
 
 }

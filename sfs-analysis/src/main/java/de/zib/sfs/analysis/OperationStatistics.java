@@ -193,7 +193,7 @@ public class OperationStatistics {
         }
     }
 
-    private long startTime, endTime, duration;
+    private long startTime, endTime;
 
     private String hostname, className, name;
 
@@ -213,7 +213,6 @@ public class OperationStatistics {
         this.name = name;
         this.startTime = startTime;
         this.endTime = endTime;
-        duration = endTime - startTime;
         internalId = -1;
     }
 
@@ -234,11 +233,11 @@ public class OperationStatistics {
     }
 
     public long getDuration() {
-        return duration;
+        return endTime - startTime;
     }
 
     public void setDuration(long duration) {
-        this.duration = duration;
+        throw new UnsupportedOperationException("setDuration");
     }
 
     public String getHostname() {

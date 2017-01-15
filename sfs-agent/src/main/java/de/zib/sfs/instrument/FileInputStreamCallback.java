@@ -77,8 +77,9 @@ public class FileInputStreamCallback {
 
     public void onOpenEnd(long startTime, String name) {
         if (logger != null) {
-            logger.info("{}:{}.open({}):void", System.currentTimeMillis()
-                    - startTime, fis, name);
+            long duration = System.currentTimeMillis() - startTime;
+            logger.info("{}-{}:{}.open({}):void", startTime, duration, fis,
+                    name);
         }
     }
 
@@ -92,8 +93,9 @@ public class FileInputStreamCallback {
 
     public void onReadEnd(long startTime, int readResult) {
         if (logger != null) {
-            logger.info("{}:{}.read():{}->{}", System.currentTimeMillis()
-                    - startTime, fis, readResult, "localhost");
+            long duration = System.currentTimeMillis() - startTime;
+            logger.info("{}-{}:{}.read():{}->{}", startTime, duration, fis,
+                    readResult, "localhost");
         }
     }
 
@@ -108,9 +110,10 @@ public class FileInputStreamCallback {
     public void onReadBytesEnd(long startTime, int readBytesResult, byte[] b,
             int off, int len) {
         if (logger != null) {
-            logger.info("{}:{}.readBytes([{}],{},{}):{}->{}",
-                    System.currentTimeMillis() - startTime, fis, b.length, off,
-                    len, readBytesResult, "localhost");
+            long duration = System.currentTimeMillis() - startTime;
+            logger.info("{}-{}:{}.readBytes([{}],{},{}):{}->{}", startTime,
+                    duration, fis, b.length, off, len, readBytesResult,
+                    "localhost");
         }
     }
 
