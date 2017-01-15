@@ -237,10 +237,13 @@ $FLINK_HOME/bin/flink run \
   --parallelism $((${#NODES[@]} * $TASK_SLOTS)) \
   $SFS_DIRECTORY/sfs-analysis/target/sfs-analysis-1.0-SNAPSHOT.jar \
   --inputPath /local/$USER/sfs \
-  --outputPath $SFS_TARGET_DIRECTORY/sfs \
+  --outputPath $SFS_TARGET_DIRECTORY \
   --prefix "sfs.log" \
   --hosts $HOSTS \
-  --slotsPerHost $TASK_SLOTS
+  --slotsPerHost $TASK_SLOTS \
+  --timeBinDuration 1000 \
+  --timeBinCacheSize 120
+#  --printExecutionPlanOnly true
 echo "$(date): Running Analysis done"
 
 echo "$(date): Stopping Flink cluster"
