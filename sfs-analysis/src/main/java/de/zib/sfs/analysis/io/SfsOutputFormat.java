@@ -31,20 +31,11 @@ public class SfsOutputFormat extends
 
     private final String separator;
 
-    private final String[] hosts;
-
-    private final int slotsPerHost;
-
     private BufferedWriter writer;
 
-    private boolean wroteHeaders;
-
-    public SfsOutputFormat(String path, String separator, String[] hosts,
-            int slotsPerHost) {
+    public SfsOutputFormat(String path, String separator) {
         this.path = path;
         this.separator = separator;
-        this.hosts = hosts;
-        this.slotsPerHost = slotsPerHost;
     }
 
     @Override
@@ -53,27 +44,27 @@ public class SfsOutputFormat extends
 
     @Override
     public void open(int taskNumber, int numTasks) throws IOException {
-        if (writer != null) {
-            throw new IOException("Reopening already opened SfsOutputFormat");
-        }
-
-        File out = new File(path + "." + taskNumber);
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("Opening file {} for writing", out);
-        }
-        writer = new BufferedWriter(new FileWriter(out));
-        wroteHeaders = false;
     }
 
     @Override
     public void writeRecord(OperationStatistics.Aggregator record)
             throws IOException {
-        if (!wroteHeaders) {
+        // lazily open file to correctly construct the file name, assuming all
+        // incoming records have the same hostname, source and category
+        if (writer == null) {
+            File out = new File(path, record.getHostname() + "."
+                    + record.getSource() + "." + record.getCategory() + ".csv");
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Opening file {} for writing", out);
+            }
+            writer = new BufferedWriter(new FileWriter(out));
+
+            // write the CSV headers
             writer.write(record.getCsvHeaders(separator));
             writer.newLine();
-            wroteHeaders = true;
         }
 
+        // write the actual record
         writer.write(record.toCsv(separator));
         writer.newLine();
     }

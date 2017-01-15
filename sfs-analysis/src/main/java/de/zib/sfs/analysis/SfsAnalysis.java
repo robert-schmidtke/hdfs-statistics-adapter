@@ -139,7 +139,7 @@ public class SfsAnalysis {
 
         // write the output (one file per host, source and category)
         sortedAggregatedOperationStatistics.output(new SfsOutputFormat(
-                outputPath, ",", hosts, slotsPerHost));
+                outputPath, ","));
 
         // currently printing the execution plan and executing the program are
         // mutually exclusive
