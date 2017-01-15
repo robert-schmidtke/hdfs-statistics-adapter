@@ -134,7 +134,6 @@ public class SfsAnalysis {
                 .reduceGroup(
                         new AggregatedOperationStatisticsAggregator(
                                 timeBinDuration, timeBinCacheSize))
-                .withForwardedFields("hostname->hostname")
                 .setParallelism(
                         hosts.length * OperationCategory.values().length
                                 * OperationSource.values().length);
