@@ -45,6 +45,8 @@ public class SfsInputFormat extends
 
     private int localIndex;
 
+    private String host;
+
     private final Stack<File> files = new Stack<File>();
 
     private boolean reachedEnd;
@@ -101,11 +103,17 @@ public class SfsInputFormat extends
 
     @Override
     public void open(SfsInputSplit split) throws IOException {
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Opening split {} on host {}", split.getLocalIndex(),
+                    split.getHost());
+        }
+
         if (localIndex != -1) {
             throw new IOException("localIndex is already assigned: "
                     + localIndex);
         }
         localIndex = split.getLocalIndex();
+        host = split.getHost();
 
         // obtain file list of target directory in deterministic order
         File[] files = new File(path).listFiles(new FilenameFilter() {
@@ -168,9 +176,16 @@ public class SfsInputFormat extends
 
     @Override
     public void close() throws IOException {
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Closing split {} on host {}", localIndex, host);
+        }
+
         if (reader != null) {
             reader.close();
+            reader = null;
         }
+        localIndex = -1;
+        host = null;
     }
 
     // Helper methods
