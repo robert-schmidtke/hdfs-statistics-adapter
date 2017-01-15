@@ -115,6 +115,12 @@ public class SfsInputFormat extends
         localIndex = split.getLocalIndex();
         host = split.getHost();
 
+        String hostname = getHostname();
+        if (!host.equals(hostname)) {
+            throw new IllegalStateException("Unexpected host " + host
+                    + " for split on host " + hostname);
+        }
+
         // obtain file list of target directory in deterministic order
         File[] files = new File(path).listFiles(new FilenameFilter() {
             @Override
@@ -166,6 +172,11 @@ public class SfsInputFormat extends
                 OperationStatistics statistics = OperationStatisticsFactory
                         .parseFromLogLine(line);
                 statistics.setInternalId(localIndex);
+                if (!host.equals(statistics.getHostname())) {
+                    throw new IllegalStateException("Unexpected host "
+                            + statistics.getHostname() + " for record on host "
+                            + host);
+                }
                 return statistics;
             } catch (Exception e) {
                 throw new IOException("Error parsing log line: " + line, e);
@@ -198,6 +209,32 @@ public class SfsInputFormat extends
                     new GZIPInputStream(new FileInputStream(this.files.pop()))));
         } else {
             reader = new BufferedReader(new FileReader(this.files.pop()));
+        }
+    }
+
+    private static String getHostname() throws IOException {
+        Process hostnameProcess = Runtime.getRuntime().exec("hostname");
+        try {
+            int exitCode = hostnameProcess.waitFor();
+            if (exitCode != 0) {
+                LOG.warn("'hostname' returned " + exitCode
+                        + ", using $HOSTNAME instead.");
+                return System.getenv("HOSTNAME");
+            } else {
+                BufferedReader reader = new BufferedReader(
+                        new InputStreamReader(hostnameProcess.getInputStream()));
+
+                StringBuilder hostnameBuilder = new StringBuilder();
+                String line = "";
+                while ((line = reader.readLine()) != null) {
+                    hostnameBuilder.append(line);
+                }
+                reader.close();
+                return hostnameBuilder.toString();
+            }
+        } catch (InterruptedException e) {
+            LOG.warn("Error executing 'hostname', using $HOSTNAME instead.", e);
+            return System.getenv("HOSTNAME");
         }
     }
 
