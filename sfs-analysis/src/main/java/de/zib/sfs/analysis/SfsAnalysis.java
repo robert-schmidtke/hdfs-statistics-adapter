@@ -7,11 +7,15 @@
  */
 package de.zib.sfs.analysis;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import org.apache.flink.api.common.functions.Partitioner;
 import org.apache.flink.api.common.operators.Order;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.ExecutionEnvironment;
 import org.apache.flink.api.java.operators.DataSource;
+import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.api.java.utils.ParameterTool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -78,6 +82,17 @@ public class SfsAnalysis {
         final ExecutionEnvironment env = ExecutionEnvironment
                 .getExecutionEnvironment();
 
+        Map<Tuple3<String, OperationSource, OperationCategory>, Integer> partitionsLookup = new HashMap<>();
+        int partition = 0;
+        for (String host : hosts) {
+            for (OperationSource source : OperationSource.values()) {
+                for (OperationCategory category : OperationCategory.values()) {
+                    partitionsLookup.put(Tuple3.of(host, source, category),
+                            partition++);
+                }
+            }
+        }
+
         // Read all input files, each split containing zero or more files, one
         // file per process and per host. Each file contains chronologically
         // ordered log lines for I/O operations, one operation per line.
@@ -111,25 +126,9 @@ public class SfsAnalysis {
                     @Override
                     public int partition(String key, int numPartitions) {
                         String[] splitKey = key.split(":");
-
-                        int hostId = -1;
-                        for (int i = 0; i < hosts.length; ++i) {
-                            if (hosts[i].equals(splitKey[0])) {
-                                hostId = i;
-                                break;
-                            }
-                        }
-
-                        if (hostId == -1) {
-                            throw new IllegalArgumentException(
-                                    "Unknown host as key: " + splitKey[0]);
-                        }
-
-                        return (hostId + 1)
-                                * (OperationSource.valueOf(splitKey[1])
-                                        .ordinal() + 1)
-                                * (OperationCategory.valueOf(splitKey[2])
-                                        .ordinal() + 1) - 1;
+                        return partitionsLookup.get(Tuple3.of(splitKey[0],
+                                OperationSource.valueOf(splitKey[1]),
+                                OperationCategory.valueOf(splitKey[2])));
                     }
                 })
                 .sortGroup("startTime", Order.ASCENDING)
