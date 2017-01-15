@@ -35,7 +35,7 @@ public class SfsAnalysis {
 
     private static final String TIME_BIN_DURATION_KEY = "timeBinDuration";
 
-    private static final String LOCAL_SORT_CACHE_SIZE_KEY = "localSortCacheSize";
+    private static final String TIME_BIN_CACHE_SIZE_KEY = "timeBinCacheSize";
 
     private static final String PRINT_EXECUTION_PLAN_ONLY_KEY = "printExecutionPlanOnly";
 
@@ -59,13 +59,13 @@ public class SfsAnalysis {
         String[] hosts;
         int slotsPerHost;
         final long timeBinDuration;
-        final int localSortCacheSize;
+        final int timeBinCacheSize;
         final boolean printExecutionPlanOnly;
         try {
             hosts = params.get(HOSTS_KEY).split(",");
             slotsPerHost = params.getInt(SLOTS_PER_HOST_KEY, 1);
             timeBinDuration = params.getLong(TIME_BIN_DURATION_KEY, 1000);
-            localSortCacheSize = params.getInt(LOCAL_SORT_CACHE_SIZE_KEY, 8);
+            timeBinCacheSize = params.getInt(TIME_BIN_CACHE_SIZE_KEY, 8);
             printExecutionPlanOnly = params.getBoolean(
                     PRINT_EXECUTION_PLAN_ONLY_KEY, false);
         } catch (Exception e) {
@@ -88,18 +88,13 @@ public class SfsAnalysis {
         operationStatistics.getSplitDataProperties().splitsPartitionedBy(
                 "hostname;internalId");
 
-        // locally sort the operation statistics (larger sort cache means higher
-        // accuracy)
-        DataSet<OperationStatistics> locallySortedOperationStatistics = operationStatistics
-                .mapPartition(new OperationStatisticsLocalSorter(
-                        localSortCacheSize));
-
-        // For each host/source combination, aggregate
-        // statistics over the specified time bin.
-        DataSet<OperationStatistics.Aggregator> aggregatedOperationStatistics = locallySortedOperationStatistics
-                .groupBy("hostname", "internalId")
+        // For each host/source combination, aggregate statistics over the
+        // specified time bin.
+        DataSet<OperationStatistics.Aggregator> aggregatedOperationStatistics = operationStatistics
+                .groupBy("hostname", "internalId", "className", "name")
                 .reduceGroup(
-                        new OperationStatisticsAggregator(timeBinDuration))
+                        new OperationStatisticsAggregator(timeBinDuration,
+                                timeBinCacheSize))
                 .withForwardedFields("hostname->hostname");
 
         // for each host/source/category combination, sort the aggregated

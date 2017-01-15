@@ -7,17 +7,13 @@
  */
 package de.zib.sfs.analysis;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.TreeMap;
 
 import org.apache.flink.api.common.functions.GroupReduceFunction;
-import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.util.Collector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import de.zib.sfs.analysis.statistics.OperationCategory;
-import de.zib.sfs.analysis.statistics.OperationSource;
 import de.zib.sfs.analysis.statistics.OperationStatistics;
 
 public class OperationStatisticsAggregator
@@ -31,82 +27,45 @@ public class OperationStatisticsAggregator
 
     private final long timeBinDuration;
 
-    public OperationStatisticsAggregator(long timeBinDuration) {
+    private final int timeBinCacheSize;
+
+    public OperationStatisticsAggregator(long timeBinDuration,
+            int timeBinCacheSize) {
         this.timeBinDuration = timeBinDuration;
+        this.timeBinCacheSize = timeBinCacheSize;
     }
 
     @Override
     public void reduce(Iterable<OperationStatistics> values,
             final Collector<OperationStatistics.Aggregator> out)
             throws Exception {
-        // some state to keep during iteration
-        int pid = Integer.MIN_VALUE;
-        long binStartTime = Long.MAX_VALUE;
-        OperationStatistics lastValue = null;
-        Map<Tuple2<OperationSource, OperationCategory>, OperationStatistics.Aggregator> aggregators = new HashMap<>();
+        // map of time bins to use as cache before emitting to allow for late
+        // arrivals of OperationStatistics
+        TreeMap<Long, OperationStatistics.Aggregator> aggregators = new TreeMap<>();
 
         for (OperationStatistics value : values) {
-            // check if we already have an aggregator for this source and
-            // category
-            OperationStatistics.Aggregator currentAggregator = value
-                    .getAggregator();
-            Tuple2<OperationSource, OperationCategory> aggregatorKey = Tuple2
-                    .of(currentAggregator.getSource(),
-                            currentAggregator.getCategory());
+            // get the time bin applicable for this operation
+            long timeBin = value.getStartTime() - value.getStartTime()
+                    % timeBinDuration;
             OperationStatistics.Aggregator aggregator = aggregators
-                    .get(aggregatorKey);
-
-            // The PIDs may change. This indicates a switch to a new file, which
-            // begins with a new time.
-            if (pid != value.getPid()) {
-                pid = value.getPid();
-
-                // if we have a current aggregate, emit it
-                if (aggregator != null) {
-                    out.collect(aggregator);
+                    .get(timeBin);
+            if (aggregator == null) {
+                // add new bin if we have the space
+                if (aggregators.size() < timeBinCacheSize) {
+                    aggregators.put(timeBin, value.getAggregator());
+                } else {
+                    LOG.warn(
+                            "Dropping record: {} because it arrived too late, minimum current time is: {}",
+                            value, aggregators.firstKey());
                 }
-
-                // start new aggregation for this source/category and time bin
-                aggregators.put(aggregatorKey, currentAggregator);
-                binStartTime = value.getStartTime();
-                lastValue = value;
             } else {
-                // some sanity checking on the non-decreasing property of time
-                // on the input
-                if (lastValue != null
-                        && value.getStartTime() < lastValue.getStartTime()) {
-                    throw new IllegalStateException(
-                            "Current value cannot be earlier than the last value: "
-                                    + value + ", " + lastValue);
-                } else {
-                    lastValue = value;
-                }
+                // just aggregate the statistics
+                aggregator.aggregate(value.getAggregator());
+            }
 
-                // start time is increasing within the file for the same PID
-                binStartTime = Math.min(binStartTime, value.getStartTime());
-
-                // same PID, but the time bin may be full
-                if (value.getStartTime() - binStartTime >= timeBinDuration) {
-                    // emit current aggregate and put the value in the next time
-                    // bin
-                    if (aggregator != null) {
-                        out.collect(aggregator);
-                    }
-                    aggregators.put(aggregatorKey, currentAggregator);
-                    binStartTime = value.getStartTime();
-                } else {
-                    // just aggregate the current statistics
-                    if (aggregator != null) {
-                        try {
-                            aggregator.aggregate(currentAggregator);
-                        } catch (OperationStatistics.Aggregator.NotAggregatableException e) {
-                            LOG.warn("Could not aggregate statistics: {}",
-                                    e.getMessage());
-                        }
-                    } else {
-                        aggregators.put(aggregatorKey, currentAggregator);
-                    }
-                }
+            // make sure to emit aggregates when the cache is full
+            while (aggregators.size() >= timeBinCacheSize) {
+                out.collect(aggregators.remove(aggregators.firstKey()));
             }
         }
 
