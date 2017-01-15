@@ -36,24 +36,35 @@ public class AggregatedOperationStatisticsGroupReducer
             final Collector<OperationStatistics.Aggregator> out)
             throws Exception {
         // some state to keep during iteration
-        long startTime = Long.MAX_VALUE;
+        long binStartTime = Long.MAX_VALUE, lastStartTime = Long.MIN_VALUE;
         Map<Tuple2<OperationSource, OperationCategory>, OperationStatistics.Aggregator> aggregators = new HashMap<>();
 
         for (OperationStatistics.Aggregator value : values) {
+            // some sanity checking on the non-decreasing property of time on
+            // the input
+            if (value.getStartTime() < lastStartTime) {
+                throw new IllegalStateException(
+                        "Current start time cannot be smaller than the last start time: "
+                                + value.getStartTime() + ", " + lastStartTime);
+            } else {
+                lastStartTime = value.getStartTime();
+            }
+
             Tuple2<OperationSource, OperationCategory> aggregatorKey = Tuple2
                     .of(value.getSource(), value.getCategory());
             OperationStatistics.Aggregator aggregator = aggregators
                     .get(aggregatorKey);
 
-            startTime = Math.min(startTime, value.getStartTime());
-            if (value.getStartTime() - startTime >= timeBinDuration) {
+            binStartTime = Math.min(binStartTime, value.getStartTime());
+            if (value.getStartTime() - binStartTime >= timeBinDuration) {
                 // emit current aggregate and put the value in the next time
                 // bin
                 if (aggregator != null) {
                     out.collect(aggregator);
                 }
                 aggregators.put(aggregatorKey, value);
-                startTime = value.getStartTime();
+                binStartTime = value.getStartTime();
+                lastStartTime = value.getStartTime();
             } else {
                 // just aggregate the current statistics
                 if (aggregator != null) {
