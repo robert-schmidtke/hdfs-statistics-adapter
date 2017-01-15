@@ -7,7 +7,6 @@
  */
 package de.zib.sfs.analysis.statistics;
 
-import org.apache.flink.api.java.tuple.Tuple3;
 
 public class OperationStatistics {
 
@@ -35,7 +34,7 @@ public class OperationStatistics {
 
         private OperationCategory category;
 
-        private Tuple3<String, OperationSource, OperationCategory> customKey;
+        private String customKey;
 
         public Aggregator() {
         }
@@ -48,9 +47,7 @@ public class OperationStatistics {
             duration = statistics.getDuration();
             source = statistics.getSource();
             category = statistics.getCategory();
-            customKey.f0 = hostname;
-            customKey.f1 = source;
-            customKey.f2 = category;
+            customKey = hostname + ":" + source.name() + ":" + category.name();
         }
 
         public long getCount() {
@@ -67,7 +64,7 @@ public class OperationStatistics {
 
         public void setHostname(String hostname) {
             this.hostname = hostname;
-            customKey.f0 = hostname;
+            customKey = hostname + ":" + source.name() + ":" + category.name();
         }
 
         public long getStartTime() {
@@ -100,7 +97,7 @@ public class OperationStatistics {
 
         public void setSource(OperationSource source) {
             this.source = source;
-            customKey.f1 = source;
+            customKey = hostname + ":" + source.name() + ":" + category.name();
         }
 
         public OperationCategory getCategory() {
@@ -109,19 +106,19 @@ public class OperationStatistics {
 
         public void setCategory(OperationCategory category) {
             this.category = category;
-            customKey.f2 = category;
+            customKey = hostname + ":" + source.name() + ":" + category.name();
         }
 
-        public Tuple3<String, OperationSource, OperationCategory> getCustomKey() {
+        public String getCustomKey() {
             return customKey;
         }
 
-        public void setCustomKey(
-                Tuple3<String, OperationSource, OperationCategory> customKey) {
+        public void setCustomKey(String customKey) {
             this.customKey = customKey;
-            hostname = customKey.f0;
-            source = customKey.f1;
-            category = customKey.f2;
+            String[] split = customKey.split(":");
+            hostname = split[0];
+            source = OperationSource.valueOf(split[1]);
+            category = OperationCategory.valueOf(split[2]);
         }
 
         public void aggregate(Aggregator aggregator)

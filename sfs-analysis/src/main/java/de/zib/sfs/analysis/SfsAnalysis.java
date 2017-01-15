@@ -12,7 +12,6 @@ import org.apache.flink.api.common.operators.Order;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.ExecutionEnvironment;
 import org.apache.flink.api.java.operators.DataSource;
-import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.api.java.utils.ParameterTool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -105,32 +104,34 @@ public class SfsAnalysis {
         // statistics records in ascending time
         DataSet<OperationStatistics.Aggregator> sortedAggregatedOperationStatistics = aggregatedOperationStatistics
                 .groupBy("customKey")
-                .withPartitioner(
-                        new Partitioner<Tuple3<String, OperationSource, OperationCategory>>() {
+                .withPartitioner(new Partitioner<String>() {
 
-                            private static final long serialVersionUID = 2469900057020811866L;
+                    private static final long serialVersionUID = 2469900057020811866L;
 
-                            @Override
-                            public int partition(
-                                    Tuple3<String, OperationSource, OperationCategory> key,
-                                    int numPartitions) {
-                                int hostId = 0;
-                                for (int i = 0; i < hosts.length; ++i) {
-                                    if (hosts[i].equals(key.f0)) {
-                                        hostId = i + 1;
-                                        break;
-                                    }
-                                }
+                    @Override
+                    public int partition(String key, int numPartitions) {
+                        String[] splitKey = key.split(":");
 
-                                if (hostId == 0) {
-                                    throw new IllegalArgumentException(
-                                            "Unknown host as key: " + key.f0);
-                                }
-
-                                return hostId * (key.f1.ordinal() + 1)
-                                        * (key.f2.ordinal() + 1);
+                        int hostId = 0;
+                        for (int i = 0; i < hosts.length; ++i) {
+                            if (hosts[i].equals(splitKey[0])) {
+                                hostId = i + 1;
+                                break;
                             }
-                        })
+                        }
+
+                        if (hostId == 0) {
+                            throw new IllegalArgumentException(
+                                    "Unknown host as key: " + splitKey[0]);
+                        }
+
+                        return hostId
+                                * (OperationSource.valueOf(splitKey[1])
+                                        .ordinal() + 1)
+                                * (OperationCategory.valueOf(splitKey[2])
+                                        .ordinal() + 1);
+                    }
+                })
                 .sortGroup("startTime", Order.ASCENDING)
                 .reduceGroup(
                         new AggregatedOperationStatisticsAggregator(
