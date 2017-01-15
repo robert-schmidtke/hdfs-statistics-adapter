@@ -125,6 +125,8 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
         sb.append(",startTime:").append(getStartTime());
         sb.append(",endTime:").append(getEndTime());
         sb.append(",duration:").append(getDuration());
+        sb.append(",source:").append(getSource());
+        sb.append(",category:").append(getCategory());
         sb.append(",data:").append(getData());
         sb.append(",remoteHostname:").append(getRemoteHostname());
         sb.append("}");

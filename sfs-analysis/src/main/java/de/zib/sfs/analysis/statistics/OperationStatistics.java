@@ -42,53 +42,8 @@ public class OperationStatistics {
             startTime = statistics.getStartTime();
             endTime = statistics.getEndTime();
             duration = statistics.getDuration();
-
-            switch (statistics.getClassName()) {
-            case "java.io.FileInputStream":
-            case "java.io.FileOutputStream":
-            case "java.io.RandomAccessFile":
-            case "sun.nio.ch.FileChannelImpl":
-                source = OperationSource.JVM;
-                break;
-            case "de.zib.sfs.StatisticsFileSystem":
-            case "de.zib.sfs.WrappedFSDataInputStream":
-            case "de.zib.sfs.WrappedFSDataOutputStream":
-                source = OperationSource.SFS;
-                break;
-            default:
-                throw new IllegalArgumentException(
-                        "Could not determine source from class "
-                                + statistics.getClassName());
-            }
-
-            switch (statistics.getName()) {
-            case "read":
-            case "readBytes":
-            case "readFully":
-                category = OperationCategory.READ;
-                break;
-            case "write":
-            case "writeBytes":
-                category = OperationCategory.WRITE;
-                break;
-            case "append":
-            case "create":
-            case "delete":
-            case "getFileBlockLocations":
-            case "getFileStatus":
-            case "listStatus":
-            case "mkdirs":
-            case "open":
-            case "rename":
-            case "seek":
-            case "seekToNewSource":
-                category = OperationCategory.OTHER;
-                break;
-            default:
-                throw new IllegalArgumentException(
-                        "Could not determine category from operation "
-                                + statistics.getName());
-            }
+            source = statistics.getSource();
+            category = statistics.getCategory();
         }
 
         public long getCount() {
@@ -210,6 +165,10 @@ public class OperationStatistics {
     /** Contains the node-local ID of the DataSource that produced this object. */
     private int internalId;
 
+    private OperationSource source;
+
+    private OperationCategory category;
+
     public OperationStatistics() {
     }
 
@@ -223,6 +182,51 @@ public class OperationStatistics {
         this.startTime = startTime;
         this.endTime = endTime;
         internalId = -1;
+
+        switch (className) {
+        case "java.io.FileInputStream":
+        case "java.io.FileOutputStream":
+        case "java.io.RandomAccessFile":
+        case "sun.nio.ch.FileChannelImpl":
+            source = OperationSource.JVM;
+            break;
+        case "de.zib.sfs.StatisticsFileSystem":
+        case "de.zib.sfs.WrappedFSDataInputStream":
+        case "de.zib.sfs.WrappedFSDataOutputStream":
+            source = OperationSource.SFS;
+            break;
+        default:
+            throw new IllegalArgumentException(
+                    "Could not determine source from class " + className);
+        }
+
+        switch (name) {
+        case "read":
+        case "readBytes":
+        case "readFully":
+            category = OperationCategory.READ;
+            break;
+        case "write":
+        case "writeBytes":
+            category = OperationCategory.WRITE;
+            break;
+        case "append":
+        case "create":
+        case "delete":
+        case "getFileBlockLocations":
+        case "getFileStatus":
+        case "listStatus":
+        case "mkdirs":
+        case "open":
+        case "rename":
+        case "seek":
+        case "seekToNewSource":
+            category = OperationCategory.OTHER;
+            break;
+        default:
+            throw new IllegalArgumentException(
+                    "Could not determine category from operation " + name);
+        }
     }
 
     public long getStartTime() {
@@ -297,6 +301,22 @@ public class OperationStatistics {
         this.internalId = internalId;
     }
 
+    public OperationSource getSource() {
+        return source;
+    }
+
+    public void setSource(OperationSource source) {
+        this.source = source;
+    }
+
+    public OperationCategory getCategory() {
+        return category;
+    }
+
+    public void setCategory(OperationCategory category) {
+        this.category = category;
+    }
+
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
@@ -309,6 +329,8 @@ public class OperationStatistics {
         sb.append(",startTime:").append(getStartTime());
         sb.append(",endTime:").append(getEndTime());
         sb.append(",duration:").append(getDuration());
+        sb.append(",source:").append(getSource());
+        sb.append(",category:").append(getCategory());
         sb.append("}");
         return sb.toString();
     }
