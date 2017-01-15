@@ -35,6 +35,8 @@ public class OperationStatistics {
 
         private OperationCategory category;
 
+        private Tuple3<String, OperationSource, OperationCategory> customKey;
+
         public Aggregator() {
         }
 
@@ -46,6 +48,9 @@ public class OperationStatistics {
             duration = statistics.getDuration();
             source = statistics.getSource();
             category = statistics.getCategory();
+            customKey.f0 = hostname;
+            customKey.f1 = source;
+            customKey.f2 = category;
         }
 
         public long getCount() {
@@ -62,6 +67,7 @@ public class OperationStatistics {
 
         public void setHostname(String hostname) {
             this.hostname = hostname;
+            customKey.f0 = hostname;
         }
 
         public long getStartTime() {
@@ -94,6 +100,7 @@ public class OperationStatistics {
 
         public void setSource(OperationSource source) {
             this.source = source;
+            customKey.f1 = source;
         }
 
         public OperationCategory getCategory() {
@@ -102,14 +109,16 @@ public class OperationStatistics {
 
         public void setCategory(OperationCategory category) {
             this.category = category;
+            customKey.f2 = category;
         }
 
         public Tuple3<String, OperationSource, OperationCategory> getCustomKey() {
-            return Tuple3.of(hostname, source, category);
+            return customKey;
         }
 
         public void setCustomKey(
                 Tuple3<String, OperationSource, OperationCategory> customKey) {
+            this.customKey = customKey;
             hostname = customKey.f0;
             source = customKey.f1;
             category = customKey.f2;
