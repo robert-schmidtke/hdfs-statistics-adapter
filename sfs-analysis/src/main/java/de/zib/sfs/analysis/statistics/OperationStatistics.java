@@ -152,7 +152,7 @@ public class OperationStatistics {
                         + category + ", " + aggregator.getCategory());
             }
 
-            ++count;
+            count += aggregator.getCount();
             startTime = Math.min(startTime, aggregator.getStartTime());
             endTime = Math.max(endTime, aggregator.getEndTime());
             duration += aggregator.getDuration();
@@ -163,6 +163,7 @@ public class OperationStatistics {
             sb.append("hostname");
             sb.append(separator).append("source");
             sb.append(separator).append("category");
+            sb.append(separator).append("count");
             sb.append(separator).append("startTime");
             sb.append(separator).append("endTime");
             sb.append(separator).append("duration");
@@ -174,6 +175,7 @@ public class OperationStatistics {
             sb.append(hostname);
             sb.append(separator).append(source);
             sb.append(separator).append(category);
+            sb.append(separator).append(count);
             sb.append(separator).append(startTime);
             sb.append(separator).append(endTime);
             sb.append(separator).append(duration);
