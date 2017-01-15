@@ -62,7 +62,7 @@ public class FileChannelImplCallback {
     }
 
     public void onReadEnd(long startTime, int readResult, ByteBuffer dst) {
-        if (logger != null) {
+        if (logger != null && startTime != -1L) {
             long duration = System.currentTimeMillis() - startTime;
             logger.info("{}-{}:{}.read({}):{}->{}", startTime, duration, fci,
                     dst, readResult, "localhost");
@@ -79,7 +79,7 @@ public class FileChannelImplCallback {
 
     public void onReadEnd(long startTime, long readResult, ByteBuffer[] dsts,
             int offset, int length) {
-        if (logger != null) {
+        if (logger != null && startTime != -1L) {
             long duration = System.currentTimeMillis() - startTime;
             logger.info("{}-{}:{}.read([{}],{},{}):{}->{}", startTime,
                     duration, fci, dsts.length, offset, length, readResult,
@@ -96,7 +96,7 @@ public class FileChannelImplCallback {
     }
 
     public void onWriteEnd(long startTime, int writeResult, ByteBuffer src) {
-        if (logger != null) {
+        if (logger != null && startTime != -1L) {
             long duration = System.currentTimeMillis() - startTime;
             logger.info("{}-{}:{}.write({}):{}", startTime, duration, fci, src,
                     writeResult);
@@ -113,7 +113,7 @@ public class FileChannelImplCallback {
 
     public void onWriteEnd(long startTime, long writeResult, ByteBuffer[] srcs,
             int offset, int length) {
-        if (logger != null) {
+        if (logger != null && startTime != -1L) {
             long duration = System.currentTimeMillis() - startTime;
             logger.info("{}-{}:{}.write([{}],{},{}):{}", startTime, duration,
                     fci, srcs.length, offset, length, writeResult);
