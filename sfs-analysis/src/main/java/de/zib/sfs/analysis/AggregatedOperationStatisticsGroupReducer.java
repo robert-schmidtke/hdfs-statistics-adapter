@@ -36,18 +36,20 @@ public class AggregatedOperationStatisticsGroupReducer
             final Collector<OperationStatistics.Aggregator> out)
             throws Exception {
         // some state to keep during iteration
-        long binStartTime = Long.MAX_VALUE, lastStartTime = Long.MIN_VALUE;
+        long binStartTime = Long.MAX_VALUE;
+        OperationStatistics.Aggregator lastValue = null;
         Map<Tuple2<OperationSource, OperationCategory>, OperationStatistics.Aggregator> aggregators = new HashMap<>();
 
         for (OperationStatistics.Aggregator value : values) {
             // some sanity checking on the non-decreasing property of time on
             // the input
-            if (value.getStartTime() < lastStartTime) {
+            if (lastValue != null
+                    && value.getStartTime() < lastValue.getStartTime()) {
                 throw new IllegalStateException(
                         "Current start time cannot be smaller than the last start time: "
-                                + value.getStartTime() + ", " + lastStartTime);
+                                + value + ", " + lastValue);
             } else {
-                lastStartTime = value.getStartTime();
+                lastValue = value;
             }
 
             Tuple2<OperationSource, OperationCategory> aggregatorKey = Tuple2
@@ -64,7 +66,7 @@ public class AggregatedOperationStatisticsGroupReducer
                 }
                 aggregators.put(aggregatorKey, value);
                 binStartTime = value.getStartTime();
-                lastStartTime = value.getStartTime();
+                lastValue = value;
             } else {
                 // just aggregate the current statistics
                 if (aggregator != null) {

@@ -113,6 +113,23 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
     }
 
     @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append(getClass().getName()).append("{");
+        sb.append("pid:").append(getPid());
+        sb.append(",hostname:").append(getHostname());
+        sb.append(",className:").append(getClassName());
+        sb.append(",name:").append(getName());
+        sb.append(",startTime:").append(getStartTime());
+        sb.append(",endTime:").append(getEndTime());
+        sb.append(",duration:").append(getDuration());
+        sb.append(",data:").append(getData());
+        sb.append(",remoteHostname:").append(getRemoteHostname());
+        sb.append("}");
+        return sb.toString();
+    }
+
+    @Override
     public Aggregator getAggregator() {
         return new Aggregator(this);
     }

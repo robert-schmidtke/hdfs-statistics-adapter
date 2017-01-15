@@ -10,34 +10,35 @@ package de.zib.sfs.analysis;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.flink.api.common.functions.GroupCombineFunction;
+import org.apache.flink.api.common.functions.GroupReduceFunction;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.util.Collector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class OperationStatisticsGroupCombiner
+public class OperationStatisticsGroupReducer
         implements
-        GroupCombineFunction<OperationStatistics, OperationStatistics.Aggregator> {
+        GroupReduceFunction<OperationStatistics, OperationStatistics.Aggregator> {
 
     private static final long serialVersionUID = -6279446327088687733L;
 
     private static final Logger LOG = LoggerFactory
-            .getLogger(OperationStatisticsGroupCombiner.class);
+            .getLogger(OperationStatisticsGroupReducer.class);
 
     private final long timeBinDuration;
 
-    public OperationStatisticsGroupCombiner(long timeBinDuration) {
+    public OperationStatisticsGroupReducer(long timeBinDuration) {
         this.timeBinDuration = timeBinDuration;
     }
 
     @Override
-    public void combine(Iterable<OperationStatistics> values,
+    public void reduce(Iterable<OperationStatistics> values,
             final Collector<OperationStatistics.Aggregator> out)
             throws Exception {
         // some state to keep during iteration
         int pid = Integer.MIN_VALUE;
-        long binStartTime = Long.MAX_VALUE, lastStartTime = Long.MIN_VALUE;
+        long binStartTime = Long.MAX_VALUE;
+        OperationStatistics lastValue = null;
         Map<Tuple2<OperationSource, OperationCategory>, OperationStatistics.Aggregator> aggregators = new HashMap<>();
 
         for (OperationStatistics value : values) {
@@ -64,17 +65,17 @@ public class OperationStatisticsGroupCombiner
                 // start new aggregation for this source/category and time bin
                 aggregators.put(aggregatorKey, currentAggregator);
                 binStartTime = value.getStartTime();
-                lastStartTime = value.getStartTime();
+                lastValue = value;
             } else {
                 // some sanity checking on the non-decreasing property of time
                 // on the input
-                if (value.getStartTime() < lastStartTime) {
+                if (lastValue != null
+                        && value.getStartTime() < lastValue.getStartTime()) {
                     throw new IllegalStateException(
-                            "Current start time cannot be smaller than the last start time: "
-                                    + value.getStartTime() + ", "
-                                    + lastStartTime);
+                            "Current value cannot be earlier than the last value: "
+                                    + value + ", " + lastValue);
                 } else {
-                    lastStartTime = value.getStartTime();
+                    lastValue = value;
                 }
 
                 // start time is increasing within the file for the same PID

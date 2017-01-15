@@ -86,8 +86,10 @@ public class SfsAnalysis {
         // For each host/source combination, aggregate
         // statistics over the specified time bin.
         DataSet<OperationStatistics.Aggregator> aggregatedOperationStatistics = operationStatistics
-                .groupBy("hostname", "internalId").combineGroup(
-                        new OperationStatisticsGroupCombiner(timeBinDuration));
+                .groupBy("hostname", "internalId")
+                .reduceGroup(
+                        new OperationStatisticsGroupReducer(timeBinDuration))
+                .withForwardedFields("hostname->hostname");
 
         // for each host/source/category combination, sort the aggregated
         // statistics records in ascending time
@@ -96,7 +98,8 @@ public class SfsAnalysis {
                 .sortGroup("startTime", Order.ASCENDING)
                 .reduceGroup(
                         new AggregatedOperationStatisticsGroupReducer(
-                                timeBinDuration));
+                                timeBinDuration))
+                .withForwardedFields("hostname->hostname");
 
         // write the output (one file per host, source and category)
         sortedAggregatedOperationStatistics.output(new SfsOutputFormat(
