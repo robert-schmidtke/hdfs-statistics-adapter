@@ -115,7 +115,7 @@ public class SfsAnalysis {
                         int hostId = 0;
                         for (int i = 0; i < hosts.length; ++i) {
                             if (hosts[i].equals(splitKey[0])) {
-                                hostId = i + 1;
+                                hostId = i;
                                 break;
                             }
                         }
@@ -125,11 +125,11 @@ public class SfsAnalysis {
                                     "Unknown host as key: " + splitKey[0]);
                         }
 
-                        return hostId
+                        return (hostId + 1)
                                 * (OperationSource.valueOf(splitKey[1])
                                         .ordinal() + 1)
                                 * (OperationCategory.valueOf(splitKey[2])
-                                        .ordinal() + 1);
+                                        .ordinal() + 1) - 1;
                     }
                 })
                 .sortGroup("startTime", Order.ASCENDING)
