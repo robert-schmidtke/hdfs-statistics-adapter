@@ -125,6 +125,7 @@ public class SfsInputFormat extends
         Arrays.sort(files);
 
         // roughly assign the same number of files for each split
+        // TODO switch to assignment based on file sizes
         for (int i = split.getLocalIndex(); i < files.length; i += slotsPerHost) {
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Adding file {} for split {} on host {}", files[i],

@@ -7,16 +7,20 @@
  */
 package de.zib.sfs.analysis;
 
+import org.apache.flink.api.common.functions.Partitioner;
 import org.apache.flink.api.common.operators.Order;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.ExecutionEnvironment;
 import org.apache.flink.api.java.operators.DataSource;
+import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.api.java.utils.ParameterTool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import de.zib.sfs.analysis.io.SfsInputFormat;
 import de.zib.sfs.analysis.io.SfsOutputFormat;
+import de.zib.sfs.analysis.statistics.OperationCategory;
+import de.zib.sfs.analysis.statistics.OperationSource;
 import de.zib.sfs.analysis.statistics.OperationStatistics;
 
 public class SfsAnalysis {
@@ -101,11 +105,40 @@ public class SfsAnalysis {
         // statistics records in ascending time
         DataSet<OperationStatistics.Aggregator> sortedAggregatedOperationStatistics = aggregatedOperationStatistics
                 .groupBy("hostname", "source", "category")
+                .withPartitioner(
+                        new Partitioner<Tuple3<String, OperationSource, OperationCategory>>() {
+
+                            private static final long serialVersionUID = 2469900057020811866L;
+
+                            @Override
+                            public int partition(
+                                    Tuple3<String, OperationSource, OperationCategory> key,
+                                    int numPartitions) {
+                                int hostId = 0;
+                                for (int i = 0; i < hosts.length; ++i) {
+                                    if (hosts[i].equals(key.f0)) {
+                                        hostId = i + 1;
+                                        break;
+                                    }
+                                }
+
+                                if (hostId == 0) {
+                                    throw new IllegalArgumentException(
+                                            "Unknown host as key: " + key.f0);
+                                }
+
+                                return hostId * (key.f1.ordinal() + 1)
+                                        * (key.f2.ordinal() + 1);
+                            }
+                        })
                 .sortGroup("startTime", Order.ASCENDING)
                 .reduceGroup(
                         new AggregatedOperationStatisticsAggregator(
                                 timeBinDuration, timeBinCacheSize))
-                .withForwardedFields("hostname->hostname");
+                .withForwardedFields("hostname->hostname")
+                .setParallelism(
+                        hosts.length * OperationCategory.values().length
+                                * OperationSource.values().length);
 
         // write the output (one file per host, source and category)
         sortedAggregatedOperationStatistics.output(new SfsOutputFormat(
