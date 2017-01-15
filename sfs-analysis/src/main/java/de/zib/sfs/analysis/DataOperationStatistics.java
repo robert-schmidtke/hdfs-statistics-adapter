@@ -64,8 +64,9 @@ public class DataOperationStatistics extends OperationStatistics {
     }
 
     public DataOperationStatistics(String hostname, int pid, String className,
-            String name, long startTime, long endTime, long data) {
-        super(hostname, pid, className, name, startTime, endTime);
+            String name, String instance, long startTime, long endTime,
+            long data) {
+        super(hostname, pid, className, name, instance, startTime, endTime);
         this.data = data;
     }
 
@@ -85,6 +86,7 @@ public class DataOperationStatistics extends OperationStatistics {
         sb.append(",hostname:").append(getHostname());
         sb.append(",className:").append(getClassName());
         sb.append(",name:").append(getName());
+        sb.append(",instance:").append(getInstance());
         sb.append(",startTime:").append(getStartTime());
         sb.append(",endTime:").append(getEndTime());
         sb.append(",duration:").append(getDuration());

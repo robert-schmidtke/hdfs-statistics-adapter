@@ -203,7 +203,7 @@ public class OperationStatistics {
 
     private long startTime, endTime;
 
-    private String hostname, className, name;
+    private String hostname, className, name, instance;
 
     private int pid;
 
@@ -214,11 +214,12 @@ public class OperationStatistics {
     }
 
     public OperationStatistics(String hostname, int pid, String className,
-            String name, long startTime, long endTime) {
+            String name, String instance, long startTime, long endTime) {
         this.hostname = hostname;
         this.pid = pid;
         this.className = className;
         this.name = name;
+        this.instance = instance;
         this.startTime = startTime;
         this.endTime = endTime;
         internalId = -1;
@@ -280,6 +281,14 @@ public class OperationStatistics {
         this.name = name;
     }
 
+    public String getInstance() {
+        return instance;
+    }
+
+    public void setInstance(String instance) {
+        this.instance = instance;
+    }
+
     public int getInternalId() {
         return internalId;
     }
@@ -296,6 +305,7 @@ public class OperationStatistics {
         sb.append(",hostname:").append(getHostname());
         sb.append(",className:").append(getClassName());
         sb.append(",name:").append(getName());
+        sb.append(",instance:").append(getInstance());
         sb.append(",startTime:").append(getStartTime());
         sb.append(",endTime:").append(getEndTime());
         sb.append(",duration:").append(getDuration());

@@ -81,9 +81,10 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
     }
 
     public ReadDataOperationStatistics(String hostname, int pid,
-            String className, String name, long startTime, long endTime,
-            long data, String remoteHostname) {
-        super(hostname, pid, className, name, startTime, endTime, data);
+            String className, String name, String instance, long startTime,
+            long endTime, long data, String remoteHostname) {
+        super(hostname, pid, className, name, instance, startTime, endTime,
+                data);
         if (remoteHostname == null) {
             this.remoteHostname = null;
         } else {
@@ -120,6 +121,7 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
         sb.append(",hostname:").append(getHostname());
         sb.append(",className:").append(getClassName());
         sb.append(",name:").append(getName());
+        sb.append(",instance:").append(getInstance());
         sb.append(",startTime:").append(getStartTime());
         sb.append(",endTime:").append(getEndTime());
         sb.append(",duration:").append(getDuration());

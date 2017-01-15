@@ -106,14 +106,14 @@ public class OperationStatisticsFactory {
         // <duration>:<class>@<instance>.open(<name>):void
         case "open": {
             return new OperationStatistics(hostname, pid, className, operation,
-                    startTime, startTime + duration);
+                    instance, startTime, startTime + duration);
         }
         // <duration>:<class>@<instance>.read():<byte>-><targetHostname>
         case "read": {
             // 1 byte read, -1 indicates EOF
             long data = Long.parseLong(result) == -1 ? 0 : 1;
             return new ReadDataOperationStatistics(hostname, pid, className,
-                    operation, startTime, startTime + duration, data,
+                    operation, instance, startTime, startTime + duration, data,
                     targetHostname);
         }
         // <duration>:<class>@<instance>.readBytes(<[bufferSize]>,<off>,<len>):<numBytes>-><targetHostname>
@@ -121,7 +121,7 @@ public class OperationStatisticsFactory {
             long data = Long.parseLong(result);
             data = data == -1 ? 0 : data;
             return new ReadDataOperationStatistics(hostname, pid, className,
-                    operation, startTime, startTime + duration, data,
+                    operation, instance, startTime, startTime + duration, data,
                     targetHostname);
         }
         default:
@@ -138,19 +138,19 @@ public class OperationStatisticsFactory {
         // <duration>:<class>@<instance>.open(<name>,<append>):void
         case "open": {
             return new OperationStatistics(hostname, pid, className, operation,
-                    startTime, startTime + duration);
+                    instance, startTime, startTime + duration);
         }
         // <duration>:<class>@<instance>.write(<byte>,<append>):void
         case "write": {
             // 1 byte write
             return new DataOperationStatistics(hostname, pid, className,
-                    operation, startTime, startTime + duration, 1);
+                    operation, instance, startTime, startTime + duration, 1);
         }
         // <duration>:<class>@<instance>.writeBytes(<[bufferSize]>,<off>,<len>,<append>):void
         case "writeBytes": {
             long data = Long.parseLong(args[2]);
             return new DataOperationStatistics(hostname, pid, className,
-                    operation, startTime, startTime + duration, data);
+                    operation, instance, startTime, startTime + duration, data);
         }
         default:
             throw new IllegalArgumentException("Unknown operation " + operation
@@ -166,14 +166,14 @@ public class OperationStatisticsFactory {
         // <duration>:<class>@<instance>.open(<name>,<append>):void
         case "open": {
             return new OperationStatistics(hostname, pid, className, operation,
-                    startTime, startTime + duration);
+                    instance, startTime, startTime + duration);
         }
         // <duration>:<class>@<instance>.read():<byte>-><targetHostname>
         case "read": {
             // 1 byte read, -1 indicates EOF
             long data = Long.parseLong(result) == -1 ? 0 : 1;
             return new ReadDataOperationStatistics(hostname, pid, className,
-                    operation, startTime, startTime + duration, data,
+                    operation, instance, startTime, startTime + duration, data,
                     targetHostname);
         }
         // <duration>:<class>@<instance>.readBytes(<[bufferSize]>,<off>,<len>):<numBytes>-><targetHostname>
@@ -181,20 +181,20 @@ public class OperationStatisticsFactory {
             long data = Long.parseLong(result);
             data = data == -1 ? 0 : data;
             return new ReadDataOperationStatistics(hostname, pid, className,
-                    operation, startTime, startTime + duration, data,
+                    operation, instance, startTime, startTime + duration, data,
                     targetHostname);
         }
         // <duration>:<class>@<instance>.write(<byte>):void
         case "write": {
             // 1 byte write
             return new DataOperationStatistics(hostname, pid, className,
-                    operation, startTime, startTime + duration, 1);
+                    operation, instance, startTime, startTime + duration, 1);
         }
         // <duration>:<class>@<instance>.writeBytes(<[bufferSize]>,<off>,<len>):void
         case "writeBytes": {
             long data = Long.parseLong(args[2]);
             return new DataOperationStatistics(hostname, pid, className,
-                    operation, startTime, startTime + duration, data);
+                    operation, instance, startTime, startTime + duration, data);
         }
         default:
             throw new IllegalArgumentException("Unknown operation " + operation
@@ -213,7 +213,7 @@ public class OperationStatisticsFactory {
             long data = Long.parseLong(result);
             data = data == -1 ? 0 : data;
             return new ReadDataOperationStatistics(hostname, pid, className,
-                    operation, startTime, startTime + duration, data,
+                    operation, instance, startTime, startTime + duration, data,
                     targetHostname);
         }
         // <duration>:<class>@<instance>.write(<bufferInstance>):<numBytes>
@@ -221,7 +221,7 @@ public class OperationStatisticsFactory {
         case "write": {
             long data = Long.parseLong(result);
             return new DataOperationStatistics(hostname, pid, className,
-                    operation, startTime, startTime + duration, data);
+                    operation, instance, startTime, startTime + duration, data);
         }
         default:
             throw new IllegalArgumentException("Unknown operation " + operation
@@ -269,7 +269,7 @@ public class OperationStatisticsFactory {
         // <duration>:<class>@<instance>.rename(<src>,<dst>):<success>
         case "rename": {
             return new OperationStatistics(hostname, pid, className, operation,
-                    startTime, startTime + duration);
+                    instance, startTime, startTime + duration);
         }
         default:
             throw new IllegalArgumentException("Unknown operation " + operation
@@ -295,7 +295,7 @@ public class OperationStatisticsFactory {
                 data = data == -1 ? 0 : data;
             }
             return new ReadDataOperationStatistics(hostname, pid, className,
-                    operation, startTime, startTime + duration, data,
+                    operation, instance, startTime, startTime + duration, data,
                     targetHostname);
         }
         // <duration>:<class>@<instance>.readFully(<position>,<[bufferSize]>):void-><targetHostname>
@@ -309,7 +309,7 @@ public class OperationStatisticsFactory {
                 data = Long.parseLong(args[3]);
             }
             return new ReadDataOperationStatistics(hostname, pid, className,
-                    operation, startTime, startTime + duration, data,
+                    operation, instance, startTime, startTime + duration, data,
                     targetHostname);
         }
         // <duration>:<class>@<instance>.seek(<position>):void-><targetHostname>
@@ -319,7 +319,7 @@ public class OperationStatisticsFactory {
         // <duration>:<class>@<instance>.seekToNewSource(<position>):<success>-><targetHostname>
         case "seekToNewSource": {
             return new OperationStatistics(hostname, pid, className, operation,
-                    startTime, startTime + duration);
+                    instance, startTime, startTime + duration);
         }
         default:
             throw new IllegalArgumentException("Unknown operation " + operation
@@ -349,7 +349,7 @@ public class OperationStatisticsFactory {
                 data = Long.parseLong(args[2]);
             }
             return new DataOperationStatistics(hostname, pid, className,
-                    operation, startTime, startTime + duration, data);
+                    operation, instance, startTime, startTime + duration, data);
         }
         default:
             throw new IllegalArgumentException("Unknown operation " + operation
