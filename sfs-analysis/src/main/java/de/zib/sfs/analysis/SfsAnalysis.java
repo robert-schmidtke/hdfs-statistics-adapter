@@ -7,13 +7,11 @@
  */
 package de.zib.sfs.analysis;
 
-import org.apache.flink.api.common.functions.GroupReduceFunction;
 import org.apache.flink.api.common.operators.Order;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.ExecutionEnvironment;
 import org.apache.flink.api.java.operators.DataSource;
 import org.apache.flink.api.java.utils.ParameterTool;
-import org.apache.flink.util.Collector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -88,8 +86,8 @@ public class SfsAnalysis {
         // For each host/source combination, aggregate
         // statistics over the specified time bin.
         DataSet<OperationStatistics.Aggregator> aggregatedOperationStatistics = operationStatistics
-                .groupBy("hostname", "internalId").reduceGroup(
-                        new OperationStatisticsGroupReducer(timeBinDuration));
+                .groupBy("hostname", "internalId").combineGroup(
+                        new OperationStatisticsGroupCombiner(timeBinDuration));
 
         // for each host/source/category combination, sort the aggregated
         // statistics records in ascending time
@@ -97,18 +95,8 @@ public class SfsAnalysis {
                 .groupBy("hostname", "source", "category")
                 .sortGroup("startTime", Order.ASCENDING)
                 .reduceGroup(
-                        new GroupReduceFunction<OperationStatistics.Aggregator, OperationStatistics.Aggregator>() {
-
-                            private static final long serialVersionUID = 2289217231165874999L;
-
-                            @Override
-                            public void reduce(
-                                    Iterable<OperationStatistics.Aggregator> values,
-                                    Collector<OperationStatistics.Aggregator> out)
-                                    throws Exception {
-                                values.forEach(v -> out.collect(v));
-                            }
-                        });
+                        new AggregatedOperationStatisticsGroupReducer(
+                                timeBinDuration));
 
         // write the output (one file per host, source and category)
         sortedAggregatedOperationStatistics.output(new SfsOutputFormat(
