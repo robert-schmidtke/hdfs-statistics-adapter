@@ -114,7 +114,6 @@ public class SfsAnalysis {
                 .reduceGroup(
                         new OperationStatisticsAggregator(timeBinDuration,
                                 timeBinCacheSize))
-                .withForwardedFields("hostname->hostname")
                 .setParallelism(hosts.length * slotsPerHost);
 
         // for each host/source/category combination, sort the aggregated
