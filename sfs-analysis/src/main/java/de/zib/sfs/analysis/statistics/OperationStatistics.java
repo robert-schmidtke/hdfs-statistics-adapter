@@ -7,6 +7,8 @@
  */
 package de.zib.sfs.analysis.statistics;
 
+import org.apache.flink.api.java.tuple.Tuple3;
+
 public class OperationStatistics {
 
     public static class Aggregator {
@@ -100,6 +102,17 @@ public class OperationStatistics {
 
         public void setCategory(OperationCategory category) {
             this.category = category;
+        }
+
+        public Tuple3<String, OperationSource, OperationCategory> getCustomKey() {
+            return Tuple3.of(hostname, source, category);
+        }
+
+        public void setCustomKey(
+                Tuple3<String, OperationSource, OperationCategory> customKey) {
+            hostname = customKey.f0;
+            source = customKey.f1;
+            category = customKey.f2;
         }
 
         public void aggregate(Aggregator aggregator)
