@@ -20,18 +20,18 @@ import de.zib.sfs.analysis.statistics.OperationCategory;
 import de.zib.sfs.analysis.statistics.OperationSource;
 import de.zib.sfs.analysis.statistics.OperationStatistics;
 
-public class OperationStatisticsGroupReducer
+public class OperationStatisticsAggregator
         implements
         GroupReduceFunction<OperationStatistics, OperationStatistics.Aggregator> {
 
     private static final long serialVersionUID = -6279446327088687733L;
 
     private static final Logger LOG = LoggerFactory
-            .getLogger(OperationStatisticsGroupReducer.class);
+            .getLogger(OperationStatisticsAggregator.class);
 
     private final long timeBinDuration;
 
-    public OperationStatisticsGroupReducer(long timeBinDuration) {
+    public OperationStatisticsAggregator(long timeBinDuration) {
         this.timeBinDuration = timeBinDuration;
     }
 
