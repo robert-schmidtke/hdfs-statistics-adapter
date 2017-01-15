@@ -7,7 +7,6 @@
  */
 package de.zib.sfs.analysis.statistics;
 
-
 public class OperationStatistics {
 
     public static class Aggregator {
@@ -34,7 +33,7 @@ public class OperationStatistics {
 
         private OperationCategory category;
 
-        private String customKey;
+        private long customKey;
 
         public Aggregator() {
         }
@@ -47,7 +46,7 @@ public class OperationStatistics {
             duration = statistics.getDuration();
             source = statistics.getSource();
             category = statistics.getCategory();
-            customKey = hostname + ":" + source.name() + ":" + category.name();
+            customKey = computeCustomKey(hostname, source, category);
         }
 
         public long getCount() {
@@ -64,7 +63,7 @@ public class OperationStatistics {
 
         public void setHostname(String hostname) {
             this.hostname = hostname;
-            customKey = hostname + ":" + source.name() + ":" + category.name();
+            customKey = computeCustomKey(hostname, source, category);
         }
 
         public long getStartTime() {
@@ -97,7 +96,7 @@ public class OperationStatistics {
 
         public void setSource(OperationSource source) {
             this.source = source;
-            customKey = hostname + ":" + source.name() + ":" + category.name();
+            customKey = computeCustomKey(hostname, source, category);
         }
 
         public OperationCategory getCategory() {
@@ -106,19 +105,34 @@ public class OperationStatistics {
 
         public void setCategory(OperationCategory category) {
             this.category = category;
-            customKey = hostname + ":" + source.name() + ":" + category.name();
+            customKey = computeCustomKey(hostname, source, category);
         }
 
-        public String getCustomKey() {
+        public long getCustomKey() {
             return customKey;
         }
 
         public void setCustomKey(String customKey) {
-            this.customKey = customKey;
-            String[] split = customKey.split(":");
-            hostname = split[0];
-            source = OperationSource.valueOf(split[1]);
-            category = OperationCategory.valueOf(split[2]);
+            throw new UnsupportedOperationException("setCustomKey");
+        }
+
+        public static long computeCustomKey(String hostname,
+                OperationSource source, OperationCategory category) {
+            return ((long) hostname.hashCode()) << 32 | source.ordinal() << 16
+                    | category.ordinal();
+        }
+
+        /**
+         * 0: hashCode of {@link OperationStatistics#getHostname()}, 1: ordinal
+         * of {@link #getSource()}, 2: ordinal of {@link #getCategory()}.
+         * 
+         * @param customKey
+         * @return
+         */
+        public static int[] splitCustomKey(long customKey) {
+            return new int[] { (int) (customKey >> 32),
+                    (int) (customKey << 32 >> 48),
+                    (int) (customKey << 48 >> 48) };
         }
 
         public void aggregate(Aggregator aggregator)

@@ -15,7 +15,6 @@ import org.apache.flink.api.common.operators.Order;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.ExecutionEnvironment;
 import org.apache.flink.api.java.operators.DataSource;
-import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.api.java.utils.ParameterTool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -82,12 +81,14 @@ public class SfsAnalysis {
         final ExecutionEnvironment env = ExecutionEnvironment
                 .getExecutionEnvironment();
 
-        Map<Tuple3<String, OperationSource, OperationCategory>, Integer> partitionsLookup = new HashMap<>();
+        // pre-compute mapping from special keys to partition indices
+        final Map<Long, Integer> partitionsLookup = new HashMap<>();
         int partition = 0;
         for (String host : hosts) {
             for (OperationSource source : OperationSource.values()) {
                 for (OperationCategory category : OperationCategory.values()) {
-                    partitionsLookup.put(Tuple3.of(host, source, category),
+                    partitionsLookup.put(OperationStatistics.Aggregator
+                            .computeCustomKey(host, source, category),
                             partition++);
                 }
             }
@@ -117,19 +118,16 @@ public class SfsAnalysis {
                 .setParallelism(hosts.length * slotsPerHost);
 
         // for each host/source/category combination, sort the aggregated
-        // statistics records in ascending time
+        // statistics records in ascending time, using the custom key for
+        // looking up the partitions
         DataSet<OperationStatistics.Aggregator> sortedAggregatedOperationStatistics = aggregatedOperationStatistics
                 .groupBy("customKey")
-                .withPartitioner(new Partitioner<String>() {
-
+                .withPartitioner(new Partitioner<Long>() {
                     private static final long serialVersionUID = 2469900057020811866L;
 
                     @Override
-                    public int partition(String key, int numPartitions) {
-                        String[] splitKey = key.split(":");
-                        return partitionsLookup.get(Tuple3.of(splitKey[0],
-                                OperationSource.valueOf(splitKey[1]),
-                                OperationCategory.valueOf(splitKey[2])));
+                    public int partition(Long key, int numPartitions) {
+                        return partitionsLookup.get(key);
                     }
                 })
                 .sortGroup("startTime", Order.ASCENDING)
