@@ -11,7 +11,7 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
 
     public static class Aggregator extends DataOperationStatistics.Aggregator {
 
-        private long remoteCount, remoteData;
+        private long remoteCount, remoteDuration, remoteData;
 
         public Aggregator() {
         }
@@ -20,9 +20,11 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
             super(statistics);
             if (statistics.isRemote()) {
                 remoteCount = 1;
+                remoteDuration = statistics.getDuration();
                 remoteData = statistics.getData();
             } else {
                 remoteCount = 0;
+                remoteDuration = 0;
                 remoteData = 0;
             }
         }
@@ -33,6 +35,14 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
 
         public void setRemoteCount(long remoteCount) {
             this.remoteCount = remoteCount;
+        }
+
+        public long getRemoteDuration() {
+            return remoteDuration;
+        }
+
+        public void setRemoteDuration(long remoteDuration) {
+            this.remoteDuration = remoteDuration;
         }
 
         public long getRemoteData() {
@@ -53,6 +63,7 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
             super.aggregate(aggregator);
 
             remoteCount += ((Aggregator) aggregator).getRemoteCount();
+            remoteDuration += ((Aggregator) aggregator).getRemoteDuration();
             remoteData += ((Aggregator) aggregator).getRemoteData();
         }
 
@@ -61,6 +72,7 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
             StringBuilder sb = new StringBuilder();
             sb.append(super.getCsvHeaders(separator));
             sb.append(separator).append("remoteCount");
+            sb.append(separator).append("remoteDuration");
             sb.append(separator).append("remoteData");
             return sb.toString();
         }
@@ -70,6 +82,7 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
             StringBuilder sb = new StringBuilder();
             sb.append(super.toCsv(separator));
             sb.append(separator).append(remoteCount);
+            sb.append(separator).append(remoteDuration);
             sb.append(separator).append(remoteData);
             return sb.toString();
         }
