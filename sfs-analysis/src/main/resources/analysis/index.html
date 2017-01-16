@@ -36,15 +36,15 @@ fieldset {
   <form id="requestForm">
     <fieldset>
       <legend>Benchmark</legend>
-      <input type="radio" name="benchmark" value="terasort-flink-1G" checked>
-      TeraSort Flink 1G
+      <input type="radio" name="benchmark" value="terasort-flink-10G-10" checked>
+      TeraSort Flink 10G (cumu02-[05-14])
       <br />
       <br />
       <br />
       <br />
       <hr>
-      <input type="radio" name="benchmark" value="terasort-hadoop-100G">
-      TeraSort Hadoop 100G
+      <input type="radio" name="benchmark" value="terasort-hadoop-100G-10">
+      TeraSort Hadoop 100G (cumu02-[05-14])
       <br />
     </fieldset>
     <fieldset>
@@ -78,20 +78,20 @@ fieldset {
       <input type="radio" name="yRight" value="" checked>
       None
       <br />
-      <input type="radio" name="yRight" value="cum.jvm.read.data,cum.jvm.write.data,cum.sfs.read.data,cum.sfs.write.data@data(gb)">
+      <input type="radio" name="yRight" value="jvm.read.cum.data,jvm.write.cum.data,sfs.read.cum.data,sfs.write.cum.data@data(gb)">
       Cum. JVM Read Data, Cum. JVM Write Data, Cum. SFS Read Data, Cum. SFS Write Data (gigabytes)
       <br />
-      <input type="radio" name="yRight" value="cum.jvm.read.duration,cum.jvm.write.duration,cum.sfs.read.duration,cum.sfs.write.duration@time(s)">
+      <input type="radio" name="yRight" value="jvm.read.cum.duration,jvm.write.cum.duration,sfs.read.cum.duration,sfs.write.cum.duration@time(s)">
       Cum. JVM Read Time, Cum. JVM Write Time, Cum. SFS Read Time, Cum. SFS Write Time (seconds)
       <br />
       <input type="radio" name="yRight" value="jvm.read.speed,jvm.write.speed,sfs.read.speed,sfs.write.speed@mb/s">
       JVM Read Speed, JVM Write Speed, SFS Read Speed, SFS Write Speed (megabytes/second)
       <br />
       <hr>
-      <input type="radio" name="yRight" value="cum.sfs.read.remoteDuration@data(gb)">
+      <input type="radio" name="yRight" value="sfs.read.cum.remoteDuration@data(gb)">
       Cum. SFS Remote Read Time (gigabytes)
       <br />
-      <input type="radio" name="yRight" value="cum.sfs.read.remoteData@data(gb)">
+      <input type="radio" name="yRight" value="sfs.read.cum.remoteData@data(gb)">
       Cum. SFS Remote Read Data (gigabytes)
       <br />
       <input type="radio" name="yRight" value="sfs.read.remoteSpeed@speed(mb/s)">
@@ -230,17 +230,17 @@ fieldset {
       "sfs.read.remoteCount", "sfs.read.remoteDuration", "sfs.read.remoteData"
     ];
     var yRightLineNames = [
-      "cum.jvm.read.data", "cum.jvm.write.data", "cum.sfs.read.data", "cum.sfs.write.data",
-      "cum.jvm.read.duration", "cum.jvm.write.duration", "cum.sfs.read.duration", "cum.sfs.write.duration",
+      "jvm.read.cum.data", "jvm.write.cum.data", "sfs.read.cum.data", "sfs.write.cum.data",
+      "jvm.read.cum.duration", "jvm.write.cum.duration", "sfs.read.cum.duration", "sfs.write.cum.duration",
       "jvm.read.speed", "jvm.write.speed", "sfs.read.speed", "sfs.write.speed",
-      "cum.sfs.read.remoteDuration", "cum.sfs.read.remoteData", "sfs.read.remoteSpeed"
+      "sfs.read.cum.remoteDuration", "sfs.read.cum.remoteData", "sfs.read.remoteSpeed"
     ];
 
     for (i = 0; i < yLeftLineNames.length; ++i) {
       lines[yLeftLineNames[i]] = function(i) {
         return d3.line()
           .x(function(d) { return x(d.time); })
-          .y(function(d) { return yLeft(d.resolve(yLeftLineNames[i])); });
+          .y(function(d) { return yLeft(+Object.resolve(yLeftLineNames[i], d) || 0); });
       }(i);
     }
 
@@ -248,7 +248,7 @@ fieldset {
       lines[yRightLineNames[i]] = function(i) {
         return d3.line()
           .x(function(d) { return x(d.time); })
-          .y(function(d) { return yRight(d.resolve(yRightLineNames[i])); });
+          .y(function(d) { return yRight(+Object.resolve(yRightLineNames[i], d) || 0); });
       }(i);
     }
         
@@ -286,7 +286,7 @@ fieldset {
       var loadedDataCount = 0;
       var allDataLoaded = function(allData) {
         loadedDataCount += 1;
-        if (loadedDataCount < requestedHosts.length) {
+        if (loadedDataCount < requestedHosts.length * sources.length * categories.length) {
           return;
         }
         
@@ -312,35 +312,39 @@ fieldset {
           cum.jvm.other.duration = (cum.jvm.other.duration || 0) + (allData[i].jvm.other.duration || 0);
           cum.sfs.other.duration = (cum.sfs.other.duration || 0) + (allData[i].sfs.other.duration || 0);
           
-          allData[i].cum.jvm.read.duration = cum.jvm.read.duration;
-          allData[i].cum.jvm.read.data = cum.jvm.read.data;
-          allData[i].cum.sfs.read.duration = cum.sfs.read.duration;
-          allData[i].cum.sfs.read.data = cum.sfs.read.data;
-          allData[i].cum.sfs.read.remoteDuration = cum.sfs.read.remoteDuration;
-          allData[i].cum.sfs.read.remoteData = cum.sfs.read.remoteData;
+          allData[i].jvm.read.cum = {};
+          allData[i].jvm.read.cum.duration = cum.jvm.read.duration;
+          allData[i].jvm.read.cum.data = cum.jvm.read.data;
           
-          allData[i].cum.jvm.write.duration = cum.jvm.write.duration;
-          allData[i].cum.jvm.write.data = cum.jvm.write.data;
-          allData[i].cum.sfs.write.duration = cum.sfs.write.duration;
-          allData[i].cum.sfs.write.data = cum.sfs.write.data;
+          allData[i].sfs.read.cum = {};
+          allData[i].sfs.read.cum.duration = cum.sfs.read.duration;
+          allData[i].sfs.read.cum.data = cum.sfs.read.data;
+          allData[i].sfs.read.cum.remoteDuration = cum.sfs.read.remoteDuration;
+          allData[i].sfs.read.cum.remoteData = cum.sfs.read.remoteData;
           
-          allData[i].cum.jvm.other.duration = cum.jvm.other.duration;
-          allData[i].cum.sfs.other.duration = cum.sfs.other.duration;
+          allData[i].jvm.write.cum = {};
+          allData[i].jvm.write.cum.duration = cum.jvm.write.duration;
+          allData[i].jvm.write.cum.data = cum.jvm.write.data;
+          
+          allData[i].sfs.write.cum = {};
+          allData[i].sfs.write.cum.duration = cum.sfs.write.duration;
+          allData[i].sfs.write.cum.data = cum.sfs.write.data;
+          
+          allData[i].jvm.other.cum = {};
+          allData[i].jvm.other.cum.duration = cum.jvm.other.duration;
+          
+          allData[i].sfs.other.cum = {};
+          allData[i].sfs.other.cum.duration = cum.sfs.other.duration;
         }
         
         x.domain(d3.extent(allData, function(d) {
           return d.time;
         }));
         
-        
-        var extent = d3.extent(allData, function(d) {
-          return d.time;
-        });
-        
         yLeft.domain([0, d3.max(allData, function(d) {
           var max = Number.MIN_VALUE;
           for (i = 0; i < requestedYLeftLineNames.length; ++i) {
-            max = Math.max(max, d[requestedYLeftLineNames[i]]);
+            max = Math.max(max, +Object.resolve(requestedYLeftLineNames[i], d) || 0);
           }
           return max;
         })]);
@@ -348,7 +352,7 @@ fieldset {
         yRight.domain([0, d3.max(allData, function(d) {
           var max = Number.MIN_VALUE;
           for (i = 0; i < requestedYRightLineNames.length; ++i) {
-            max = Math.max(max, d[requestedYRightLineNames[i]]);
+            max = Math.max(max, +Object.resolve(requestedYRightLineNames[i], d) || 0);
           }
           return max;
         })]);
@@ -411,9 +415,6 @@ fieldset {
               if (error) {
                 throw error;
               }
-
-              var s = sources[is];
-              var c = categories[ic];
               
               for (j = 0; j < data.length; ++j) {
                 var d = convert(data[j], timeBinMillis);
@@ -423,6 +424,9 @@ fieldset {
                     allData.splice(k, 0, d);
                     break;
                   } else if (allData[k].time == d.time) {
+                    var s = d.source;
+                    var c = d.category;
+                    
                     // merge
                     allData[k][s][c].count = (allData[k][s][c].count || 0) + (d[s][c].count || 0);
                     allData[k][s][c].duration = (allData[k][s][c].duration || 0) + (d[s][c].duration || 0);
@@ -461,10 +465,10 @@ fieldset {
       return hash;
     }
     
-    Object.prototype.resolve = function(path) {
+    Object.resolve = function(path, obj) {
       return path.split('.').reduce(function(prev, curr) {
           return prev ? prev[curr] : undefined
-      }, self);
+      }, obj || self);
     }
 
     function type(d, _, columns) {
@@ -481,6 +485,9 @@ fieldset {
         jvm : { read : {}, write : {}, other : {} },
         sfs : { read : {}, write : {}, other : {} }
       };
+      
+      result.source = d.source;
+      result.category = d.category;
       
       var s = d.source;
       var c = d.category;
@@ -500,6 +507,8 @@ fieldset {
       // compute some properties
       result[s][c].speed = result[s][c].duration > 0 ? result[s][c].data / result[s][c].duration : 0;
       result[s][c].remoteSpeed = result[s][c].duration > 0 ? result[s][c].remoteData / result[s][c].duration : 0;
+      
+      // console.log(result);
 
       return result;
     }

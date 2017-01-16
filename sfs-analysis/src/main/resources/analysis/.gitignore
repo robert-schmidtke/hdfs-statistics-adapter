@@ -1,4 +1,1 @@
-peakpicking-hdfs-logs/
-peakpicking-xtreemfs-logs/
-terasort-flink-logs/
-terasort-hadoop-logs/
+*-logs/
