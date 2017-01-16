@@ -173,8 +173,8 @@ public class OperationStatistics {
         public String toCsv(String separator) {
             StringBuilder sb = new StringBuilder();
             sb.append(hostname);
-            sb.append(separator).append(source);
-            sb.append(separator).append(category);
+            sb.append(separator).append(source.name().toLowerCase());
+            sb.append(separator).append(category.name().toLowerCase());
             sb.append(separator).append(count);
             sb.append(separator).append(startTime);
             sb.append(separator).append(endTime);

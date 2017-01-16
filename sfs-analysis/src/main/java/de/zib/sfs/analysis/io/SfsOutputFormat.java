@@ -53,7 +53,8 @@ public class SfsOutputFormat extends
         // incoming records have the same hostname, source and category
         if (writer == null) {
             File out = new File(path, record.getHostname() + "."
-                    + record.getSource() + "." + record.getCategory() + ".csv");
+                    + record.getSource().name().toLowerCase() + "."
+                    + record.getCategory().name().toLowerCase() + ".csv");
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Opening file {} for writing", out);
             }
