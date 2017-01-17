@@ -39,12 +39,14 @@ fieldset {
       <input type="radio" name="benchmark" value="terasort-flink-10G-10" checked>
       TeraSort Flink 10G (cumu02-[05-14])
       <br />
+      <input type="radio" name="benchmark" value="terasort-hadoop-100G-10">
+      TeraSort Hadoop 100G (cumu02-[05-14])
       <br />
       <br />
       <br />
       <hr>
-      <input type="radio" name="benchmark" value="terasort-hadoop-100G-10">
-      TeraSort Hadoop 100G (cumu02-[05-14])
+      <input type="radio" name="benchmark" value="peakpicking-10G-10">
+      Peakpicking 10G (cumu02-[05-14])
       <br />
     </fieldset>
     <fieldset>
@@ -415,7 +417,20 @@ fieldset {
       for (i = 0; i < requestedHosts.length; ++i) {
         for (is = 0; is < sources.length; ++is) {
           for (ic = 0; ic < categories.length; ++ic) {
-            d3.csv(requestedBenchmark + "-logs/" + requestedHosts[i] + "." + sources[is] + "." + categories[ic] + ".csv", type, function(error, data) {
+            // check whether the file exists, skip it if not
+            var url = requestedBenchmark + "-logs/" + requestedHosts[i] + "." + sources[is] + "." + categories[ic] + ".csv";
+            var urlHttp = new XMLHttpRequest();
+            urlHttp.open("HEAD", url, false);
+            urlHttp.send();
+            if (urlHttp.status != 200) {
+              console.log("File at URL:", url, " is not reachable, skipping.");
+
+              // report we have loaded the data anyway
+              allDataLoaded(allData);
+              continue;
+            }
+
+            d3.csv(url, type, function(error, data) {
               if (error) {
                 throw error;
               }
