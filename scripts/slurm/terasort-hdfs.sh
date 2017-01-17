@@ -184,7 +184,8 @@ else
     -Dmapreduce.job.reduces=$((${#NODES[@]} * ${TASK_SLOTS})) \
     sfs://$MASTER:8020/user/$USER/input sfs://$MASTER:8020/user/$USER/output
 fi
-echo "$(date): Running TeraSort done"
+RET_CODE=$?
+echo "$(date): Running TeraSort done: $?"
 
 echo "$(date): Stopping HDFS"
 cp ./stop-hdfs-slurm.sh $HADOOP_HOME/sbin
@@ -204,57 +205,61 @@ srun -N$SLURM_JOB_NUM_NODES $stop_transformer_jvm_script
 rm $stop_transformer_jvm_script
 echo "$(date): Stopping transformer JVMs done"
 
-echo "$(date): Configuring Flink for Analysis"
-cp $FLINK_HOME/conf/flink-conf.yaml.template $FLINK_HOME/conf/flink-conf.yaml
-sed -i "/^jobmanager\.rpc\.address/c\jobmanager.rpc.address: $MASTER" $FLINK_HOME/conf/flink-conf.yaml
-sed -i "/^jobmanager\.heap\.mb/c\jobmanager.heap.mb: $JOBMANAGER_MEMORY" $FLINK_HOME/conf/flink-conf.yaml
-sed -i "/^taskmanager\.heap\.mb/c\taskmanager.heap.mb: $TASKMANAGER_MEMORY" $FLINK_HOME/conf/flink-conf.yaml
-sed -i "/^taskmanager\.numberOfTaskSlots/c\taskmanager.numberOfTaskSlots: $TASK_SLOTS" $FLINK_HOME/conf/flink-conf.yaml
-sed -i "/^# taskmanager\.network\.numberOfBuffers/c\taskmanager.network.numberOfBuffers: $(($TASK_SLOTS * $TASK_SLOTS * ${#NODES[@]} * 4))" $FLINK_HOME/conf/flink-conf.yaml
-sed -i "/^# taskmanager\.tmp\.dirs/c\taskmanager.tmp.dirs: /local/$USER/flink" $FLINK_HOME/conf/flink-conf.yaml
-printf "%s\n" "${NODES[@]}" > $FLINK_HOME/conf/slaves
-cat >> $FLINK_HOME/conf/flink-conf.yaml << EOF
+if [ "$RET_CODE" -eq "0" ]; then
+  echo "$(date): Configuring Flink for Analysis"
+  cp $FLINK_HOME/conf/flink-conf.yaml.template $FLINK_HOME/conf/flink-conf.yaml
+  sed -i "/^jobmanager\.rpc\.address/c\jobmanager.rpc.address: $MASTER" $FLINK_HOME/conf/flink-conf.yaml
+  sed -i "/^jobmanager\.heap\.mb/c\jobmanager.heap.mb: $JOBMANAGER_MEMORY" $FLINK_HOME/conf/flink-conf.yaml
+  sed -i "/^taskmanager\.heap\.mb/c\taskmanager.heap.mb: $TASKMANAGER_MEMORY" $FLINK_HOME/conf/flink-conf.yaml
+  sed -i "/^taskmanager\.numberOfTaskSlots/c\taskmanager.numberOfTaskSlots: $TASK_SLOTS" $FLINK_HOME/conf/flink-conf.yaml
+  sed -i "/^# taskmanager\.network\.numberOfBuffers/c\taskmanager.network.numberOfBuffers: $(($TASK_SLOTS * $TASK_SLOTS * ${#NODES[@]} * 4))" $FLINK_HOME/conf/flink-conf.yaml
+  sed -i "/^# taskmanager\.tmp\.dirs/c\taskmanager.tmp.dirs: /local/$USER/flink" $FLINK_HOME/conf/flink-conf.yaml
+  printf "%s\n" "${NODES[@]}" > $FLINK_HOME/conf/slaves
+  cat >> $FLINK_HOME/conf/flink-conf.yaml << EOF
 blob.storage.directory: /local/$USER/flink
 taskmanager.memory.off-heap: true
 EOF
-echo "$(date): Configuring Flink for Analysis done"
+  echo "$(date): Configuring Flink for Analysis done"
 
-echo "$(date): Starting Flink cluster"
-cp ./start-flink-cluster-slurm.sh $FLINK_HOME/bin
-srun --nodelist="$MASTER" --nodes=1-1 --chdir=$FLINK_HOME/bin ./start-flink-cluster-slurm.sh
+  echo "$(date): Starting Flink cluster"
+  cp ./start-flink-cluster-slurm.sh $FLINK_HOME/bin
+  srun --nodelist="$MASTER" --nodes=1-1 --chdir=$FLINK_HOME/bin ./start-flink-cluster-slurm.sh
 
-# wait until all taskmanagers are connected
-CONNECTED_TASKMANAGERS=0
-while [ $CONNECTED_TASKMANAGERS -lt ${#NODES[@]} ]; do
-  CONNECTED_TASKMANAGERS=$(grep -R "Registered TaskManager" $FLINK_HOME/log/flink-$USER-jobmanager-*-$MASTER.log | wc -l)
-  echo "$CONNECTED_TASKMANAGERS of ${#NODES[@]} TaskManagers connected ..."
-  sleep 1s
-done
-echo "$(date): Starting Flink cluster done"
+  # wait until all taskmanagers are connected
+  CONNECTED_TASKMANAGERS=0
+  while [ $CONNECTED_TASKMANAGERS -lt ${#NODES[@]} ]; do
+    CONNECTED_TASKMANAGERS=$(grep -R "Registered TaskManager" $FLINK_HOME/log/flink-$USER-jobmanager-*-$MASTER.log | wc -l)
+    echo "$CONNECTED_TASKMANAGERS of ${#NODES[@]} TaskManagers connected ..."
+    sleep 1s
+  done
+  echo "$(date): Starting Flink cluster done"
 
-echo "$(date): Running Analysis"
-HOSTS=$(printf ",%s" "${NODES[@]}")
-HOSTS=${HOSTS:1}
-$FLINK_HOME/bin/flink run \
-  --class de.zib.sfs.analysis.SfsAnalysis \
-  --parallelism $((${#NODES[@]} * $TASK_SLOTS)) \
-  $SFS_DIRECTORY/sfs-analysis/target/sfs-analysis-1.0-SNAPSHOT.jar \
-  --inputPath /local/$USER/sfs \
-  --outputPath $SFS_TARGET_DIRECTORY \
-  --prefix "sfs.log" \
-  --hosts $HOSTS \
-  --slotsPerHost $TASK_SLOTS \
-  --timeBinDuration 1000 \
-  --timeBinCacheSize 120
-#  --printExecutionPlanOnly true
-echo "$(date): Running Analysis done"
+  echo "$(date): Running Analysis"
+  HOSTS=$(printf ",%s" "${NODES[@]}")
+  HOSTS=${HOSTS:1}
+  $FLINK_HOME/bin/flink run \
+    --class de.zib.sfs.analysis.SfsAnalysis \
+    --parallelism $((${#NODES[@]} * $TASK_SLOTS)) \
+    $SFS_DIRECTORY/sfs-analysis/target/sfs-analysis-1.0-SNAPSHOT.jar \
+    --inputPath /local/$USER/sfs \
+    --outputPath $SFS_TARGET_DIRECTORY \
+    --prefix "sfs.log" \
+    --hosts $HOSTS \
+    --slotsPerHost $TASK_SLOTS \
+    --timeBinDuration 1000 \
+    --timeBinCacheSize 120
+#    --printExecutionPlanOnly true
+  echo "$(date): Running Analysis done"
 
-echo "$(date): Stopping Flink cluster"
-cp ./stop-flink-cluster-slurm.sh $FLINK_HOME/bin
-srun --nodelist="$MASTER" --nodes=1-1 --chdir=$FLINK_HOME/bin ./stop-flink-cluster-slurm.sh
-echo "$(date): Waiting for Flink cluster to be stopped"
-sleep 10s
-echo "$(date): Stopping Flink cluster done"
+  echo "$(date): Stopping Flink cluster"
+  cp ./stop-flink-cluster-slurm.sh $FLINK_HOME/bin
+  srun --nodelist="$MASTER" --nodes=1-1 --chdir=$FLINK_HOME/bin ./stop-flink-cluster-slurm.sh
+  echo "$(date): Waiting for Flink cluster to be stopped"
+  sleep 10s
+  echo "$(date): Stopping Flink cluster done"
+else
+  echo "$(date): Main Job did not run successfully, skipping analysis."
+fi
 
 echo "$(date): Cleaning Java processes"
 srun -N$SLURM_JOB_NUM_NODES killall -sSIGKILL java
