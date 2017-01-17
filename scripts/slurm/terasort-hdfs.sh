@@ -144,6 +144,7 @@ if [ "$ENGINE" == "flink" ]; then
   sed -i "/^# taskmanager\.network\.numberOfBuffers/c\taskmanager.network.numberOfBuffers: $(($TASK_SLOTS * $TASK_SLOTS * ${#NODES[@]} * 4))" $FLINK_HOME/conf/flink-conf.yaml
   sed -i "/^# fs\.hdfs\.hadoopconf/c\fs.hdfs.hadoopconf: $HADOOP_HOME/etc/hadoop" $FLINK_HOME/conf/flink-conf.yaml
   cat >> $FLINK_HOME/conf/flink-conf.yaml << EOF
+blob.storage.directory: /local/$USER/flink
 taskmanager.memory.off-heap: true
 env.java.opts: $OPTS,log_file_name=/local/$USER/sfs/sfs.log.flink
 EOF
@@ -212,6 +213,7 @@ sed -i "/^# taskmanager\.network\.numberOfBuffers/c\taskmanager.network.numberOf
 sed -i "/^# taskmanager\.tmp\.dirs/c\taskmanager.tmp.dirs: /local/$USER/flink" $FLINK_HOME/conf/flink-conf.yaml
 printf "%s\n" "${NODES[@]}" > $FLINK_HOME/conf/slaves
 cat >> $FLINK_HOME/conf/flink-conf.yaml << EOF
+blob.storage.directory: /local/$USER/flink
 taskmanager.memory.off-heap: true
 EOF
 echo "$(date): Configuring Flink for Analysis done"
