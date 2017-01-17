@@ -81,6 +81,7 @@ echo "$(date): Cleaning local directories"
 srun -N$SLURM_JOB_NUM_NODES rm -rf /local/$USER/hdfs
 srun -N$SLURM_JOB_NUM_NODES rm -rf /local/$USER/sfs
 srun -N$SLURM_JOB_NUM_NODES rm -rf /local/$USER/flink
+srun -N$SLURM_JOB_NUM_NODES rm -rf /tmp/*
 echo "$(date): Cleaning local directories done"
 
 echo "$(date): Creating local folders"
@@ -276,4 +277,5 @@ echo "$(date): Cleaning local directories"
 srun -N$SLURM_JOB_NUM_NODES rm -rf /local/$USER/hdfs
 srun -N$SLURM_JOB_NUM_NODES rm -rf /local/$USER/sfs
 srun -N$SLURM_JOB_NUM_NODES rm -rf /local/$USER/flink
+srun -N$SLURM_JOB_NUM_NODES rm -rf /tmp/*
 echo "$(date): Cleaning local directories done"
