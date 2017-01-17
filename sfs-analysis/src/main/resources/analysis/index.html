@@ -32,7 +32,7 @@ fieldset {
 </head>
 
 <body>
-  <svg width="1900" height="600"></svg>
+  <svg width="1900" height="900"></svg>
   <form id="requestForm">
     <fieldset>
       <legend>Benchmark</legend>
@@ -61,7 +61,6 @@ fieldset {
       <input type="radio" name="yLeft" value="jvm.read.data,jvm.write.data,sfs.read.data,sfs.write.data@data(mb)">
       JVM Read Data, JVM Write Data, SFS Read Data, SFS Write Data (megabytes)
       <br />
-      <br />
       <hr>
       <input type="radio" name="yLeft" value="sfs.read.remoteCount@count">
       SFS Remote Reads
@@ -78,11 +77,11 @@ fieldset {
       <input type="radio" name="yRight" value="" checked>
       None
       <br />
-      <input type="radio" name="yRight" value="jvm.read.cum.data,jvm.write.cum.data,sfs.read.cum.data,sfs.write.cum.data@data(gb)">
-      Cum. JVM Read Data, Cum. JVM Write Data, Cum. SFS Read Data, Cum. SFS Write Data (gigabytes)
-      <br />
       <input type="radio" name="yRight" value="jvm.read.cum.duration,jvm.write.cum.duration,sfs.read.cum.duration,sfs.write.cum.duration@time(s)">
       Cum. JVM Read Time, Cum. JVM Write Time, Cum. SFS Read Time, Cum. SFS Write Time (seconds)
+      <br />
+      <input type="radio" name="yRight" value="jvm.read.cum.data,jvm.write.cum.data,sfs.read.cum.data,sfs.write.cum.data@data(gb)">
+      Cum. JVM Read Data, Cum. JVM Write Data, Cum. SFS Read Data, Cum. SFS Write Data (gigabytes)
       <br />
       <input type="radio" name="yRight" value="jvm.read.speed,jvm.write.speed,sfs.read.speed,sfs.write.speed@mb/s">
       JVM Read Speed, JVM Write Speed, SFS Read Speed, SFS Write Speed (megabytes/second)
@@ -211,13 +210,13 @@ fieldset {
     var margin = {
       top : 20,
       right : 100,
-      bottom : 30,
+      bottom : 100,
       left : 100
     };
     var width = svg.attr("width") - margin.left - margin.right;
     var height = svg.attr("height") - margin.top - margin.bottom;
 
-    var x = d3.scaleLinear().range([ 0, width ]);
+    var x = d3.scaleTime().range([ 0, width ]);
     var yLeft = d3.scaleLinear().range([ height, 0 ]);
     var yRight = d3.scaleLinear().range([ height, 0 ]);
     var z = d3.scaleOrdinal(d3.schemeCategory10);
@@ -364,7 +363,12 @@ fieldset {
         g.append("g")
           .attr("class", "axis axis--x")
           .attr("transform", "translate(0," + height + ")")
-          .call(d3.axisBottom(x));
+          .call(d3.axisBottom(x).tickFormat(d3.timeFormat("%H:%M:%S")))
+          .selectAll("text")
+            .style("text-anchor", "end")
+            .attr("dx", "-.8em")
+            .attr("dy", ".15em")
+            .attr("transform", "rotate(-45)");
   
         g.append("g")
           .attr("class", "axis axis--y")
