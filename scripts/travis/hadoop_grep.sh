@@ -91,8 +91,12 @@ kill $TRANSFORMER_PID
 # run analysis
 mkdir /tmp/output
 echo "$(date): Running Analysis"
-java -cp $TRAVIS_BUILD_DIR/sfs-analysis/target/sfs-analysis-1.0-SNAPSHOT.jar:$FLINK_HOME/lib/flink-dist_$FLINK_SCALA_VERSION-$FLINK_VERSION.jar \
-  de.zib.sfs.analysis.SfsAnalysis --inputPath /tmp --prefix sfs.log --outputPath /tmp/output --hosts $(hostname)
+$FLINK_HOME/bin/start-local.sh
+$FLINK_HOME/bin/flink run \
+  --class de.zib.sfs.analysis.SfsAnalysis \
+  $TRAVIS_BUILD_DIR/sfs-analysis/target/sfs-analysis-1.0-SNAPSHOT.jar \
+  --inputPath /tmp --prefix sfs.log --outputPath /tmp/output --hosts $(hostname)
+$FLINK_HOME/bin/stop-local.sh
 echo "$(date): Running Analysis done"
 
 echo "Analysis Output:"
