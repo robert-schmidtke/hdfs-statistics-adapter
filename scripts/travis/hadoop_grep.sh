@@ -105,4 +105,10 @@ for file in $(ls /tmp/output/*.csv); do
   cat $file
 done
 
+echo "Flink Logs:"
+for file in $(ls $FLINK_HOME/log/*); do
+  echo "${file}:"
+  cat $file
+ done
+
 echo "$(date): Done."
