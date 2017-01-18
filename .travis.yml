@@ -29,6 +29,16 @@ install:
   - export HADOOP_HOME=$HOME/hadoop-$HADOOP_VERSION
   - rm $HADOOP_ARCHIVE
 
+  # set up Flink
+  - export FLINK_VERSION=1.1.3
+  - export FLINK_HADOOP_VERSION=27
+  - export FLINK_SCALA_VERSION=2.10
+  - FLINK_ARCHIVE=$HOME/flink-$FLINK_VERSION.tgz
+  - wget --no-verbose --output-document $FLINK_ARCHIVE http://archive.apache.org/dist/flink/flink-${FLINK_VERSION}/flink-${FLINK_VERSION}-bin-hadoop${FLINK_HADOOP_VERSION}-scala_${FLINK_SCALA_VERSION}.tgz
+  - tar --extract --file $FLINK_ARCHIVE --directory $HOME
+  - export FLINK_HOME=$HOME/flink-$FLINK_VERSION
+  - rm $FLINK_ARCHIVE
+
   # build gRPC
   - export GRPC_VERSION=1.0.1
   - export PROTOBUF_VERSION=3.0.0

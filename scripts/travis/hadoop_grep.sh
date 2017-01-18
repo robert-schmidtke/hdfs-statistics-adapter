@@ -76,8 +76,8 @@ $HADOOP_HOME/bin/hdfs dfs -cat sfs:///tmp/user/$USER/output/*
 
 echo "SFS Output:"
 for file in $(ls /tmp/sfs.log*); do
-  echo "${file}:"
-  cat $file
+  echo "head ${file}:"
+  head $file
 done
 
 # stop Hadoop
@@ -87,5 +87,18 @@ $HADOOP_HOME/sbin/stop-dfs.sh
 # stop transformer JVM
 echo "$(date): Stopping Transformer JVM"
 kill $TRANSFORMER_PID
+
+# run analysis
+mkdir /tmp/output
+echo "$(date): Running Analysis"
+java -cp $TRAVIS_BUILD_DIR/sfs-analysis/target/sfs-analysis-1.0-SNAPSHOT.jar:$FLINK_HOME/lib/flink-dist_$FLINK_SCALA_VERSION-$FLINK_VERSION.jar \
+  de.zib.sfs.analysis.SfsAnalysis --inputPath /tmp --prefix sfs.log --outputPath /tmp/output --hosts $(hostname)
+echo "$(date): Running Analysis done"
+
+echo "Analysis Output:"
+for file in $(ls /tmp/output/*.csv); do
+  echo "${file}:"
+  cat $file
+done
 
 echo "$(date): Done."
