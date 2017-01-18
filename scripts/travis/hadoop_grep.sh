@@ -88,6 +88,13 @@ $HADOOP_HOME/sbin/stop-dfs.sh
 echo "$(date): Stopping Transformer JVM"
 kill $TRANSFORMER_PID
 
+# configure DEBUG logging in Flink for our classes
+for file in $(ls $FLINK_HOME/conf/log4j*.properties); do
+  cat >> $file << EOF
+log4j.logger.de.zib.sfs=DEBUG
+EOF
+done
+
 # run analysis
 mkdir /tmp/output
 echo "$(date): Running Analysis"
