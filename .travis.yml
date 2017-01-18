@@ -65,6 +65,11 @@ install:
   - mvn install --define hadoop.version=$HADOOP_VERSION
   - cd $TRAVIS_BUILD_DIR
 
+  # build the analysis
+  - cd sfs-analysis
+  - mvn install
+  - cd $TRAVIS_BUILD_DIR
+
 script:
   # configure Hadoop and run the grep job
   - ./scripts/travis/hadoop_grep.sh
