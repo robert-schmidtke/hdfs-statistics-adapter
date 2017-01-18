@@ -17,6 +17,8 @@ import org.apache.flink.configuration.Configuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import de.zib.sfs.analysis.statistics.OperationCategory;
+import de.zib.sfs.analysis.statistics.OperationSource;
 import de.zib.sfs.analysis.statistics.OperationStatistics;
 
 public class SfsOutputFormat extends
@@ -32,6 +34,12 @@ public class SfsOutputFormat extends
     private final String separator;
 
     private BufferedWriter writer;
+
+    private String hostname;
+
+    private OperationSource source;
+
+    private OperationCategory category;
 
     public SfsOutputFormat(String path, String separator) {
         this.path = path;
@@ -52,9 +60,13 @@ public class SfsOutputFormat extends
         // lazily open file to correctly construct the file name, assuming all
         // incoming records have the same hostname, source and category
         if (writer == null) {
-            File out = new File(path, record.getHostname() + "."
-                    + record.getSource().name().toLowerCase() + "."
-                    + record.getCategory().name().toLowerCase() + ".csv");
+            hostname = record.getHostname();
+            source = record.getSource();
+            category = record.getCategory();
+
+            File out = new File(path, hostname + "."
+                    + source.name().toLowerCase() + "."
+                    + category.name().toLowerCase() + ".csv");
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Opening file {} for writing", out);
             }
@@ -63,6 +75,21 @@ public class SfsOutputFormat extends
             // write the CSV headers
             writer.write(record.getCsvHeaders(separator));
             writer.newLine();
+        }
+
+        if (!hostname.equals(record.getHostname())) {
+            throw new IllegalArgumentException("Hostnames do not match: "
+                    + hostname + ", " + record.getHostname());
+        }
+
+        if (!source.equals(record.getSource())) {
+            throw new IllegalArgumentException("Sources do not match: "
+                    + source + ", " + record.getSource());
+        }
+
+        if (!category.equals(record.getCategory())) {
+            throw new IllegalArgumentException("Categories do not match: "
+                    + category + ", " + record.getCategory());
         }
 
         // write the actual record
@@ -76,6 +103,9 @@ public class SfsOutputFormat extends
             writer.close();
             writer = null;
         }
+        hostname = null;
+        source = null;
+        category = null;
     }
 
 }
