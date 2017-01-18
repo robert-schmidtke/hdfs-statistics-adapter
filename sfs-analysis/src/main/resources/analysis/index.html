@@ -37,16 +37,16 @@ fieldset {
     <fieldset>
       <legend>Benchmark</legend>
       <input type="radio" name="benchmark" value="terasort-flink-10G-10" checked>
-      TeraSort Flink 10G (cumu02-[05-14])
+      TeraSort Flink 10G (10 nodes)
       <br />
       <input type="radio" name="benchmark" value="terasort-hadoop-100G-10">
-      TeraSort Hadoop 100G (cumu02-[05-14])
+      TeraSort Hadoop 100G (10 nodes)
       <br />
       <br />
       <br />
       <hr>
       <input type="radio" name="benchmark" value="peakpicking-10G-10">
-      Peakpicking 10G (cumu02-[05-14])
+      Peakpicking 10G (10 nodes)
       <br />
     </fieldset>
     <fieldset>
@@ -211,7 +211,7 @@ fieldset {
     var svg = d3.select("svg");
     var margin = {
       top : 20,
-      right : 100,
+      right : 200,
       bottom : 100,
       left : 100
     };
@@ -403,7 +403,7 @@ fieldset {
           .attr("d", function(d) { return lines[d](allData); })
           .style("stroke", function(d) { return z(d.hashCode()); });
         plot.append("text")
-          .attr("transform", function(d) { return "translate(" + (width - 200) + "," + (20 * allRequestedYLineNames.indexOf(d)) + ")"; })
+          .attr("transform", function(d) { return "translate(" + (width + 50) + "," + (20 * allRequestedYLineNames.indexOf(d)) + ")"; })
           .attr("x", 3)
           .attr("dy", "0.35em")
           .style("font", "15px sans-serif")
