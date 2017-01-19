@@ -46,7 +46,19 @@ public class SfsInputSplitAssigner implements InputSplitAssigner {
                 LOG.debug("Getting next input split for host {} and task {}",
                         host, taskId);
             }
-            return unassignedInputSplits.get(host).pop();
+
+            if (!unassignedInputSplits.containsKey(host)) {
+                // support localhost only for setups with one host
+                if ("localhost".equals(host)
+                        && unassignedInputSplits.size() == 1) {
+                    return unassignedInputSplits.values().iterator().next()
+                            .pop();
+                } else {
+                    throw new IllegalArgumentException("Invalid host: " + host);
+                }
+            } else {
+                return unassignedInputSplits.get(host).pop();
+            }
         } catch (NoSuchElementException e) {
             return null;
         }
