@@ -6,7 +6,7 @@
 
 usage() {
   echo "Usage: sbatch --nodes=<NODES> terasort-hdfs.sh"
-  echo "  -e|--engine <flink|hadoop> (default: not specified)"
+  echo "  -e|--engine <flink|spark|hadoop> (default: not specified)"
 }
 
 while [[ $# -gt 1 ]]; do
@@ -26,7 +26,7 @@ done
 
 if [ -n "$ENGINE" ]; then
   case $ENGINE in
-    flink|hadoop)
+    flink|spark|hadoop)
       echo "Using engine: $ENGINE"
       ;;
     *)
@@ -51,6 +51,8 @@ module load java/oracle-jdk1.8.0_45
 export HOSTNAME=$(hostname)
 
 export FLINK_HOME=/scratch/$USER/flink-1.1.3
+
+export SPARK_HOME=/scratch/$USER/spark-2.1.0
 
 NODES=(`scontrol show hostnames`)
 export NODES
@@ -119,13 +121,21 @@ SFS_STANDARD_OPTS="--sfs-logfilename /local/$USER/sfs/sfs.log --sfs-wrapped-sche
 cp $SFS_DIRECTORY/sfs-adapter/target/sfs-adapter.jar $FLINK_HOME/lib/sfs-adapter.jar
 cp $SFS_DIRECTORY/sfs-adapter/target/sfs-adapter.jar $HADOOP_HOME/share/hadoop/common/sfs-adapter.jar
 
-if [ "$ENGINE" == "flink" ]; then
-  srun $SRUN_STANDARD_OPTS ./start-hdfs-slurm.sh $HDFS_STANDARD_OPTS $SFS_STANDARD_OPTS \
-    --sfs-wrapped-fs "org.apache.flink.runtime.fs.hdfs.HadoopFileSystem"
-else
-  srun $SRUN_STANDARD_OPTS ./start-hdfs-slurm.sh $HDFS_STANDARD_OPTS $SFS_STANDARD_OPTS \
-    --sfs-wrapped-fs "org.apache.hadoop.hdfs.DistributedFileSystem"
-fi
+case $ENGINE in
+  flink)
+    srun $SRUN_STANDARD_OPTS ./start-hdfs-slurm.sh $HDFS_STANDARD_OPTS $SFS_STANDARD_OPTS \
+      --sfs-wrapped-fs "org.apache.flink.runtime.fs.hdfs.HadoopFileSystem"
+    ;;
+  spark)
+    # Spark does not have a wrapper for HDFS
+    srun $SRUN_STANDARD_OPTS ./start-hdfs-slurm.sh $HDFS_STANDARD_OPTS $SFS_STANDARD_OPTS \
+      --sfs-wrapped-fs "org.apache.hadoop.hdfs.DistributedFileSystem"
+    ;;
+  hadoop)
+    srun $SRUN_STANDARD_OPTS ./start-hdfs-slurm.sh $HDFS_STANDARD_OPTS $SFS_STANDARD_OPTS \
+      --sfs-wrapped-fs "org.apache.hadoop.hdfs.DistributedFileSystem"
+    ;;
+esac
 
 # wait until all datanodes are connected
 CONNECTED_DATANODES=0
@@ -139,18 +149,32 @@ echo "$(date): Starting HDFS done"
 TASK_SLOTS=16
 JOBMANAGER_MEMORY=4096
 TASKMANAGER_MEMORY=40960
-if [ "$ENGINE" == "flink" ]; then
-  echo "$(date): Configuring Flink for TeraSort"
-  cp $FLINK_HOME/conf/flink-conf.yaml.template $FLINK_HOME/conf/flink-conf.yaml
-  sed -i "/^# taskmanager\.network\.numberOfBuffers/c\taskmanager.network.numberOfBuffers: $(($TASK_SLOTS * $TASK_SLOTS * ${#NODES[@]} * 4))" $FLINK_HOME/conf/flink-conf.yaml
-  sed -i "/^# fs\.hdfs\.hadoopconf/c\fs.hdfs.hadoopconf: $HADOOP_HOME/etc/hadoop" $FLINK_HOME/conf/flink-conf.yaml
-  cat >> $FLINK_HOME/conf/flink-conf.yaml << EOF
+case $ENGINE in
+  flink)
+    echo "$(date): Configuring Flink for TeraSort"
+    cp $FLINK_HOME/conf/flink-conf.yaml.template $FLINK_HOME/conf/flink-conf.yaml
+    sed -i "/^# taskmanager\.network\.numberOfBuffers/c\taskmanager.network.numberOfBuffers: $(($TASK_SLOTS * $TASK_SLOTS * ${#NODES[@]} * 4))" $FLINK_HOME/conf/flink-conf.yaml
+    sed -i "/^# fs\.hdfs\.hadoopconf/c\fs.hdfs.hadoopconf: $HADOOP_HOME/etc/hadoop" $FLINK_HOME/conf/flink-conf.yaml
+    cat >> $FLINK_HOME/conf/flink-conf.yaml << EOF
 blob.storage.directory: /local/$USER/flink
 taskmanager.memory.off-heap: true
 env.java.opts: $OPTS,log_file_name=/local/$USER/sfs/sfs.log.flink
 EOF
-  echo "$(date): Configuring Flink for TeraSort done"
-fi
+    echo "$(date): Configuring Flink for TeraSort done"
+    ;;
+  spark)
+    echo "$(date): Configuring Spark for TeraSort"
+    cp $SPARK_HOME/conf/spark-defaults.conf.template $SPARK_HOME/spark-defaults.conf
+    sed -i "/^# spark\.executor\.extraJavaOptions/c\spark.executor.extraJavaOptions $OPTS,log_file_name=/local/$USER/sfs/sfs.log.spark.executor"
+    cat >> $SPARK_HOME/conf/spark-defaults.conf << EOF
+spark.driver.extraJavaOptions $OPTS,log_file_name=/local/$USER/sfs/sfs.log.spark.driver
+EOF
+    echo "$(date): Configuring Spark for TeraSort done"
+    ;;
+  hadoop)
+    # nothing to do
+    ;;
+esac
 
 rm -rf $FLINK_HOME/log/*
 rm -rf $HADOOP_HOME/log-*
@@ -167,23 +191,38 @@ echo "$(date): Generating TeraSort data on HDFS done"
 $HADOOP_HOME/bin/hadoop fs -mkdir -p hdfs://$MASTER:8020/user/$USER/output
 
 echo "$(date): Running TeraSort"
-if [ "$ENGINE" == "flink" ]; then
-  $FLINK_HOME/bin/flink run \
-    --jobmanager yarn-cluster \
-    --yarncontainer ${#NODES[@]} \
-    --yarnslots $TASK_SLOTS \
-    --yarnjobManagerMemory $JOBMANAGER_MEMORY \
-    --yarntaskManagerMemory $TASKMANAGER_MEMORY \
-    --class eastcircle.terasort.FlinkTeraSort \
-    --parallelism $((${#NODES[@]} * $TASK_SLOTS)) \
-    $TERASORT_DIRECTORY/target/scala-2.10/terasort_2.10-0.0.1.jar \
-    sfs://$MASTER:8020 /user/$USER/input /user/$USER/output $((${#NODES[@]} * $TASK_SLOTS))
-else
-  $HADOOP_HOME/bin/hadoop jar $HADOOP_HOME/share/hadoop/mapreduce/hadoop-mapreduce-examples-${HADOOP_VERSION}.jar terasort \
-    -Dmapreduce.job.maps=$((${#NODES[@]} * ${TASK_SLOTS})) \
-    -Dmapreduce.job.reduces=$((${#NODES[@]} * ${TASK_SLOTS})) \
-    sfs://$MASTER:8020/user/$USER/input sfs://$MASTER:8020/user/$USER/output
-fi
+case $ENGINE in
+  flink)
+    $FLINK_HOME/bin/flink run \
+      --jobmanager yarn-cluster \
+      --yarncontainer ${#NODES[@]} \
+      --yarnslots $TASK_SLOTS \
+      --yarnjobManagerMemory $JOBMANAGER_MEMORY \
+      --yarntaskManagerMemory $TASKMANAGER_MEMORY \
+      --class eastcircle.terasort.FlinkTeraSort \
+      --parallelism $((${#NODES[@]} * $TASK_SLOTS)) \
+      $TERASORT_DIRECTORY/target/scala-2.10/terasort_2.10-0.0.1.jar \
+      sfs://$MASTER:8020 /user/$USER/input /user/$USER/output $((${#NODES[@]} * $TASK_SLOTS))
+    ;;
+  spark)
+    $SPARK_HOME/bin/spark-submit \
+      --master yarn \
+      --deploy-mode cluster \
+      --num-executors ${#NODES[@]} \
+      --executor-cores $TASK_SLOTS \
+      --driver-memory $JOBMANAGER_MEMORY \
+      --executor-memory $TASKMANAGER_MEMORY \
+      --class eastcircle.terasort.SparkTeraSort \
+      $TERASORT_DIRECTORY/target/scala-2.10/terasort_2.10-0.0.1.jar \
+      sfs://$MASTER:8020 /user/$USER/input /user/$USER/output $((${#NODES[@]} * $TASK_SLOTS))
+    ;;
+  hadoop)
+    $HADOOP_HOME/bin/hadoop jar $HADOOP_HOME/share/hadoop/mapreduce/hadoop-mapreduce-examples-${HADOOP_VERSION}.jar terasort \
+      -Dmapreduce.job.maps=$((${#NODES[@]} * ${TASK_SLOTS})) \
+      -Dmapreduce.job.reduces=$((${#NODES[@]} * ${TASK_SLOTS})) \
+      sfs://$MASTER:8020/user/$USER/input sfs://$MASTER:8020/user/$USER/output
+    ;;
+esac
 RET_CODE=$?
 echo "$(date): Running TeraSort done: $?"
 
