@@ -151,6 +151,36 @@
                   <include>org.ow2.asm:asm-all</include>
                 </includes>
               </artifactSet>
+              <relocations>
+                <relocation>
+                  <pattern>com.google.guava</pattern>
+                  <shadedPattern>de.zib.sfs.shaded.com.google.guava</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>com.google.protobuf</pattern>
+                  <shadedPattern>de.zib.sfs.shaded.com.google.protobuf</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>com.lmax</pattern>
+                  <shadedPattern>de.zib.sfs.shaded.com.lmax</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>io.grpc</pattern>
+                  <shadedPattern>de.zib.sfs.shaded.io.grpc</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>io.netty</pattern>
+                  <shadedPattern>de.zib.sfs.shaded.io.netty</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>org.apache.logging.log4j</pattern>
+                  <shadedPattern>de.zib.sfs.shaded.org.apache.logging.log4j</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>org.ow2.asm</pattern>
+                  <shadedPattern>de.zib.sfs.shaded.org.ow2.asm</shadedPattern>
+                </relocation>
+              </relocations>
             </configuration>
           </execution>
         </executions>
