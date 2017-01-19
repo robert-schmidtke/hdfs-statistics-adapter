@@ -95,6 +95,9 @@ log4j.logger.de.zib.sfs=DEBUG
 EOF
 done
 
+# configure appropriate number of slots: 2 sources * 3 categories = 6 slots per TM
+sed -i "/^taskmanager\.numberOfTaskSlots/c\taskmanager.numberOfTaskSlots: 6" $FLINK_HOME/conf/flink-conf.yaml
+
 # run analysis
 mkdir /tmp/output
 echo "$(date): Running Analysis"
