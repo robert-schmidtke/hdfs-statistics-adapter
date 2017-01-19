@@ -51,8 +51,15 @@ public class SfsInputSplitAssigner implements InputSplitAssigner {
                 // support localhost only for setups with one host
                 if ("localhost".equals(host)
                         && unassignedInputSplits.size() == 1) {
-                    return unassignedInputSplits.values().iterator().next()
-                            .pop();
+                    SfsInputSplit unassignedInputSplit = unassignedInputSplits
+                            .values().iterator().next().pop();
+                    if (LOG.isDebugEnabled()) {
+                        LOG.debug(
+                                "Assignung split {} to host {} instead of localhost",
+                                unassignedInputSplit.getSplitNumber(),
+                                unassignedInputSplit.getHost());
+                    }
+                    return unassignedInputSplit;
                 } else {
                     throw new IllegalArgumentException("Invalid host: " + host);
                 }
