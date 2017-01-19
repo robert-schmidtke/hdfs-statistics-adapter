@@ -112,6 +112,7 @@ $FLINK_HOME/bin/flink run \
   --hosts $(hostname) \
   --timeBinDuration 1000 \
   --timeBinCacheSize 30
+RET_CODE=$?
 $FLINK_HOME/bin/stop-local.sh
 echo "$(date): Running Analysis done"
 
@@ -121,10 +122,12 @@ for file in $(ls /tmp/output/*.csv); do
   cat $file
 done
 
-echo "Flink Logs:"
-for file in $(ls $FLINK_HOME/log/*); do
-  echo "${file}:"
-  cat $file
-done
+if [ "$RET_CODE" -ne "0" ]; then
+  echo "Flink Logs:"
+  for file in $(ls $FLINK_HOME/log/*); do
+    echo "${file}:"
+    cat $file
+  done
+fi
 
 echo "$(date): Done."
