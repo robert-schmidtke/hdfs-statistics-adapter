@@ -125,6 +125,6 @@ echo "Flink Logs:"
 for file in $(ls $FLINK_HOME/log/*); do
   echo "${file}:"
   cat $file
- done
+done
 
 echo "$(date): Done."
