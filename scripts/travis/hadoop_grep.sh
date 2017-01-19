@@ -101,8 +101,14 @@ echo "$(date): Running Analysis"
 $FLINK_HOME/bin/start-local.sh
 $FLINK_HOME/bin/flink run \
   --class de.zib.sfs.analysis.SfsAnalysis \
+  --parallelism 6 \
   $TRAVIS_BUILD_DIR/sfs-analysis/target/sfs-analysis-1.0-SNAPSHOT.jar \
-  --inputPath /tmp --prefix sfs.log --outputPath /tmp/output --hosts $(hostname)
+  --inputPath /tmp \
+  --outputPath /tmp/output \
+  --prefix sfs.log \
+  --hosts $(hostname) \
+  --timeBinDuration 1000 \
+  --timeBinCacheSize 30
 $FLINK_HOME/bin/stop-local.sh
 echo "$(date): Running Analysis done"
 
