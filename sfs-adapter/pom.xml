@@ -162,6 +162,16 @@
                   <include>org.apache.logging.log4j:log4j-core</include>
                 </includes>
               </artifactSet>
+              <relocations>
+                <relocation>
+                  <pattern>com.lmax</pattern>
+                  <shadedPattern>de.zib.sfs.shaded.com.lmax</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>org.apache.logging.log4j</pattern>
+                  <shadedPattern>de.zib.sfs.shaded.org.apache.logging.log4j</shadedPattern>
+                </relocation>
+              </relocations>
             </configuration>
           </execution>
         </executions>
