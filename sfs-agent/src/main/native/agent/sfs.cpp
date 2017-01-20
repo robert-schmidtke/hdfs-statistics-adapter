@@ -77,10 +77,10 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
               << "Required options:" << std::endl
               << "  log_file_name=/path/to/log.file" << std::endl
               << "  trans_jar=/path/to/trans.jar" << std::endl
-              << "  key=key" << std::endl;
-    << "Optional options:" << std::endl
-    << "  trans_address=trans-host:port (default: empty)"
-    << "  verbose=y|n (default: n)" << std::endl;
+              << "  key=key" << std::endl
+              << "Optional options:" << std::endl
+              << "  trans_address=trans-host:port (default: empty)"
+              << "  verbose=y|n (default: n)" << std::endl;
     return JNI_EINVAL;
   }
 
@@ -420,7 +420,7 @@ static void JNICALL VMInitCallback(jvmtiEnv *jvmti_env, JNIEnv *jni_env,
 
   // repeat for the custom key
   LOG_VERBOSE("Setting system property '%s'='%s'.\n",
-              std::string("de.zib.sfs.key").c_str(), g_key);
+              std::string("de.zib.sfs.key").c_str(), g_key.c_str());
   jni_env->CallStaticVoidMethod(system_class, set_property_method_id,
                                 jni_env->NewStringUTF("de.zib.sfs.key"),
                                 jni_env->NewStringUTF(g_key.c_str()));
