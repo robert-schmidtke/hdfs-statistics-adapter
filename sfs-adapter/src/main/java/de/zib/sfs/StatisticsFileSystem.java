@@ -160,6 +160,11 @@ public class StatisticsFileSystem extends FileSystem {
             System.setProperty("de.zib.sfs.pid", Integer.toString(pid));
         }
 
+        if (System.getProperty("de.zib.sfs.key") == null) {
+            LOG.warn("'de.zib.sfs.key' not set, did the agent start properly?");
+            System.setProperty("de.zib.sfs.key", "sfs");
+        }
+
         fsLogger = LogManager.getLogger("de.zib.sfs.AsyncLogger");
         if (LOG.isDebugEnabled()) {
             LOG.debug("Initialized file system logger");

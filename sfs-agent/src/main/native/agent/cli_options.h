@@ -42,6 +42,7 @@ static int get_tok(char **src, char *buf, int buflen, int sep) {
 }
 
 struct CliOptions {
+  std::string key;
   std::string log_file_name;
   std::string transformer_address;
   std::string transformer_jar_path;
@@ -76,6 +77,7 @@ static bool parse_options(char *command_line_options, CliOptions *cli_options) {
   }
   char *options = all_options;
 
+  cli_options->key = std::string("");
   cli_options->log_file_name = std::string("");
   cli_options->transformer_address = std::string("");
   cli_options->transformer_jar_path = std::string("");
@@ -83,6 +85,7 @@ static bool parse_options(char *command_line_options, CliOptions *cli_options) {
 
   bool tx_jar_path_set = false;
   bool log_file_name_set = false;
+  bool key_set = false;
   while (*options) {
     char option[16];
     char suboption[FILENAME_MAX + 1];
@@ -103,6 +106,11 @@ static bool parse_options(char *command_line_options, CliOptions *cli_options) {
           cli_options->log_file_name = std::string(suboption);
           log_file_name_set = true;
         }
+      } else if (strcmp(option, "key") == 0) {
+        if (get_tok(&options, suboption, (int)sizeof(suboption), ',')) {
+          cli_options->key = std::string(suboption);
+          key_set = true;
+        }
       } else if (strcmp(option, "verbose") == 0) {
         if (get_tok(&options, suboption, (int)sizeof(suboption), ',')) {
           cli_options->verbose = strcmp(suboption, "y") == 0;
@@ -119,7 +127,7 @@ static bool parse_options(char *command_line_options, CliOptions *cli_options) {
   }
   delete[] all_options;
 
-  return tx_jar_path_set && log_file_name_set;
+  return tx_jar_path_set && log_file_name_set && key_set;
 }
 
 #endif // CLI_OPTIONS_H
