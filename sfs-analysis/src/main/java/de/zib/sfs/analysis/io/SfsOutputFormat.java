@@ -37,6 +37,10 @@ public class SfsOutputFormat extends
 
     private String hostname;
 
+    private int pid;
+
+    private String key;
+
     private OperationSource source;
 
     private OperationCategory category;
@@ -58,13 +62,16 @@ public class SfsOutputFormat extends
     public void writeRecord(OperationStatistics.Aggregator record)
             throws IOException {
         // lazily open file to correctly construct the file name, assuming all
-        // incoming records have the same hostname, source and category
+        // incoming records have the same hostname, pid, key, source and
+        // category
         if (writer == null) {
             hostname = record.getHostname();
+            pid = record.getPid();
+            key = record.getKey();
             source = record.getSource();
             category = record.getCategory();
 
-            File out = new File(path, hostname + "."
+            File out = new File(path, hostname + "." + pid + "." + key + "."
                     + source.name().toLowerCase() + "."
                     + category.name().toLowerCase() + ".csv");
             if (LOG.isDebugEnabled()) {
@@ -80,6 +87,16 @@ public class SfsOutputFormat extends
         if (!hostname.equals(record.getHostname())) {
             throw new IllegalArgumentException("Hostnames do not match: "
                     + hostname + ", " + record.getHostname());
+        }
+
+        if (pid != record.getPid()) {
+            throw new IllegalArgumentException("Pids do not match: " + pid
+                    + ", " + record.getPid());
+        }
+
+        if (!key.equals(record.getKey())) {
+            throw new IllegalArgumentException("Keys do not match: " + key
+                    + ", " + record.getKey());
         }
 
         if (!source.equals(record.getSource())) {

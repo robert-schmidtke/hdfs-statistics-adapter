@@ -133,8 +133,7 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
     public String toCsv(String separator) {
         StringBuilder sb = new StringBuilder();
         sb.append(super.toCsv(separator));
-        sb.append(separator).append("remoteHostname:")
-                .append(getRemoteHostname());
+        sb.append(separator).append("remoteHostname:").append(remoteHostname);
         return sb.toString();
     }
 

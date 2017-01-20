@@ -376,16 +376,16 @@ public class OperationStatistics {
     public String toCsv(String separator) {
         StringBuilder sb = new StringBuilder();
         sb.append("pid:").append(getPid());
-        sb.append(separator).append("hostname:").append(getHostname());
-        sb.append(separator).append("key:").append(getKey());
-        sb.append(separator).append("className:").append(getClassName());
-        sb.append(separator).append("name:").append(getName());
-        sb.append(separator).append("instance:").append(getInstance());
-        sb.append(separator).append("startTime:").append(getStartTime());
-        sb.append(separator).append("endTime:").append(getEndTime());
-        sb.append(separator).append("duration:").append(getDuration());
-        sb.append(separator).append("source:").append(getSource());
-        sb.append(separator).append("category:").append(getCategory());
+        sb.append(separator).append("hostname:").append(hostname);
+        sb.append(separator).append("key:").append(key);
+        sb.append(separator).append("className:").append(className);
+        sb.append(separator).append("name:").append(name);
+        sb.append(separator).append("instance:").append(instance);
+        sb.append(separator).append("startTime:").append(startTime);
+        sb.append(separator).append("endTime:").append(endTime);
+        sb.append(separator).append("duration:").append(endTime - startTime);
+        sb.append(separator).append("source:").append(source);
+        sb.append(separator).append("category:").append(category);
         return sb.toString();
     }
 

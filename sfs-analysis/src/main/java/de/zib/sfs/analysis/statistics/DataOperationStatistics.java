@@ -85,7 +85,7 @@ public class DataOperationStatistics extends OperationStatistics {
     public String toCsv(String separator) {
         StringBuilder sb = new StringBuilder();
         sb.append(super.toCsv(separator));
-        sb.append(separator).append("data:").append(getData());
+        sb.append(separator).append("data:").append(data);
         return sb.toString();
     }
 

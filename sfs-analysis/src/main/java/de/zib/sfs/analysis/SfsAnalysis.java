@@ -17,8 +17,6 @@ import org.slf4j.LoggerFactory;
 
 import de.zib.sfs.analysis.io.SfsInputFormat;
 import de.zib.sfs.analysis.io.SfsOutputFormat;
-import de.zib.sfs.analysis.statistics.OperationCategory;
-import de.zib.sfs.analysis.statistics.OperationSource;
 import de.zib.sfs.analysis.statistics.OperationStatistics;
 
 public class SfsAnalysis {
@@ -93,11 +91,9 @@ public class SfsAnalysis {
         // For each host/source combination, aggregate statistics over the
         // specified time bin.
         DataSet<OperationStatistics.Aggregator> aggregatedOperationStatistics = operationStatistics
-                .groupBy("hostname", "internalId")
-                .reduceGroup(
+                .groupBy("hostname", "internalId").reduceGroup(
                         new OperationStatisticsAggregator(timeBinDuration,
-                                timeBinCacheSize))
-                .setParallelism(hosts.length * slotsPerHost);
+                                timeBinCacheSize));
 
         // for each host/pid/key/source/category combination, sort the
         // aggregated statistics records in ascending time
@@ -107,10 +103,7 @@ public class SfsAnalysis {
                 .reduceGroup(
                         new AggregatedOperationStatisticsAggregator(
                                 timeBinCacheSize))
-                .withForwardedFields("hostname->hostname")
-                .setParallelism(
-                        hosts.length * OperationCategory.values().length
-                                * OperationSource.values().length);
+                .withForwardedFields("hostname->hostname");
 
         // write the output (one file per host, source and category)
         sortedAggregatedOperationStatistics.output(new SfsOutputFormat(
