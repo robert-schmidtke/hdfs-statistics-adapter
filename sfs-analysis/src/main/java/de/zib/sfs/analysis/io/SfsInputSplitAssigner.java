@@ -55,7 +55,7 @@ public class SfsInputSplitAssigner implements InputSplitAssigner {
                             .values().iterator().next().pop();
                     if (LOG.isDebugEnabled()) {
                         LOG.debug(
-                                "Assignung split {} to host {} instead of localhost",
+                                "Assigning split {} to host {} instead of localhost",
                                 unassignedInputSplit.getSplitNumber(),
                                 unassignedInputSplit.getHost());
                     }

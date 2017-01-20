@@ -177,10 +177,6 @@
                   <shadedPattern>de.zib.sfs.shaded.io.netty</shadedPattern>
                 </relocation>
                 <relocation>
-                  <pattern>org.apache.logging.log4j</pattern>
-                  <shadedPattern>de.zib.sfs.shaded.org.apache.logging.log4j</shadedPattern>
-                </relocation>
-                <relocation>
                   <pattern>org.ow2.asm</pattern>
                   <shadedPattern>de.zib.sfs.shaded.org.ow2.asm</shadedPattern>
                 </relocation>
