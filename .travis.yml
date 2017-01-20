@@ -55,6 +55,13 @@ install:
   - export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$GRPC_HOME/libs/opt:$GRPC_HOME/third_party/protobuf/src/.libs"
   - cd $TRAVIS_BUILD_DIR
 
+  # we need an unreleased version of the maven-shade-plugin because it fixes resource relocation
+  - git clone https://github.com/apache/maven-plugins.git
+  - cd maven-plugins/maven-shade-plugin
+  - git checkout 44c93a4e50abd26938d60492b27bff6f24ea4df7
+  - mvn install
+  - cd $TRAVIS_BUILD_DIR
+
   # build the agent
   - cd sfs-agent
   - mvn install --define protobuf.version=$PROTOBUF_VERSION --define protoc.bin=$GRPC_HOME/third_party/protobuf/src/protoc --define protobuf.include.dir=$GRPC_HOME/third_party/protobuf/src --define protobuf.lib.dir=$GRPC_HOME/third_party/protobuf/src/.libs --define grpc.version=$GRPC_VERSION --define grpc.plugin=$GRPC_HOME/bins/opt/grpc_cpp_plugin --define grpc.include.dir=$GRPC_HOME/include --define grpc.lib.dir=$GRPC_HOME/libs/opt
