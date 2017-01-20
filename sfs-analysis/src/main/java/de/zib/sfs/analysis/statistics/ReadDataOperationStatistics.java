@@ -132,6 +132,7 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
         sb.append(getClass().getName()).append("{");
         sb.append("pid:").append(getPid());
         sb.append(",hostname:").append(getHostname());
+        sb.append(",key:").append(getKey());
         sb.append(",className:").append(getClassName());
         sb.append(",name:").append(getName());
         sb.append(",instance:").append(getInstance());
