@@ -184,6 +184,9 @@
                   <pattern>org.ow2.asm</pattern>
                   <shadedPattern>de.zib.sfs.shaded.org.ow2.asm</shadedPattern>
                 </relocation>
+                <transformers>
+                  <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                </transformers>
               </relocations>
             </configuration>
           </execution>
