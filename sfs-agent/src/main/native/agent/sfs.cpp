@@ -31,7 +31,7 @@ static ClassTransformationServer *g_class_transformation_server;
 // flag to indicate whether we should start our own transformer JVM
 static bool g_start_transformer_jvm;
 
-// store startup command of transformer JVM so we can them up
+// store startup command of transformer JVM so we can clean it up later
 static char **g_transformer_jvm_cmd;
 
 // the prefix to use when wrapping native methods
@@ -60,6 +60,9 @@ static void JNICALL ClassFileLoadHookCallback(jvmtiEnv *, JNIEnv *, jclass,
 
 // function to be called when the JVM initializes
 static void JNICALL VMInitCallback(jvmtiEnv *, JNIEnv *, jthread);
+
+// function to be called when the JVM shuts down
+static void JNICALL VMDeathCallback(jvmtiEnv *, JNIEnv *);
 
 // called by the JVM to load the agent
 JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
@@ -122,6 +125,7 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
   (void)memset(&eventCallbacks, 0, sizeof(eventCallbacks));
   eventCallbacks.ClassFileLoadHook = &ClassFileLoadHookCallback;
   eventCallbacks.VMInit = &VMInitCallback;
+  eventCallbacks.VMDeath = &VMDeathCallback;
   jvmti_result =
       jvmti->SetEventCallbacks(&eventCallbacks, (jint)sizeof(eventCallbacks));
   CHECK_JVMTI_RESULT("SetEventCallbacks", jvmti_result);
@@ -408,6 +412,21 @@ static void JNICALL VMInitCallback(jvmtiEnv *jvmti_env, JNIEnv *jni_env,
       jni_env->NewStringUTF(std::to_string(getpid()).c_str()));
 
   LOG_VERBOSE("VM initialized successfully.\n");
+}
+
+// function to be call when the JVM shuts down
+static void JNICALL VMDeathCallback(jvmtiEnv *jvmti_env, JNIEnv *jni_env) {
+  LOG_VERBOSE("Shutting down VM.\n");
+
+  // properly shut down Log4j2 so all logs are flushed
+  LOG_VERBOSE("Shutting down Log4j2.\n");
+  jclass log_manager_class =
+      jni_env->FindClass("org/apache/logging/log4j/LogManager");
+  jmethodID shutdown_method_id =
+      jni_env->GetStaticMethodID(log_manager_class, "shutdown", "()V;");
+  jni_env->CallStaticVoidMethod(log_manager_class, shutdown_method_id);
+
+  LOG_VERBOSE("VM shut down successfully.\n");
 }
 
 // performs deregistration of events, server shutdown and memory freeing
