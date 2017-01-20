@@ -210,8 +210,8 @@ case $ENGINE in
       --deploy-mode cluster \
       --num-executors ${#NODES[@]} \
       --executor-cores $TASK_SLOTS \
-      --driver-memory $JOBMANAGER_MEMORY \
-      --executor-memory $TASKMANAGER_MEMORY \
+      --driver-memory "${JOBMANAGER_MEMORY}M" \
+      --executor-memory "${TASKMANAGER_MEMORY}M" \
       --class eastcircle.terasort.SparkTeraSort \
       $TERASORT_DIRECTORY/target/scala-2.10/terasort_2.10-0.0.1.jar \
       sfs://$MASTER:8020 /user/$USER/input /user/$USER/output $((${#NODES[@]} * $TASK_SLOTS))
