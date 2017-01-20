@@ -52,7 +52,7 @@ EOF
 
 # start the transformer JVM
 echo "$(date): Starting Transformer JVM"
-java -cp $TRAVIS_BUILD_DIR/sfs-agent/target/sfs-agent.jar de.zib.sfs.instrument.ClassTransformationService --port 4242 --timeout -1 2>&1 &
+java -cp $TRAVIS_BUILD_DIR/sfs-agent/target/sfs-agent.jar de.zib.sfs.instrument.ClassTransformationService --port 4242 --timeout -1 > transformer.log 2>&1 &
 TRANSFORMER_PID=$!
 echo "$(date): Transformer JVM running as process $TRANSFORMER_PID"
 
@@ -87,6 +87,9 @@ $HADOOP_HOME/sbin/stop-dfs.sh
 # stop transformer JVM
 echo "$(date): Stopping Transformer JVM"
 kill $TRANSFORMER_PID
+
+echo "Transformer Log:"
+cat transformer.log
 
 # configure DEBUG logging in Flink for our classes
 for file in $(ls $FLINK_HOME/conf/log4j*.properties); do
