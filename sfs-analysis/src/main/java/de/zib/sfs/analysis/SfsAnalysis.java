@@ -99,7 +99,7 @@ public class SfsAnalysis {
         // aggregated statistics records in ascending time
         DataSet<OperationStatistics.Aggregator> sortedAggregatedOperationStatistics = aggregatedOperationStatistics
                 .groupBy("hostname", "pid", "key", "source", "category")
-                .sortGroup("startTime", Order.ASCENDING)
+                .sortGroup("timeBin", Order.ASCENDING)
                 .reduceGroup(
                         new AggregatedOperationStatisticsAggregator(
                                 timeBinCacheSize))
