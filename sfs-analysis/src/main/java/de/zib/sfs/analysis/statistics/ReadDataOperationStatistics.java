@@ -93,11 +93,11 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
     public ReadDataOperationStatistics() {
     }
 
-    public ReadDataOperationStatistics(String hostname, int pid,
+    public ReadDataOperationStatistics(String hostname, int pid, String key,
             String className, String name, String instance, long startTime,
             long endTime, long data, String remoteHostname) {
-        super(hostname, pid, className, name, instance, startTime, endTime,
-                data);
+        super(hostname, pid, key, className, name, instance, startTime,
+                endTime, data);
         if (remoteHostname == null) {
             this.remoteHostname = null;
         } else {

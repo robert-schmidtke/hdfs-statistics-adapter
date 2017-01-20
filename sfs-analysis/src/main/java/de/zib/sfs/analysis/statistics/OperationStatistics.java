@@ -193,7 +193,7 @@ public class OperationStatistics {
 
     private long startTime, endTime;
 
-    private String hostname, className, name, instance;
+    private String hostname, key, className, name, instance;
 
     private int pid;
 
@@ -207,10 +207,12 @@ public class OperationStatistics {
     public OperationStatistics() {
     }
 
-    public OperationStatistics(String hostname, int pid, String className,
-            String name, String instance, long startTime, long endTime) {
+    public OperationStatistics(String hostname, int pid, String key,
+            String className, String name, String instance, long startTime,
+            long endTime) {
         this.hostname = hostname;
         this.pid = pid;
+        this.key = key;
         this.className = className;
         this.name = name;
         this.instance = instance;
@@ -302,6 +304,14 @@ public class OperationStatistics {
 
     public void setPid(int pid) {
         this.pid = pid;
+    }
+
+    public String getKey() {
+        return key;
+    }
+
+    public void setKey(String key) {
+        this.key = key;
     }
 
     public String getClassName() {
