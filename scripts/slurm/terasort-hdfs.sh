@@ -112,10 +112,10 @@ cp ./start-hdfs-slurm.sh $HADOOP_HOME/sbin
 SRUN_STANDARD_OPTS="--nodelist=$MASTER --nodes=1-1 --chdir=$HADOOP_HOME/sbin"
 HDFS_STANDARD_OPTS="--blocksize 268435456 --replication 1 --memory 51200 --cores 16 --io-buffer 1048576 --colocate-datanode-with-namenode"
 OPTS="-agentpath:$SFS_DIRECTORY/sfs-agent/target/libsfs.so=trans_jar=$SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar,trans_address=0.0.0.0:4242,verbose=n"
-HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --hadoop-opts $OPTS,log_file_name=/local/$USER/sfs/sfs.log.hadoop"
-HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --map-opts $OPTS,log_file_name=/local/$USER/sfs/sfs.log.map"
-HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --reduce-opts $OPTS,log_file_name=/local/$USER/sfs/sfs.log.reduce"
-HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --yarn-opts $OPTS,log_file_name=/local/$USER/sfs/sfs.log.yarn"
+HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --hadoop-opts $OPTS,log_file_name=/local/$USER/sfs/sfs.log.hadoop,key=hadoop"
+HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --map-opts $OPTS,log_file_name=/local/$USER/sfs/sfs.log.map,key=map"
+HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --reduce-opts $OPTS,log_file_name=/local/$USER/sfs/sfs.log.reduce,key=reduce"
+HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --yarn-opts $OPTS,log_file_name=/local/$USER/sfs/sfs.log.yarn,key=yarn"
 HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --ld-library-path $GRPC_HOME/libs/opt:$GRPC_HOME/third_party/protobuf/src/.lib"
 SFS_STANDARD_OPTS="--sfs-logfilename /local/$USER/sfs/sfs.log --sfs-wrapped-scheme hdfs"
 cp $SFS_DIRECTORY/sfs-adapter/target/sfs-adapter.jar $FLINK_HOME/lib/sfs-adapter.jar
@@ -158,16 +158,16 @@ case $ENGINE in
     cat >> $FLINK_HOME/conf/flink-conf.yaml << EOF
 blob.storage.directory: /local/$USER/flink
 taskmanager.memory.off-heap: true
-env.java.opts: $OPTS,log_file_name=/local/$USER/sfs/sfs.log.flink
+env.java.opts: $OPTS,log_file_name=/local/$USER/sfs/sfs.log.flink,key=flink
 EOF
     echo "$(date): Configuring Flink for TeraSort done"
     ;;
   spark)
     echo "$(date): Configuring Spark for TeraSort"
     cp $SPARK_HOME/conf/spark-defaults.conf.template $SPARK_HOME/spark-defaults.conf
-    sed -i "/^# spark\.executor\.extraJavaOptions/c\spark.executor.extraJavaOptions $OPTS,log_file_name=/local/$USER/sfs/sfs.log.spark.executor"
+    sed -i "/^# spark\.executor\.extraJavaOptions/c\spark.executor.extraJavaOptions $OPTS,log_file_name=/local/$USER/sfs/sfs.log.spark.executor,key=executor"
     cat >> $SPARK_HOME/conf/spark-defaults.conf << EOF
-spark.driver.extraJavaOptions $OPTS,log_file_name=/local/$USER/sfs/sfs.log.spark.driver
+spark.driver.extraJavaOptions $OPTS,log_file_name=/local/$USER/sfs/sfs.log.spark.driver,key=driver
 EOF
     echo "$(date): Configuring Spark for TeraSort done"
     ;;
@@ -286,7 +286,7 @@ EOF
     --hosts $HOSTS \
     --slotsPerHost $TASK_SLOTS \
     --timeBinDuration 1000 \
-    --timeBinCacheSize 120
+    --timeBinCacheSize 30
 #    --printExecutionPlanOnly true
   echo "$(date): Running Analysis done"
 
