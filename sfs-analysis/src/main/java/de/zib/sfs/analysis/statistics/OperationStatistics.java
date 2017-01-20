@@ -23,30 +23,58 @@ public class OperationStatistics {
             }
         }
 
-        private long count;
-
         private String hostname;
 
-        private long startTime, endTime, duration;
+        private int pid;
+
+        private String key;
+
+        private long count;
+
+        private long timeBin, timeBinDuration, cpuTime;
 
         private OperationSource source;
 
         private OperationCategory category;
 
-        private long customKey;
-
         public Aggregator() {
         }
 
-        public Aggregator(OperationStatistics statistics) {
-            count = 1;
+        public Aggregator(OperationStatistics statistics, long timeBinDuration) {
             hostname = statistics.getHostname();
-            startTime = statistics.getStartTime();
-            endTime = statistics.getEndTime();
-            duration = statistics.getDuration();
+            pid = statistics.getPid();
+            key = statistics.getKey();
+            count = 1;
+            this.timeBinDuration = timeBinDuration;
+            timeBin = statistics.getStartTime() - statistics.getStartTime()
+                    % timeBinDuration;
+            cpuTime = statistics.getDuration();
             source = statistics.getSource();
             category = statistics.getCategory();
-            customKey = computeCustomKey(hostname, source, category);
+        }
+
+        public String getHostname() {
+            return hostname;
+        }
+
+        public void setHostname(String hostname) {
+            this.hostname = hostname;
+        }
+
+        public int getPid() {
+            return pid;
+        }
+
+        public void setPid(int pid) {
+            this.pid = pid;
+        }
+
+        public String getKey() {
+            return key;
+        }
+
+        public void setKey(String key) {
+            this.key = key;
         }
 
         public long getCount() {
@@ -57,37 +85,28 @@ public class OperationStatistics {
             this.count = count;
         }
 
-        public String getHostname() {
-            return hostname;
+        public long getTimeBin() {
+            return timeBin;
         }
 
-        public void setHostname(String hostname) {
-            this.hostname = hostname;
-            customKey = computeCustomKey(hostname, source, category);
+        public void setTimeBin(long timeBin) {
+            this.timeBin = timeBin;
         }
 
-        public long getStartTime() {
-            return startTime;
+        public long getTimeBinDuration() {
+            return timeBinDuration;
         }
 
-        public void setStartTime(long startTime) {
-            this.startTime = startTime;
+        public void setTimeBinDuration(long timeBinDuration) {
+            this.timeBinDuration = timeBinDuration;
         }
 
-        public long getEndTime() {
-            return endTime;
+        public long getCpuTime() {
+            return cpuTime;
         }
 
-        public void setEndTime(long endTime) {
-            this.endTime = endTime;
-        }
-
-        public long getDuration() {
-            return duration;
-        }
-
-        public void setDuration(long duration) {
-            this.duration = duration;
+        public void setCpuTime(long cpuTime) {
+            this.cpuTime = cpuTime;
         }
 
         public OperationSource getSource() {
@@ -96,7 +115,6 @@ public class OperationStatistics {
 
         public void setSource(OperationSource source) {
             this.source = source;
-            customKey = computeCustomKey(hostname, source, category);
         }
 
         public OperationCategory getCategory() {
@@ -105,41 +123,32 @@ public class OperationStatistics {
 
         public void setCategory(OperationCategory category) {
             this.category = category;
-            customKey = computeCustomKey(hostname, source, category);
         }
 
-        public long getCustomKey() {
-            return customKey;
-        }
-
-        public void setCustomKey(long customKey) {
-            throw new UnsupportedOperationException("setCustomKey");
-        }
-
-        public static long computeCustomKey(String hostname,
-                OperationSource source, OperationCategory category) {
-            return ((long) hostname.hashCode()) << 32 | source.ordinal() << 16
-                    | category.ordinal();
-        }
-
-        /**
-         * 0: hashCode of {@link OperationStatistics#getHostname()}, 1: ordinal
-         * of {@link #getSource()}, 2: ordinal of {@link #getCategory()}.
-         * 
-         * @param customKey
-         * @return
-         */
-        public static int[] splitCustomKey(long customKey) {
-            return new int[] { (int) (customKey >> 32),
-                    (int) (customKey << 32 >> 48),
-                    (int) (customKey << 48 >> 48) };
-        }
-
-        public void aggregate(Aggregator aggregator)
+        public Aggregator aggregate(Aggregator aggregator)
                 throws NotAggregatableException {
+            if (this == aggregator) {
+                throw new NotAggregatableException("Cannot aggregate self");
+            }
+
             if (!aggregator.getHostname().equals(hostname)) {
                 throw new NotAggregatableException("Hostnames do not match: "
                         + hostname + ", " + aggregator.getHostname());
+            }
+
+            if (aggregator.getPid() != pid) {
+                throw new NotAggregatableException("Pids do not match: " + pid
+                        + ", " + aggregator.getPid());
+            }
+
+            if (!aggregator.getKey().equals(key)) {
+                throw new NotAggregatableException("Keys do not match: " + key
+                        + ", " + aggregator.getKey());
+            }
+
+            if (aggregator.getTimeBin() != timeBin) {
+                throw new NotAggregatableException("Time bins do not match: "
+                        + timeBin + ", " + aggregator.getTimeBin());
             }
 
             if (!aggregator.getSource().equals(source)) {
@@ -153,32 +162,34 @@ public class OperationStatistics {
             }
 
             count += aggregator.getCount();
-            startTime = Math.min(startTime, aggregator.getStartTime());
-            endTime = Math.max(endTime, aggregator.getEndTime());
-            duration += aggregator.getDuration();
+            cpuTime += aggregator.getCpuTime();
+
+            return this;
         }
 
         public String getCsvHeaders(String separator) {
             StringBuilder sb = new StringBuilder();
             sb.append("hostname");
+            sb.append(separator).append("pid");
+            sb.append(separator).append("key");
             sb.append(separator).append("source");
             sb.append(separator).append("category");
             sb.append(separator).append("count");
-            sb.append(separator).append("startTime");
-            sb.append(separator).append("endTime");
-            sb.append(separator).append("duration");
+            sb.append(separator).append("timeBin");
+            sb.append(separator).append("cpuTime");
             return sb.toString();
         }
 
         public String toCsv(String separator) {
             StringBuilder sb = new StringBuilder();
             sb.append(hostname);
+            sb.append(separator).append(pid);
+            sb.append(separator).append(key);
             sb.append(separator).append(source.name().toLowerCase());
             sb.append(separator).append(category.name().toLowerCase());
             sb.append(separator).append(count);
-            sb.append(separator).append(startTime);
-            sb.append(separator).append(endTime);
-            sb.append(separator).append(duration);
+            sb.append(separator).append(timeBin);
+            sb.append(separator).append(cpuTime);
             return sb.toString();
         }
 
@@ -362,26 +373,32 @@ public class OperationStatistics {
         this.category = category;
     }
 
+    public String toCsv(String separator) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("pid:").append(getPid());
+        sb.append(separator).append("hostname:").append(getHostname());
+        sb.append(separator).append("key:").append(getKey());
+        sb.append(separator).append("className:").append(getClassName());
+        sb.append(separator).append("name:").append(getName());
+        sb.append(separator).append("instance:").append(getInstance());
+        sb.append(separator).append("startTime:").append(getStartTime());
+        sb.append(separator).append("endTime:").append(getEndTime());
+        sb.append(separator).append("duration:").append(getDuration());
+        sb.append(separator).append("source:").append(getSource());
+        sb.append(separator).append("category:").append(getCategory());
+        return sb.toString();
+    }
+
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
         sb.append(getClass().getName()).append("{");
-        sb.append("pid:").append(getPid());
-        sb.append(",hostname:").append(getHostname());
-        sb.append(",key:").append(getKey());
-        sb.append(",className:").append(getClassName());
-        sb.append(",name:").append(getName());
-        sb.append(",instance:").append(getInstance());
-        sb.append(",startTime:").append(getStartTime());
-        sb.append(",endTime:").append(getEndTime());
-        sb.append(",duration:").append(getDuration());
-        sb.append(",source:").append(getSource());
-        sb.append(",category:").append(getCategory());
+        sb.append(toCsv(","));
         sb.append("}");
         return sb.toString();
     }
 
-    public Aggregator getAggregator() {
-        return new Aggregator(this);
+    public Aggregator getAggregator(long timeBinDuration) {
+        return new Aggregator(this, timeBinDuration);
     }
 }

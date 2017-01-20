@@ -16,8 +16,9 @@ public class DataOperationStatistics extends OperationStatistics {
         public Aggregator() {
         }
 
-        public Aggregator(DataOperationStatistics statistics) {
-            super(statistics);
+        public Aggregator(DataOperationStatistics statistics,
+                long timeBinDuration) {
+            super(statistics, timeBinDuration);
             data += statistics.getData();
         }
 
@@ -30,7 +31,7 @@ public class DataOperationStatistics extends OperationStatistics {
         }
 
         @Override
-        public void aggregate(OperationStatistics.Aggregator aggregator)
+        public Aggregator aggregate(OperationStatistics.Aggregator aggregator)
                 throws NotAggregatableException {
             if (!(aggregator instanceof Aggregator)) {
                 throw new OperationStatistics.Aggregator.NotAggregatableException(
@@ -39,6 +40,8 @@ public class DataOperationStatistics extends OperationStatistics {
             super.aggregate(aggregator);
 
             data += ((Aggregator) aggregator).getData();
+
+            return this;
         }
 
         @Override
@@ -79,27 +82,15 @@ public class DataOperationStatistics extends OperationStatistics {
     }
 
     @Override
-    public String toString() {
+    public String toCsv(String separator) {
         StringBuilder sb = new StringBuilder();
-        sb.append(getClass().getName()).append("{");
-        sb.append("pid:").append(getPid());
-        sb.append(",hostname:").append(getHostname());
-        sb.append(",key:").append(getKey());
-        sb.append(",className:").append(getClassName());
-        sb.append(",name:").append(getName());
-        sb.append(",instance:").append(getInstance());
-        sb.append(",startTime:").append(getStartTime());
-        sb.append(",endTime:").append(getEndTime());
-        sb.append(",duration:").append(getDuration());
-        sb.append(",source:").append(getSource());
-        sb.append(",category:").append(getCategory());
-        sb.append(",data:").append(getData());
-        sb.append("}");
+        sb.append(super.toCsv(separator));
+        sb.append(separator).append("data:").append(getData());
         return sb.toString();
     }
 
     @Override
-    public Aggregator getAggregator() {
-        return new Aggregator(this);
+    public Aggregator getAggregator(long timeBinDuration) {
+        return new Aggregator(this, timeBinDuration);
     }
 }

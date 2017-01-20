@@ -16,8 +16,9 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
         public Aggregator() {
         }
 
-        public Aggregator(ReadDataOperationStatistics statistics) {
-            super(statistics);
+        public Aggregator(ReadDataOperationStatistics statistics,
+                long timeBinDuration) {
+            super(statistics, timeBinDuration);
             if (statistics.isRemote()) {
                 remoteCount = 1;
                 remoteDuration = statistics.getDuration();
@@ -54,7 +55,7 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
         }
 
         @Override
-        public void aggregate(OperationStatistics.Aggregator aggregator)
+        public Aggregator aggregate(OperationStatistics.Aggregator aggregator)
                 throws NotAggregatableException {
             if (!(aggregator instanceof Aggregator)) {
                 throw new OperationStatistics.Aggregator.NotAggregatableException(
@@ -65,6 +66,8 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
             remoteCount += ((Aggregator) aggregator).getRemoteCount();
             remoteDuration += ((Aggregator) aggregator).getRemoteDuration();
             remoteData += ((Aggregator) aggregator).getRemoteData();
+
+            return this;
         }
 
         @Override
@@ -127,29 +130,17 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
     }
 
     @Override
-    public String toString() {
+    public String toCsv(String separator) {
         StringBuilder sb = new StringBuilder();
-        sb.append(getClass().getName()).append("{");
-        sb.append("pid:").append(getPid());
-        sb.append(",hostname:").append(getHostname());
-        sb.append(",key:").append(getKey());
-        sb.append(",className:").append(getClassName());
-        sb.append(",name:").append(getName());
-        sb.append(",instance:").append(getInstance());
-        sb.append(",startTime:").append(getStartTime());
-        sb.append(",endTime:").append(getEndTime());
-        sb.append(",duration:").append(getDuration());
-        sb.append(",source:").append(getSource());
-        sb.append(",category:").append(getCategory());
-        sb.append(",data:").append(getData());
-        sb.append(",remoteHostname:").append(getRemoteHostname());
-        sb.append("}");
+        sb.append(super.toCsv(separator));
+        sb.append(separator).append("remoteHostname:")
+                .append(getRemoteHostname());
         return sb.toString();
     }
 
     @Override
-    public Aggregator getAggregator() {
-        return new Aggregator(this);
+    public Aggregator getAggregator(long timeBinDuration) {
+        return new Aggregator(this, timeBinDuration);
     }
 
 }

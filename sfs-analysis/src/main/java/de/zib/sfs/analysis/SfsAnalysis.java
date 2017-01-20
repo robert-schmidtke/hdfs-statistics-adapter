@@ -7,10 +7,6 @@
  */
 package de.zib.sfs.analysis;
 
-import java.util.HashMap;
-import java.util.Map;
-
-import org.apache.flink.api.common.functions.Partitioner;
 import org.apache.flink.api.common.operators.Order;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.ExecutionEnvironment;
@@ -81,19 +77,6 @@ public class SfsAnalysis {
         final ExecutionEnvironment env = ExecutionEnvironment
                 .getExecutionEnvironment();
 
-        // pre-compute mapping from special keys to partition indices
-        final Map<Long, Integer> partitionsLookup = new HashMap<>();
-        int partition = 0;
-        for (String host : hosts) {
-            for (OperationSource source : OperationSource.values()) {
-                for (OperationCategory category : OperationCategory.values()) {
-                    partitionsLookup.put(OperationStatistics.Aggregator
-                            .computeCustomKey(host, source, category),
-                            partition++);
-                }
-            }
-        }
-
         // Read all input files, each split containing zero or more files, one
         // file per process and per host. Each file contains chronologically
         // ordered log lines for I/O operations, one operation per line.
@@ -116,23 +99,15 @@ public class SfsAnalysis {
                                 timeBinCacheSize))
                 .setParallelism(hosts.length * slotsPerHost);
 
-        // for each host/source/category combination, sort the aggregated
-        // statistics records in ascending time, using the custom key for
-        // looking up the partitions
+        // for each host/pid/key/source/category combination, sort the
+        // aggregated statistics records in ascending time
         DataSet<OperationStatistics.Aggregator> sortedAggregatedOperationStatistics = aggregatedOperationStatistics
-                .groupBy("customKey")
-                .withPartitioner(new Partitioner<Long>() {
-                    private static final long serialVersionUID = 2469900057020811866L;
-
-                    @Override
-                    public int partition(Long key, int numPartitions) {
-                        return partitionsLookup.get(key);
-                    }
-                })
+                .groupBy("hostname", "pid", "key", "source", "category")
                 .sortGroup("startTime", Order.ASCENDING)
                 .reduceGroup(
                         new AggregatedOperationStatisticsAggregator(
-                                timeBinDuration, timeBinCacheSize))
+                                timeBinCacheSize))
+                .withForwardedFields("hostname->hostname")
                 .setParallelism(
                         hosts.length * OperationCategory.values().length
                                 * OperationSource.values().length);

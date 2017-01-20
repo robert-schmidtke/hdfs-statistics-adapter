@@ -25,13 +25,9 @@ public class AggregatedOperationStatisticsAggregator
     private static final Logger LOG = LoggerFactory
             .getLogger(AggregatedOperationStatisticsAggregator.class);
 
-    private final long timeBinDuration;
-
     private final int timeBinCacheSize;
 
-    public AggregatedOperationStatisticsAggregator(long timeBinDuration,
-            int timeBinCacheSize) {
-        this.timeBinDuration = timeBinDuration;
+    public AggregatedOperationStatisticsAggregator(int timeBinCacheSize) {
         this.timeBinCacheSize = timeBinCacheSize;
     }
 
@@ -45,21 +41,21 @@ public class AggregatedOperationStatisticsAggregator
 
         for (OperationStatistics.Aggregator value : values) {
             // get the time bin applicable for this operation
-            long timeBin = value.getStartTime() - value.getStartTime()
-                    % timeBinDuration;
-            OperationStatistics.Aggregator aggregator = aggregators
-                    .get(timeBin);
+            OperationStatistics.Aggregator aggregator = aggregators.get(value
+                    .getTimeBin());
             if (aggregator == null) {
                 // add new bin if we have the space
                 if (aggregators.size() < timeBinCacheSize) {
-                    aggregators.put(timeBin, value);
+                    aggregators.put(value.getTimeBin(), value);
                 } else {
                     LOG.warn(
-                            "Dropping record: {} because it arrived too late, minimum current time is: {}",
-                            value, aggregators.firstKey());
+                            "Dropping record: {} because it arrived too late, current time span is: {} - {}",
+                            value, aggregators.firstKey(),
+                            aggregators.lastKey());
+                    continue;
                 }
             } else {
-                // just aggregate the statistics
+                // aggregate the statistics
                 aggregator.aggregate(value);
             }
 
