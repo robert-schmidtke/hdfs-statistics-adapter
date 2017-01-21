@@ -84,9 +84,9 @@ public class OperationStatisticsAggregator
                     .merge(Tuple4.of(value.getPid(), value.getKey(),
                             value.getSource(), value.getCategory()),
                             aggregator,
-                            (k, v) -> {
+                            (v1, v2) -> {
                                 try {
-                                    return v.aggregate(aggregator);
+                                    return v1.aggregate(v2);
                                 } catch (OperationStatistics.Aggregator.NotAggregatableException e) {
                                     throw new RuntimeException(e);
                                 }
