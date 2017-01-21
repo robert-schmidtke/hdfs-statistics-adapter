@@ -11,14 +11,14 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.apache.flink.api.common.io.RichOutputFormat;
 import org.apache.flink.configuration.Configuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import de.zib.sfs.analysis.statistics.OperationCategory;
-import de.zib.sfs.analysis.statistics.OperationSource;
 import de.zib.sfs.analysis.statistics.OperationStatistics;
 
 public class SfsOutputFormat extends
@@ -29,28 +29,16 @@ public class SfsOutputFormat extends
     private static final Logger LOG = LoggerFactory
             .getLogger(SfsOutputFormat.class);
 
-    private int taskNumber;
-
     private final String path;
 
     private final String separator;
 
-    private BufferedWriter writer;
-
-    private String hostname;
-
-    private int pid;
-
-    private String key;
-
-    private OperationSource source;
-
-    private OperationCategory category;
+    private final Map<String, BufferedWriter> writers;
 
     public SfsOutputFormat(String path, String separator) {
         this.path = path;
         this.separator = separator;
-        taskNumber = -1;
+        writers = new HashMap<>();
     }
 
     @Override
@@ -59,68 +47,32 @@ public class SfsOutputFormat extends
 
     @Override
     public void open(int taskNumber, int numTasks) throws IOException {
-        if (this.taskNumber != -1) {
-            throw new IllegalStateException(
-                    "This output is already/still open for task"
-                            + this.taskNumber);
-        }
-
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("Opening output for task {} / {}.", taskNumber, numTasks);
-        }
-        this.taskNumber = taskNumber;
     }
 
     @Override
     public void writeRecord(OperationStatistics.Aggregator record)
             throws IOException {
-        // lazily open file to correctly construct the file name, assuming all
-        // incoming records have the same hostname, pid, key, source and
-        // category
-        if (writer == null) {
-            hostname = record.getHostname();
-            pid = record.getPid();
-            key = record.getKey();
-            source = record.getSource();
-            category = record.getCategory();
+        // construct target filename
+        String filename = record.getHostname() + "." + record.getPid() + "."
+                + record.getKey() + "."
+                + record.getSource().name().toLowerCase() + "."
+                + record.getCategory().name().toLowerCase() + ".csv";
 
-            File out = new File(path, hostname + "." + pid + "." + key + "."
-                    + source.name().toLowerCase() + "."
-                    + category.name().toLowerCase() + ".csv");
+        // construct writer, make sure to print the CSV headers on first write
+        BufferedWriter writer = writers.computeIfAbsent(filename, k -> {
             if (LOG.isDebugEnabled()) {
-                LOG.debug("Opening file {} for writing", out);
+                LOG.debug("Opening file {} for writing", k);
             }
-            writer = new BufferedWriter(new FileWriter(out));
 
-            // write the CSV headers
-            writer.write(record.getCsvHeaders(separator));
-            writer.newLine();
-        }
-
-        if (!hostname.equals(record.getHostname())) {
-            throw new IllegalArgumentException("Hostnames do not match: "
-                    + hostname + ", " + record.getHostname());
-        }
-
-        if (pid != record.getPid()) {
-            throw new IllegalArgumentException("Pids do not match: " + pid
-                    + ", " + record.getPid());
-        }
-
-        if (!key.equals(record.getKey())) {
-            throw new IllegalArgumentException("Keys do not match: " + key
-                    + ", " + record.getKey());
-        }
-
-        if (!source.equals(record.getSource())) {
-            throw new IllegalArgumentException("Sources do not match: "
-                    + source + ", " + record.getSource());
-        }
-
-        if (!category.equals(record.getCategory())) {
-            throw new IllegalArgumentException("Categories do not match: "
-                    + category + ", " + record.getCategory());
-        }
+            try {
+                BufferedWriter w = new BufferedWriter(new FileWriter(new File(
+                        path, filename)));
+                w.write(record.getCsvHeaders(separator));
+                return w;
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
 
         // write the actual record
         writer.write(record.toCsv(separator));
@@ -129,19 +81,17 @@ public class SfsOutputFormat extends
 
     @Override
     public void close() throws IOException {
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("Closing output for task {}.", taskNumber);
-        }
-        taskNumber = -1;
+        // close all open writers
+        writers.forEach((k, v) -> {
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Closing file {}", k);
+            }
 
-        if (writer != null) {
-            writer.close();
-            writer = null;
-        }
-        hostname = null;
-        pid = -1;
-        key = null;
-        source = null;
-        category = null;
+            try {
+                v.close();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
     }
 }

@@ -105,7 +105,7 @@ public class SfsAnalysis {
                                 timeBinCacheSize))
                 .withForwardedFields("hostname->hostname");
 
-        // write the output (one file per host, source and category)
+        // write the output (one file per host, pid, key, source and category)
         sortedAggregatedOperationStatistics.output(new SfsOutputFormat(
                 outputPath, ","));
 
