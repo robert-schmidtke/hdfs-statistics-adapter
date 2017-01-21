@@ -50,16 +50,21 @@ echo "$(date): Stopping NameNode."
 pidfile=/local/$HDFS_LOCAL_DIR/namenode-$(hostname).pid
 if [ -f $pidfile ]; then
   pid=`cat $pidfile`
-  if [ -e /proc/$pid ]; then
+  if kill -0 $pid > /dev/null 2>&1; then
+    echo "Killing NameNode $pid"
     kill $pid
-    echo "$(date): Waiting for process $pid to stop after kill: $?"
-    while [ -e /proc/$pid ]; do sleep 1s; done
-    echo "$(date): Process $pid stopped"
+    sleep 10s
+    if kill -0 $pid > /dev/null 2>&1; then
+      echo "NameNode $pid is still alive, killing with -9"
+      kill -9 $pid
+    fi
+  else
+    echo "NameNode $pid is not running"
   fi
   rm $pidfile
   cp /local/$HDFS_LOCAL_LOG_DIR/namenode-$(hostname).log $HADOOP_PREFIX/log-$SLURM_JOB_ID/namenode-$(hostname).log
 else
-  echo "PID file $pidfile does not exist."
+  echo "NameNode PID file $pidfile does not exist."
 fi
 echo "Stopping NameNode done."
 
@@ -73,13 +78,16 @@ for datanode in ${HADOOP_DATANODES[@]}; do
 pidfile=/local/$HDFS_LOCAL_DIR/datanode-$datanode.pid
 if [ -f \$pidfile ]; then
   pid=\$(cat \$pidfile)
-  if [ -e /proc/\$pid ]; then
+  if kill -0 \$pid > /dev/null 2>&1; then
+    echo "Killing DataNode \$pid"
     kill \$pid
-    echo "\$(date): Waiting for process \$pid to stop after kill: \$?"
-    while [ -e /proc/\$pid ]; do sleep 1s; done
-    echo "\$(date): Process \$pid stopped"
+    sleep 10s
+    if kill -0 \$pid > /dev/null 2>&1; then
+      echo "DataNode \$pid is still alive, killing with -9"
+      kill -9 \$pid
+    fi
   else
-    echo "DataNode PID \$pid does not exist"
+    echo "DataNode \$pid is not running"
   fi
   rm \$pidfile
   cp /local/$HDFS_LOCAL_LOG_DIR/datanode-$datanode.log $HADOOP_PREFIX/log-$SLURM_JOB_ID/datanode-$datanode.log
@@ -103,11 +111,16 @@ echo "$(date): Stopping ResourceManager."
 pidfile=/local/$HDFS_LOCAL_DIR/resourcemanager-$(hostname).pid
 if [ -f $pidfile ]; then
   pid=`cat $pidfile`
-  if [ -e /proc/$pid ]; then
+  if kill -0 $pid > /dev/null 2>&1; then
+    echo "Killing ResourceManager $pid"
     kill $pid
-    echo "$(date): Waiting for process $pid to stop after kill: $?"
-    while [ -e /proc/$pid ]; do sleep 1s; done
-    echo "$(date): Process $pid stopped"
+    sleep 10s
+    if kill -0 $pid > /dev/null 2>&1; then
+      echo "ResourceManager $pid is still alive, killing with -9"
+      kill -9 $pid
+    fi
+  else
+    echo "ResourceManager $pid is not running"
   fi
   rm $pidfile
   cp /local/$HDFS_LOCAL_LOG_DIR/resourcemanager-$(hostname).log $HADOOP_PREFIX/log-$SLURM_JOB_ID/resourcemanager-$(hostname).log
@@ -120,11 +133,16 @@ echo "$(date): Stopping JobHistory Server."
 pidfile=/local/$HDFS_LOCAL_DIR/jobhistory_server-$(hostname).pid
 if [ -f $pidfile ]; then
   pid=`cat $pidfile`
-  if [ -e /proc/$pid ]; then
+  if kill -0 $pid > /dev/null 2>&1; then
+    echo "Killing JobHistory Server $pid"
     kill $pid
-    echo "$(date): Waiting for process $pid to stop after kill: $?"
-    while [ -e /proc/$pid ]; do sleep 1s; done
-    echo "$(date): Process $pid stopped"
+    sleep 10s
+    if kill -0 $pid > /dev/null 2>&1; then
+      echo "JobHistory Server $pid is still alive, killing with -9"
+      kill -9 $pid
+    fi
+  else
+    echo "JobHistory Server $pid is not running"
   fi
   rm $pidfile
   cp /local/$HDFS_LOCAL_LOG_DIR/jobhistory_server-$(hostname).log $HADOOP_PREFIX/log-$SLURM_JOB_ID/jobhistory_server-$(hostname).log
@@ -143,11 +161,16 @@ for datanode in ${HADOOP_DATANODES[@]}; do
 pidfile=/local/$HDFS_LOCAL_DIR/nodemanager-$datanode.pid
 if [ -f \$pidfile ]; then
   pid=\$(cat \$pidfile)
-  if [ -e /proc/\$pid ]; then
+  if kill -0 \$pid > /dev/null 2>&1; then
+    echo "Killing NodeManager \$pid"
     kill \$pid
-    echo "\$(date): Waiting for process \$pid to stop after kill: \$?"
-    while [ -e /proc/\$pid ]; do sleep 1s; done
-    echo "\$(date): Process \$pid stopped"
+    sleep 10s
+    if kill -0 \$pid > /dev/null 2>&1; then
+      echo "NodeManager \$pid is still alive, killing with -9"
+      kill -9 \$pid
+    fi
+  else
+    echo "NodeManager \$pid is not running"
   fi
   rm \$pidfile
   cp /local/$HDFS_LOCAL_LOG_DIR/nodemanager-$datanode.log $HADOOP_PREFIX/log-$SLURM_JOB_ID/nodemanager-$datanode.log
