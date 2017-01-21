@@ -66,7 +66,7 @@ public class SfsOutputFormat extends
         }
 
         if (LOG.isDebugEnabled()) {
-            LOG.debug("Opening output for task {} / {}.");
+            LOG.debug("Opening output for task {} / {}.", taskNumber, numTasks);
         }
         this.taskNumber = taskNumber;
     }
