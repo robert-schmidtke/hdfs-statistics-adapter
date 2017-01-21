@@ -29,6 +29,8 @@ public class SfsOutputFormat extends
     private static final Logger LOG = LoggerFactory
             .getLogger(SfsOutputFormat.class);
 
+    private int taskNumber;
+
     private final String path;
 
     private final String separator;
@@ -48,6 +50,7 @@ public class SfsOutputFormat extends
     public SfsOutputFormat(String path, String separator) {
         this.path = path;
         this.separator = separator;
+        taskNumber = -1;
     }
 
     @Override
@@ -56,6 +59,16 @@ public class SfsOutputFormat extends
 
     @Override
     public void open(int taskNumber, int numTasks) throws IOException {
+        if (this.taskNumber != -1) {
+            throw new IllegalStateException(
+                    "This output is already/still open for task"
+                            + this.taskNumber);
+        }
+
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Opening output for task {} / {}.");
+        }
+        this.taskNumber = taskNumber;
     }
 
     @Override
@@ -116,6 +129,11 @@ public class SfsOutputFormat extends
 
     @Override
     public void close() throws IOException {
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Closing output for task {}.", taskNumber);
+        }
+        taskNumber = -1;
+
         if (writer != null) {
             writer.close();
             writer = null;
@@ -126,5 +144,4 @@ public class SfsOutputFormat extends
         source = null;
         category = null;
     }
-
 }
