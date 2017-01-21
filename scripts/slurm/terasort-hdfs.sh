@@ -290,6 +290,7 @@ EOF
     --timeBinDuration 1000 \
     --timeBinCacheSize 30
 #    --printExecutionPlanOnly true
+  RET_CODE=$?
   echo "$(date): Running Analysis done"
 
   echo "$(date): Stopping Flink cluster"
@@ -319,9 +320,15 @@ srun ./copy-logs.sh
 rm copy-logs.sh
 echo "$(date): Copying logs done"
 
-echo "$(date): Cleaning local directories"
-srun -N$SLURM_JOB_NUM_NODES rm -rf /local/$USER/hdfs
-srun -N$SLURM_JOB_NUM_NODES rm -rf /local/$USER/sfs
-srun -N$SLURM_JOB_NUM_NODES rm -rf /local/$USER/flink
-srun -N$SLURM_JOB_NUM_NODES rm -rf /tmp/*
-echo "$(date): Cleaning local directories done"
+if [ "$RET_CODE" -eq "0" ]; then
+  echo "$(date): Cleaning local directories"
+  srun -N$SLURM_JOB_NUM_NODES rm -rf /local/$USER/hdfs
+  srun -N$SLURM_JOB_NUM_NODES rm -rf /local/$USER/sfs
+  srun -N$SLURM_JOB_NUM_NODES rm -rf /local/$USER/flink
+  srun -N$SLURM_JOB_NUM_NODES rm -rf /tmp/*
+  echo "$(date): Cleaning local directories done"
+else
+  echo "$(date): Some task did not run successfully, not cleaning local directories."
+fi
+
+echo "$(date): Done."
