@@ -121,6 +121,8 @@ public class SfsOutputFormat extends
             writer = null;
         }
         hostname = null;
+        pid = -1;
+        key = null;
         source = null;
         category = null;
     }

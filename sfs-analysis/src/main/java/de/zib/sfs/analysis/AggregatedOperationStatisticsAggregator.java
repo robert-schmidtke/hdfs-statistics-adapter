@@ -39,7 +39,40 @@ public class AggregatedOperationStatisticsAggregator
         // arrivals of OperationStatistics
         TreeMap<Long, OperationStatistics.Aggregator> aggregators = new TreeMap<>();
 
+        OperationStatistics.Aggregator first = null;
         for (OperationStatistics.Aggregator value : values) {
+            if (first == null) {
+                first = value;
+            } else {
+                if (!first.getHostname().equals(value.getHostname())) {
+                    throw new IllegalStateException("Unexpected hostname "
+                            + value.getHostname() + ", expected "
+                            + first.getHostname());
+                }
+
+                if (first.getPid() != value.getPid()) {
+                    throw new IllegalStateException("Unexpected pid "
+                            + value.getPid() + ", expected " + first.getPid());
+                }
+
+                if (!first.getKey().equals(value.getKey())) {
+                    throw new IllegalStateException("Unexpected key "
+                            + value.getKey() + ", expected " + first.getKey());
+                }
+
+                if (!first.getSource().equals(value.getSource())) {
+                    throw new IllegalStateException("Unexpected source "
+                            + value.getSource() + ", expected "
+                            + first.getSource());
+                }
+
+                if (!first.getCategory().equals(value.getCategory())) {
+                    throw new IllegalStateException("Unexpected category "
+                            + value.getCategory() + ", expected "
+                            + first.getCategory());
+                }
+            }
+
             // get the time bin applicable for this operation
             OperationStatistics.Aggregator aggregator = aggregators.get(value
                     .getTimeBin());
