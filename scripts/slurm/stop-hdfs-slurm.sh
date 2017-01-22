@@ -50,14 +50,19 @@ echo "$(date): Stopping NameNode."
 pidfile=/local/$HDFS_LOCAL_DIR/namenode-$(hostname).pid
 if [ -f $pidfile ]; then
   pid=`cat $pidfile`
-  if kill -0 $pid > /dev/null 2>&1; then
-    echo "Killing NameNode $pid"
-    kill $pid
-    sleep 10s
-    if kill -0 $pid > /dev/null 2>&1; then
-      echo "NameNode $pid is still alive, killing with -9"
-      kill -9 $pid
-    fi
+  if [ kill -0 $pid > /dev/null 2>&1 ]; then
+    received_signal=1
+    while [ "$received_signal" -eq "1" ]; do
+      echo "Sending SIGTERM to NameNode $pid"
+      kill $pid
+      sleep 5s
+      grep "RECEIVED SIGNAL 15: SIGTERM" /local/$HDFS_LOCAL_LOG_DIR/namenode-$(hostname).log > /dev/null 2>&1
+      received_signal=$?
+    done
+
+    echo "Waiting for NameNode $pid to shut down"
+    while [ -e /proc/$pid ]; do sleep 1s; done
+    echo "NameNode $pid shut down"
   else
     echo "NameNode $pid is not running"
   fi
@@ -78,14 +83,19 @@ for datanode in ${HADOOP_DATANODES[@]}; do
 pidfile=/local/$HDFS_LOCAL_DIR/datanode-$datanode.pid
 if [ -f \$pidfile ]; then
   pid=\$(cat \$pidfile)
-  if kill -0 \$pid > /dev/null 2>&1; then
-    echo "Killing DataNode \$pid"
-    kill \$pid
-    sleep 10s
-    if kill -0 \$pid > /dev/null 2>&1; then
-      echo "DataNode \$pid is still alive, killing with -9"
-      kill -9 \$pid
-    fi
+  if [ kill -0 \$pid > /dev/null 2>&1 ]; then
+    received_signal=1
+    while [ "\$received_signal" -eq "1" ]; do
+      echo "Sending SIGTERM to DataNode \$pid"
+      kill \$pid
+      sleep 5s
+      grep "RECEIVED SIGNAL 15: SIGTERM" /local/$HDFS_LOCAL_LOG_DIR/datanode-\$(hostname).log > /dev/null 2>&1
+      received_signal=\$?
+    done
+
+    echo "Waiting for DataNode \$pid to shut down"
+    while [ -e /proc/\$pid ]; do sleep 1s; done
+    echo "DataNode \$pid shut down"
   else
     echo "DataNode \$pid is not running"
   fi
@@ -111,14 +121,19 @@ echo "$(date): Stopping ResourceManager."
 pidfile=/local/$HDFS_LOCAL_DIR/resourcemanager-$(hostname).pid
 if [ -f $pidfile ]; then
   pid=`cat $pidfile`
-  if kill -0 $pid > /dev/null 2>&1; then
-    echo "Killing ResourceManager $pid"
-    kill $pid
-    sleep 10s
-    if kill -0 $pid > /dev/null 2>&1; then
-      echo "ResourceManager $pid is still alive, killing with -9"
-      kill -9 $pid
-    fi
+  if [ kill -0 $pid > /dev/null 2>&1 ]; then
+    received_signal=1
+    while [ "$received_signal" -eq "1" ]; do
+      echo "Sending SIGTERM to ResourceManager $pid"
+      kill $pid
+      sleep 5s
+      grep "RECEIVED SIGNAL 15: SIGTERM" /local/$HDFS_LOCAL_LOG_DIR/resourcemanager-$(hostname).log > /dev/null 2>&1
+      received_signal=$?
+    done
+
+    echo "Waiting for ResourceManager $pid to shut down"
+    while [ -e /proc/$pid ]; do sleep 1s; done
+    echo "ResourceManager $pid shut down"
   else
     echo "ResourceManager $pid is not running"
   fi
@@ -133,14 +148,19 @@ echo "$(date): Stopping JobHistory Server."
 pidfile=/local/$HDFS_LOCAL_DIR/jobhistory_server-$(hostname).pid
 if [ -f $pidfile ]; then
   pid=`cat $pidfile`
-  if kill -0 $pid > /dev/null 2>&1; then
-    echo "Killing JobHistory Server $pid"
-    kill $pid
-    sleep 10s
-    if kill -0 $pid > /dev/null 2>&1; then
-      echo "JobHistory Server $pid is still alive, killing with -9"
-      kill -9 $pid
-    fi
+  if [ kill -0 $pid > /dev/null 2>&1 ]; then
+    received_signal=1
+    while [ "$received_signal" -eq "1" ]; do
+      echo "Sending SIGTERM to JobHistory Server $pid"
+      kill $pid
+      sleep 5s
+      grep "RECEIVED SIGNAL 15: SIGTERM" /local/$HDFS_LOCAL_LOG_DIR/jobhistory_server-$(hostname).log > /dev/null 2>&1
+      received_signal=$?
+    done
+
+    echo "Waiting for JobHistory Server $pid to shut down"
+    while [ -e /proc/$pid ]; do sleep 1s; done
+    echo "JobHistory Server $pid shut down"
   else
     echo "JobHistory Server $pid is not running"
   fi
@@ -161,14 +181,19 @@ for datanode in ${HADOOP_DATANODES[@]}; do
 pidfile=/local/$HDFS_LOCAL_DIR/nodemanager-$datanode.pid
 if [ -f \$pidfile ]; then
   pid=\$(cat \$pidfile)
-  if kill -0 \$pid > /dev/null 2>&1; then
-    echo "Killing NodeManager \$pid"
-    kill \$pid
-    sleep 10s
-    if kill -0 \$pid > /dev/null 2>&1; then
-      echo "NodeManager \$pid is still alive, killing with -9"
-      kill -9 \$pid
-    fi
+  if [ kill -0 \$pid > /dev/null 2>&1 ]; then
+    received_signal=1
+    while [ "\$received_signal" -eq "1" ]; do
+      echo "Sending SIGTERM to NodeManager \$pid"
+      kill \$pid
+      sleep 5s
+      grep "RECEIVED SIGNAL 15: SIGTERM" /local/$HDFS_LOCAL_LOG_DIR/nodemanager-\$(hostname).log > /dev/null 2>&1
+      received_signal=\$?
+    done
+
+    echo "Waiting for NodeManager \$pid to shut down"
+    while [ -e /proc/\$pid ]; do sleep 1s; done
+    echo "NodeManager \$pid shut down"
   else
     echo "NodeManager \$pid is not running"
   fi
