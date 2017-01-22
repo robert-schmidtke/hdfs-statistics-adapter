@@ -224,7 +224,7 @@ case $ENGINE in
     ;;
 esac
 RET_CODE=$?
-echo "$(date): Running TeraSort done: $?"
+echo "$(date): Running TeraSort done: $RET_CODE"
 
 echo "$(date): Stopping HDFS"
 cp ./stop-hdfs-slurm.sh $HADOOP_HOME/sbin
