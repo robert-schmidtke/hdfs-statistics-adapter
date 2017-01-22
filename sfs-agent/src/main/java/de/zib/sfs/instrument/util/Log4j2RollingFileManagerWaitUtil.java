@@ -34,7 +34,7 @@ public class Log4j2RollingFileManagerWaitUtil {
             Thread[] activeThreads = new Thread[threadGroup.activeCount()];
             threadGroup.enumerate(activeThreads);
 
-            // find Log4j2 RollingFileAppender threads and wait for them
+            // find Log4j2 RollingFileManager threads and wait for them
             for (Thread thread : activeThreads) {
                 String threadName = thread.getName();
                 if (THREAD_NAME_PATTERN.matcher(threadName).matches()) {
