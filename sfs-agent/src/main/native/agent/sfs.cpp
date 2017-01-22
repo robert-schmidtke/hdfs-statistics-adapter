@@ -143,6 +143,9 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
   jvmti_result = jvmti->SetEventNotificationMode(
       JVMTI_ENABLE, JVMTI_EVENT_VM_INIT, (jthread)NULL);
   CHECK_JVMTI_RESULT("SetEventNotificationMode(VMInit)", jvmti_result);
+  jvmti_result = jvmti->SetEventNotificationMode(
+      JVMTI_ENABLE, JVMTI_EVENT_VM_DEATH, (jthread)NULL);
+  CHECK_JVMTI_RESULT("SetEventNotificationMode(VMDeath)", jvmti_result);
 
   // create a log file name for this JVM
   g_log_file_name = cli_options.log_file_name + "." + std::to_string(getpid());
