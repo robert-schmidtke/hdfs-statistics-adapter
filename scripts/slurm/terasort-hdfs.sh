@@ -164,8 +164,8 @@ EOF
     ;;
   spark)
     echo "$(date): Configuring Spark for TeraSort"
-    cp $SPARK_HOME/conf/spark-defaults.conf.template $SPARK_HOME/spark-defaults.conf
-    sed -i "/^# spark\.executor\.extraJavaOptions/c\spark.executor.extraJavaOptions $OPTS,log_file_name=/local/$USER/sfs/sfs.log.spark.executor,key=executor"
+    cp $SPARK_HOME/conf/spark-defaults.conf.template $SPARK_HOME/conf/spark-defaults.conf
+    sed -i "/^# spark\.executor\.extraJavaOptions/c\spark.executor.extraJavaOptions $OPTS,log_file_name=/local/$USER/sfs/sfs.log.spark.executor,key=executor" $SPARK_HOME/conf/spark-defaults.conf
     cat >> $SPARK_HOME/conf/spark-defaults.conf << EOF
 spark.driver.extraJavaOptions $OPTS,log_file_name=/local/$USER/sfs/sfs.log.spark.driver,key=driver
 EOF
