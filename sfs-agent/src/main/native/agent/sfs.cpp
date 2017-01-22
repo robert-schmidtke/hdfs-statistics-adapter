@@ -440,7 +440,7 @@ static void JNICALL VMDeathCallback(jvmtiEnv *jvmti_env, JNIEnv *jni_env) {
   jclass log_manager_class =
       jni_env->FindClass("org/apache/logging/log4j/LogManager");
   jmethodID shutdown_method_id =
-      jni_env->GetStaticMethodID(log_manager_class, "shutdown", "()V;");
+      jni_env->GetStaticMethodID(log_manager_class, "shutdown", "()V");
   jni_env->CallStaticVoidMethod(log_manager_class, shutdown_method_id);
 
   LOG_VERBOSE("VM shut down successfully.\n");
