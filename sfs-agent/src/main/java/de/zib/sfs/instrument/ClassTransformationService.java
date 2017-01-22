@@ -13,6 +13,8 @@ import java.util.Random;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import de.zib.sfs.instrument.util.LogUtil;
+
 public class ClassTransformationService {
 
     public static void main(String args[]) {

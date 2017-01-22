@@ -443,6 +443,19 @@ static void JNICALL VMDeathCallback(jvmtiEnv *jvmti_env, JNIEnv *jni_env) {
       jni_env->GetStaticMethodID(log_manager_class, "shutdown", "()V");
   jni_env->CallStaticVoidMethod(log_manager_class, shutdown_method_id);
 
+  // Log4j2 might be compressing some logs in the background, even after the
+  // blocking shutdown has returned. Use custom utility to wait for those
+  // threads.
+  LOG_VERBOSE("Waiting for RollingFileAppender threads.");
+  jclass log4j2_rolling_file_manager_wait_util_class = jni_env->FindClass(
+      "de/zib/sfs/instrument/util/Log4j2RollingFileManagerWaitUtil");
+  jmethodID wait_for_rolling_file_manager_method_id =
+      jni_env->GetStaticMethodID(log4j2_rolling_file_manager_wait_util_class,
+                                 "waitForRollingFileManager", "(Z)V");
+  jni_env->CallStaticVoidMethod(log4j2_rolling_file_manager_wait_util_class,
+                                wait_for_rolling_file_manager_method_id,
+                                (jboolean)g_verbose);
+
   LOG_VERBOSE("VM shut down successfully.\n");
 }
 

@@ -5,7 +5,7 @@
  * Licensed under the BSD License, see LICENSE file for details.
  *
  */
-package de.zib.sfs.instrument;
+package de.zib.sfs.instrument.util;
 
 public class LogUtil {
 
