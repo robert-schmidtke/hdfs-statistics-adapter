@@ -50,7 +50,7 @@ echo "$(date): Stopping NameNode."
 pidfile=/local/$HDFS_LOCAL_DIR/namenode-$(hostname).pid
 if [ -f $pidfile ]; then
   pid=`cat $pidfile`
-  if [ kill -0 $pid > /dev/null 2>&1 ]; then
+  if kill -0 $pid > /dev/null 2>&1; then
     received_signal=1
     while [ "$received_signal" -eq "1" ]; do
       echo "Sending SIGTERM to NameNode $pid"
@@ -83,7 +83,7 @@ for datanode in ${HADOOP_DATANODES[@]}; do
 pidfile=/local/$HDFS_LOCAL_DIR/datanode-$datanode.pid
 if [ -f \$pidfile ]; then
   pid=\$(cat \$pidfile)
-  if [ kill -0 \$pid > /dev/null 2>&1 ]; then
+  if kill -0 \$pid > /dev/null 2>&1; then
     received_signal=1
     while [ "\$received_signal" -eq "1" ]; do
       echo "Sending SIGTERM to DataNode \$pid"
@@ -121,7 +121,7 @@ echo "$(date): Stopping ResourceManager."
 pidfile=/local/$HDFS_LOCAL_DIR/resourcemanager-$(hostname).pid
 if [ -f $pidfile ]; then
   pid=`cat $pidfile`
-  if [ kill -0 $pid > /dev/null 2>&1 ]; then
+  if kill -0 $pid > /dev/null 2>&1; then
     received_signal=1
     while [ "$received_signal" -eq "1" ]; do
       echo "Sending SIGTERM to ResourceManager $pid"
@@ -148,7 +148,7 @@ echo "$(date): Stopping JobHistory Server."
 pidfile=/local/$HDFS_LOCAL_DIR/jobhistory_server-$(hostname).pid
 if [ -f $pidfile ]; then
   pid=`cat $pidfile`
-  if [ kill -0 $pid > /dev/null 2>&1 ]; then
+  if kill -0 $pid > /dev/null 2>&1; then
     received_signal=1
     while [ "$received_signal" -eq "1" ]; do
       echo "Sending SIGTERM to JobHistory Server $pid"
@@ -181,7 +181,7 @@ for datanode in ${HADOOP_DATANODES[@]}; do
 pidfile=/local/$HDFS_LOCAL_DIR/nodemanager-$datanode.pid
 if [ -f \$pidfile ]; then
   pid=\$(cat \$pidfile)
-  if [ kill -0 \$pid > /dev/null 2>&1 ]; then
+  if kill -0 \$pid > /dev/null 2>&1; then
     received_signal=1
     while [ "\$received_signal" -eq "1" ]; do
       echo "Sending SIGTERM to NodeManager \$pid"
