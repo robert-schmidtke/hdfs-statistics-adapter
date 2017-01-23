@@ -68,6 +68,7 @@ public class SfsOutputFormat extends
                 BufferedWriter w = new BufferedWriter(new FileWriter(new File(
                         path, filename)));
                 w.write(record.getCsvHeaders(separator));
+                w.newLine();
                 return w;
             } catch (IOException e) {
                 throw new RuntimeException(e);
