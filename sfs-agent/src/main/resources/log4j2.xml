@@ -7,7 +7,7 @@
     <RollingRandomAccessFile
       name="AsyncRandomAccessFile"
       fileName="${sys:de.zib.sfs.logFile.name}"
-      filePattern="${sys:de.zib.sfs.logFile.name}.%i.gz"
+      filePattern="${sys:de.zib.sfs.logFile.name}.%i"
       append="true"
       immediateFlush="false">
       <PatternLayout pattern="${sys:de.zib.sfs.pid}@${sys:de.zib.sfs.hostname}:${sys:de.zib.sfs.key}:%message%n" />

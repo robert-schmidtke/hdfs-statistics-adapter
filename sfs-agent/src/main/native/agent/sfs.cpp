@@ -435,17 +435,13 @@ static void JNICALL VMInitCallback(jvmtiEnv *jvmti_env, JNIEnv *jni_env,
 static void JNICALL VMDeathCallback(jvmtiEnv *jvmti_env, JNIEnv *jni_env) {
   LOG_VERBOSE("Shutting down VM.\n");
 
-  // Log4j2 might be compressing some logs in the background, use custom utility
-  // to shut down Log4j2 with a large enough timeout to prevent background
-  // compression threads from being killed.
-  LOG_VERBOSE("Waiting for RollingFileManager threads.\n");
-  jclass log4j2_blocking_shutdown_util_class = jni_env->FindClass(
-      "de/zib/sfs/instrument/util/Log4j2BlockingShutdownUtil");
-  jmethodID shutdown_log4j27_method_id = jni_env->GetStaticMethodID(
-      log4j2_blocking_shutdown_util_class, "shutdownLog4j27", "(Z)V");
-  jni_env->CallStaticVoidMethod(log4j2_blocking_shutdown_util_class,
-                                shutdown_log4j27_method_id,
-                                (jboolean)g_verbose);
+  // properly shut down Log4j2 so all logs are flushed
+  LOG_VERBOSE("Shutting down Log4j2.\n");
+  jclass log_manager_class =
+      jni_env->FindClass("org/apache/logging/log4j/LogManager");
+  jmethodID shutdown_method_id =
+      jni_env->GetStaticMethodID(log_manager_class, "shutdown", "()V");
+  jni_env->CallStaticVoidMethod(log_manager_class, shutdown_method_id);
 
   LOG_VERBOSE("VM shut down successfully.\n");
 }
