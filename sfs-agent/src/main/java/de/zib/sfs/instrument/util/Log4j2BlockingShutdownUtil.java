@@ -49,12 +49,19 @@ public class Log4j2BlockingShutdownUtil {
 
                 long startTime = System.currentTimeMillis();
                 if (lc.stop(600, TimeUnit.SECONDS)) {
-                    LogUtil.stderr("Logger '%s' stopped after %d seconds.\n",
+                    LogUtil.stderr(
+                            "Logger context '%s' stopped successfully after %d seconds.\n",
                             (System.currentTimeMillis() - startTime) / 1000L);
                 } else {
-                    LogUtil.stderr(
-                            "Stopping Logger '%s' timed out after %d seconds.\n",
-                            (System.currentTimeMillis() - startTime) / 1000L);
+                    if (Thread.currentThread().isInterrupted()) {
+                        LogUtil.stderr(
+                                "Interrupted while stopping logger context '%s' after %d seconds.\n",
+                                (System.currentTimeMillis() - startTime) / 1000L);
+                    } else {
+                        LogUtil.stderr(
+                                "Stopping logger context '%s' timed out after %d seconds.\n",
+                                (System.currentTimeMillis() - startTime) / 1000L);
+                    }
                 }
             } else {
                 LogUtil.stderr("Logger context '%s' cannot be stopped.\n",
