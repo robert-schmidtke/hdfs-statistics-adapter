@@ -137,11 +137,15 @@ case $ENGINE in
     ;;
 esac
 
+# get all configured datanodes
+HADOOP_DATANODES=()
+while IFS= read -r datanode; do HADOOP_DATANODES=(${HADOOP_DATANODES[@]} $datanode); done < $HADOOP_HOME/etc/hadoop/slaves
+
 # wait until all datanodes are connected
 CONNECTED_DATANODES=0
-while [ $CONNECTED_DATANODES -lt ${#NODES[@]} ]; do
+while [ $CONNECTED_DATANODES -lt ${#HADOOP_DATANODES[@]} ]; do
   CONNECTED_DATANODES=$(srun --nodelist=$MASTER --nodes=1-1 grep -E "processReport: from storage [[:alnum:]\-]+ node DatanodeRegistration" /local/$HDFS_LOCAL_LOG_DIR/namenode-$MASTER.log | wc -l)
-  echo "$CONNECTED_DATANODES of ${#NODES[@]} DataNodes connected ..."
+  echo "$CONNECTED_DATANODES of ${#HADOOP_DATANODES[@]} DataNodes connected ..."
   sleep 1s
 done
 echo "$(date): Starting HDFS done"
@@ -153,7 +157,7 @@ case $ENGINE in
   flink)
     echo "$(date): Configuring Flink for TeraSort"
     cp $FLINK_HOME/conf/flink-conf.yaml.template $FLINK_HOME/conf/flink-conf.yaml
-    sed -i "/^# taskmanager\.network\.numberOfBuffers/c\taskmanager.network.numberOfBuffers: $(($TASK_SLOTS * $TASK_SLOTS * ${#NODES[@]} * 4))" $FLINK_HOME/conf/flink-conf.yaml
+    sed -i "/^# taskmanager\.network\.numberOfBuffers/c\taskmanager.network.numberOfBuffers: $(($TASK_SLOTS * $TASK_SLOTS * ${#HADOOP_DATANODES[@]} * 4))" $FLINK_HOME/conf/flink-conf.yaml
     sed -i "/^# fs\.hdfs\.hadoopconf/c\fs.hdfs.hadoopconf: $HADOOP_HOME/etc/hadoop" $FLINK_HOME/conf/flink-conf.yaml
     cat >> $FLINK_HOME/conf/flink-conf.yaml << EOF
 blob.storage.directory: /local/$USER/flink
@@ -184,7 +188,7 @@ rm -rf $SFS_TARGET_DIRECTORY/*
 echo "$(date): Generating TeraSort data on HDFS"
 $HADOOP_HOME/bin/hadoop jar \
   $HADOOP_HOME/share/hadoop/mapreduce/hadoop-mapreduce-examples-${HADOOP_VERSION}.jar teragen \
-  -Dmapreduce.job.maps=$((${#NODES[@]} * ${TASK_SLOTS})) \
+  -Dmapreduce.job.maps=$((${#HADOOP_DATANODES[@]} * ${TASK_SLOTS})) \
   10995116277 hdfs://$MASTER:8020/user/$USER/input
 echo "$(date): Generating TeraSort data on HDFS done"
 
@@ -195,31 +199,31 @@ case $ENGINE in
   flink)
     $FLINK_HOME/bin/flink run \
       --jobmanager yarn-cluster \
-      --yarncontainer ${#NODES[@]} \
+      --yarncontainer ${#HADOOP_DATANODES[@]} \
       --yarnslots $TASK_SLOTS \
       --yarnjobManagerMemory $JOBMANAGER_MEMORY \
       --yarntaskManagerMemory $TASKMANAGER_MEMORY \
       --class eastcircle.terasort.FlinkTeraSort \
-      --parallelism $((${#NODES[@]} * $TASK_SLOTS)) \
+      --parallelism $((${#HADOOP_DATANODES[@]} * $TASK_SLOTS)) \
       $TERASORT_DIRECTORY/target/scala-2.10/terasort_2.10-0.0.1.jar \
-      sfs://$MASTER:8020 /user/$USER/input /user/$USER/output $((${#NODES[@]} * $TASK_SLOTS))
+      sfs://$MASTER:8020 /user/$USER/input /user/$USER/output $((${#HADOOP_DATANODES[@]} * $TASK_SLOTS))
     ;;
   spark)
     $SPARK_HOME/bin/spark-submit \
       --master yarn \
       --deploy-mode cluster \
-      --num-executors ${#NODES[@]} \
+      --num-executors ${#HADOOP_DATANODES[@]} \
       --executor-cores $TASK_SLOTS \
       --driver-memory "${JOBMANAGER_MEMORY}M" \
       --executor-memory "${TASKMANAGER_MEMORY}M" \
       --class eastcircle.terasort.SparkTeraSort \
       $TERASORT_DIRECTORY/target/scala-2.10/terasort_2.10-0.0.1.jar \
-      sfs://$MASTER:8020 /user/$USER/input /user/$USER/output $((${#NODES[@]} * $TASK_SLOTS))
+      sfs://$MASTER:8020 /user/$USER/input /user/$USER/output $((${#HADOOP_DATANODES[@]} * $TASK_SLOTS))
     ;;
   hadoop)
     $HADOOP_HOME/bin/hadoop jar $HADOOP_HOME/share/hadoop/mapreduce/hadoop-mapreduce-examples-${HADOOP_VERSION}.jar terasort \
-      -Dmapreduce.job.maps=$((${#NODES[@]} * ${TASK_SLOTS})) \
-      -Dmapreduce.job.reduces=$((${#NODES[@]} * ${TASK_SLOTS})) \
+      -Dmapreduce.job.maps=$((${#HADOOP_DATANODES[@]} * ${TASK_SLOTS})) \
+      -Dmapreduce.job.reduces=$((${#HADOOP_DATANODES[@]} * ${TASK_SLOTS})) \
       sfs://$MASTER:8020/user/$USER/input sfs://$MASTER:8020/user/$USER/output
     ;;
 esac
