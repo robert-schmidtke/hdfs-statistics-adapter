@@ -10,7 +10,7 @@ usage() {
   echo "  -n|--no-sfs (default: disabled)"
 }
 
-while [[ $# -gt 1 ]]; do
+while [[ $# -gt 0 ]]; do
   key="$1"
   case $key in
     -e|--engine)
@@ -27,6 +27,12 @@ while [[ $# -gt 1 ]]; do
   esac
   shift
 done
+
+if [ -z "$NO_SFS" ]; then
+  echo "Running with SFS enabled"
+else
+  echo "Running with SFS disabled"
+fi
 
 if [ -n "$ENGINE" ]; then
   case $ENGINE in
