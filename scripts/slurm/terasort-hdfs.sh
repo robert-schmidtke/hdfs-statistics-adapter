@@ -214,7 +214,7 @@ $HADOOP_HOME/bin/hadoop fs -mkdir -p hdfs://$MASTER:8020/user/$USER/output
 
 echo "$(date): Running TeraSort"
 SCHEME="hdfs"
-if [ -z "$NO_SFS" ];
+if [ -z "$NO_SFS" ]; then
   SCHEME="sfs"
 fi
 
