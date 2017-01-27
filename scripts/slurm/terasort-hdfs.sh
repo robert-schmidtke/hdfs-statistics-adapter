@@ -180,17 +180,24 @@ case $ENGINE in
     cat >> $FLINK_HOME/conf/flink-conf.yaml << EOF
 blob.storage.directory: /local/$USER/flink
 taskmanager.memory.off-heap: true
+EOF
+
+    if [ -z "$NO_SFS" ]; then
+      cat >> $FLINK_HOME/conf/flink-conf.yaml << EOF
 env.java.opts: $OPTS,log_file_name=/local/$USER/sfs/sfs.log.flink,key=flink
 EOF
+    fi
     echo "$(date): Configuring Flink for TeraSort done"
     ;;
   spark)
     echo "$(date): Configuring Spark for TeraSort"
     cp $SPARK_HOME/conf/spark-defaults.conf.template $SPARK_HOME/conf/spark-defaults.conf
-    sed -i "/^# spark\.executor\.extraJavaOptions/c\spark.executor.extraJavaOptions $OPTS,log_file_name=/local/$USER/sfs/sfs.log.spark.executor,key=executor" $SPARK_HOME/conf/spark-defaults.conf
-    cat >> $SPARK_HOME/conf/spark-defaults.conf << EOF
+    if [ -z "$NO_SFS"]; then
+      sed -i "/^# spark\.executor\.extraJavaOptions/c\spark.executor.extraJavaOptions $OPTS,log_file_name=/local/$USER/sfs/sfs.log.spark.executor,key=executor" $SPARK_HOME/conf/spark-defaults.conf
+      cat >> $SPARK_HOME/conf/spark-defaults.conf << EOF
 spark.driver.extraJavaOptions $OPTS,log_file_name=/local/$USER/sfs/sfs.log.spark.driver,key=driver
 EOF
+    fi
     echo "$(date): Configuring Spark for TeraSort done"
     ;;
   hadoop)
