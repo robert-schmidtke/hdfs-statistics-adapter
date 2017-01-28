@@ -123,6 +123,9 @@ cp ./start-hdfs-slurm.sh $HADOOP_HOME/sbin
 # 256M block size, replication factor of 1, 50G total node memory for YARN, put first datanode on namenode host
 SRUN_STANDARD_OPTS="--nodelist=$MASTER --nodes=1-1 --chdir=$HADOOP_HOME/sbin"
 HDFS_STANDARD_OPTS="--blocksize 268435456 --replication 1 --memory 51200 --cores 16 --io-buffer 1048576 --colocate-datanode-with-namenode"
+LD_LIBRARY_PATH_EXT="$GRPC_HOME/libs/opt:$GRPC_HOME/third_party/protobuf/src/.lib"
+export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$LD_LIBRARY_PATH_EXT"
+
 if [ -z "$NO_SFS" ]; then
   # configure some additional options for SFS
   OPTS="-agentpath:$SFS_DIRECTORY/sfs-agent/target/libsfs.so=trans_jar=$SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar,trans_address=0.0.0.0:4242"
@@ -131,7 +134,7 @@ if [ -z "$NO_SFS" ]; then
   HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --map-opts $OPTS,key=map"
   HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --reduce-opts $OPTS,key=reduce"
   HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --yarn-opts $OPTS,key=yarn"
-  HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --ld-library-path $GRPC_HOME/libs/opt:$GRPC_HOME/third_party/protobuf/src/.lib"
+  HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --ld-library-path $LD_LIBRARY_PATH_EXT"
   SFS_STANDARD_OPTS="--sfs-logfilename /local/$USER/sfs/sfs.log --sfs-wrapped-scheme hdfs"
   cp $SFS_DIRECTORY/sfs-adapter/target/sfs-adapter.jar $FLINK_HOME/lib/sfs-adapter.jar
   cp $SFS_DIRECTORY/sfs-adapter/target/sfs-adapter.jar $HADOOP_HOME/share/hadoop/common/sfs-adapter.jar
