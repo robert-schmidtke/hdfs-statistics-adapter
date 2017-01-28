@@ -463,13 +463,10 @@ static void JNICALL VMInitCallback(jvmtiEnv *jvmti_env, JNIEnv *jni_env,
 static void JNICALL VMDeathCallback(jvmtiEnv *jvmti_env, JNIEnv *jni_env) {
   LOG_VERBOSE("Shutting down VM.\n");
 
-  // properly shut down Log4j2 so all logs are flushed
-  LOG_VERBOSE("Shutting down Log4j2.\n");
-  jclass log_manager_class =
-      jni_env->FindClass("org/apache/logging/log4j/LogManager");
-  jmethodID shutdown_method_id =
-      jni_env->GetStaticMethodID(log_manager_class, "shutdown", "()V");
-  jni_env->CallStaticVoidMethod(log_manager_class, shutdown_method_id);
+  // Log4j2 has their own shutdown hookes. If we call LogManager.shutdown();
+  // explicitly here, it will cancel the currently running shutdown hook,
+  // reinitialize (not properly, because the JVM is shutting down already) and
+  // then shutdown the new initialization.
 
   LOG_VERBOSE("VM shut down successfully.\n");
 }
