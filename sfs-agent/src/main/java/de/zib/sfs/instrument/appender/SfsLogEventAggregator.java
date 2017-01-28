@@ -72,7 +72,7 @@ public class SfsLogEventAggregator {
             for (OperationCategory category : OperationCategory.values()) {
                 // for two sources and three categories, index will be one of:
                 // 0 (00 00), 1 (00 01), 2 (00 10),
-                // 4 (10 00), 5 (10 01), 6 (10 10)
+                // 4 (01 00), 5 (01 01), 6 (01 10)
                 byte index = (byte) (source.ordinal() << 2 | category.ordinal());
                 aggregatorWorkers[index] = new AggregatorWorker(
                         timeBinDuration, timeBinCacheSize, outputDirectory,
@@ -258,10 +258,15 @@ public class SfsLogEventAggregator {
                         + aggregator.getSource().name().toLowerCase() + "."
                         + aggregator.getCategory().name().toLowerCase()
                         + ".csv";
-                writer = new BufferedWriter(new FileWriter(new File(
-                        outputDirectory, filename)));
-                writer.write(aggregator.getCsvHeaders(outputSeparator));
-                writer.newLine();
+
+                File file = new File(outputDirectory, filename);
+                if (!file.exists()) {
+                    writer = new BufferedWriter(new FileWriter(file));
+                    writer.write(aggregator.getCsvHeaders(outputSeparator));
+                    writer.newLine();
+                } else {
+                    throw new IOException(filename + " already exists");
+                }
             }
 
             writer.write(aggregator.toCsv(outputSeparator));
