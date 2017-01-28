@@ -22,10 +22,11 @@ sed -i "${line}s/.*/    <value>file<\/value>/" $HADOOP_HOME/etc/hadoop/core-site
 export LD_LIBRARY_PATH_EXT="$GRPC_HOME/libs/opt:$GRPC_HOME/third_party/protobuf/src/.lib"
 
 OPTS="-agentpath:$TRAVIS_BUILD_DIR/sfs-agent/target/libsfs.so=trans_jar=$TRAVIS_BUILD_DIR/sfs-agent/target/sfs-agent.jar,trans_address=0.0.0.0:4242"
-export HADOOP_OPTS="$OPTS,log_file_name=/tmp/sfs.log.hadoop"
-export YARN_OPTS="$OPTS,log_file_name=/tmp/sfs.log.yarn"
-export MAP_OPTS="$OPTS,log_file_name=/tmp/sfs.log.map"
-export REDUCE_OPTS="$OPTS,log_file_name=/tmp/sfs.log.reduce"
+OPTS="$OPTS,bin_duration=1000,cache_size=120,out_dir=/tmp,verbose=n"
+export HADOOP_OPTS="$OPTS,key=hdfs"
+export YARN_OPTS="$OPTS,key=yarn"
+export MAP_OPTS="$OPTS,key=map"
+export REDUCE_OPTS="$OPTS,key=reduce"
 
 # instrument mappers and reducers
 line_number=`grep -nr "</configuration>" "$HADOOP_HOME/etc/hadoop/mapred-site.xml" | cut -d : -f 1`
@@ -69,15 +70,16 @@ $HADOOP_HOME/bin/hdfs dfs -mkdir -p sfs:///tmp/user/$USER
 echo "$(date): Copying input data"
 $HADOOP_HOME/bin/hdfs dfs -put $HADOOP_HOME/etc/hadoop sfs:///tmp/user/$USER/input
 echo "$(date): Running Hadoop grep"
+export HADOOP_CLIENT_OPTS="$OPTS,key=client"
 $HADOOP_HOME/bin/hadoop jar $HADOOP_HOME/share/hadoop/mapreduce/hadoop-mapreduce-examples-$HADOOP_VERSION.jar grep sfs:///tmp/user/$USER/input sfs:///tmp/user/$USER/output 'dfs[a-z.]+'
 
 echo "$(date): Hadoop Output:"
 $HADOOP_HOME/bin/hdfs dfs -cat sfs:///tmp/user/$USER/output/*
 
 echo "SFS Output:"
-for file in $(ls /tmp/sfs.log*); do
-  echo "head ${file}:"
-  head $file
+for file in $(ls /tmp/*.csv); do
+  echo "${file}:"
+  cat $file
 done
 
 # stop Hadoop
@@ -90,47 +92,5 @@ kill $TRANSFORMER_PID
 
 echo "Transformer Log:"
 cat transformer.log
-
-# configure DEBUG logging in Flink for our classes
-for file in $(ls $FLINK_HOME/conf/log4j*.properties); do
-  cat >> $file << EOF
-log4j.logger.de.zib.sfs=DEBUG
-EOF
-done
-
-# configure appropriate number of slots: 2 sources * 3 categories = 6 slots per TM
-sed -i "/^taskmanager\.numberOfTaskSlots/c\taskmanager.numberOfTaskSlots: 6" $FLINK_HOME/conf/flink-conf.yaml
-
-# run analysis
-mkdir /tmp/output
-echo "$(date): Running Analysis"
-$FLINK_HOME/bin/start-local.sh
-$FLINK_HOME/bin/flink run \
-  --class de.zib.sfs.analysis.SfsAnalysis \
-  --parallelism 6 \
-  $TRAVIS_BUILD_DIR/sfs-analysis/target/sfs-analysis-1.0-SNAPSHOT.jar \
-  --inputPath /tmp \
-  --outputPath /tmp/output \
-  --prefix sfs.log \
-  --hosts $(hostname) \
-  --timeBinDuration 1000 \
-  --timeBinCacheSize 30
-RET_CODE=$?
-$FLINK_HOME/bin/stop-local.sh
-echo "$(date): Running Analysis done"
-
-echo "Analysis Output:"
-for file in $(ls /tmp/output/*.csv); do
-  echo "${file}:"
-  cat $file
-done
-
-if [ "$RET_CODE" -ne "0" ]; then
-  echo "Flink Logs:"
-  for file in $(ls $FLINK_HOME/log/*); do
-    echo "${file}:"
-    cat $file
-  done
-fi
 
 echo "$(date): Done."
