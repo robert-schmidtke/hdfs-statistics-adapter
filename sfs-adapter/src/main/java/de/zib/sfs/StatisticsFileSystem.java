@@ -54,11 +54,6 @@ public class StatisticsFileSystem extends FileSystem {
     public static final String SFS_WRAPPED_FS_SCHEME_KEY = "sfs.wrappedFS.scheme";
 
     /**
-     * The file to log to.
-     */
-    public static final String SFS_LOG_FILE_NAME_KEY = "sfs.logFile.name";
-
-    /**
      * The URI of this file system, as sfs:// plus the authority of the wrapped
      * file system.
      */
@@ -142,16 +137,6 @@ public class StatisticsFileSystem extends FileSystem {
             LOG.debug("Running on " + hostname + ".");
         }
 
-        if (System.getProperty("de.zib.sfs.logFile.name") == null) {
-            LOG.warn("'de.zib.sfs.logFile.name' not set, did the agent start properly?");
-            String logFileName = getConf().get(SFS_LOG_FILE_NAME_KEY);
-            if (logFileName == null) {
-                throw new RuntimeException("'de.zib.sfs.logFile.name' and '"
-                        + SFS_LOG_FILE_NAME_KEY + "' not set.");
-            }
-            System.setProperty("de.zib.sfs.logFile.name", logFileName);
-        }
-
         if (System.getProperty("de.zib.sfs.pid") == null) {
             LOG.warn("'de.zib.sfs.pid' not set, did the agent start properly?");
 
@@ -163,6 +148,21 @@ public class StatisticsFileSystem extends FileSystem {
         if (System.getProperty("de.zib.sfs.key") == null) {
             LOG.warn("'de.zib.sfs.key' not set, did the agent start properly?");
             System.setProperty("de.zib.sfs.key", "sfs");
+        }
+
+        if (System.getProperty("de.zib.sfs.timeBin.duration") == null) {
+            LOG.warn("'de.zib.sfs.timeBin.duration' not set, did the agent start properly?");
+            System.setProperty("de.zib.sfs.timeBin.duration", "1000");
+        }
+
+        if (System.getProperty("de.zib.sfs.timeBin.cacheSize") == null) {
+            LOG.warn("'de.zib.sfs.timeBin.cacheSize' not set, did the agent start properly?");
+            System.setProperty("de.zib.sfs.timeBin.cacheSize", "30");
+        }
+
+        if (System.getProperty("de.zib.sfs.output.directory") == null) {
+            LOG.warn("'de.zib.sfs.output.directory' not set, did the agent start properly?");
+            System.setProperty("de.zib.sfs.output.directory", "/tmp");
         }
 
         fsLogger = LogManager.getLogger("de.zib.sfs.AsyncLogger");
