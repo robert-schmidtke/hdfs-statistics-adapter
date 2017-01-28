@@ -40,17 +40,35 @@ public class SfsAppender extends AbstractAppender {
 
     @Override
     public void start() {
+        if (LOGGER.isDebugEnabled()) {
+            LOGGER.debug("Starting local aggregation for SfsAppender");
+        }
+
         localAggregation.start();
+
+        if (LOGGER.isDebugEnabled()) {
+            LOGGER.debug("Started local aggregation for SfsAppender");
+        }
+
         super.start();
     }
 
     @Override
     public void stop() {
+        if (LOGGER.isDebugEnabled()) {
+            LOGGER.debug("Stopping local aggregation for SfsAppender");
+        }
+
         try {
             localAggregation.stop(0);
         } catch (InterruptedException e) {
             LOGGER.error("Could not stop local aggregation", e);
         }
+
+        if (LOGGER.isDebugEnabled()) {
+            LOGGER.debug("Stopped local aggregation for SfsAppender");
+        }
+
         super.stop();
     }
 
