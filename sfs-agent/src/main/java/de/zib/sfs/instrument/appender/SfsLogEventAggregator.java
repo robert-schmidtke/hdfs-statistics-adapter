@@ -90,9 +90,10 @@ public class SfsLogEventAggregator {
         parserWorkerThread.start();
     }
 
-    public void stop(long millis) throws InterruptedException {
+    public void stop(long timeout, TimeUnit timeUnit)
+            throws InterruptedException {
         parserWorker.stop();
-        parserWorkerThread.join(millis);
+        parserWorkerThread.join(timeUnit.toMillis(timeout));
 
         for (AggregatorWorker w : aggregatorWorkers) {
             // index 3 is not set
@@ -102,7 +103,7 @@ public class SfsLogEventAggregator {
         }
 
         for (Thread t : aggregatorWorkerThreads) {
-            t.join(millis);
+            t.join(timeUnit.toMillis(timeout));
         }
     }
 

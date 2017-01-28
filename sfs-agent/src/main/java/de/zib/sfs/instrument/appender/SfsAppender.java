@@ -8,6 +8,7 @@
 package de.zib.sfs.instrument.appender;
 
 import java.io.Serializable;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.logging.log4j.core.Appender;
 import org.apache.logging.log4j.core.Core;
@@ -54,13 +55,13 @@ public class SfsAppender extends AbstractAppender {
     }
 
     @Override
-    public void stop() {
+    public boolean stop(long timeout, TimeUnit timeUnit) {
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug("Stopping local aggregation for SfsAppender");
         }
 
         try {
-            localAggregation.stop(0);
+            localAggregation.stop(timeout, timeUnit);
         } catch (InterruptedException e) {
             LOGGER.error("Could not stop local aggregation", e);
         }
@@ -69,7 +70,7 @@ public class SfsAppender extends AbstractAppender {
             LOGGER.debug("Stopped local aggregation for SfsAppender");
         }
 
-        super.stop();
+        return super.stop(timeout, timeUnit);
     }
 
     @Override
