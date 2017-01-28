@@ -16,7 +16,6 @@ usage() {
   echo "SFS specific options (default: not specified/do not use SFS):"
   echo "     --sfs-wrapped-fs <wrapped file system class name> (default: not specified; enables SFS if specified)"
   echo "     --sfs-wrapped-scheme <scheme of the wrapped file system> (default: not specified)"
-  echo "     --sfs-logfilename <node-local path to a log file> (default: /tmp/sfs.log)"
 }
 
 if [ -z $SLURM_JOB_ID ]; then
@@ -79,10 +78,6 @@ while [[ $# -gt 0 ]]; do
       SFS_WRAPPED_SCHEME="$2"
       shift
       ;;
-    --sfs-logfilename)
-      SFS_LOGFILENAME="$2"
-      shift
-      ;;
     *)
       echo "Invalid argument detected."
       usage
@@ -96,7 +91,6 @@ REPLICATION=${REPLICATION:-1}
 MEMORY=${MEMORY:-61440}
 CORES=${CORES:-16}
 IO_BUFFER=${IO_BUFFER:-1048576}
-SFS_LOGFILENAME=${SFS_LOGFILENAME:-/tmp/sfs.log}
 
 export HADOOP_OPTS
 export YARN_OPTS
@@ -168,10 +162,6 @@ if [ -n "$SFS_WRAPPED_FS" ]; then
   <property>
     <name>sfs.wrappedFS.scheme</name>
     <value>${SFS_WRAPPED_SCHEME}</value>
-  </property>
-  <property>
-    <name>sfs.logFile.name</name>
-    <value>${SFS_LOGFILENAME}</value>
   </property>
 EOF
 fi
