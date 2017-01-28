@@ -7,10 +7,7 @@
     <Sfs name="Sfs" timeBinDuration="${sys:de.zib.sfs.timeBin.duration}"
       timeBinCacheSize="${sys:de.zib.sfs.timeBin.cacheSize}"
       outputDirectory="${sys:de.zib.sfs.output.directory}"
-      outputSeparator=",">
-      <PatternLayout
-        pattern="${sys:de.zib.sfs.pid}@${sys:de.zib.sfs.hostname}:${sys:de.zib.sfs.key}:%message%n" />
-    </Sfs>
+      outputSeparator="," />
   </Appenders>
   <Loggers>
     <AsyncLogger name="de.zib.sfs.AsyncLogger" level="info"

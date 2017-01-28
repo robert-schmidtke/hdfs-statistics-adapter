@@ -9,26 +9,12 @@ package de.zib.sfs.instrument.statistics;
 
 public class OperationStatisticsFactory {
 
-    public static OperationStatistics parseFromLogLine(String logLine) {
+    public static OperationStatistics parseFromLogLine(String logLine,
+            String hostname, int pid, String key) {
         String line = logLine;
 
-        // line starts with pid@
-        int index = line.indexOf("@");
-        int pid = Integer.parseInt(line.substring(0, index));
-        line = line.substring(index + 1, line.length());
-
-        // next is hostname:
-        index = line.indexOf(":");
-        String hostname = line.substring(0, index);
-        line = line.substring(index + 1, line.length());
-
-        // next is key:
-        index = line.indexOf(":");
-        String key = line.substring(0, index);
-        line = line.substring(index + 1, line.length());
-
-        // next is startTime-
-        index = line.indexOf("-");
+        // line starts with startTime-
+        int index = line.indexOf("-");
         long startTime = Long.parseLong(line.substring(0, index));
         line = line.substring(index + 1, line.length());
 

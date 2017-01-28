@@ -138,7 +138,8 @@ public class SfsLogEventAggregator {
                 if (logEntry != null) {
                     // parse the entry and assign it to the appropriate worker
                     OperationStatistics operationStatistics = OperationStatisticsFactory
-                            .parseFromLogLine(logEntry);
+                            .parseFromLogLine(logEntry, systemHostname,
+                                    systemPid, systemKey);
                     byte index = (byte) (operationStatistics.getSource()
                             .ordinal() << 2 | operationStatistics.getCategory()
                             .ordinal());
