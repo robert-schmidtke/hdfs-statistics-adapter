@@ -125,11 +125,12 @@ SRUN_STANDARD_OPTS="--nodelist=$MASTER --nodes=1-1 --chdir=$HADOOP_HOME/sbin"
 HDFS_STANDARD_OPTS="--blocksize 268435456 --replication 1 --memory 51200 --cores 16 --io-buffer 1048576 --colocate-datanode-with-namenode"
 if [ -z "$NO_SFS" ]; then
   # configure some additional options for SFS
-  OPTS="-agentpath:$SFS_DIRECTORY/sfs-agent/target/libsfs.so=trans_jar=$SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar,trans_address=0.0.0.0:4242,verbose=n"
-  HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --hadoop-opts $OPTS,log_file_name=/local/$USER/sfs/sfs.log.hadoop,key=hadoop"
-  HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --map-opts $OPTS,log_file_name=/local/$USER/sfs/sfs.log.map,key=map"
-  HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --reduce-opts $OPTS,log_file_name=/local/$USER/sfs/sfs.log.reduce,key=reduce"
-  HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --yarn-opts $OPTS,log_file_name=/local/$USER/sfs/sfs.log.yarn,key=yarn"
+  OPTS="-agentpath:$SFS_DIRECTORY/sfs-agent/target/libsfs.so=trans_jar=$SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar,trans_address=0.0.0.0:4242"
+  OPTS="$OPTS,bin_duration=1000,cache_size=120,out_dir=/local/$USER/sfs,verbose=n"
+  HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --hadoop-opts $OPTS,key=hdfs"
+  HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --map-opts $OPTS,key=map"
+  HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --reduce-opts $OPTS,key=reduce"
+  HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --yarn-opts $OPTS,key=yarn"
   HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --ld-library-path $GRPC_HOME/libs/opt:$GRPC_HOME/third_party/protobuf/src/.lib"
   SFS_STANDARD_OPTS="--sfs-logfilename /local/$USER/sfs/sfs.log --sfs-wrapped-scheme hdfs"
   cp $SFS_DIRECTORY/sfs-adapter/target/sfs-adapter.jar $FLINK_HOME/lib/sfs-adapter.jar
@@ -184,7 +185,7 @@ EOF
 
     if [ -z "$NO_SFS" ]; then
       cat >> $FLINK_HOME/conf/flink-conf.yaml << EOF
-env.java.opts: $OPTS,log_file_name=/local/$USER/sfs/sfs.log.flink,key=flink
+env.java.opts: $OPTS,key=flink
 EOF
     fi
     echo "$(date): Configuring Flink for TeraSort done"
@@ -193,9 +194,9 @@ EOF
     echo "$(date): Configuring Spark for TeraSort"
     cp $SPARK_HOME/conf/spark-defaults.conf.template $SPARK_HOME/conf/spark-defaults.conf
     if [ -z "$NO_SFS"]; then
-      sed -i "/^# spark\.executor\.extraJavaOptions/c\spark.executor.extraJavaOptions $OPTS,log_file_name=/local/$USER/sfs/sfs.log.spark.executor,key=executor" $SPARK_HOME/conf/spark-defaults.conf
+      sed -i "/^# spark\.executor\.extraJavaOptions/c\spark.executor.extraJavaOptions $OPTS,key=executor" $SPARK_HOME/conf/spark-defaults.conf
       cat >> $SPARK_HOME/conf/spark-defaults.conf << EOF
-spark.driver.extraJavaOptions $OPTS,log_file_name=/local/$USER/sfs/sfs.log.spark.driver,key=driver
+spark.driver.extraJavaOptions $OPTS,key=driver
 EOF
     fi
     echo "$(date): Configuring Spark for TeraSort done"
@@ -227,6 +228,9 @@ fi
 
 case $ENGINE in
   flink)
+    # Normally, JVM_ARGS are used for JobManager and TaskManager as well, but not on Yarn.
+    # On Yarn, Flink's env.java.opts configuration parameter is used for JMs and TMs.
+    export JVM_ARGS="$OPTS,key=client"
     $FLINK_HOME/bin/flink run \
       --jobmanager yarn-cluster \
       --yarncontainer ${#HADOOP_DATANODES[@]} \
@@ -251,6 +255,7 @@ case $ENGINE in
       $SCHEME://$MASTER:8020 /user/$USER/input /user/$USER/output $((${#HADOOP_DATANODES[@]} * $TASK_SLOTS))
     ;;
   hadoop)
+    export HADOOP_CLIENT_OPTS="$OPTS,key=client"
     $HADOOP_HOME/bin/hadoop jar $HADOOP_HOME/share/hadoop/mapreduce/hadoop-mapreduce-examples-${HADOOP_VERSION}.jar terasort \
       -Dmapreduce.job.maps=$((${#HADOOP_DATANODES[@]} * ${TASK_SLOTS})) \
       -Dmapreduce.job.reduces=$((${#HADOOP_DATANODES[@]} * ${TASK_SLOTS})) \
@@ -282,65 +287,6 @@ EOF
   echo "$(date): Stopping transformer JVMs done"
 fi
 
-if [ -z "$NO_SFS" ]; then
-  if [ "$RET_CODE" -eq "0" ]; then
-    echo "$(date): Configuring Flink for Analysis"
-    cp $FLINK_HOME/conf/flink-conf.yaml.template $FLINK_HOME/conf/flink-conf.yaml
-    sed -i "/^jobmanager\.rpc\.address/c\jobmanager.rpc.address: $MASTER" $FLINK_HOME/conf/flink-conf.yaml
-    sed -i "/^jobmanager\.heap\.mb/c\jobmanager.heap.mb: $JOBMANAGER_MEMORY" $FLINK_HOME/conf/flink-conf.yaml
-    sed -i "/^taskmanager\.heap\.mb/c\taskmanager.heap.mb: $TASKMANAGER_MEMORY" $FLINK_HOME/conf/flink-conf.yaml
-    sed -i "/^taskmanager\.numberOfTaskSlots/c\taskmanager.numberOfTaskSlots: $TASK_SLOTS" $FLINK_HOME/conf/flink-conf.yaml
-    sed -i "/^# taskmanager\.network\.numberOfBuffers/c\taskmanager.network.numberOfBuffers: $(($TASK_SLOTS * $TASK_SLOTS * ${#NODES[@]} * 4))" $FLINK_HOME/conf/flink-conf.yaml
-    sed -i "/^# taskmanager\.tmp\.dirs/c\taskmanager.tmp.dirs: /local/$USER/flink" $FLINK_HOME/conf/flink-conf.yaml
-    printf "%s\n" "${NODES[@]}" > $FLINK_HOME/conf/slaves
-    cat >> $FLINK_HOME/conf/flink-conf.yaml << EOF
-blob.storage.directory: /local/$USER/flink
-taskmanager.memory.off-heap: true
-EOF
-    echo "$(date): Configuring Flink for Analysis done"
-
-    echo "$(date): Starting Flink cluster"
-    cp ./start-flink-cluster-slurm.sh $FLINK_HOME/bin
-    srun --nodelist="$MASTER" --nodes=1-1 --chdir=$FLINK_HOME/bin ./start-flink-cluster-slurm.sh
-
-    # wait until all taskmanagers are connected
-    CONNECTED_TASKMANAGERS=0
-    while [ $CONNECTED_TASKMANAGERS -lt ${#NODES[@]} ]; do
-      CONNECTED_TASKMANAGERS=$(grep -R "Registered TaskManager" $FLINK_HOME/log/flink-$USER-jobmanager-*-$MASTER.log | wc -l)
-      echo "$CONNECTED_TASKMANAGERS of ${#NODES[@]} TaskManagers connected ..."
-      sleep 1s
-    done
-    echo "$(date): Starting Flink cluster done"
-
-    echo "$(date): Running Analysis"
-    HOSTS=$(printf ",%s" "${NODES[@]}")
-    HOSTS=${HOSTS:1}
-    $FLINK_HOME/bin/flink run \
-      --class de.zib.sfs.analysis.SfsAnalysis \
-      --parallelism $((${#NODES[@]} * $TASK_SLOTS)) \
-      $SFS_DIRECTORY/sfs-analysis/target/sfs-analysis-1.0-SNAPSHOT.jar \
-      --inputPath /local/$USER/sfs \
-      --outputPath $SFS_TARGET_DIRECTORY \
-      --prefix "sfs.log" \
-      --hosts $HOSTS \
-      --slotsPerHost $TASK_SLOTS \
-      --timeBinDuration 1000 \
-      --timeBinCacheSize 30
-#      --printExecutionPlanOnly true
-    RET_CODE=$?
-    echo "$(date): Running Analysis done"
-
-    echo "$(date): Stopping Flink cluster"
-    cp ./stop-flink-cluster-slurm.sh $FLINK_HOME/bin
-    srun --nodelist="$MASTER" --nodes=1-1 --chdir=$FLINK_HOME/bin ./stop-flink-cluster-slurm.sh
-    echo "$(date): Waiting for Flink cluster to be stopped"
-    sleep 10s
-    echo "$(date): Stopping Flink cluster done"
-  else
-    echo "$(date): Main Job did not run successfully, skipping analysis."
-  fi
-fi
-
 echo "$(date): Cleaning Java processes"
 srun -N$SLURM_JOB_NUM_NODES killall -sSIGKILL java
 echo "$(date): Cleaning Java processes done"
@@ -350,7 +296,7 @@ if [ -z "$NO_SFS" ]; then
   cat > copy-logs.sh << EOF
 #!/bin/bash
 cd /local/$USER/sfs
-for file in \$(ls sfs.log*); do
+for file in \$(ls *.csv); do
   cp \$file $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname)-\$file
 done
 EOF

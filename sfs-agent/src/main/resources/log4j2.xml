@@ -4,21 +4,18 @@
     <Console name="Console" target="SYSTEM_OUT">
       <PatternLayout pattern="%d{HH:mm:ss,SSS} %-5p %-60c %x - %m%n" />
     </Console>
-    <RollingRandomAccessFile
-      name="AsyncRandomAccessFile"
-      fileName="${sys:de.zib.sfs.logFile.name}"
-      filePattern="${sys:de.zib.sfs.logFile.name}.%i"
-      append="true"
-      immediateFlush="false">
-      <PatternLayout pattern="${sys:de.zib.sfs.pid}@${sys:de.zib.sfs.hostname}:${sys:de.zib.sfs.key}:%message%n" />
-      <Policies>
-        <SizeBasedTriggeringPolicy size="4GB" />
-      </Policies>
-    </RollingRandomAccessFile>
+    <Sfs name="Sfs" timeBinDuration="${sys:de.zib.sfs.timeBin.duration}"
+      timeBinCacheSize="${sys:de.zib.sfs.timeBin.cacheSize}"
+      outputDirectory="${sys:de.zib.sfs.output.directory}"
+      outputSeparator=",">
+      <PatternLayout
+        pattern="${sys:de.zib.sfs.pid}@${sys:de.zib.sfs.hostname}:${sys:de.zib.sfs.key}:%message%n" />
+    </Sfs>
   </Appenders>
   <Loggers>
-    <AsyncLogger name="de.zib.sfs.AsyncLogger" level="info" additivity="false">
-      <AppenderRef ref="AsyncRandomAccessFile" />
+    <AsyncLogger name="de.zib.sfs.AsyncLogger" level="info"
+      additivity="false">
+      <AppenderRef ref="Sfs" />
     </AsyncLogger>
     <Root level="info">
       <AppenderRef ref="Console" />

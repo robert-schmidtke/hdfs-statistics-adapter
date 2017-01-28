@@ -37,11 +37,19 @@ static char **g_transformer_jvm_cmd;
 // the prefix to use when wrapping native methods
 static std::string g_native_method_prefix("sfs_native_");
 
-// the name of the log file to use
-static std::string g_log_file_name;
-
 // a custom key to include in the log files
 static std::string g_key;
+
+// time in milliseconds to aggregate incoming events over before beginning a new
+// bin
+static std::string g_time_bin_duration;
+
+// number of bins to keep in memory before emitting them to allow for late
+// arrivals of log events
+static std::string g_time_bin_cache_size;
+
+// path to a directory where the output CSV files will be stored
+static std::string g_output_directory;
 
 // indicates whether we should do verbose logging
 static bool g_verbose = false;
@@ -75,9 +83,11 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
     std::cerr << "Could not parse options: "
               << (options != NULL ? options : "-") << std::endl
               << "Required options:" << std::endl
-              << "  log_file_name=/path/to/log.file" << std::endl
               << "  trans_jar=/path/to/trans.jar" << std::endl
               << "  key=key" << std::endl
+              << "  bin_duration=milliseconds" << std::endl
+              << "  cache_size=number" << std::endl
+              << "  out_dir=/path/to/out/dir" << std::endl
               << "Optional options:" << std::endl
               << "  trans_address=trans-host:port (default: empty)"
               << "  verbose=y|n (default: n)" << std::endl;
@@ -147,11 +157,11 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
       JVMTI_ENABLE, JVMTI_EVENT_VM_DEATH, (jthread)NULL);
   CHECK_JVMTI_RESULT("SetEventNotificationMode(VMDeath)", jvmti_result);
 
-  // create a log file name for this JVM
-  g_log_file_name = cli_options.log_file_name + "." + std::to_string(getpid());
-
-  // set the custom key
+  // set necessary global variables from CLI options
   g_key = cli_options.key;
+  g_time_bin_duration = cli_options.time_bin_duration;
+  g_time_bin_cache_size = cli_options.time_bin_cache_size;
+  g_output_directory = cli_options.output_directory;
 
   // set the prefix to use when wrapping native methods
   LOG_VERBOSE("Setting native method prefix.\n");
@@ -386,22 +396,13 @@ static void JNICALL VMInitCallback(jvmtiEnv *jvmti_env, JNIEnv *jni_env,
   jni_env->FindClass("java/io/RandomAccessFile");
   jni_env->FindClass("sun/nio/ch/FileChannelImpl");
 
-  // set the log file name to use as system property
+  // set the hostname as system property
   jclass system_class = jni_env->FindClass("java/lang/System");
 
   jmethodID set_property_method_id = jni_env->GetStaticMethodID(
       system_class, "setProperty",
       "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;");
 
-  LOG_VERBOSE("Setting system property '%s'='%s'.\n",
-              std::string("de.zib.sfs.logFile.name").c_str(),
-              g_log_file_name.c_str());
-  jni_env->CallStaticVoidMethod(
-      system_class, set_property_method_id,
-      jni_env->NewStringUTF("de.zib.sfs.logFile.name"),
-      jni_env->NewStringUTF(g_log_file_name.c_str()));
-
-  // repeat for the hostname
   char hostname[256];
   if (gethostname(hostname, 256) != 0) {
     std::cerr << "Error getting hostname" << std::endl;
@@ -427,6 +428,33 @@ static void JNICALL VMInitCallback(jvmtiEnv *jvmti_env, JNIEnv *jni_env,
   jni_env->CallStaticVoidMethod(system_class, set_property_method_id,
                                 jni_env->NewStringUTF("de.zib.sfs.key"),
                                 jni_env->NewStringUTF(g_key.c_str()));
+
+  // repeat for the time bin duration
+  LOG_VERBOSE("Setting system property '%s'='%s'.\n",
+              std::string("de.zib.sfs.timeBin.duration").c_str(),
+              g_time_bin_duration.c_str());
+  jni_env->CallStaticVoidMethod(
+      system_class, set_property_method_id,
+      jni_env->NewStringUTF("de.zib.sfs.timeBin.duration"),
+      jni_env->NewStringUTF(g_time_bin_duration.c_str()));
+
+  // repeat for the time bin cache size
+  LOG_VERBOSE("Setting system property '%s'='%s'.\n",
+              std::string("de.zib.sfs.timeBin.cacheSize").c_str(),
+              g_time_bin_cache_size.c_str());
+  jni_env->CallStaticVoidMethod(
+      system_class, set_property_method_id,
+      jni_env->NewStringUTF("de.zib.sfs.timeBin.cacheSize"),
+      jni_env->NewStringUTF(g_time_bin_cache_size.c_str()));
+
+  // repeat for the output directory
+  LOG_VERBOSE("Setting system property '%s'='%s'.\n",
+              std::string("de.zib.sfs.output.directory").c_str(),
+              g_output_directory.c_str());
+  jni_env->CallStaticVoidMethod(
+      system_class, set_property_method_id,
+      jni_env->NewStringUTF("de.zib.sfs.output.directory"),
+      jni_env->NewStringUTF(g_output_directory.c_str()));
 
   LOG_VERBOSE("VM initialized successfully.\n");
 }

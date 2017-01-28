@@ -43,9 +43,11 @@ static int get_tok(char **src, char *buf, int buflen, int sep) {
 
 struct CliOptions {
   std::string key;
-  std::string log_file_name;
   std::string transformer_address;
   std::string transformer_jar_path;
+  std::string time_bin_duration;
+  std::string time_bin_cache_size;
+  std::string output_directory;
   bool verbose;
 };
 
@@ -78,14 +80,19 @@ static bool parse_options(char *command_line_options, CliOptions *cli_options) {
   char *options = all_options;
 
   cli_options->key = std::string("");
-  cli_options->log_file_name = std::string("");
   cli_options->transformer_address = std::string("");
   cli_options->transformer_jar_path = std::string("");
+  cli_options->time_bin_duration = -1;
+  cli_options->time_bin_cache_size = -1;
+  cli_options->output_directory = std::string("");
   cli_options->verbose = false;
 
   bool tx_jar_path_set = false;
-  bool log_file_name_set = false;
   bool key_set = false;
+  bool time_bin_duration_set = false;
+  bool time_bin_cache_size_set = false;
+  bool output_directory_set = false;
+
   while (*options) {
     char option[16];
     char suboption[FILENAME_MAX + 1];
@@ -101,15 +108,25 @@ static bool parse_options(char *command_line_options, CliOptions *cli_options) {
           cli_options->transformer_jar_path = std::string(suboption);
           tx_jar_path_set = true;
         }
-      } else if (strcmp(option, "log_file_name") == 0) {
-        if (get_tok(&options, suboption, (int)sizeof(suboption), ',')) {
-          cli_options->log_file_name = std::string(suboption);
-          log_file_name_set = true;
-        }
       } else if (strcmp(option, "key") == 0) {
         if (get_tok(&options, suboption, (int)sizeof(suboption), ',')) {
           cli_options->key = std::string(suboption);
           key_set = true;
+        }
+      } else if (strcmp(option, "bin_duration") == 0) {
+        if (get_tok(&options, suboption, (int)sizeof(suboption), ',')) {
+          cli_options->time_bin_duration = std::string(suboption);
+          time_bin_duration_set = true;
+        }
+      } else if (strcmp(option, "cache_size") == 0) {
+        if (get_tok(&options, suboption, (int)sizeof(suboption), ',')) {
+          cli_options->time_bin_cache_size = std::string(suboption);
+          time_bin_cache_size_set = true;
+        }
+      } else if (strcmp(option, "out_dir") == 0) {
+        if (get_tok(&options, suboption, (int)sizeof(suboption), ',')) {
+          cli_options->output_directory = std::string(suboption);
+          output_directory_set = true;
         }
       } else if (strcmp(option, "verbose") == 0) {
         if (get_tok(&options, suboption, (int)sizeof(suboption), ',')) {
@@ -127,7 +144,8 @@ static bool parse_options(char *command_line_options, CliOptions *cli_options) {
   }
   delete[] all_options;
 
-  return tx_jar_path_set && log_file_name_set && key_set;
+  return tx_jar_path_set && key_set && time_bin_duration_set &&
+         time_bin_cache_size_set && output_directory_set;
 }
 
 #endif // CLI_OPTIONS_H
