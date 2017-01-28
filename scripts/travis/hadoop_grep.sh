@@ -20,7 +20,6 @@ line=$(($line + 1))
 sed -i "${line}s/.*/    <value>file<\/value>/" $HADOOP_HOME/etc/hadoop/core-site.xml
 
 export LD_LIBRARY_PATH_EXT="$GRPC_HOME/libs/opt:$GRPC_HOME/third_party/protobuf/src/.lib"
-export LD_LIBRARY_PATH="LD_LIBRARY_PATH:LD_LIBRARY_PATH_EXT"
 
 OPTS="-agentpath:$TRAVIS_BUILD_DIR/sfs-agent/target/libsfs.so=trans_jar=$TRAVIS_BUILD_DIR/sfs-agent/target/sfs-agent.jar,trans_address=0.0.0.0:4242"
 OPTS="$OPTS,bin_duration=1000,cache_size=120,out_dir=/tmp,verbose=n"
@@ -71,7 +70,6 @@ $HADOOP_HOME/bin/hdfs dfs -mkdir -p sfs:///tmp/user/$USER
 echo "$(date): Copying input data"
 $HADOOP_HOME/bin/hdfs dfs -put $HADOOP_HOME/etc/hadoop sfs:///tmp/user/$USER/input
 echo "$(date): Running Hadoop grep"
-export HADOOP_CLIENT_OPTS="$OPTS,key=client"
 $HADOOP_HOME/bin/hadoop jar $HADOOP_HOME/share/hadoop/mapreduce/hadoop-mapreduce-examples-$HADOOP_VERSION.jar grep sfs:///tmp/user/$USER/input sfs:///tmp/user/$USER/output 'dfs[a-z.]+'
 
 echo "$(date): Hadoop Output:"

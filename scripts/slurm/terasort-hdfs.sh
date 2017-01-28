@@ -124,7 +124,6 @@ cp ./start-hdfs-slurm.sh $HADOOP_HOME/sbin
 SRUN_STANDARD_OPTS="--nodelist=$MASTER --nodes=1-1 --chdir=$HADOOP_HOME/sbin"
 HDFS_STANDARD_OPTS="--blocksize 268435456 --replication 1 --memory 51200 --cores 16 --io-buffer 1048576 --colocate-datanode-with-namenode"
 LD_LIBRARY_PATH_EXT="$GRPC_HOME/libs/opt:$GRPC_HOME/third_party/protobuf/src/.lib"
-export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$LD_LIBRARY_PATH_EXT"
 
 if [ -z "$NO_SFS" ]; then
   # configure some additional options for SFS
@@ -231,9 +230,6 @@ fi
 
 case $ENGINE in
   flink)
-    # Normally, JVM_ARGS are used for JobManager and TaskManager as well, but not on Yarn.
-    # On Yarn, Flink's env.java.opts configuration parameter is used for JMs and TMs.
-    export JVM_ARGS="$OPTS,key=client"
     $FLINK_HOME/bin/flink run \
       --jobmanager yarn-cluster \
       --yarncontainer ${#HADOOP_DATANODES[@]} \
@@ -258,7 +254,6 @@ case $ENGINE in
       $SCHEME://$MASTER:8020 /user/$USER/input /user/$USER/output $((${#HADOOP_DATANODES[@]} * $TASK_SLOTS))
     ;;
   hadoop)
-    export HADOOP_CLIENT_OPTS="$OPTS,key=client"
     $HADOOP_HOME/bin/hadoop jar $HADOOP_HOME/share/hadoop/mapreduce/hadoop-mapreduce-examples-${HADOOP_VERSION}.jar terasort \
       -Dmapreduce.job.maps=$((${#HADOOP_DATANODES[@]} * ${TASK_SLOTS})) \
       -Dmapreduce.job.reduces=$((${#HADOOP_DATANODES[@]} * ${TASK_SLOTS})) \
