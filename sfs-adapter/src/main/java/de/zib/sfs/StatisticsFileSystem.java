@@ -165,7 +165,8 @@ public class StatisticsFileSystem extends FileSystem {
             System.setProperty("de.zib.sfs.output.directory", "/tmp");
         }
 
-        fsLogger = LogManager.getLogger("de.zib.sfs.AsyncLogger");
+        // fsLogger = LogManager.getLogger("de.zib.sfs.AsyncLogger");
+        fsLogger = null;
         if (LOG.isDebugEnabled()) {
             LOG.debug("Initialized file system logger");
         }

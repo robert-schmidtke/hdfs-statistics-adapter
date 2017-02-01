@@ -41,6 +41,8 @@ public class RandomAccessFileCallback {
     }
 
     public long onOpenBegin(String name, int mode) {
+        return -1L;
+        /*
         // don't monitor access to libraries and configurations in the JVM's
         // home
         if (name.startsWith(System.getProperty("java.home"))) {
@@ -73,6 +75,7 @@ public class RandomAccessFileCallback {
         } else {
             return -1L;
         }
+        */
     }
 
     public void onOpenEnd(long startTime, String name, int mode) {
