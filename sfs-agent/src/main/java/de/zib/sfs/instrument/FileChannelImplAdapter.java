@@ -139,7 +139,7 @@ public class FileChannelImplAdapter extends ClassVisitor {
 
         // return readResult;
         // }
-        readMVs[0].visitVarInsn(Opcodes.ILOAD, 3);
+        readMVs[0].visitVarInsn(Opcodes.ILOAD, 4);
         readMVs[0].visitInsn(Opcodes.IRETURN);
         readMVs[0].visitMaxs(0, 0);
         readMVs[0].visitEnd();
@@ -264,7 +264,7 @@ public class FileChannelImplAdapter extends ClassVisitor {
 
         // return writeResult;
         // }
-        writeMVs[0].visitVarInsn(Opcodes.ILOAD, 3);
+        writeMVs[0].visitVarInsn(Opcodes.ILOAD, 4);
         writeMVs[0].visitInsn(Opcodes.IRETURN);
         writeMVs[0].visitMaxs(0, 0);
         writeMVs[0].visitEnd();
