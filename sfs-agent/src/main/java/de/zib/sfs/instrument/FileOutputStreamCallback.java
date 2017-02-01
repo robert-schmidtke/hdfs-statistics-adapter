@@ -78,8 +78,8 @@ public class FileOutputStreamCallback {
     public void onOpenEnd(long startTime, String name, boolean append) {
         if (logger != null && startTime != -1L) {
             long duration = System.currentTimeMillis() - startTime;
-            logger.info("{}-{}:{}.open({},{}):void", startTime, duration, fos,
-                    name, append);
+            //logger.info("{}-{}:{}.open({},{}):void", startTime, duration, fos,
+            //        name, append);
         }
     }
 
@@ -94,8 +94,8 @@ public class FileOutputStreamCallback {
     public void onWriteEnd(long startTime, int b, boolean append) {
         if (logger != null && startTime != -1L) {
             long duration = System.currentTimeMillis() - startTime;
-            logger.info("{}-{}:{}.write({},{}):void", startTime, duration, fos,
-                    b, append);
+            //logger.info("{}-{}:{}.write({},{}):void", startTime, duration, fos,
+            //        b, append);
         }
     }
 
@@ -111,8 +111,8 @@ public class FileOutputStreamCallback {
             boolean append) {
         if (logger != null && startTime != -1L) {
             long duration = System.currentTimeMillis() - startTime;
-            logger.info("{}-{}:{}.writeBytes([{}],{},{},{}):void", startTime,
-                    duration, fos, b.length, off, len, append);
+            //logger.info("{}-{}:{}.writeBytes([{}],{},{},{}):void", startTime,
+            //        duration, fos, b.length, off, len, append);
         }
     }
 

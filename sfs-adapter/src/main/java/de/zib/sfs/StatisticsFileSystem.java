@@ -279,8 +279,8 @@ public class StatisticsFileSystem extends FileSystem {
         FSDataOutputStream stream = new WrappedFSDataOutputStream(
                 wrappedFS.append(unwrappedPath, bufferSize, progress), fsLogger);
         long duration = System.currentTimeMillis() - startTime;
-        fsLogger.info("{}-{}:{}.append({},{}):{}", startTime, duration, this,
-                f, bufferSize, stream);
+        //fsLogger.info("{}-{}:{}.append({},{}):{}", startTime, duration, this,
+        //        f, bufferSize, stream);
         return stream;
     }
 
@@ -325,9 +325,9 @@ public class StatisticsFileSystem extends FileSystem {
                 wrappedFS.create(unwrappedPath, permission, overwrite,
                         bufferSize, replication, blockSize, progress), fsLogger);
         long duration = System.currentTimeMillis() - startTime;
-        fsLogger.info("{}-{}:{}.create({},{},{},{},{},{}):{}", startTime,
-                duration, this, f, permission, overwrite, bufferSize,
-                replication, blockSize, stream);
+        //fsLogger.info("{}-{}:{}.create({},{},{},{},{},{}):{}", startTime,
+        //        duration, this, f, permission, overwrite, bufferSize,
+        //        replication, blockSize, stream);
         return stream;
     }
 
@@ -337,8 +337,8 @@ public class StatisticsFileSystem extends FileSystem {
         Path unwrappedPath = unwrapPath(f);
         boolean result = wrappedFS.delete(unwrappedPath, recursive);
         long duration = System.currentTimeMillis() - startTime;
-        fsLogger.info("{}-{}:{}.delete({},{}):{}", startTime, duration, this,
-                f, recursive, result);
+        //fsLogger.info("{}-{}:{}.delete({},{}):{}", startTime, duration, this,
+        //        f, recursive, result);
         return result;
     }
 
@@ -355,9 +355,9 @@ public class StatisticsFileSystem extends FileSystem {
         BlockLocation[] blockLocations = wrappedFS.getFileBlockLocations(
                 unwrappedFile, start, len);
         long duration = System.currentTimeMillis() - startTime;
-        fsLogger.info("{}-{}:{}.getFileBlockLocations({},{},{}):{}", startTime,
-                duration, this, file, start, len,
-                Arrays.toString(blockLocations));
+        //fsLogger.info("{}-{}:{}.getFileBlockLocations({},{},{}):{}", startTime,
+        //        duration, this, file, start, len,
+        //        Arrays.toString(blockLocations));
         return blockLocations;
     }
 
@@ -369,8 +369,8 @@ public class StatisticsFileSystem extends FileSystem {
         fileStatus.setPath(setAuthority(wrapPath(fileStatus.getPath()), f
                 .toUri().getAuthority()));
         long duration = System.currentTimeMillis() - startTime;
-        fsLogger.info("{}-{}:{}.getFileStatus({}):{}", startTime, duration,
-                this, f, fileStatus);
+        //fsLogger.info("{}-{}:{}.getFileStatus({}):{}", startTime, duration,
+        //        this, f, fileStatus);
         return fileStatus;
     }
 
@@ -403,8 +403,8 @@ public class StatisticsFileSystem extends FileSystem {
                     .toUri().getAuthority()));
         }
         long duration = System.currentTimeMillis() - startTime;
-        fsLogger.info("{}-{}:{}.listStatus({}):{}", startTime, duration, this,
-                f, Arrays.toString(fileStatuses));
+        //fsLogger.info("{}-{}:{}.listStatus({}):{}", startTime, duration, this,
+        //        f, Arrays.toString(fileStatuses));
         return fileStatuses;
     }
 
@@ -414,8 +414,8 @@ public class StatisticsFileSystem extends FileSystem {
         Path unwrappedPath = unwrapPath(f);
         boolean result = wrappedFS.mkdirs(unwrappedPath, permission);
         long duration = System.currentTimeMillis() - startTime;
-        fsLogger.info("{}-{}:{}.mkdirs({},{}):{}", startTime, duration, this,
-                f, permission, result);
+        //fsLogger.info("{}-{}:{}.mkdirs({},{}):{}", startTime, duration, this,
+        //        f, permission, result);
         return result;
     }
 
@@ -426,8 +426,8 @@ public class StatisticsFileSystem extends FileSystem {
         WrappedFSDataInputStream stream = new WrappedFSDataInputStream(
                 wrappedFS.open(unwrappedPath, bufferSize), fsLogger);
         long duration = System.currentTimeMillis() - startTime;
-        fsLogger.info("{}-{}:{}.open({},{}):{}", startTime, duration, this, f,
-                bufferSize, stream);
+        //fsLogger.info("{}-{}:{}.open({},{}):{}", startTime, duration, this, f,
+        //        bufferSize, stream);
         return new FSDataInputStream(stream);
     }
 
@@ -438,8 +438,8 @@ public class StatisticsFileSystem extends FileSystem {
         Path unwrappedDst = unwrapPath(dst);
         boolean result = wrappedFS.rename(unwrappedSrc, unwrappedDst);
         long duration = System.currentTimeMillis() - startTime;
-        fsLogger.info("{}-{}:{}.rename({},{}):{}", startTime, duration, this,
-                src, dst, result);
+        //fsLogger.info("{}-{}:{}.rename({},{}):{}", startTime, duration, this,
+        //        src, dst, result);
         return result;
     }
 

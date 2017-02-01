@@ -78,8 +78,8 @@ public class RandomAccessFileCallback {
     public void onOpenEnd(long startTime, String name, int mode) {
         if (logger != null && startTime != -1L) {
             long duration = System.currentTimeMillis() - startTime;
-            logger.info("{}-{}:{}.open({},{}):void", startTime, duration, raf,
-                    name, mode);
+            //logger.info("{}-{}:{}.open({},{}):void", startTime, duration, raf,
+            //        name, mode);
         }
     }
 
@@ -94,8 +94,8 @@ public class RandomAccessFileCallback {
     public void onReadEnd(long startTime, int readResult) {
         if (logger != null && startTime != -1L) {
             long duration = System.currentTimeMillis() - startTime;
-            logger.info("{}-{}:{}.read():{}->{}", startTime, duration, raf,
-                    readResult, "localhost");
+            //logger.info("{}-{}:{}.read():{}->{}", startTime, duration, raf,
+            //        readResult, "localhost");
         }
     }
 
@@ -111,9 +111,9 @@ public class RandomAccessFileCallback {
             int off, int len) {
         if (logger != null && startTime != -1L) {
             long duration = System.currentTimeMillis() - startTime;
-            logger.info("{}-{}:{}.readBytes([{}],{},{}):{}->{}", startTime,
-                    duration, raf, b.length, off, len, readBytesResult,
-                    "localhost");
+            //logger.info("{}-{}:{}.readBytes([{}],{},{}):{}->{}", startTime,
+            //        duration, raf, b.length, off, len, readBytesResult,
+            //        "localhost");
         }
     }
 
@@ -128,7 +128,7 @@ public class RandomAccessFileCallback {
     public void onWriteEnd(long startTime, int b) {
         if (logger != null && startTime != -1L) {
             long duration = System.currentTimeMillis() - startTime;
-            logger.info("{}-{}:{}.write({}):void", startTime, duration, raf, b);
+            //logger.info("{}-{}:{}.write({}):void", startTime, duration, raf, b);
         }
     }
 
@@ -143,8 +143,8 @@ public class RandomAccessFileCallback {
     public void onWriteBytesEnd(long startTime, byte[] b, int off, int len) {
         if (logger != null && startTime != -1L) {
             long duration = System.currentTimeMillis() - startTime;
-            logger.info("{}-{}:{}.writeBytes([{}],{},{}):void", startTime,
-                    duration, raf, b.length, off, len);
+            //logger.info("{}-{}:{}.writeBytes([{}],{},{}):void", startTime,
+            //        duration, raf, b.length, off, len);
         }
     }
 
