@@ -11,14 +11,11 @@ import java.io.RandomAccessFile;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
 public class RandomAccessFileCallback {
 
     private final RandomAccessFile raf;
 
-    private Logger logger;
+    private Object logger;
 
     private static final Map<RandomAccessFile, RandomAccessFileCallback> instances = new HashMap<>();
 
@@ -36,7 +33,7 @@ public class RandomAccessFileCallback {
         logger = null;
     }
 
-    public Logger getLogger() {
+    public Object getLogger() {
         return logger;
     }
 

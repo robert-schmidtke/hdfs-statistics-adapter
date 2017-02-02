@@ -12,19 +12,18 @@ import java.io.OutputStream;
 
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem.Statistics;
-import org.apache.logging.log4j.Logger;
 
 public class WrappedFSDataOutputStream extends FSDataOutputStream {
 
-    private final Logger logger;
+    private final Object logger;
 
-    public WrappedFSDataOutputStream(OutputStream out, Logger logger)
+    public WrappedFSDataOutputStream(OutputStream out, Object logger)
             throws IOException {
         this(out, null, 0, logger);
     }
 
     public WrappedFSDataOutputStream(OutputStream out, Statistics stats,
-            long startPosition, Logger logger) throws IOException {
+            long startPosition, Object logger) throws IOException {
         super(out, stats, startPosition);
         this.logger = logger;
     }

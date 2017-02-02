@@ -26,7 +26,6 @@ import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.PositionedReadable;
 import org.apache.hadoop.fs.Seekable;
 import org.apache.hadoop.hdfs.client.HdfsDataInputStream;
-import org.apache.logging.log4j.Logger;
 
 public class WrappedFSDataInputStream extends InputStream implements
         PositionedReadable, Seekable {
@@ -35,7 +34,7 @@ public class WrappedFSDataInputStream extends InputStream implements
 
     private Supplier<String> datanodeHostNameSupplier;
 
-    private final Logger logger;
+    private final Object logger;
 
     // Shadow super class' LOG
     public static final Log LOG = LogFactory
@@ -43,7 +42,7 @@ public class WrappedFSDataInputStream extends InputStream implements
 
     private static Map<String, String> HOSTNAME_CACHE = new HashMap<String, String>();
 
-    public WrappedFSDataInputStream(FSDataInputStream in, Logger logger)
+    public WrappedFSDataInputStream(FSDataInputStream in, Object logger)
             throws IOException {
         this.in = in;
         this.logger = logger;

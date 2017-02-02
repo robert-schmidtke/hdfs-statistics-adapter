@@ -27,8 +27,6 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.util.Progressable;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 import de.zib.sfs.flink.WrappedFlinkFileSystem;
 
@@ -72,7 +70,7 @@ public class StatisticsFileSystem extends FileSystem {
     /**
      * The actual logger for file system calls.
      */
-    private Logger fsLogger;
+    private Object fsLogger;
 
     /**
      * Flag to track whether this file system is closed already.

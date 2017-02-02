@@ -11,14 +11,11 @@ import java.io.FileInputStream;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
 public class FileInputStreamCallback {
 
     private final FileInputStream fis;
 
-    private Logger logger;
+    private Object logger;
 
     private static final Map<FileInputStream, FileInputStreamCallback> instances = new HashMap<>();
 
@@ -36,7 +33,7 @@ public class FileInputStreamCallback {
         logger = null;
     }
 
-    public Logger getLogger() {
+    public Object getLogger() {
         return logger;
     }
 

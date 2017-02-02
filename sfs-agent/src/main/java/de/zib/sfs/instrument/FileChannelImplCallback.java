@@ -14,8 +14,6 @@ import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.logging.log4j.Logger;
-
 import sun.nio.ch.FileChannelImpl;
 
 // FileChannelImpl is not supposed to be used
@@ -24,7 +22,7 @@ public class FileChannelImplCallback {
 
     private final FileChannelImpl fci;
 
-    private Logger logger;
+    private Object logger;
 
     private static final Map<FileChannelImpl, FileChannelImplCallback> instances = new HashMap<>();
 
