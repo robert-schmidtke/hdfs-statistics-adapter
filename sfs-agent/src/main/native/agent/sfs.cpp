@@ -212,7 +212,7 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
     LOG_VERBOSE("Started agent transformation server on port '%d'.\n", port);
 
     // build the transformer JVM start command
-    g_transformer_jvm_cmd = new char *[7];
+    g_transformer_jvm_cmd = new char *[9];
     g_transformer_jvm_cmd[0] = strdup((java_home + "/bin/java").c_str());
     g_transformer_jvm_cmd[1] = strdup("-cp");
     g_transformer_jvm_cmd[2] = strdup(cli_options.transformer_jar_path.c_str());
@@ -220,11 +220,15 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
         strdup("de.zib.sfs.instrument.ClassTransformationService");
     g_transformer_jvm_cmd[4] = strdup("--communication-port-agent");
     g_transformer_jvm_cmd[5] = strdup(std::to_string(port).c_str());
-    g_transformer_jvm_cmd[6] = NULL;
-    LOG_VERBOSE("Starting transformer JVM using command '%s %s %s %s %s %s'.\n",
-                g_transformer_jvm_cmd[0], g_transformer_jvm_cmd[1],
-                g_transformer_jvm_cmd[2], g_transformer_jvm_cmd[3],
-                g_transformer_jvm_cmd[4], g_transformer_jvm_cmd[5]);
+    g_transformer_jvm_cmd[6] = strdup("--verbose");
+    g_transformer_jvm_cmd[7] = strdup(g_verbose ? "y" : "n");
+    g_transformer_jvm_cmd[8] = NULL;
+    LOG_VERBOSE(
+        "Starting transformer JVM using command '%s %s %s %s %s %s %s %s'.\n",
+        g_transformer_jvm_cmd[0], g_transformer_jvm_cmd[1],
+        g_transformer_jvm_cmd[2], g_transformer_jvm_cmd[3],
+        g_transformer_jvm_cmd[4], g_transformer_jvm_cmd[5],
+        g_transformer_jvm_cmd[6], g_transformer_jvm_cmd[7]);
 
     char *envp[] = {NULL};
 
@@ -493,7 +497,7 @@ static void cleanup() {
   // clean the startup command for the transformer JVM
   if (g_transformer_jvm_cmd != NULL) {
     LOG_VERBOSE("Freeing transformer JVM command.\n");
-    for (size_t i = 0; i < 6; ++i) {
+    for (size_t i = 0; i < 8; ++i) {
       free(g_transformer_jvm_cmd[i]);
     }
     delete[] g_transformer_jvm_cmd;
