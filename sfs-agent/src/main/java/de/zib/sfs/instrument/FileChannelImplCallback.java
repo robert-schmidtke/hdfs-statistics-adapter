@@ -8,8 +8,6 @@
 package de.zib.sfs.instrument;
 
 import java.nio.ByteBuffer;
-import java.util.HashMap;
-import java.util.Map;
 
 import sun.nio.ch.FileChannelImpl;
 
@@ -19,19 +17,7 @@ public class FileChannelImplCallback {
 
     private final FileChannelImpl fci;
 
-    private static final Map<FileChannelImpl, FileChannelImplCallback> instances = new HashMap<>();
-
-    public static FileChannelImplCallback getInstance(FileChannelImpl fci,
-            Object parent) {
-        FileChannelImplCallback instance = instances.get(fci);
-        if (instance == null) {
-            instance = new FileChannelImplCallback(fci, parent);
-            instances.put(fci, instance);
-        }
-        return instance;
-    }
-
-    private FileChannelImplCallback(FileChannelImpl fci, Object parent) {
+    public FileChannelImplCallback(FileChannelImpl fci, Object parent) {
         this.fci = fci;
     }
 

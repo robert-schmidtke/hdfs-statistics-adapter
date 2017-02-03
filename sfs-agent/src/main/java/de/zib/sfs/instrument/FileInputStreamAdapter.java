@@ -70,10 +70,6 @@ public class FileInputStreamAdapter extends ClassVisitor {
                 .getInternalName(FileInputStream.class);
         String fileInputStreamCallbackInternalName = Type
                 .getInternalName(FileInputStreamCallback.class);
-        String fileInputStreamCallbackGetInstanceMethodDescriptor = Type
-                .getMethodDescriptor(
-                        Type.getType(FileInputStreamCallback.class),
-                        Type.getType(FileInputStream.class));
 
         // descriptors of the methods we add to FileInputStream
         String getCallbackMethodDescriptor = Type.getMethodDescriptor(Type
@@ -104,12 +100,20 @@ public class FileInputStreamAdapter extends ClassVisitor {
         Label callbackNonNullLabel = new Label();
         getCallbackMV.visitJumpInsn(Opcodes.IFNONNULL, callbackNonNullLabel);
 
-        // callback = FileInputStreamCallback.getInstance(this);
+        // callback = new FileInputStreamCallback(this);
         getCallbackMV.visitVarInsn(Opcodes.ALOAD, 0);
+        getCallbackMV.visitTypeInsn(Opcodes.NEW,
+                fileInputStreamCallbackInternalName);
+        getCallbackMV.visitInsn(Opcodes.DUP);
         getCallbackMV.visitVarInsn(Opcodes.ALOAD, 0);
-        getCallbackMV.visitMethodInsn(Opcodes.INVOKESTATIC,
-                fileInputStreamCallbackInternalName, "getInstance",
-                fileInputStreamCallbackGetInstanceMethodDescriptor, false);
+        try {
+            getCallbackMV.visitMethodInsn(Opcodes.INVOKESPECIAL, Type
+                    .getInternalName(FileInputStreamCallback.class), "<init>",
+                    Type.getConstructorDescriptor(FileInputStreamCallback.class
+                            .getConstructor(FileInputStream.class)), false);
+        } catch (Exception e) {
+            throw new RuntimeException("Could not access constructor", e);
+        }
         getCallbackMV.visitFieldInsn(Opcodes.PUTFIELD,
                 fileInputStreamInternalName, "callback",
                 Type.getDescriptor(FileInputStreamCallback.class));

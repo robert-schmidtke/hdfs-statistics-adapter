@@ -8,25 +8,12 @@
 package de.zib.sfs.instrument;
 
 import java.io.FileOutputStream;
-import java.util.HashMap;
-import java.util.Map;
 
 public class FileOutputStreamCallback {
 
     private final FileOutputStream fos;
 
-    private static final Map<FileOutputStream, FileOutputStreamCallback> instances = new HashMap<>();
-
-    public static FileOutputStreamCallback getInstance(FileOutputStream fos) {
-        FileOutputStreamCallback instance = instances.get(fos);
-        if (instance == null) {
-            instance = new FileOutputStreamCallback(fos);
-            instances.put(fos, instance);
-        }
-        return instance;
-    }
-
-    private FileOutputStreamCallback(FileOutputStream fos) {
+    public FileOutputStreamCallback(FileOutputStream fos) {
         this.fos = fos;
     }
 

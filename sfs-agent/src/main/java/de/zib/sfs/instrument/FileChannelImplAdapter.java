@@ -71,11 +71,6 @@ public class FileChannelImplAdapter extends ClassVisitor {
                 .getInternalName(FileChannelImpl.class);
         String fileChannelImplCallbackInternalName = Type
                 .getInternalName(FileChannelImplCallback.class);
-        String fileChannelImplCallbackGetInstanceMethodDescriptor = Type
-                .getMethodDescriptor(
-                        Type.getType(FileChannelImplCallback.class),
-                        Type.getType(FileChannelImpl.class),
-                        Type.getType(Object.class));
 
         // descriptors of the methods we add to FileChannelImpl
         String getCallbackMethodDescriptor = Type.getMethodDescriptor(Type
@@ -108,16 +103,28 @@ public class FileChannelImplAdapter extends ClassVisitor {
         Label callbackNonNullLabel = new Label();
         getCallbackMV.visitJumpInsn(Opcodes.IFNONNULL, callbackNonNullLabel);
 
-        // callback = FileChannelImplCallback.getInstance(this, parent);
+        // callback = new FileChannelImplCallback(this, parent);
         getCallbackMV.visitVarInsn(Opcodes.ALOAD, 0);
+        getCallbackMV.visitTypeInsn(Opcodes.NEW,
+                fileChannelImplCallbackInternalName);
+        getCallbackMV.visitInsn(Opcodes.DUP);
         getCallbackMV.visitVarInsn(Opcodes.ALOAD, 0);
         getCallbackMV.visitVarInsn(Opcodes.ALOAD, 0);
         getCallbackMV.visitFieldInsn(Opcodes.GETFIELD,
                 fileChannelImplInternalName, "parent",
                 Type.getDescriptor(Object.class));
-        getCallbackMV.visitMethodInsn(Opcodes.INVOKESTATIC,
-                fileChannelImplCallbackInternalName, "getInstance",
-                fileChannelImplCallbackGetInstanceMethodDescriptor, false);
+        try {
+            getCallbackMV
+                    .visitMethodInsn(
+                            Opcodes.INVOKESPECIAL,
+                            Type.getInternalName(FileChannelImplCallback.class),
+                            "<init>",
+                            Type.getConstructorDescriptor(FileChannelImplCallback.class
+                                    .getConstructor(FileChannelImpl.class,
+                                            Object.class)), false);
+        } catch (Exception e) {
+            throw new RuntimeException("Could not access constructor", e);
+        }
         getCallbackMV.visitFieldInsn(Opcodes.PUTFIELD,
                 fileChannelImplInternalName, "callback",
                 Type.getDescriptor(FileChannelImplCallback.class));

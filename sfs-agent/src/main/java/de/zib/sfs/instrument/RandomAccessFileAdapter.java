@@ -72,10 +72,6 @@ public class RandomAccessFileAdapter extends ClassVisitor {
                 .getInternalName(RandomAccessFile.class);
         String randomAccessFileCallbackInternalName = Type
                 .getInternalName(RandomAccessFileCallback.class);
-        String randomAccessFileCallbackGetInstanceMethodDescriptor = Type
-                .getMethodDescriptor(
-                        Type.getType(RandomAccessFileCallback.class),
-                        Type.getType(RandomAccessFile.class));
 
         // descriptors of the methods we add to RandomAccessFile
         String getCallbackMethodDescriptor = Type.getMethodDescriptor(Type
@@ -111,12 +107,24 @@ public class RandomAccessFileAdapter extends ClassVisitor {
         Label callbackNonNullLabel = new Label();
         getCallbackMV.visitJumpInsn(Opcodes.IFNONNULL, callbackNonNullLabel);
 
-        // callback = RandomAccessFileCallback.getInstance(this);
+        // callback = new RandomAccessFileCallback(this);
         getCallbackMV.visitVarInsn(Opcodes.ALOAD, 0);
+        getCallbackMV.visitTypeInsn(Opcodes.NEW,
+                randomAccessFileCallbackInternalName);
+        getCallbackMV.visitInsn(Opcodes.DUP);
         getCallbackMV.visitVarInsn(Opcodes.ALOAD, 0);
-        getCallbackMV.visitMethodInsn(Opcodes.INVOKESTATIC,
-                randomAccessFileCallbackInternalName, "getInstance",
-                randomAccessFileCallbackGetInstanceMethodDescriptor, false);
+        try {
+            getCallbackMV
+                    .visitMethodInsn(
+                            Opcodes.INVOKESPECIAL,
+                            Type.getInternalName(RandomAccessFileCallback.class),
+                            "<init>",
+                            Type.getConstructorDescriptor(RandomAccessFileCallback.class
+                                    .getConstructor(RandomAccessFile.class)),
+                            false);
+        } catch (Exception e) {
+            throw new RuntimeException("Could not access constructor", e);
+        }
         getCallbackMV.visitFieldInsn(Opcodes.PUTFIELD,
                 randomAccessFileInternalName, "callback",
                 Type.getDescriptor(RandomAccessFileCallback.class));

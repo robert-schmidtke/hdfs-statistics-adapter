@@ -70,10 +70,6 @@ public class FileOutputStreamAdapter extends ClassVisitor {
                 .getInternalName(FileOutputStream.class);
         String fileOutputStreamCallbackInternalName = Type
                 .getInternalName(FileOutputStreamCallback.class);
-        String fileOutputStreamCallbackGetInstanceMethodDescriptor = Type
-                .getMethodDescriptor(
-                        Type.getType(FileOutputStreamCallback.class),
-                        Type.getType(FileOutputStream.class));
 
         // descriptors of the methods we add to FileOutputStream
         String getCallbackMethodDescriptor = Type.getMethodDescriptor(Type
@@ -105,12 +101,24 @@ public class FileOutputStreamAdapter extends ClassVisitor {
         Label callbackNonNullLabel = new Label();
         getCallbackMV.visitJumpInsn(Opcodes.IFNONNULL, callbackNonNullLabel);
 
-        // callback = FileOutputStreamCallback.getInstance(this);
+        // callback = new FileOutputStreamCallback(this);
         getCallbackMV.visitVarInsn(Opcodes.ALOAD, 0);
+        getCallbackMV.visitTypeInsn(Opcodes.NEW,
+                fileOutputStreamCallbackInternalName);
+        getCallbackMV.visitInsn(Opcodes.DUP);
         getCallbackMV.visitVarInsn(Opcodes.ALOAD, 0);
-        getCallbackMV.visitMethodInsn(Opcodes.INVOKESTATIC,
-                fileOutputStreamCallbackInternalName, "getInstance",
-                fileOutputStreamCallbackGetInstanceMethodDescriptor, false);
+        try {
+            getCallbackMV
+                    .visitMethodInsn(
+                            Opcodes.INVOKESPECIAL,
+                            Type.getInternalName(FileOutputStreamCallback.class),
+                            "<init>",
+                            Type.getConstructorDescriptor(FileOutputStreamCallback.class
+                                    .getConstructor(FileOutputStream.class)),
+                            false);
+        } catch (Exception e) {
+            throw new RuntimeException("Could not access constructor", e);
+        }
         getCallbackMV.visitFieldInsn(Opcodes.PUTFIELD,
                 fileOutputStreamInternalName, "callback",
                 Type.getDescriptor(FileOutputStreamCallback.class));

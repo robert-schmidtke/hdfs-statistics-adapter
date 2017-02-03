@@ -8,25 +8,12 @@
 package de.zib.sfs.instrument;
 
 import java.io.RandomAccessFile;
-import java.util.HashMap;
-import java.util.Map;
 
 public class RandomAccessFileCallback {
 
     private final RandomAccessFile raf;
 
-    private static final Map<RandomAccessFile, RandomAccessFileCallback> instances = new HashMap<>();
-
-    public static RandomAccessFileCallback getInstance(RandomAccessFile raf) {
-        RandomAccessFileCallback instance = instances.get(raf);
-        if (instance == null) {
-            instance = new RandomAccessFileCallback(raf);
-            instances.put(raf, instance);
-        }
-        return instance;
-    }
-
-    private RandomAccessFileCallback(RandomAccessFile raf) {
+    public RandomAccessFileCallback(RandomAccessFile raf) {
         this.raf = raf;
     }
 
