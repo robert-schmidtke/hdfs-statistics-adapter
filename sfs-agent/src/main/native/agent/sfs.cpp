@@ -460,6 +460,15 @@ static void JNICALL VMInitCallback(jvmtiEnv *jvmti_env, JNIEnv *jni_env,
       jni_env->NewStringUTF("de.zib.sfs.output.directory"),
       jni_env->NewStringUTF(g_output_directory.c_str()));
 
+  // repeat for the verbosity
+  LOG_VERBOSE("Setting system property '%s'='%s'.\n",
+              std::string("de.zib.sfs.verbose").c_str(),
+              g_verbose ? "true" : "false");
+  jni_env->CallStaticVoidMethod(
+      system_class, set_property_method_id,
+      jni_env->NewStringUTF("de.zib.sfs.verbose"),
+      jni_env->NewStringUTF(g_verbose ? "true" : "false"));
+
   LOG_VERBOSE("VM initialized successfully.\n");
 }
 
@@ -467,10 +476,21 @@ static void JNICALL VMInitCallback(jvmtiEnv *jvmti_env, JNIEnv *jni_env,
 static void JNICALL VMDeathCallback(jvmtiEnv *jvmti_env, JNIEnv *jni_env) {
   LOG_VERBOSE("Shutting down VM.\n");
 
-  // Log4j2 has their own shutdown hookes. If we call LogManager.shutdown();
-  // explicitly here, it will cancel the currently running shutdown hook,
-  // reinitialize (not properly, because the JVM is shutting down already) and
-  // then shutdown the new initialization.
+  // get the aggregator and shut it down
+  LOG_VERBOSE("Shutting down SfsOperationStatisticsAggregator.\n");
+  jclass sfs_operation_statistics_aggregator_class = jni_env->FindClass(
+      "de/zib/sfs/instrument/statistics/SfsOperationStatisticsAggregator");
+  jmethodID get_instance_method_id = jni_env->GetStaticMethodID(
+      sfs_operation_statistics_aggregator_class, "getInstance",
+      "()Lde/zib/sfs/instrument/statistics/SfsOperationStatisticsAggregator;");
+  jobject sfs_operation_statistics_aggregator_instance =
+      jni_env->CallStaticObjectMethod(sfs_operation_statistics_aggregator_class,
+                                      get_instance_method_id);
+  jmethodID shutdown_method_id = jni_env->GetMethodID(
+      sfs_operation_statistics_aggregator_class, "shutdown", "()V");
+  jni_env->CallVoidMethod(sfs_operation_statistics_aggregator_instance,
+                          shutdown_method_id);
+  LOG_VERBOSE("SfsOperationStatisticsAggregator shut down successfully.\n");
 
   LOG_VERBOSE("VM shut down successfully.\n");
 }

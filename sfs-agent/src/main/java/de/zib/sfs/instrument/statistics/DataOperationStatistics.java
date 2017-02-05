@@ -66,10 +66,9 @@ public class DataOperationStatistics extends OperationStatistics {
     public DataOperationStatistics() {
     }
 
-    public DataOperationStatistics(String hostname, int pid, String key,
-            String className, String name, String instance, long startTime,
-            long endTime, long data) {
-        super(hostname, pid, key, className, name, instance, startTime, endTime);
+    public DataOperationStatistics(OperationSource source,
+            OperationCategory category, long startTime, long endTime, long data) {
+        super(source, category, startTime, endTime);
         this.data = data;
     }
 

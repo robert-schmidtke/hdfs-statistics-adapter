@@ -34,6 +34,12 @@
 
   <dependencies>
     <dependency>
+      <groupId>de.zib.sfs</groupId>
+      <artifactId>sfs-agent</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <dependency>
       <groupId>org.apache.flink</groupId>
       <artifactId>flink-core</artifactId>
       <version>${flink.version}</version>

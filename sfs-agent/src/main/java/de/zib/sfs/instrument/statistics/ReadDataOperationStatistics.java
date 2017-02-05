@@ -93,14 +93,15 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
 
     private String remoteHostname;
 
+    private boolean remote;
+
     public ReadDataOperationStatistics() {
     }
 
-    public ReadDataOperationStatistics(String hostname, int pid, String key,
-            String className, String name, String instance, long startTime,
-            long endTime, long data, String remoteHostname) {
-        super(hostname, pid, key, className, name, instance, startTime,
-                endTime, data);
+    public ReadDataOperationStatistics(OperationSource source,
+            OperationCategory category, long startTime, long endTime,
+            long data, String remoteHostname, boolean remote) {
+        super(source, category, startTime, endTime, data);
         if (remoteHostname == null) {
             this.remoteHostname = null;
         } else {
@@ -114,6 +115,7 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
                 this.remoteHostname = remoteHostname;
             }
         }
+        this.remote = remote;
     }
 
     public String getRemoteHostname() {
@@ -125,8 +127,11 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
     }
 
     public boolean isRemote() {
-        return !("localhost".equals(remoteHostname) || getHostname().equals(
-                remoteHostname));
+        return remote;
+    }
+
+    public void setRemote(boolean remote) {
+        this.remote = remote;
     }
 
     @Override

@@ -13,7 +13,6 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.lang.reflect.Constructor;
 import java.net.URI;
-import java.util.Arrays;
 import java.util.Random;
 
 import org.apache.commons.logging.Log;
@@ -29,6 +28,10 @@ import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.util.Progressable;
 
 import de.zib.sfs.flink.WrappedFlinkFileSystem;
+import de.zib.sfs.instrument.statistics.OperationCategory;
+import de.zib.sfs.instrument.statistics.OperationSource;
+import de.zib.sfs.instrument.statistics.OperationStatistics;
+import de.zib.sfs.instrument.statistics.OperationStatisticsAggregator;
 
 /**
  * Implements the Hadoop {@link org.apache.hadoop.fs.FileSystem} interface as it
@@ -68,9 +71,9 @@ public class StatisticsFileSystem extends FileSystem {
     private String wrappedFSScheme;
 
     /**
-     * The actual logger for file system calls.
+     * The aggregator for file system call statistics.
      */
-    private Object fsLogger;
+    private OperationStatisticsAggregator aggregator;
 
     /**
      * Flag to track whether this file system is closed already.
@@ -163,10 +166,9 @@ public class StatisticsFileSystem extends FileSystem {
             System.setProperty("de.zib.sfs.output.directory", "/tmp");
         }
 
-        // fsLogger = LogManager.getLogger("de.zib.sfs.AsyncLogger");
-        fsLogger = null;
+        aggregator = OperationStatisticsAggregator.getInstance();
         if (LOG.isDebugEnabled()) {
-            LOG.debug("Initialized file system logger");
+            LOG.debug("Initialized file system statistics aggregator.");
         }
 
         // Obtain the file system class we want to wrap
@@ -276,10 +278,12 @@ public class StatisticsFileSystem extends FileSystem {
         long startTime = System.currentTimeMillis();
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream = new WrappedFSDataOutputStream(
-                wrappedFS.append(unwrappedPath, bufferSize, progress), fsLogger);
-        long duration = System.currentTimeMillis() - startTime;
-        //fsLogger.info("{}-{}:{}.append({},{}):{}", startTime, duration, this,
-        //        f, bufferSize, stream);
+                wrappedFS.append(unwrappedPath, bufferSize, progress),
+                aggregator);
+        aggregator
+                .aggregate(new OperationStatistics(OperationSource.JVM,
+                        OperationCategory.OTHER, startTime, System
+                                .currentTimeMillis()));
         return stream;
     }
 
@@ -322,11 +326,12 @@ public class StatisticsFileSystem extends FileSystem {
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream = new WrappedFSDataOutputStream(
                 wrappedFS.create(unwrappedPath, permission, overwrite,
-                        bufferSize, replication, blockSize, progress), fsLogger);
-        long duration = System.currentTimeMillis() - startTime;
-        //fsLogger.info("{}-{}:{}.create({},{},{},{},{},{}):{}", startTime,
-        //        duration, this, f, permission, overwrite, bufferSize,
-        //        replication, blockSize, stream);
+                        bufferSize, replication, blockSize, progress),
+                aggregator);
+        aggregator
+                .aggregate(new OperationStatistics(OperationSource.JVM,
+                        OperationCategory.OTHER, startTime, System
+                                .currentTimeMillis()));
         return stream;
     }
 
@@ -335,9 +340,10 @@ public class StatisticsFileSystem extends FileSystem {
         long startTime = System.currentTimeMillis();
         Path unwrappedPath = unwrapPath(f);
         boolean result = wrappedFS.delete(unwrappedPath, recursive);
-        long duration = System.currentTimeMillis() - startTime;
-        //fsLogger.info("{}-{}:{}.delete({},{}):{}", startTime, duration, this,
-        //        f, recursive, result);
+        aggregator
+                .aggregate(new OperationStatistics(OperationSource.JVM,
+                        OperationCategory.OTHER, startTime, System
+                                .currentTimeMillis()));
         return result;
     }
 
@@ -353,10 +359,10 @@ public class StatisticsFileSystem extends FileSystem {
                 unwrapPath(file.getPath()));
         BlockLocation[] blockLocations = wrappedFS.getFileBlockLocations(
                 unwrappedFile, start, len);
-        long duration = System.currentTimeMillis() - startTime;
-        //fsLogger.info("{}-{}:{}.getFileBlockLocations({},{},{}):{}", startTime,
-        //        duration, this, file, start, len,
-        //        Arrays.toString(blockLocations));
+        aggregator
+                .aggregate(new OperationStatistics(OperationSource.JVM,
+                        OperationCategory.OTHER, startTime, System
+                                .currentTimeMillis()));
         return blockLocations;
     }
 
@@ -367,9 +373,10 @@ public class StatisticsFileSystem extends FileSystem {
         FileStatus fileStatus = wrappedFS.getFileStatus(unwrappedPath);
         fileStatus.setPath(setAuthority(wrapPath(fileStatus.getPath()), f
                 .toUri().getAuthority()));
-        long duration = System.currentTimeMillis() - startTime;
-        //fsLogger.info("{}-{}:{}.getFileStatus({}):{}", startTime, duration,
-        //        this, f, fileStatus);
+        aggregator
+                .aggregate(new OperationStatistics(OperationSource.JVM,
+                        OperationCategory.OTHER, startTime, System
+                                .currentTimeMillis()));
         return fileStatus;
     }
 
@@ -401,9 +408,10 @@ public class StatisticsFileSystem extends FileSystem {
             fileStatus.setPath(setAuthority(wrapPath(fileStatus.getPath()), f
                     .toUri().getAuthority()));
         }
-        long duration = System.currentTimeMillis() - startTime;
-        //fsLogger.info("{}-{}:{}.listStatus({}):{}", startTime, duration, this,
-        //        f, Arrays.toString(fileStatuses));
+        aggregator
+                .aggregate(new OperationStatistics(OperationSource.JVM,
+                        OperationCategory.OTHER, startTime, System
+                                .currentTimeMillis()));
         return fileStatuses;
     }
 
@@ -412,9 +420,10 @@ public class StatisticsFileSystem extends FileSystem {
         long startTime = System.currentTimeMillis();
         Path unwrappedPath = unwrapPath(f);
         boolean result = wrappedFS.mkdirs(unwrappedPath, permission);
-        long duration = System.currentTimeMillis() - startTime;
-        //fsLogger.info("{}-{}:{}.mkdirs({},{}):{}", startTime, duration, this,
-        //        f, permission, result);
+        aggregator
+                .aggregate(new OperationStatistics(OperationSource.JVM,
+                        OperationCategory.OTHER, startTime, System
+                                .currentTimeMillis()));
         return result;
     }
 
@@ -423,10 +432,11 @@ public class StatisticsFileSystem extends FileSystem {
         long startTime = System.currentTimeMillis();
         Path unwrappedPath = unwrapPath(f);
         WrappedFSDataInputStream stream = new WrappedFSDataInputStream(
-                wrappedFS.open(unwrappedPath, bufferSize), fsLogger);
-        long duration = System.currentTimeMillis() - startTime;
-        //fsLogger.info("{}-{}:{}.open({},{}):{}", startTime, duration, this, f,
-        //        bufferSize, stream);
+                wrappedFS.open(unwrappedPath, bufferSize), aggregator);
+        aggregator
+                .aggregate(new OperationStatistics(OperationSource.JVM,
+                        OperationCategory.OTHER, startTime, System
+                                .currentTimeMillis()));
         return new FSDataInputStream(stream);
     }
 
@@ -436,9 +446,10 @@ public class StatisticsFileSystem extends FileSystem {
         Path unwrappedSrc = unwrapPath(src);
         Path unwrappedDst = unwrapPath(dst);
         boolean result = wrappedFS.rename(unwrappedSrc, unwrappedDst);
-        long duration = System.currentTimeMillis() - startTime;
-        //fsLogger.info("{}-{}:{}.rename({},{}):{}", startTime, duration, this,
-        //        src, dst, result);
+        aggregator
+                .aggregate(new OperationStatistics(OperationSource.JVM,
+                        OperationCategory.OTHER, startTime, System
+                                .currentTimeMillis()));
         return result;
     }
 

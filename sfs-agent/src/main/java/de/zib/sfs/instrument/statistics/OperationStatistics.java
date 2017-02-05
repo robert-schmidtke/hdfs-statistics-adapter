@@ -23,12 +23,6 @@ public class OperationStatistics {
             }
         }
 
-        private String hostname;
-
-        private int pid;
-
-        private String key;
-
         private long count;
 
         private long timeBin, timeBinDuration, cpuTime;
@@ -41,9 +35,6 @@ public class OperationStatistics {
         }
 
         public Aggregator(OperationStatistics statistics, long timeBinDuration) {
-            hostname = statistics.getHostname();
-            pid = statistics.getPid();
-            key = statistics.getKey();
             count = 1;
             this.timeBinDuration = timeBinDuration;
             timeBin = statistics.getStartTime() - statistics.getStartTime()
@@ -51,30 +42,6 @@ public class OperationStatistics {
             cpuTime = statistics.getDuration();
             source = statistics.getSource();
             category = statistics.getCategory();
-        }
-
-        public String getHostname() {
-            return hostname;
-        }
-
-        public void setHostname(String hostname) {
-            this.hostname = hostname;
-        }
-
-        public int getPid() {
-            return pid;
-        }
-
-        public void setPid(int pid) {
-            this.pid = pid;
-        }
-
-        public String getKey() {
-            return key;
-        }
-
-        public void setKey(String key) {
-            this.key = key;
         }
 
         public long getCount() {
@@ -131,21 +98,6 @@ public class OperationStatistics {
                 throw new NotAggregatableException("Cannot aggregate self");
             }
 
-            if (!aggregator.getHostname().equals(hostname)) {
-                throw new NotAggregatableException("Hostnames do not match: "
-                        + hostname + ", " + aggregator.getHostname());
-            }
-
-            if (aggregator.getPid() != pid) {
-                throw new NotAggregatableException("Pids do not match: " + pid
-                        + ", " + aggregator.getPid());
-            }
-
-            if (!aggregator.getKey().equals(key)) {
-                throw new NotAggregatableException("Keys do not match: " + key
-                        + ", " + aggregator.getKey());
-            }
-
             if (aggregator.getTimeBin() != timeBin) {
                 throw new NotAggregatableException("Time bins do not match: "
                         + timeBin + ", " + aggregator.getTimeBin());
@@ -169,12 +121,7 @@ public class OperationStatistics {
 
         public String getCsvHeaders(String separator) {
             StringBuilder sb = new StringBuilder();
-            sb.append("hostname");
-            sb.append(separator).append("pid");
-            sb.append(separator).append("key");
-            sb.append(separator).append("source");
-            sb.append(separator).append("category");
-            sb.append(separator).append("count");
+            sb.append("count");
             sb.append(separator).append("timeBin");
             sb.append(separator).append("cpuTime");
             return sb.toString();
@@ -182,12 +129,7 @@ public class OperationStatistics {
 
         public String toCsv(String separator) {
             StringBuilder sb = new StringBuilder();
-            sb.append(hostname);
-            sb.append(separator).append(pid);
-            sb.append(separator).append(key);
-            sb.append(separator).append(source.name().toLowerCase());
-            sb.append(separator).append(category.name().toLowerCase());
-            sb.append(separator).append(count);
+            sb.append(count);
             sb.append(separator).append(timeBin);
             sb.append(separator).append(cpuTime);
             return sb.toString();
@@ -204,10 +146,6 @@ public class OperationStatistics {
 
     private long startTime, endTime;
 
-    private String hostname, key, className, name, instance;
-
-    private int pid;
-
     private OperationSource source;
 
     private OperationCategory category;
@@ -215,62 +153,12 @@ public class OperationStatistics {
     public OperationStatistics() {
     }
 
-    public OperationStatistics(String hostname, int pid, String key,
-            String className, String name, String instance, long startTime,
-            long endTime) {
-        this.hostname = hostname;
-        this.pid = pid;
-        this.key = key;
-        this.className = className;
-        this.name = name;
-        this.instance = instance;
+    public OperationStatistics(OperationSource source,
+            OperationCategory category, long startTime, long endTime) {
+        this.source = source;
+        this.category = category;
         this.startTime = startTime;
         this.endTime = endTime;
-
-        switch (className) {
-        case "java.io.FileInputStream":
-        case "java.io.FileOutputStream":
-        case "java.io.RandomAccessFile":
-        case "sun.nio.ch.FileChannelImpl":
-            source = OperationSource.JVM;
-            break;
-        case "de.zib.sfs.StatisticsFileSystem":
-        case "de.zib.sfs.WrappedFSDataInputStream":
-        case "de.zib.sfs.WrappedFSDataOutputStream":
-            source = OperationSource.SFS;
-            break;
-        default:
-            throw new IllegalArgumentException(
-                    "Could not determine source from class " + className);
-        }
-
-        switch (name) {
-        case "read":
-        case "readBytes":
-        case "readFully":
-            category = OperationCategory.READ;
-            break;
-        case "write":
-        case "writeBytes":
-            category = OperationCategory.WRITE;
-            break;
-        case "append":
-        case "create":
-        case "delete":
-        case "getFileBlockLocations":
-        case "getFileStatus":
-        case "listStatus":
-        case "mkdirs":
-        case "open":
-        case "rename":
-        case "seek":
-        case "seekToNewSource":
-            category = OperationCategory.OTHER;
-            break;
-        default:
-            throw new IllegalArgumentException(
-                    "Could not determine category from operation " + name);
-        }
     }
 
     public long getStartTime() {
@@ -297,54 +185,6 @@ public class OperationStatistics {
         throw new UnsupportedOperationException("setDuration");
     }
 
-    public String getHostname() {
-        return hostname;
-    }
-
-    public void setHostname(String hostname) {
-        this.hostname = hostname;
-    }
-
-    public int getPid() {
-        return pid;
-    }
-
-    public void setPid(int pid) {
-        this.pid = pid;
-    }
-
-    public String getKey() {
-        return key;
-    }
-
-    public void setKey(String key) {
-        this.key = key;
-    }
-
-    public String getClassName() {
-        return className;
-    }
-
-    public void setClassName(String className) {
-        this.className = className;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public String getInstance() {
-        return instance;
-    }
-
-    public void setInstance(String instance) {
-        this.instance = instance;
-    }
-
     public OperationSource getSource() {
         return source;
     }
@@ -363,13 +203,7 @@ public class OperationStatistics {
 
     public String toCsv(String separator) {
         StringBuilder sb = new StringBuilder();
-        sb.append("pid:").append(getPid());
-        sb.append(separator).append("hostname:").append(hostname);
-        sb.append(separator).append("key:").append(key);
-        sb.append(separator).append("className:").append(className);
-        sb.append(separator).append("name:").append(name);
-        sb.append(separator).append("instance:").append(instance);
-        sb.append(separator).append("startTime:").append(startTime);
+        sb.append("startTime:").append(startTime);
         sb.append(separator).append("endTime:").append(endTime);
         sb.append(separator).append("duration:").append(endTime - startTime);
         sb.append(separator).append("source:").append(source);

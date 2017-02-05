@@ -13,36 +13,43 @@ import java.io.OutputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem.Statistics;
 
+import de.zib.sfs.instrument.statistics.DataOperationStatistics;
+import de.zib.sfs.instrument.statistics.OperationCategory;
+import de.zib.sfs.instrument.statistics.OperationSource;
+import de.zib.sfs.instrument.statistics.OperationStatisticsAggregator;
+
 public class WrappedFSDataOutputStream extends FSDataOutputStream {
 
-    private final Object logger;
+    private final OperationStatisticsAggregator aggregator;
 
-    public WrappedFSDataOutputStream(OutputStream out, Object logger)
-            throws IOException {
-        this(out, null, 0, logger);
+    public WrappedFSDataOutputStream(OutputStream out,
+            OperationStatisticsAggregator aggregator) throws IOException {
+        this(out, null, 0, aggregator);
     }
 
     public WrappedFSDataOutputStream(OutputStream out, Statistics stats,
-            long startPosition, Object logger) throws IOException {
+            long startPosition, OperationStatisticsAggregator aggregator)
+            throws IOException {
         super(out, stats, startPosition);
-        this.logger = logger;
+        this.aggregator = aggregator;
     }
 
     @Override
     public synchronized void write(int b) throws IOException {
         long startTime = System.currentTimeMillis();
         super.write(b);
-        long duration = System.currentTimeMillis() - startTime;
-        //logger.info("{}-{}:{}.write({}):void", startTime, duration, this, b);
+        aggregator.aggregate(new DataOperationStatistics(OperationSource.SFS,
+                OperationCategory.WRITE, startTime, System.currentTimeMillis(),
+                1));
     }
 
     @Override
     public void write(byte[] b) throws IOException {
         long startTime = System.currentTimeMillis();
         super.write(b);
-        long duration = System.currentTimeMillis() - startTime;
-        //logger.info("{}-{}:{}.write([{}]):void", startTime, duration, this,
-        //        b.length);
+        aggregator.aggregate(new DataOperationStatistics(OperationSource.SFS,
+                OperationCategory.WRITE, startTime, System.currentTimeMillis(),
+                b.length));
     }
 
     @Override
@@ -50,9 +57,9 @@ public class WrappedFSDataOutputStream extends FSDataOutputStream {
             throws IOException {
         long startTime = System.currentTimeMillis();
         super.write(b, off, len);
-        long duration = System.currentTimeMillis() - startTime;
-        //logger.info("{}-{}:{}.write([{}],{},{}):void", startTime, duration,
-        //        this, b.length, off, len);
+        aggregator.aggregate(new DataOperationStatistics(OperationSource.SFS,
+                OperationCategory.WRITE, startTime, System.currentTimeMillis(),
+                len));
     }
 
 }
