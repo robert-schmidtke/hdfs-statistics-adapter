@@ -477,20 +477,20 @@ static void JNICALL VMDeathCallback(jvmtiEnv *jvmti_env, JNIEnv *jni_env) {
   LOG_VERBOSE("Shutting down VM.\n");
 
   // get the aggregator and shut it down
-  LOG_VERBOSE("Shutting down SfsOperationStatisticsAggregator.\n");
-  jclass sfs_operation_statistics_aggregator_class = jni_env->FindClass(
-      "de/zib/sfs/instrument/statistics/SfsOperationStatisticsAggregator");
+  LOG_VERBOSE("Shutting down OperationStatisticsAggregator.\n");
+  jclass operation_statistics_aggregator_class = jni_env->FindClass(
+      "de/zib/sfs/instrument/statistics/OperationStatisticsAggregator");
   jmethodID get_instance_method_id = jni_env->GetStaticMethodID(
-      sfs_operation_statistics_aggregator_class, "getInstance",
-      "()Lde/zib/sfs/instrument/statistics/SfsOperationStatisticsAggregator;");
-  jobject sfs_operation_statistics_aggregator_instance =
-      jni_env->CallStaticObjectMethod(sfs_operation_statistics_aggregator_class,
+      operation_statistics_aggregator_class, "getInstance",
+      "()Lde/zib/sfs/instrument/statistics/OperationStatisticsAggregator;");
+  jobject operation_statistics_aggregator_instance =
+      jni_env->CallStaticObjectMethod(operation_statistics_aggregator_class,
                                       get_instance_method_id);
   jmethodID shutdown_method_id = jni_env->GetMethodID(
-      sfs_operation_statistics_aggregator_class, "shutdown", "()V");
-  jni_env->CallVoidMethod(sfs_operation_statistics_aggregator_instance,
+      operation_statistics_aggregator_class, "shutdown", "()V");
+  jni_env->CallVoidMethod(operation_statistics_aggregator_instance,
                           shutdown_method_id);
-  LOG_VERBOSE("SfsOperationStatisticsAggregator shut down successfully.\n");
+  LOG_VERBOSE("OperationStatisticsAggregator shut down successfully.\n");
 
   LOG_VERBOSE("VM shut down successfully.\n");
 }
