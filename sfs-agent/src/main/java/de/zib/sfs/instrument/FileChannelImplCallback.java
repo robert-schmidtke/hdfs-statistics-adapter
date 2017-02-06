@@ -7,15 +7,13 @@
  */
 package de.zib.sfs.instrument;
 
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
-import java.util.HashMap;
-import java.util.Map;
 
-import org.apache.logging.log4j.Logger;
-
+import de.zib.sfs.instrument.statistics.DataOperationStatistics;
+import de.zib.sfs.instrument.statistics.OperationCategory;
+import de.zib.sfs.instrument.statistics.OperationSource;
+import de.zib.sfs.instrument.statistics.ReadDataOperationStatistics;
+import de.zib.sfs.instrument.statistics.OperationStatisticsAggregator;
 import sun.nio.ch.FileChannelImpl;
 
 // FileChannelImpl is not supposed to be used
@@ -23,100 +21,67 @@ import sun.nio.ch.FileChannelImpl;
 public class FileChannelImplCallback {
 
     private final FileChannelImpl fci;
+    private final Object parent;
 
-    private Logger logger;
+    private final OperationStatisticsAggregator aggregator;
 
-    private static final Map<FileChannelImpl, FileChannelImplCallback> instances = new HashMap<>();
-
-    public static FileChannelImplCallback getInstance(FileChannelImpl fci,
-            Object parent) {
-        FileChannelImplCallback instance = instances.get(fci);
-        if (instance == null) {
-            instance = new FileChannelImplCallback(fci, parent);
-            instances.put(fci, instance);
-        }
-        return instance;
-    }
-
-    private FileChannelImplCallback(FileChannelImpl fci, Object parent) {
+    public FileChannelImplCallback(FileChannelImpl fci, Object parent) {
         this.fci = fci;
-        logger = null;
-        if (parent instanceof FileInputStream) {
-            logger = FileInputStreamCallback.getInstance(
-                    (FileInputStream) parent).getLogger();
-        } else if (parent instanceof FileOutputStream) {
-            logger = FileOutputStreamCallback.getInstance(
-                    (FileOutputStream) parent).getLogger();
-        } else if (parent instanceof RandomAccessFile) {
-            logger = RandomAccessFileCallback.getInstance(
-                    (RandomAccessFile) parent).getLogger();
-        }
+        this.parent = parent;
+
+        // may be null during early phases of JVM initialization
+        aggregator = OperationStatisticsAggregator.getInstance();
     }
 
     public long onReadBegin(ByteBuffer dst) {
-        if (logger != null) {
-            return System.currentTimeMillis();
-        } else {
-            return -1L;
-        }
+        return aggregator != null ? System.currentTimeMillis() : -1L;
     }
 
     public void onReadEnd(long startTime, int readResult, ByteBuffer dst) {
-        if (logger != null && startTime != -1L) {
-            long duration = System.currentTimeMillis() - startTime;
-            logger.info("{}-{}:{}.read({}):{}->{}", startTime, duration, fci,
-                    dst, readResult, "localhost");
+        if (startTime != -1L) {
+            aggregator.aggregate(new ReadDataOperationStatistics(
+                    OperationSource.JVM, OperationCategory.READ, startTime,
+                    System.currentTimeMillis(), readResult == -1 ? 0
+                            : readResult, null, false));
         }
     }
 
     public long onReadBegin(ByteBuffer[] dsts, int offset, int length) {
-        if (logger != null) {
-            return System.currentTimeMillis();
-        } else {
-            return -1L;
-        }
+        return aggregator != null ? System.currentTimeMillis() : -1L;
     }
 
     public void onReadEnd(long startTime, long readResult, ByteBuffer[] dsts,
             int offset, int length) {
-        if (logger != null && startTime != -1L) {
-            long duration = System.currentTimeMillis() - startTime;
-            logger.info("{}-{}:{}.read([{}],{},{}):{}->{}", startTime,
-                    duration, fci, dsts.length, offset, length, readResult,
-                    "localhost");
+        if (startTime != -1L) {
+            aggregator.aggregate(new ReadDataOperationStatistics(
+                    OperationSource.JVM, OperationCategory.READ, startTime,
+                    System.currentTimeMillis(), readResult == -1 ? 0
+                            : readResult, null, false));
         }
     }
 
     public long onWriteBegin(ByteBuffer src) {
-        if (logger != null) {
-            return System.currentTimeMillis();
-        } else {
-            return -1L;
-        }
+        return aggregator != null ? System.currentTimeMillis() : -1L;
     }
 
     public void onWriteEnd(long startTime, int writeResult, ByteBuffer src) {
-        if (logger != null && startTime != -1L) {
-            long duration = System.currentTimeMillis() - startTime;
-            logger.info("{}-{}:{}.write({}):{}", startTime, duration, fci, src,
-                    writeResult);
+        if (startTime != -1L) {
+            aggregator.aggregate(new DataOperationStatistics(
+                    OperationSource.JVM, OperationCategory.WRITE, startTime,
+                    System.currentTimeMillis(), writeResult));
         }
     }
 
     public long onWriteBegin(ByteBuffer[] srcs, int offset, int length) {
-        if (logger != null) {
-            return System.currentTimeMillis();
-        } else {
-            return -1L;
-        }
+        return aggregator != null ? System.currentTimeMillis() : -1L;
     }
 
     public void onWriteEnd(long startTime, long writeResult, ByteBuffer[] srcs,
             int offset, int length) {
-        if (logger != null && startTime != -1L) {
-            long duration = System.currentTimeMillis() - startTime;
-            logger.info("{}-{}:{}.write([{}],{},{}):{}", startTime, duration,
-                    fci, srcs.length, offset, length, writeResult);
+        if (startTime != -1L) {
+            aggregator.aggregate(new DataOperationStatistics(
+                    OperationSource.JVM, OperationCategory.WRITE, startTime,
+                    System.currentTimeMillis(), writeResult));
         }
     }
 

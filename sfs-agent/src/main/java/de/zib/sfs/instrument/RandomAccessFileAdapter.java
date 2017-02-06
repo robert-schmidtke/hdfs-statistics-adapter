@@ -12,6 +12,8 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 
 import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.FieldVisitor;
+import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -70,12 +72,10 @@ public class RandomAccessFileAdapter extends ClassVisitor {
                 .getInternalName(RandomAccessFile.class);
         String randomAccessFileCallbackInternalName = Type
                 .getInternalName(RandomAccessFileCallback.class);
-        String randomAccessFileCallbackGetInstanceMethodDescriptor = Type
-                .getMethodDescriptor(
-                        Type.getType(RandomAccessFileCallback.class),
-                        Type.getType(RandomAccessFile.class));
 
         // descriptors of the methods we add to RandomAccessFile
+        String getCallbackMethodDescriptor = Type.getMethodDescriptor(Type
+                .getType(RandomAccessFileCallback.class));
         String openMethodDescriptor = Type.getMethodDescriptor(Type.VOID_TYPE,
                 Type.getType(String.class), Type.INT_TYPE);
         String readMethodDescriptor = Type.getMethodDescriptor(Type.INT_TYPE);
@@ -88,18 +88,75 @@ public class RandomAccessFileAdapter extends ClassVisitor {
                 Type.VOID_TYPE, Type.getType(byte[].class), Type.INT_TYPE,
                 Type.INT_TYPE);
 
+        // private RandomAccessFileCallback callback;
+        FieldVisitor callbackFV = cv.visitField(Opcodes.ACC_PRIVATE,
+                "callback", Type.getDescriptor(RandomAccessFileCallback.class),
+                null, null);
+        callbackFV.visitEnd();
+
+        // private RandomAccessFileCallback getCallback() {
+        MethodVisitor getCallbackMV = cv.visitMethod(Opcodes.ACC_PRIVATE,
+                "getCallback", getCallbackMethodDescriptor, null, null);
+        getCallbackMV.visitCode();
+
+        // if (callback == null) {
+        getCallbackMV.visitVarInsn(Opcodes.ALOAD, 0);
+        getCallbackMV.visitFieldInsn(Opcodes.GETFIELD,
+                randomAccessFileInternalName, "callback",
+                Type.getDescriptor(RandomAccessFileCallback.class));
+        Label callbackNonNullLabel = new Label();
+        getCallbackMV.visitJumpInsn(Opcodes.IFNONNULL, callbackNonNullLabel);
+
+        // callback = new RandomAccessFileCallback(this);
+        getCallbackMV.visitVarInsn(Opcodes.ALOAD, 0);
+        getCallbackMV.visitTypeInsn(Opcodes.NEW,
+                randomAccessFileCallbackInternalName);
+        getCallbackMV.visitInsn(Opcodes.DUP);
+        getCallbackMV.visitVarInsn(Opcodes.ALOAD, 0);
+        try {
+            getCallbackMV
+                    .visitMethodInsn(
+                            Opcodes.INVOKESPECIAL,
+                            Type.getInternalName(RandomAccessFileCallback.class),
+                            "<init>",
+                            Type.getConstructorDescriptor(RandomAccessFileCallback.class
+                                    .getConstructor(RandomAccessFile.class)),
+                            false);
+        } catch (Exception e) {
+            throw new RuntimeException("Could not access constructor", e);
+        }
+        getCallbackMV.visitFieldInsn(Opcodes.PUTFIELD,
+                randomAccessFileInternalName, "callback",
+                Type.getDescriptor(RandomAccessFileCallback.class));
+
+        // }
+        getCallbackMV.visitLabel(callbackNonNullLabel);
+
+        // return callback;
+        // }
+        getCallbackMV.visitVarInsn(Opcodes.ALOAD, 0);
+        getCallbackMV.visitFieldInsn(Opcodes.GETFIELD,
+                randomAccessFileInternalName, "callback",
+                Type.getDescriptor(RandomAccessFileCallback.class));
+        getCallbackMV.visitInsn(Opcodes.ARETURN);
+        getCallbackMV.visitMaxs(0, 0);
+        getCallbackMV.visitEnd();
+
         // private void open(String name, int mode) {
         MethodVisitor openMV = cv.visitMethod(Opcodes.ACC_PRIVATE, "open",
                 openMethodDescriptor, null, new String[] { Type
                         .getInternalName(FileNotFoundException.class) });
         openMV.visitCode();
 
-        // long startTime =
-        // RandommAccessFileCallback.getInstance(this).onOpenBegin(name, mode);
+        // RandomAccessFileCallback cb = getCallback();
         openMV.visitVarInsn(Opcodes.ALOAD, 0);
-        openMV.visitMethodInsn(Opcodes.INVOKESTATIC,
-                randomAccessFileCallbackInternalName, "getInstance",
-                randomAccessFileCallbackGetInstanceMethodDescriptor, false);
+        openMV.visitMethodInsn(Opcodes.INVOKESPECIAL,
+                randomAccessFileInternalName, "getCallback",
+                getCallbackMethodDescriptor, false);
+        openMV.visitVarInsn(Opcodes.ASTORE, 3);
+
+        // long startTime = cb.onOpenBegin(name, mode);
+        openMV.visitVarInsn(Opcodes.ALOAD, 3);
         openMV.visitVarInsn(Opcodes.ALOAD, 1);
         openMV.visitVarInsn(Opcodes.ILOAD, 2);
         openMV.visitMethodInsn(
@@ -108,7 +165,7 @@ public class RandomAccessFileAdapter extends ClassVisitor {
                 "onOpenBegin",
                 Type.getMethodDescriptor(Type.LONG_TYPE,
                         Type.getType(String.class), Type.INT_TYPE), false);
-        openMV.visitVarInsn(Opcodes.LSTORE, 3);
+        openMV.visitVarInsn(Opcodes.LSTORE, 4);
 
         // nativeMethodPrefixopen(name, mode);
         openMV.visitVarInsn(Opcodes.ALOAD, 0);
@@ -118,13 +175,9 @@ public class RandomAccessFileAdapter extends ClassVisitor {
                 randomAccessFileInternalName, nativeMethodPrefix + "open",
                 openMethodDescriptor, false);
 
-        // RandomAccessFileCallback.getInstance(this).onOpenEnd(startTime, name,
-        // mode);
-        openMV.visitVarInsn(Opcodes.ALOAD, 0);
-        openMV.visitMethodInsn(Opcodes.INVOKESTATIC,
-                randomAccessFileCallbackInternalName, "getInstance",
-                randomAccessFileCallbackGetInstanceMethodDescriptor, false);
-        openMV.visitVarInsn(Opcodes.LLOAD, 3);
+        // cb.onOpenEnd(startTime, name, mode);
+        openMV.visitVarInsn(Opcodes.ALOAD, 3);
+        openMV.visitVarInsn(Opcodes.LLOAD, 4);
         openMV.visitVarInsn(Opcodes.ALOAD, 1);
         openMV.visitVarInsn(Opcodes.ALOAD, 2);
         openMV.visitMethodInsn(
@@ -145,32 +198,31 @@ public class RandomAccessFileAdapter extends ClassVisitor {
                 new String[] { Type.getInternalName(IOException.class) });
         readMV.visitCode();
 
-        // long startTime =
-        // RandomAccessFileCallback.getInstance(this).onReadBegin();
+        // RandomAccessFileCallback cb = getCallback();
         readMV.visitVarInsn(Opcodes.ALOAD, 0);
-        readMV.visitMethodInsn(Opcodes.INVOKESTATIC,
-                randomAccessFileCallbackInternalName, "getInstance",
-                randomAccessFileCallbackGetInstanceMethodDescriptor, false);
+        readMV.visitMethodInsn(Opcodes.INVOKESPECIAL,
+                randomAccessFileInternalName, "getCallback",
+                getCallbackMethodDescriptor, false);
+        readMV.visitVarInsn(Opcodes.ASTORE, 1);
+
+        // long startTime = cb.onReadBegin();
+        readMV.visitVarInsn(Opcodes.ALOAD, 1);
         readMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
                 randomAccessFileCallbackInternalName, "onReadBegin",
                 Type.getMethodDescriptor(Type.LONG_TYPE), false);
-        readMV.visitVarInsn(Opcodes.LSTORE, 1);
+        readMV.visitVarInsn(Opcodes.LSTORE, 2);
 
         // int readResult = nativeMethodPrefixread();
         readMV.visitVarInsn(Opcodes.ALOAD, 0);
         readMV.visitMethodInsn(Opcodes.INVOKESPECIAL,
                 randomAccessFileInternalName, nativeMethodPrefix + "read",
                 readMethodDescriptor, false);
-        readMV.visitVarInsn(Opcodes.ISTORE, 3);
+        readMV.visitVarInsn(Opcodes.ISTORE, 4);
 
-        // RandomAccessFileCallback.getInstance(this).onReadEnd(startTime,
-        // readResult);
-        readMV.visitVarInsn(Opcodes.ALOAD, 0);
-        readMV.visitMethodInsn(Opcodes.INVOKESTATIC,
-                randomAccessFileCallbackInternalName, "getInstance",
-                randomAccessFileCallbackGetInstanceMethodDescriptor, false);
-        readMV.visitVarInsn(Opcodes.LLOAD, 1);
-        readMV.visitVarInsn(Opcodes.ILOAD, 3);
+        // cb.onReadEnd(startTime, readResult);
+        readMV.visitVarInsn(Opcodes.ALOAD, 1);
+        readMV.visitVarInsn(Opcodes.LLOAD, 2);
+        readMV.visitVarInsn(Opcodes.ILOAD, 4);
         readMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
                 randomAccessFileCallbackInternalName, "onReadEnd", Type
                         .getMethodDescriptor(Type.VOID_TYPE, Type.LONG_TYPE,
@@ -178,7 +230,7 @@ public class RandomAccessFileAdapter extends ClassVisitor {
 
         // return readResult;
         // }
-        readMV.visitVarInsn(Opcodes.ILOAD, 3);
+        readMV.visitVarInsn(Opcodes.ILOAD, 4);
         readMV.visitInsn(Opcodes.IRETURN);
         readMV.visitMaxs(0, 0);
         readMV.visitEnd();
@@ -189,13 +241,15 @@ public class RandomAccessFileAdapter extends ClassVisitor {
                 new String[] { Type.getInternalName(IOException.class) });
         readBytesMV.visitCode();
 
-        // long startTime =
-        // RandomAccessFileCallback.getInstance(this).onReadBytesBegin(b, off,
-        // len);
+        // RandomAccessFileCallback cb = getCallback();
         readBytesMV.visitVarInsn(Opcodes.ALOAD, 0);
-        readBytesMV.visitMethodInsn(Opcodes.INVOKESTATIC,
-                randomAccessFileCallbackInternalName, "getInstance",
-                randomAccessFileCallbackGetInstanceMethodDescriptor, false);
+        readBytesMV.visitMethodInsn(Opcodes.INVOKESPECIAL,
+                randomAccessFileInternalName, "getCallback",
+                getCallbackMethodDescriptor, false);
+        readBytesMV.visitVarInsn(Opcodes.ASTORE, 4);
+
+        // long startTime = cb.onReadBytesBegin(b, off, len);
+        readBytesMV.visitVarInsn(Opcodes.ALOAD, 4);
         readBytesMV.visitVarInsn(Opcodes.ALOAD, 1);
         readBytesMV.visitVarInsn(Opcodes.ILOAD, 2);
         readBytesMV.visitVarInsn(Opcodes.ILOAD, 3);
@@ -204,7 +258,7 @@ public class RandomAccessFileAdapter extends ClassVisitor {
                         .getMethodDescriptor(Type.LONG_TYPE,
                                 Type.getType(byte[].class), Type.INT_TYPE,
                                 Type.INT_TYPE), false);
-        readBytesMV.visitVarInsn(Opcodes.LSTORE, 4);
+        readBytesMV.visitVarInsn(Opcodes.LSTORE, 5);
 
         // int readBytesResult = nativeMethodPrefixreadBytes(b, off, len);
         readBytesMV.visitVarInsn(Opcodes.ALOAD, 0);
@@ -214,16 +268,12 @@ public class RandomAccessFileAdapter extends ClassVisitor {
         readBytesMV.visitMethodInsn(Opcodes.INVOKESPECIAL,
                 randomAccessFileInternalName, nativeMethodPrefix + "readBytes",
                 readBytesMethodDescriptor, false);
-        readBytesMV.visitVarInsn(Opcodes.ISTORE, 6);
+        readBytesMV.visitVarInsn(Opcodes.ISTORE, 7);
 
-        // RandomAccessFileCallback.getInstance(this).onReadBytesEnd(startTime,
-        // readBytesResult, b, off, len);
-        readBytesMV.visitVarInsn(Opcodes.ALOAD, 0);
-        readBytesMV.visitMethodInsn(Opcodes.INVOKESTATIC,
-                randomAccessFileCallbackInternalName, "getInstance",
-                randomAccessFileCallbackGetInstanceMethodDescriptor, false);
-        readBytesMV.visitVarInsn(Opcodes.LLOAD, 4);
-        readBytesMV.visitVarInsn(Opcodes.ILOAD, 6);
+        // cb.onReadBytesEnd(startTime, readBytesResult, b, off, len);
+        readBytesMV.visitVarInsn(Opcodes.ALOAD, 4);
+        readBytesMV.visitVarInsn(Opcodes.LLOAD, 5);
+        readBytesMV.visitVarInsn(Opcodes.ILOAD, 7);
         readBytesMV.visitVarInsn(Opcodes.ALOAD, 1);
         readBytesMV.visitVarInsn(Opcodes.ILOAD, 2);
         readBytesMV.visitVarInsn(Opcodes.ILOAD, 3);
@@ -235,7 +285,7 @@ public class RandomAccessFileAdapter extends ClassVisitor {
 
         // return readBytesResult;
         // }
-        readBytesMV.visitVarInsn(Opcodes.ILOAD, 6);
+        readBytesMV.visitVarInsn(Opcodes.ILOAD, 7);
         readBytesMV.visitInsn(Opcodes.IRETURN);
         readBytesMV.visitMaxs(0, 0);
         readBytesMV.visitEnd();
@@ -246,17 +296,20 @@ public class RandomAccessFileAdapter extends ClassVisitor {
                 new String[] { Type.getInternalName(IOException.class) });
         writeMV.visitCode();
 
-        // long startTime =
-        // RandomAccessFileCallback.getInstance(this).onWriteBegin(b);
+        // RandomAccessFileCallback cb = getCallback();
         writeMV.visitVarInsn(Opcodes.ALOAD, 0);
-        writeMV.visitMethodInsn(Opcodes.INVOKESTATIC,
-                randomAccessFileCallbackInternalName, "getInstance",
-                randomAccessFileCallbackGetInstanceMethodDescriptor, false);
+        writeMV.visitMethodInsn(Opcodes.INVOKESPECIAL,
+                randomAccessFileInternalName, "getCallback",
+                getCallbackMethodDescriptor, false);
+        writeMV.visitVarInsn(Opcodes.ASTORE, 2);
+
+        // long startTime = cb.onWriteBegin(b);
+        writeMV.visitVarInsn(Opcodes.ALOAD, 2);
         writeMV.visitVarInsn(Opcodes.ILOAD, 1);
         writeMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
                 randomAccessFileCallbackInternalName, "onWriteBegin",
                 Type.getMethodDescriptor(Type.LONG_TYPE, Type.INT_TYPE), false);
-        writeMV.visitVarInsn(Opcodes.LSTORE, 2);
+        writeMV.visitVarInsn(Opcodes.LSTORE, 3);
 
         // nativeMethodPrefixwrite(b);
         writeMV.visitVarInsn(Opcodes.ALOAD, 0);
@@ -265,12 +318,9 @@ public class RandomAccessFileAdapter extends ClassVisitor {
                 randomAccessFileInternalName, nativeMethodPrefix + "write",
                 writeMethodDescriptor, false);
 
-        // RandomAccessFileCallback.getInstance(this).onWriteEnd(startTime, b);
-        writeMV.visitVarInsn(Opcodes.ALOAD, 0);
-        writeMV.visitMethodInsn(Opcodes.INVOKESTATIC,
-                randomAccessFileCallbackInternalName, "getInstance",
-                randomAccessFileCallbackGetInstanceMethodDescriptor, false);
-        writeMV.visitVarInsn(Opcodes.LLOAD, 2);
+        // cb.onWriteEnd(startTime, b);
+        writeMV.visitVarInsn(Opcodes.ALOAD, 2);
+        writeMV.visitVarInsn(Opcodes.LLOAD, 3);
         writeMV.visitVarInsn(Opcodes.ILOAD, 1);
         writeMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
                 randomAccessFileCallbackInternalName, "onWriteEnd", Type
@@ -288,13 +338,15 @@ public class RandomAccessFileAdapter extends ClassVisitor {
                 new String[] { Type.getInternalName(IOException.class) });
         writeBytesMV.visitCode();
 
-        // long startTime =
-        // RandomAccessFileCallback.getInstance(this).onWriteBytesBegin(b, off,
-        // len);
+        // RandomAccessFileCallback cb = getCallback();
         writeBytesMV.visitVarInsn(Opcodes.ALOAD, 0);
-        writeBytesMV.visitMethodInsn(Opcodes.INVOKESTATIC,
-                randomAccessFileCallbackInternalName, "getInstance",
-                randomAccessFileCallbackGetInstanceMethodDescriptor, false);
+        writeBytesMV.visitMethodInsn(Opcodes.INVOKESPECIAL,
+                randomAccessFileInternalName, "getCallback",
+                getCallbackMethodDescriptor, false);
+        writeBytesMV.visitVarInsn(Opcodes.ASTORE, 4);
+
+        // long startTime = cb.onWriteBytesBegin(b, off, len);
+        writeBytesMV.visitVarInsn(Opcodes.ALOAD, 4);
         writeBytesMV.visitVarInsn(Opcodes.ALOAD, 1);
         writeBytesMV.visitVarInsn(Opcodes.ILOAD, 2);
         writeBytesMV.visitVarInsn(Opcodes.ILOAD, 3);
@@ -303,7 +355,7 @@ public class RandomAccessFileAdapter extends ClassVisitor {
                         .getMethodDescriptor(Type.LONG_TYPE,
                                 Type.getType(byte[].class), Type.INT_TYPE,
                                 Type.INT_TYPE), false);
-        writeBytesMV.visitVarInsn(Opcodes.LSTORE, 4);
+        writeBytesMV.visitVarInsn(Opcodes.LSTORE, 5);
 
         // nativeMethodPrefixwriteBytes(b, off, len);
         writeBytesMV.visitVarInsn(Opcodes.ALOAD, 0);
@@ -315,13 +367,9 @@ public class RandomAccessFileAdapter extends ClassVisitor {
                 nativeMethodPrefix + "writeBytes", writeBytesMethodDescriptor,
                 false);
 
-        // RandomAccessFileCallback.getInstance(this).onWriteBytesEnd(startTime,
-        // b, off, len);
-        writeBytesMV.visitVarInsn(Opcodes.ALOAD, 0);
-        writeBytesMV.visitMethodInsn(Opcodes.INVOKESTATIC,
-                randomAccessFileCallbackInternalName, "getInstance",
-                randomAccessFileCallbackGetInstanceMethodDescriptor, false);
-        writeBytesMV.visitVarInsn(Opcodes.LLOAD, 4);
+        // cb.onWriteBytesEnd(startTime, b, off, len);
+        writeBytesMV.visitVarInsn(Opcodes.ALOAD, 4);
+        writeBytesMV.visitVarInsn(Opcodes.LLOAD, 5);
         writeBytesMV.visitVarInsn(Opcodes.ALOAD, 1);
         writeBytesMV.visitVarInsn(Opcodes.ILOAD, 2);
         writeBytesMV.visitVarInsn(Opcodes.ILOAD, 3);

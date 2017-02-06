@@ -12,9 +12,7 @@
   <properties>
     <!-- Compile dependencies -->
     <asm-all.version>5.1</asm-all.version>
-    <disruptor.version>3.3.6</disruptor.version>
     <grpc.version>1.0.1</grpc.version>
-    <log4j.version>2.8</log4j.version>
     <protobuf.version>3.0.0</protobuf.version>
 
     <!-- Test dependencies -->
@@ -45,18 +43,37 @@
     <grpc.lib.dir>/usr/local/lib</grpc.lib.dir>
   </properties>
 
+  <profiles>
+    <profile>
+      <id>linux-properties</id>
+      <activation>
+        <os>
+          <name>Linux</name>
+        </os>
+      </activation>
+      <properties>
+        <libsfs.name>libsfs.so</libsfs.name>
+      </properties>
+    </profile>
+
+    <profile>
+      <id>osx-properties</id>
+      <activation>
+        <os>
+          <name>Mac OS X</name>
+        </os>
+      </activation>
+      <properties>
+        <libsfs.name>libsfs.dylib</libsfs.name>
+      </properties>
+    </profile>
+  </profiles>
+
   <dependencies>
     <dependency>
       <groupId>com.google.protobuf</groupId>
       <artifactId>protobuf-java</artifactId>
       <version>${protobuf.version}</version>
-    </dependency>
-
-    <!-- Enables asynchronous logging for log4j -->
-    <dependency>
-      <groupId>com.lmax</groupId>
-      <artifactId>disruptor</artifactId>
-      <version>${disruptor.version}</version>
     </dependency>
 
     <dependency>
@@ -81,18 +98,6 @@
       <groupId>io.grpc</groupId>
       <artifactId>grpc-stub</artifactId>
       <version>${grpc.version}</version>
-    </dependency>
-
-    <dependency>
-      <groupId>org.apache.logging.log4j</groupId>
-      <artifactId>log4j-api</artifactId>
-      <version>${log4j.version}</version>
-    </dependency>
-
-    <dependency>
-      <groupId>org.apache.logging.log4j</groupId>
-      <artifactId>log4j-core</artifactId>
-      <version>${log4j.version}</version>
     </dependency>
 
     <!-- Runtime byte code rewriting -->
@@ -147,11 +152,8 @@
                 <includes>
                   <include>com.google.guava:guava</include>
                   <include>com.google.protobuf:protobuf-java</include>
-                  <include>com.lmax:disruptor</include>
                   <include>io.grpc:*</include>
                   <include>io.netty:*</include>
-                  <include>org.apache.logging.log4j:log4j-api</include>
-                  <include>org.apache.logging.log4j:log4j-core</include>
                   <include>org.ow2.asm:asm-all</include>
                 </includes>
               </artifactSet>
@@ -273,6 +275,43 @@
               <executable>make</executable>
               <arguments>
                 <argument>clean</argument>
+              </arguments>
+            </configuration>
+          </execution>
+
+          <!-- Test the uninstrumented I/O classes -->
+          <execution>
+            <id>test-uninstrumented</id>
+            <phase>test</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>java</executable>
+              <arguments>
+                <argument>-ea</argument>
+                <argument>-cp</argument>
+                <argument>.:${project.build.directory}/test-classes</argument>
+                <argument>de.zib.sfs.instrument.InstrumentationTest</argument>
+              </arguments>
+            </configuration>
+          </execution>
+
+          <!-- Test the instrumented I/O classes, after package -->
+          <execution>
+            <id>test-instrumented</id>
+            <phase>package</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>java</executable>
+              <arguments>
+                <argument>-agentpath:${project.build.directory}/${libsfs.name}=trans_jar=${project.build.directory}/sfs-agent.jar,key=test,bin_duration=1000,cache_size=5,out_dir=/tmp,verbose=n</argument>
+                <argument>-ea</argument>
+                <argument>-cp</argument>
+                <argument>.:${project.build.directory}/test-classes</argument>
+                <argument>de.zib.sfs.instrument.InstrumentationTest</argument>
               </arguments>
             </configuration>
           </execution>

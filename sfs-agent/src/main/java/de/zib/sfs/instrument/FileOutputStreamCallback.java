@@ -8,111 +8,60 @@
 package de.zib.sfs.instrument;
 
 import java.io.FileOutputStream;
-import java.util.HashMap;
-import java.util.Map;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import de.zib.sfs.instrument.statistics.DataOperationStatistics;
+import de.zib.sfs.instrument.statistics.OperationCategory;
+import de.zib.sfs.instrument.statistics.OperationSource;
+import de.zib.sfs.instrument.statistics.OperationStatistics;
+import de.zib.sfs.instrument.statistics.OperationStatisticsAggregator;
 
 public class FileOutputStreamCallback {
 
     private final FileOutputStream fos;
 
-    private Logger logger;
+    private final OperationStatisticsAggregator aggregator;
 
-    private static final Map<FileOutputStream, FileOutputStreamCallback> instances = new HashMap<>();
-
-    public static FileOutputStreamCallback getInstance(FileOutputStream fos) {
-        FileOutputStreamCallback instance = instances.get(fos);
-        if (instance == null) {
-            instance = new FileOutputStreamCallback(fos);
-            instances.put(fos, instance);
-        }
-        return instance;
-    }
-
-    private FileOutputStreamCallback(FileOutputStream fos) {
+    public FileOutputStreamCallback(FileOutputStream fos) {
         this.fos = fos;
-        logger = null;
-    }
 
-    public Logger getLogger() {
-        return logger;
+        // may be null during early phases of JVM initialization
+        aggregator = OperationStatisticsAggregator.getInstance();
     }
 
     public long onOpenBegin(String name, boolean append) {
-        // don't monitor access to libraries and configurations in the JVM's
-        // home
-        if (name.startsWith(System.getProperty("java.home"))) {
-            return -1L;
-        }
-
-        // check if log4j providers can be loaded already
-        boolean hasProviders;
-        try {
-            ClassLoader classLoader = ClassLoader.getSystemClassLoader();
-            if (classLoader != null) {
-                hasProviders = classLoader.getResources(
-                        "META-INF/log4j-provider.properties").hasMoreElements();
-            } else {
-                hasProviders = false;
-            }
-        } catch (Exception e) {
-            hasProviders = false;
-        }
-
-        // we're too early in the JVM startup, don't initialize log4j yet
-        if (!hasProviders) {
-            return -1L;
-        }
-
-        // only log access to files that are not our own log file
-        if (!name.equals(System.getProperty("de.zib.sfs.logFile.name"))) {
-            logger = LogManager.getLogger("de.zib.sfs.AsyncLogger");
-            return System.currentTimeMillis();
-        } else {
-            return -1L;
-        }
+        return aggregator != null ? System.currentTimeMillis() : -1L;
     }
 
     public void onOpenEnd(long startTime, String name, boolean append) {
-        if (logger != null && startTime != -1L) {
-            long duration = System.currentTimeMillis() - startTime;
-            logger.info("{}-{}:{}.open({},{}):void", startTime, duration, fos,
-                    name, append);
+        if (startTime != -1L) {
+            aggregator.aggregate(new OperationStatistics(OperationSource.JVM,
+                    OperationCategory.OTHER, startTime, System
+                            .currentTimeMillis()));
         }
     }
 
     public long onWriteBegin(int b, boolean append) {
-        if (logger != null) {
-            return System.currentTimeMillis();
-        } else {
-            return -1L;
-        }
+        return aggregator != null ? System.currentTimeMillis() : -1L;
     }
 
     public void onWriteEnd(long startTime, int b, boolean append) {
-        if (logger != null && startTime != -1L) {
-            long duration = System.currentTimeMillis() - startTime;
-            logger.info("{}-{}:{}.write({},{}):void", startTime, duration, fos,
-                    b, append);
+        if (startTime != -1L) {
+            aggregator.aggregate(new DataOperationStatistics(
+                    OperationSource.JVM, OperationCategory.WRITE, startTime,
+                    System.currentTimeMillis(), 1));
         }
     }
 
     public long onWriteBytesBegin(byte[] b, int off, int len, boolean append) {
-        if (logger != null) {
-            return System.currentTimeMillis();
-        } else {
-            return -1L;
-        }
+        return aggregator != null ? System.currentTimeMillis() : -1L;
     }
 
     public void onWriteBytesEnd(long startTime, byte[] b, int off, int len,
             boolean append) {
-        if (logger != null && startTime != -1L) {
-            long duration = System.currentTimeMillis() - startTime;
-            logger.info("{}-{}:{}.writeBytes([{}],{},{},{}):void", startTime,
-                    duration, fos, b.length, off, len, append);
+        if (startTime != -1L) {
+            aggregator.aggregate(new DataOperationStatistics(
+                    OperationSource.JVM, OperationCategory.WRITE, startTime,
+                    System.currentTimeMillis(), len));
         }
     }
 

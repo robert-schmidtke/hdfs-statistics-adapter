@@ -37,11 +37,19 @@ static char **g_transformer_jvm_cmd;
 // the prefix to use when wrapping native methods
 static std::string g_native_method_prefix("sfs_native_");
 
-// the name of the log file to use
-static std::string g_log_file_name;
-
 // a custom key to include in the log files
 static std::string g_key;
+
+// time in milliseconds to aggregate incoming events over before beginning a new
+// bin
+static std::string g_time_bin_duration;
+
+// number of bins to keep in memory before emitting them to allow for late
+// arrivals of log events
+static std::string g_time_bin_cache_size;
+
+// path to a directory where the output CSV files will be stored
+static std::string g_output_directory;
 
 // indicates whether we should do verbose logging
 static bool g_verbose = false;
@@ -75,9 +83,11 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
     std::cerr << "Could not parse options: "
               << (options != NULL ? options : "-") << std::endl
               << "Required options:" << std::endl
-              << "  log_file_name=/path/to/log.file" << std::endl
               << "  trans_jar=/path/to/trans.jar" << std::endl
               << "  key=key" << std::endl
+              << "  bin_duration=milliseconds" << std::endl
+              << "  cache_size=number" << std::endl
+              << "  out_dir=/path/to/out/dir" << std::endl
               << "Optional options:" << std::endl
               << "  trans_address=trans-host:port (default: empty)"
               << "  verbose=y|n (default: n)" << std::endl;
@@ -147,11 +157,11 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
       JVMTI_ENABLE, JVMTI_EVENT_VM_DEATH, (jthread)NULL);
   CHECK_JVMTI_RESULT("SetEventNotificationMode(VMDeath)", jvmti_result);
 
-  // create a log file name for this JVM
-  g_log_file_name = cli_options.log_file_name + "." + std::to_string(getpid());
-
-  // set the custom key
+  // set necessary global variables from CLI options
   g_key = cli_options.key;
+  g_time_bin_duration = cli_options.time_bin_duration;
+  g_time_bin_cache_size = cli_options.time_bin_cache_size;
+  g_output_directory = cli_options.output_directory;
 
   // set the prefix to use when wrapping native methods
   LOG_VERBOSE("Setting native method prefix.\n");
@@ -202,7 +212,7 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
     LOG_VERBOSE("Started agent transformation server on port '%d'.\n", port);
 
     // build the transformer JVM start command
-    g_transformer_jvm_cmd = new char *[7];
+    g_transformer_jvm_cmd = new char *[9];
     g_transformer_jvm_cmd[0] = strdup((java_home + "/bin/java").c_str());
     g_transformer_jvm_cmd[1] = strdup("-cp");
     g_transformer_jvm_cmd[2] = strdup(cli_options.transformer_jar_path.c_str());
@@ -210,11 +220,15 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
         strdup("de.zib.sfs.instrument.ClassTransformationService");
     g_transformer_jvm_cmd[4] = strdup("--communication-port-agent");
     g_transformer_jvm_cmd[5] = strdup(std::to_string(port).c_str());
-    g_transformer_jvm_cmd[6] = NULL;
-    LOG_VERBOSE("Starting transformer JVM using command '%s %s %s %s %s %s'.\n",
-                g_transformer_jvm_cmd[0], g_transformer_jvm_cmd[1],
-                g_transformer_jvm_cmd[2], g_transformer_jvm_cmd[3],
-                g_transformer_jvm_cmd[4], g_transformer_jvm_cmd[5]);
+    g_transformer_jvm_cmd[6] = strdup("--verbose");
+    g_transformer_jvm_cmd[7] = strdup(g_verbose ? "y" : "n");
+    g_transformer_jvm_cmd[8] = NULL;
+    LOG_VERBOSE(
+        "Starting transformer JVM using command '%s %s %s %s %s %s %s %s'.\n",
+        g_transformer_jvm_cmd[0], g_transformer_jvm_cmd[1],
+        g_transformer_jvm_cmd[2], g_transformer_jvm_cmd[3],
+        g_transformer_jvm_cmd[4], g_transformer_jvm_cmd[5],
+        g_transformer_jvm_cmd[6], g_transformer_jvm_cmd[7]);
 
     char *envp[] = {NULL};
 
@@ -386,22 +400,13 @@ static void JNICALL VMInitCallback(jvmtiEnv *jvmti_env, JNIEnv *jni_env,
   jni_env->FindClass("java/io/RandomAccessFile");
   jni_env->FindClass("sun/nio/ch/FileChannelImpl");
 
-  // set the log file name to use as system property
+  // set the hostname as system property
   jclass system_class = jni_env->FindClass("java/lang/System");
 
   jmethodID set_property_method_id = jni_env->GetStaticMethodID(
       system_class, "setProperty",
       "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;");
 
-  LOG_VERBOSE("Setting system property '%s'='%s'.\n",
-              std::string("de.zib.sfs.logFile.name").c_str(),
-              g_log_file_name.c_str());
-  jni_env->CallStaticVoidMethod(
-      system_class, set_property_method_id,
-      jni_env->NewStringUTF("de.zib.sfs.logFile.name"),
-      jni_env->NewStringUTF(g_log_file_name.c_str()));
-
-  // repeat for the hostname
   char hostname[256];
   if (gethostname(hostname, 256) != 0) {
     std::cerr << "Error getting hostname" << std::endl;
@@ -415,7 +420,8 @@ static void JNICALL VMInitCallback(jvmtiEnv *jvmti_env, JNIEnv *jni_env,
 
   // repeat for the PID
   LOG_VERBOSE("Setting system property '%s'='%s'.\n",
-              std::string("de.zib.sfs.pid").c_str(), hostname);
+              std::string("de.zib.sfs.pid").c_str(),
+              std::to_string(getpid()).c_str());
   jni_env->CallStaticVoidMethod(
       system_class, set_property_method_id,
       jni_env->NewStringUTF("de.zib.sfs.pid"),
@@ -428,6 +434,42 @@ static void JNICALL VMInitCallback(jvmtiEnv *jvmti_env, JNIEnv *jni_env,
                                 jni_env->NewStringUTF("de.zib.sfs.key"),
                                 jni_env->NewStringUTF(g_key.c_str()));
 
+  // repeat for the time bin duration
+  LOG_VERBOSE("Setting system property '%s'='%s'.\n",
+              std::string("de.zib.sfs.timeBin.duration").c_str(),
+              g_time_bin_duration.c_str());
+  jni_env->CallStaticVoidMethod(
+      system_class, set_property_method_id,
+      jni_env->NewStringUTF("de.zib.sfs.timeBin.duration"),
+      jni_env->NewStringUTF(g_time_bin_duration.c_str()));
+
+  // repeat for the time bin cache size
+  LOG_VERBOSE("Setting system property '%s'='%s'.\n",
+              std::string("de.zib.sfs.timeBin.cacheSize").c_str(),
+              g_time_bin_cache_size.c_str());
+  jni_env->CallStaticVoidMethod(
+      system_class, set_property_method_id,
+      jni_env->NewStringUTF("de.zib.sfs.timeBin.cacheSize"),
+      jni_env->NewStringUTF(g_time_bin_cache_size.c_str()));
+
+  // repeat for the output directory
+  LOG_VERBOSE("Setting system property '%s'='%s'.\n",
+              std::string("de.zib.sfs.output.directory").c_str(),
+              g_output_directory.c_str());
+  jni_env->CallStaticVoidMethod(
+      system_class, set_property_method_id,
+      jni_env->NewStringUTF("de.zib.sfs.output.directory"),
+      jni_env->NewStringUTF(g_output_directory.c_str()));
+
+  // repeat for the verbosity
+  LOG_VERBOSE("Setting system property '%s'='%s'.\n",
+              std::string("de.zib.sfs.verbose").c_str(),
+              g_verbose ? "true" : "false");
+  jni_env->CallStaticVoidMethod(
+      system_class, set_property_method_id,
+      jni_env->NewStringUTF("de.zib.sfs.verbose"),
+      jni_env->NewStringUTF(g_verbose ? "true" : "false"));
+
   LOG_VERBOSE("VM initialized successfully.\n");
 }
 
@@ -435,13 +477,21 @@ static void JNICALL VMInitCallback(jvmtiEnv *jvmti_env, JNIEnv *jni_env,
 static void JNICALL VMDeathCallback(jvmtiEnv *jvmti_env, JNIEnv *jni_env) {
   LOG_VERBOSE("Shutting down VM.\n");
 
-  // properly shut down Log4j2 so all logs are flushed
-  LOG_VERBOSE("Shutting down Log4j2.\n");
-  jclass log_manager_class =
-      jni_env->FindClass("org/apache/logging/log4j/LogManager");
-  jmethodID shutdown_method_id =
-      jni_env->GetStaticMethodID(log_manager_class, "shutdown", "()V");
-  jni_env->CallStaticVoidMethod(log_manager_class, shutdown_method_id);
+  // get the aggregator and shut it down
+  LOG_VERBOSE("Shutting down OperationStatisticsAggregator.\n");
+  jclass operation_statistics_aggregator_class = jni_env->FindClass(
+      "de/zib/sfs/instrument/statistics/OperationStatisticsAggregator");
+  jmethodID get_instance_method_id = jni_env->GetStaticMethodID(
+      operation_statistics_aggregator_class, "getInstance",
+      "()Lde/zib/sfs/instrument/statistics/OperationStatisticsAggregator;");
+  jobject operation_statistics_aggregator_instance =
+      jni_env->CallStaticObjectMethod(operation_statistics_aggregator_class,
+                                      get_instance_method_id);
+  jmethodID shutdown_method_id = jni_env->GetMethodID(
+      operation_statistics_aggregator_class, "shutdown", "()V");
+  jni_env->CallVoidMethod(operation_statistics_aggregator_instance,
+                          shutdown_method_id);
+  LOG_VERBOSE("OperationStatisticsAggregator shut down successfully.\n");
 
   LOG_VERBOSE("VM shut down successfully.\n");
 }
@@ -468,7 +518,7 @@ static void cleanup() {
   // clean the startup command for the transformer JVM
   if (g_transformer_jvm_cmd != NULL) {
     LOG_VERBOSE("Freeing transformer JVM command.\n");
-    for (size_t i = 0; i < 6; ++i) {
+    for (size_t i = 0; i < 8; ++i) {
       free(g_transformer_jvm_cmd[i]);
     }
     delete[] g_transformer_jvm_cmd;

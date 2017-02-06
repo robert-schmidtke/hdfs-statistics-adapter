@@ -12,6 +12,8 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 
 import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.FieldVisitor;
+import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -68,12 +70,10 @@ public class FileInputStreamAdapter extends ClassVisitor {
                 .getInternalName(FileInputStream.class);
         String fileInputStreamCallbackInternalName = Type
                 .getInternalName(FileInputStreamCallback.class);
-        String fileInputStreamCallbackGetInstanceMethodDescriptor = Type
-                .getMethodDescriptor(
-                        Type.getType(FileInputStreamCallback.class),
-                        Type.getType(FileInputStream.class));
 
         // descriptors of the methods we add to FileInputStream
+        String getCallbackMethodDescriptor = Type.getMethodDescriptor(Type
+                .getType(FileInputStreamCallback.class));
         String openMethodDescriptor = Type.getMethodDescriptor(Type.VOID_TYPE,
                 Type.getType(String.class));
         String readMethodDescriptor = Type.getMethodDescriptor(Type.INT_TYPE);
@@ -81,18 +81,71 @@ public class FileInputStreamAdapter extends ClassVisitor {
                 Type.INT_TYPE, Type.getType(byte[].class), Type.INT_TYPE,
                 Type.INT_TYPE);
 
+        // private FileInputStreamCallback callback;
+        FieldVisitor callbackFV = cv.visitField(Opcodes.ACC_PRIVATE,
+                "callback", Type.getDescriptor(FileInputStreamCallback.class),
+                null, null);
+        callbackFV.visitEnd();
+
+        // private FileInputStreamCallback getCallback() {
+        MethodVisitor getCallbackMV = cv.visitMethod(Opcodes.ACC_PRIVATE,
+                "getCallback", getCallbackMethodDescriptor, null, null);
+        getCallbackMV.visitCode();
+
+        // if (callback == null) {
+        getCallbackMV.visitVarInsn(Opcodes.ALOAD, 0);
+        getCallbackMV.visitFieldInsn(Opcodes.GETFIELD,
+                fileInputStreamInternalName, "callback",
+                Type.getDescriptor(FileInputStreamCallback.class));
+        Label callbackNonNullLabel = new Label();
+        getCallbackMV.visitJumpInsn(Opcodes.IFNONNULL, callbackNonNullLabel);
+
+        // callback = new FileInputStreamCallback(this);
+        getCallbackMV.visitVarInsn(Opcodes.ALOAD, 0);
+        getCallbackMV.visitTypeInsn(Opcodes.NEW,
+                fileInputStreamCallbackInternalName);
+        getCallbackMV.visitInsn(Opcodes.DUP);
+        getCallbackMV.visitVarInsn(Opcodes.ALOAD, 0);
+        try {
+            getCallbackMV.visitMethodInsn(Opcodes.INVOKESPECIAL, Type
+                    .getInternalName(FileInputStreamCallback.class), "<init>",
+                    Type.getConstructorDescriptor(FileInputStreamCallback.class
+                            .getConstructor(FileInputStream.class)), false);
+        } catch (Exception e) {
+            throw new RuntimeException("Could not access constructor", e);
+        }
+        getCallbackMV.visitFieldInsn(Opcodes.PUTFIELD,
+                fileInputStreamInternalName, "callback",
+                Type.getDescriptor(FileInputStreamCallback.class));
+
+        // }
+        getCallbackMV.visitLabel(callbackNonNullLabel);
+
+        // return callback;
+        // }
+        getCallbackMV.visitVarInsn(Opcodes.ALOAD, 0);
+        getCallbackMV.visitFieldInsn(Opcodes.GETFIELD,
+                fileInputStreamInternalName, "callback",
+                Type.getDescriptor(FileInputStreamCallback.class));
+        getCallbackMV.visitInsn(Opcodes.ARETURN);
+        getCallbackMV.visitMaxs(0, 0);
+        getCallbackMV.visitEnd();
+
         // private void open(String name) {
         MethodVisitor openMV = cv.visitMethod(Opcodes.ACC_PRIVATE, "open",
                 openMethodDescriptor, null, new String[] { Type
                         .getInternalName(FileNotFoundException.class) });
         openMV.visitCode();
 
-        // long startTime =
-        // FileInputStreamCallback.getInstance(this).onOpenBegin(name);
+        // FileInputStreamCallback cb = getCallback();
         openMV.visitVarInsn(Opcodes.ALOAD, 0);
-        openMV.visitMethodInsn(Opcodes.INVOKESTATIC,
-                fileInputStreamCallbackInternalName, "getInstance",
-                fileInputStreamCallbackGetInstanceMethodDescriptor, false);
+        openMV.visitMethodInsn(Opcodes.INVOKESPECIAL,
+                fileInputStreamInternalName, "getCallback",
+                getCallbackMethodDescriptor, false);
+        openMV.visitVarInsn(Opcodes.ASTORE, 2);
+
+        // long startTime = cb.onOpenBegin(name);
+        openMV.visitVarInsn(Opcodes.ALOAD, 2);
         openMV.visitVarInsn(Opcodes.ALOAD, 1);
         openMV.visitMethodInsn(
                 Opcodes.INVOKEVIRTUAL,
@@ -100,7 +153,7 @@ public class FileInputStreamAdapter extends ClassVisitor {
                 "onOpenBegin",
                 Type.getMethodDescriptor(Type.LONG_TYPE,
                         Type.getType(String.class)), false);
-        openMV.visitVarInsn(Opcodes.LSTORE, 2);
+        openMV.visitVarInsn(Opcodes.LSTORE, 3);
 
         // nativeMethodPrefixopen(name);
         openMV.visitVarInsn(Opcodes.ALOAD, 0);
@@ -109,12 +162,9 @@ public class FileInputStreamAdapter extends ClassVisitor {
                 fileInputStreamInternalName, nativeMethodPrefix + "open",
                 openMethodDescriptor, false);
 
-        // FileInputStreamCallback.getInstance(this).onOpenEnd(startTime, name);
-        openMV.visitVarInsn(Opcodes.ALOAD, 0);
-        openMV.visitMethodInsn(Opcodes.INVOKESTATIC,
-                fileInputStreamCallbackInternalName, "getInstance",
-                fileInputStreamCallbackGetInstanceMethodDescriptor, false);
-        openMV.visitVarInsn(Opcodes.LLOAD, 2);
+        // cb.onOpenEnd(startTime, name);
+        openMV.visitVarInsn(Opcodes.ALOAD, 2);
+        openMV.visitVarInsn(Opcodes.LLOAD, 3);
         openMV.visitVarInsn(Opcodes.ALOAD, 1);
         openMV.visitMethodInsn(
                 Opcodes.INVOKEVIRTUAL,
@@ -134,32 +184,31 @@ public class FileInputStreamAdapter extends ClassVisitor {
                 new String[] { Type.getInternalName(IOException.class) });
         readMV.visitCode();
 
-        // long startTime =
-        // FileInputStreamCallback.getInstance(this).onReadBegin();
+        // FileInputStreamCallback cb = getCallback();
         readMV.visitVarInsn(Opcodes.ALOAD, 0);
-        readMV.visitMethodInsn(Opcodes.INVOKESTATIC,
-                fileInputStreamCallbackInternalName, "getInstance",
-                fileInputStreamCallbackGetInstanceMethodDescriptor, false);
+        readMV.visitMethodInsn(Opcodes.INVOKESPECIAL,
+                fileInputStreamInternalName, "getCallback",
+                getCallbackMethodDescriptor, false);
+        readMV.visitVarInsn(Opcodes.ASTORE, 1);
+
+        // long startTime = cb.onReadBegin();
+        readMV.visitVarInsn(Opcodes.ALOAD, 1);
         readMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
                 fileInputStreamCallbackInternalName, "onReadBegin",
                 Type.getMethodDescriptor(Type.LONG_TYPE), false);
-        readMV.visitVarInsn(Opcodes.LSTORE, 1);
+        readMV.visitVarInsn(Opcodes.LSTORE, 2);
 
         // int readResult = nativeMethodPrefixread();
         readMV.visitVarInsn(Opcodes.ALOAD, 0);
         readMV.visitMethodInsn(Opcodes.INVOKESPECIAL,
                 fileInputStreamInternalName, nativeMethodPrefix + "read",
                 readMethodDescriptor, false);
-        readMV.visitVarInsn(Opcodes.ISTORE, 3);
+        readMV.visitVarInsn(Opcodes.ISTORE, 4);
 
-        // FileInputStreamCallback.getInstance(this).onReadEnd(startTime,
-        // readResult);
-        readMV.visitVarInsn(Opcodes.ALOAD, 0);
-        readMV.visitMethodInsn(Opcodes.INVOKESTATIC,
-                fileInputStreamCallbackInternalName, "getInstance",
-                fileInputStreamCallbackGetInstanceMethodDescriptor, false);
-        readMV.visitVarInsn(Opcodes.LLOAD, 1);
-        readMV.visitVarInsn(Opcodes.ILOAD, 3);
+        // cb.onReadEnd(startTime, readResult);
+        readMV.visitVarInsn(Opcodes.ALOAD, 1);
+        readMV.visitVarInsn(Opcodes.LLOAD, 2);
+        readMV.visitVarInsn(Opcodes.ILOAD, 4);
         readMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
                 fileInputStreamCallbackInternalName, "onReadEnd", Type
                         .getMethodDescriptor(Type.VOID_TYPE, Type.LONG_TYPE,
@@ -167,7 +216,7 @@ public class FileInputStreamAdapter extends ClassVisitor {
 
         // return readResult;
         // }
-        readMV.visitVarInsn(Opcodes.ILOAD, 3);
+        readMV.visitVarInsn(Opcodes.ILOAD, 4);
         readMV.visitInsn(Opcodes.IRETURN);
         readMV.visitMaxs(0, 0);
         readMV.visitEnd();
@@ -178,13 +227,15 @@ public class FileInputStreamAdapter extends ClassVisitor {
                 new String[] { Type.getInternalName(IOException.class) });
         readBytesMV.visitCode();
 
-        // long startTime =
-        // FileInputStreamCallback.getInstance(this).onReadBytesBegin(b, off,
-        // len);
+        // FileInputStreamCallback cb = getCallback();
         readBytesMV.visitVarInsn(Opcodes.ALOAD, 0);
-        readBytesMV.visitMethodInsn(Opcodes.INVOKESTATIC,
-                fileInputStreamCallbackInternalName, "getInstance",
-                fileInputStreamCallbackGetInstanceMethodDescriptor, false);
+        readBytesMV.visitMethodInsn(Opcodes.INVOKESPECIAL,
+                fileInputStreamInternalName, "getCallback",
+                getCallbackMethodDescriptor, false);
+        readBytesMV.visitVarInsn(Opcodes.ASTORE, 4);
+
+        // long startTime = cb.onReadBytesBegin(b, off, len);
+        readBytesMV.visitVarInsn(Opcodes.ALOAD, 4);
         readBytesMV.visitVarInsn(Opcodes.ALOAD, 1);
         readBytesMV.visitVarInsn(Opcodes.ILOAD, 2);
         readBytesMV.visitVarInsn(Opcodes.ILOAD, 3);
@@ -193,7 +244,7 @@ public class FileInputStreamAdapter extends ClassVisitor {
                         .getMethodDescriptor(Type.LONG_TYPE,
                                 Type.getType(byte[].class), Type.INT_TYPE,
                                 Type.INT_TYPE), false);
-        readBytesMV.visitVarInsn(Opcodes.LSTORE, 4);
+        readBytesMV.visitVarInsn(Opcodes.LSTORE, 5);
 
         // int readBytesResult = nativeMethodPrefixreadBytes(b, off, len);
         readBytesMV.visitVarInsn(Opcodes.ALOAD, 0);
@@ -203,16 +254,12 @@ public class FileInputStreamAdapter extends ClassVisitor {
         readBytesMV.visitMethodInsn(Opcodes.INVOKESPECIAL,
                 fileInputStreamInternalName, nativeMethodPrefix + "readBytes",
                 readBytesMethodDescriptor, false);
-        readBytesMV.visitVarInsn(Opcodes.ISTORE, 6);
+        readBytesMV.visitVarInsn(Opcodes.ISTORE, 7);
 
-        // FileInputStreamCallback.getInstance(this).onReadBytesEnd(startTime,
-        // readBytesResult, b, off, len);
-        readBytesMV.visitVarInsn(Opcodes.ALOAD, 0);
-        readBytesMV.visitMethodInsn(Opcodes.INVOKESTATIC,
-                fileInputStreamCallbackInternalName, "getInstance",
-                fileInputStreamCallbackGetInstanceMethodDescriptor, false);
-        readBytesMV.visitVarInsn(Opcodes.LLOAD, 4);
-        readBytesMV.visitVarInsn(Opcodes.ILOAD, 6);
+        // cb.onReadBytesEnd(startTime, readBytesResult, b, off, len);
+        readBytesMV.visitVarInsn(Opcodes.ALOAD, 4);
+        readBytesMV.visitVarInsn(Opcodes.LLOAD, 5);
+        readBytesMV.visitVarInsn(Opcodes.ILOAD, 7);
         readBytesMV.visitVarInsn(Opcodes.ALOAD, 1);
         readBytesMV.visitVarInsn(Opcodes.ILOAD, 2);
         readBytesMV.visitVarInsn(Opcodes.ILOAD, 3);
@@ -224,7 +271,7 @@ public class FileInputStreamAdapter extends ClassVisitor {
 
         // return readBytesResult;
         // }
-        readBytesMV.visitVarInsn(Opcodes.ILOAD, 6);
+        readBytesMV.visitVarInsn(Opcodes.ILOAD, 7);
         readBytesMV.visitInsn(Opcodes.IRETURN);
         readBytesMV.visitMaxs(0, 0);
         readBytesMV.visitEnd();
