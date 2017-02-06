@@ -124,6 +124,8 @@ public class OperationStatistics {
             sb.append("count");
             sb.append(separator).append("timeBin");
             sb.append(separator).append("cpuTime");
+            sb.append(separator).append("source");
+            sb.append(separator).append("category");
             return sb.toString();
         }
 
@@ -132,6 +134,8 @@ public class OperationStatistics {
             sb.append(count);
             sb.append(separator).append(timeBin);
             sb.append(separator).append(cpuTime);
+            sb.append(separator).append(source.name().toLowerCase());
+            sb.append(separator).append(category.name().toLowerCase());
             return sb.toString();
         }
 
