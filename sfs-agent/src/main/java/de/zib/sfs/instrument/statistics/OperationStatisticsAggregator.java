@@ -14,6 +14,10 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ForkJoinTask;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeUnit;
 
 import de.zib.sfs.instrument.statistics.OperationStatistics.Aggregator.NotAggregatableException;
 
@@ -33,6 +37,8 @@ public class OperationStatisticsAggregator {
     private final BufferedWriter[] writers;
     private final Object[] writerLocks;
 
+    private final ForkJoinPool threadPool;
+
     private static OperationStatisticsAggregator instance;
 
     public static OperationStatisticsAggregator getInstance() {
@@ -40,7 +46,7 @@ public class OperationStatisticsAggregator {
             try {
                 instance = new OperationStatisticsAggregator();
             } catch (IllegalStateException e) {
-                // swallow
+                // swallow, it's too early during JVM startup
             }
         }
         return instance;
@@ -63,6 +69,7 @@ public class OperationStatisticsAggregator {
                 .getProperty("de.zib.sfs.output.directory");
         outputSeparator = ",";
 
+        // map each source/category combination, map a time bin to an aggregator
         aggregators = new ArrayList<ConcurrentSkipListMap<Long, OperationStatistics.Aggregator>>();
         for (int i = 0; i < OperationSource.values().length
                 * OperationCategory.values().length; ++i) {
@@ -79,15 +86,35 @@ public class OperationStatisticsAggregator {
                 writerLocks[getUniqueIndex(source, category)] = new Object();
             }
         }
+
+        // worker pool that will accept the aggregation tasks
+        threadPool = new ForkJoinPool(Runtime.getRuntime()
+                .availableProcessors(),
+                ForkJoinPool.defaultForkJoinWorkerThreadFactory, null, true);
     }
 
-    public void aggregate(OperationStatistics operationStatistics) {
-        // get the time bin applicable for this operation
-        OperationStatistics.Aggregator aggregator = operationStatistics
-                .getAggregator(timeBinDuration);
-        aggregators
-                .get(getUniqueIndex(aggregator.getSource(),
-                        aggregator.getCategory())).merge(
+    public void aggregate(final OperationStatistics operationStatistics) {
+        // asynchronously schedule aggregation
+        final ForkJoinTask<Void> task = new ForkJoinTask<Void>() {
+            private static final long serialVersionUID = -5794694736335116368L;
+
+            @Override
+            public Void getRawResult() {
+                return null;
+            }
+
+            @Override
+            protected void setRawResult(Void value) {
+            }
+
+            @Override
+            protected boolean exec() {
+                // get the time bin applicable for this operation
+                OperationStatistics.Aggregator aggregator = operationStatistics
+                        .getAggregator(timeBinDuration);
+                aggregators.get(
+                        getUniqueIndex(aggregator.getSource(),
+                                aggregator.getCategory())).merge(
                         aggregator.getTimeBin(), aggregator, (v1, v2) -> {
                             try {
                                 return v1.aggregate(v2);
@@ -96,19 +123,47 @@ public class OperationStatisticsAggregator {
                             }
                         });
 
-        // make sure to emit aggregates when the cache is full
-        aggregators.forEach(v -> {
-            for (int i = v.size() - timeBinCacheSize; i > 0; --i) {
-                try {
-                    write(v.remove(v.firstKey()));
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
+                // make sure to emit aggregates when the cache is full
+                aggregators.forEach(v -> {
+                    for (int i = v.size() - timeBinCacheSize; i > 0; --i) {
+                        try {
+                            write(v.remove(v.firstKey()));
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                    }
+                });
+
+                return true;
             }
-        });
+        };
+
+        try {
+            threadPool.execute(task);
+        } catch (RejectedExecutionException e) {
+            // when the pool is shut down already
+        }
     }
 
     public void shutdown() {
+        // wait a bit for all currently running threads before shutting down
+        if (!threadPool.awaitQuiescence(30, TimeUnit.SECONDS)) {
+            System.err.println("Thread pool did not quiesce");
+        }
+
+        // stop accepting new tasks
+        threadPool.shutdown();
+
+        // wait a bit for all still currently running tasks
+        try {
+            if (!threadPool.awaitTermination(30, TimeUnit.SECONDS)) {
+                System.err.println("Thread pool did not shut down");
+            }
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        // write remaining aggregators
         aggregators.forEach(v -> {
             for (int i = v.size(); i > 0; --i) {
                 try {
@@ -119,6 +174,7 @@ public class OperationStatisticsAggregator {
             }
         });
 
+        // finally close all writers
         for (BufferedWriter writer : writers) {
             try {
                 if (writer != null) {
