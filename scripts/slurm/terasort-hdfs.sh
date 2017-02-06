@@ -91,14 +91,14 @@ echo "$(date): Cleaning Java processes done"
 
 echo "$(date): Cleaning local directories"
 srun -N$SLURM_JOB_NUM_NODES rm -rf /local/$USER/hdfs
-srun -N$SLURM_JOB_NUM_NODES rm -rf /local/$USER/sfs
+srun -N$SLURM_JOB_NUM_NODES rm -rf /tmp/sfs
 srun -N$SLURM_JOB_NUM_NODES rm -rf /local/$USER/flink
 srun -N$SLURM_JOB_NUM_NODES rm -rf /tmp/*
 echo "$(date): Cleaning local directories done"
 
 echo "$(date): Creating local folders"
 srun -N$SLURM_JOB_NUM_NODES mkdir -p /local/$USER/hdfs
-srun -N$SLURM_JOB_NUM_NODES mkdir -p /local/$USER/sfs
+srun -N$SLURM_JOB_NUM_NODES mkdir -p /tmp/sfs
 srun -N$SLURM_JOB_NUM_NODES mkdir -p /local/$USER/flink
 echo "$(date): Creating local folders done"
 
@@ -107,8 +107,8 @@ if [ -z "$NO_SFS" ]; then
   start_transformer_jvm_script="${SLURM_JOB_ID}-start-transformer-jvm.sh"
   cat >> $start_transformer_jvm_script << EOF
 #!/bin/bash
-nohup java -cp $SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar de.zib.sfs.instrument.ClassTransformationService --port 4242 --timeout -1 --verbose n > /local/$USER/sfs/transformer.log 2>&1 &
-echo \$! > /local/$USER/sfs/transformer.pid
+nohup java -cp $SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar de.zib.sfs.instrument.ClassTransformationService --port 4242 --timeout -1 --verbose n > /tmp/sfs/transformer.log 2>&1 &
+echo \$! > /tmp/sfs/transformer.pid
 EOF
   chmod +x $start_transformer_jvm_script
   srun -N$SLURM_JOB_NUM_NODES $start_transformer_jvm_script
@@ -128,7 +128,7 @@ LD_LIBRARY_PATH_EXT="$GRPC_HOME/libs/opt:$GRPC_HOME/third_party/protobuf/src/.li
 if [ -z "$NO_SFS" ]; then
   # configure some additional options for SFS
   OPTS="-agentpath:$SFS_DIRECTORY/sfs-agent/target/libsfs.so=trans_jar=$SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar,trans_address=0.0.0.0:4242"
-  OPTS="$OPTS,bin_duration=1000,cache_size=120,out_dir=/local/$USER/sfs,verbose=n"
+  OPTS="$OPTS,bin_duration=1000,cache_size=120,out_dir=/tmp/sfs,verbose=n"
   HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --hadoop-opts $OPTS,key=hdfs"
   HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --map-opts $OPTS,key=map"
   HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --reduce-opts $OPTS,key=reduce"
@@ -255,8 +255,8 @@ case $ENGINE in
     ;;
   hadoop)
     $HADOOP_HOME/bin/hadoop jar $HADOOP_HOME/share/hadoop/mapreduce/hadoop-mapreduce-examples-${HADOOP_VERSION}.jar terasort \
-      -Dmapreduce.job.maps=$((${#HADOOP_DATANODES[@]} * ${TASK_SLOTS})) \
-      -Dmapreduce.job.reduces=$((${#HADOOP_DATANODES[@]} * ${TASK_SLOTS})) \
+      -Dmapreduce.job.maps=$((${#HADOOP_DATANODES[@]} * ${TASK_SLOTS} * 4)) \
+      -Dmapreduce.job.reduces=$((${#HADOOP_DATANODES[@]} * ${TASK_SLOTS} * 4)) \
       $SCHEME://$MASTER:8020/user/$USER/input $SCHEME://$MASTER:8020/user/$USER/output
     ;;
 esac
@@ -273,11 +273,11 @@ if [ -z "$NO_SFS" ]; then
   stop_transformer_jvm_script="${SLURM_JOB_ID}-stop-transformer-jvm.sh"
   cat >> $stop_transformer_jvm_script << EOF
 #!/bin/bash
-kill \$(</local/$USER/sfs/transformer.pid)
-rm /local/$USER/sfs/transformer.pid
+kill \$(</tmp/sfs/transformer.pid)
+rm /tmp/sfs/transformer.pid
 echo "Transformer log on \$(hostname):"
-cat /local/$USER/sfs/transformer.log
-rm /local/$USER/sfs/transformer.log
+cat /tmp/sfs/transformer.log
+rm /tmp/sfs/transformer.log
 EOF
   chmod +x $stop_transformer_jvm_script
   srun -N$SLURM_JOB_NUM_NODES $stop_transformer_jvm_script
@@ -293,7 +293,7 @@ if [ -z "$NO_SFS" ]; then
   echo "$(date): Copying logs"
   cat > copy-logs.sh << EOF
 #!/bin/bash
-cd /local/$USER/sfs
+cd /tmp/sfs
 for file in \$(ls *.csv); do
   cp \$file $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname)-\$file
 done
@@ -307,7 +307,7 @@ fi
 if [ "$RET_CODE" -eq "0" ]; then
   echo "$(date): Cleaning local directories"
   srun -N$SLURM_JOB_NUM_NODES rm -rf /local/$USER/hdfs
-  srun -N$SLURM_JOB_NUM_NODES rm -rf /local/$USER/sfs
+  srun -N$SLURM_JOB_NUM_NODES rm -rf /tmp/sfs
   srun -N$SLURM_JOB_NUM_NODES rm -rf /local/$USER/flink
   srun -N$SLURM_JOB_NUM_NODES rm -rf /tmp/*
   echo "$(date): Cleaning local directories done"
