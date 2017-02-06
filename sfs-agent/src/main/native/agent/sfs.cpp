@@ -420,7 +420,8 @@ static void JNICALL VMInitCallback(jvmtiEnv *jvmti_env, JNIEnv *jni_env,
 
   // repeat for the PID
   LOG_VERBOSE("Setting system property '%s'='%s'.\n",
-              std::string("de.zib.sfs.pid").c_str(), hostname);
+              std::string("de.zib.sfs.pid").c_str(),
+              std::to_string(getpid()).c_str());
   jni_env->CallStaticVoidMethod(
       system_class, set_property_method_id,
       jni_env->NewStringUTF("de.zib.sfs.pid"),
