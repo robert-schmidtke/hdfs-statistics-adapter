@@ -200,15 +200,29 @@ public class OperationStatisticsAggregator {
 
                 File file = new File(outputDirectory, filename);
                 if (!file.exists()) {
+                    StringBuilder sb = new StringBuilder();
+                    sb.append("hostname");
+                    sb.append(outputSeparator).append("pid");
+                    sb.append(outputSeparator).append("key");
+                    sb.append(outputSeparator).append(
+                            aggregator.getCsvHeaders(outputSeparator));
+
                     writers[index] = new BufferedWriter(new FileWriter(file));
-                    writers[index].write(aggregator
-                            .getCsvHeaders(outputSeparator));
+                    writers[index].write(sb.toString());
                     writers[index].newLine();
                 } else {
                     throw new IOException(filename + " already exists");
                 }
             }
-            writers[index].write(aggregator.toCsv(outputSeparator));
+
+            StringBuilder sb = new StringBuilder();
+            sb.append(systemHostname);
+            sb.append(outputSeparator).append(systemPid);
+            sb.append(outputSeparator).append(systemKey);
+            sb.append(outputSeparator)
+                    .append(aggregator.toCsv(outputSeparator));
+
+            writers[index].write(sb.toString());
             writers[index].newLine();
         }
     }
