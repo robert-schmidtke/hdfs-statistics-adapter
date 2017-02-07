@@ -39,14 +39,20 @@ public class OperationStatisticsAggregator {
 
     private final ForkJoinPool threadPool;
 
+    private static final Object initLock = new Object();
     private static OperationStatisticsAggregator instance;
 
     public static OperationStatisticsAggregator getInstance() {
         if (instance == null) {
-            try {
-                instance = new OperationStatisticsAggregator();
-            } catch (IllegalStateException e) {
-                // swallow, it's too early during JVM startup
+            // acquire lock only when it might be necessary
+            synchronized (initLock) {
+                if (instance == null) {
+                    try {
+                        instance = new OperationStatisticsAggregator();
+                    } catch (IllegalStateException e) {
+                        // swallow, it's too early during JVM startup
+                    }
+                }
             }
         }
         return instance;
