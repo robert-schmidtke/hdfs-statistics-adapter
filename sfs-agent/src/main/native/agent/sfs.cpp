@@ -478,7 +478,6 @@ static void JNICALL VMDeathCallback(jvmtiEnv *jvmti_env, JNIEnv *jni_env) {
   LOG_VERBOSE("Shutting down VM.\n");
 
   // get the aggregator and shut it down
-  LOG_VERBOSE("Shutting down OperationStatisticsAggregator.\n");
   jclass operation_statistics_aggregator_class = jni_env->FindClass(
       "de/zib/sfs/instrument/statistics/OperationStatisticsAggregator");
   jmethodID get_instance_method_id = jni_env->GetStaticMethodID(
@@ -487,11 +486,19 @@ static void JNICALL VMDeathCallback(jvmtiEnv *jvmti_env, JNIEnv *jni_env) {
   jobject operation_statistics_aggregator_instance =
       jni_env->CallStaticObjectMethod(operation_statistics_aggregator_class,
                                       get_instance_method_id);
-  jmethodID shutdown_method_id = jni_env->GetMethodID(
-      operation_statistics_aggregator_class, "shutdown", "()V");
-  jni_env->CallVoidMethod(operation_statistics_aggregator_instance,
-                          shutdown_method_id);
-  LOG_VERBOSE("OperationStatisticsAggregator shut down successfully.\n");
+
+  // in case of an early death of the VM the instance might be null
+  if (operation_statistics_aggregator_instance != NULL) {
+    LOG_VERBOSE("Shutting down OperationStatisticsAggregator.\n");
+    jmethodID shutdown_method_id = jni_env->GetMethodID(
+        operation_statistics_aggregator_class, "shutdown", "()V");
+    jni_env->CallVoidMethod(operation_statistics_aggregator_instance,
+                            shutdown_method_id);
+    LOG_VERBOSE("OperationStatisticsAggregator shut down successfully.\n");
+  } else {
+    LOG_VERBOSE("OperationStatisticsAggregator is not initialized, not "
+                "shutting it down.\n");
+  }
 
   LOG_VERBOSE("VM shut down successfully.\n");
 }
