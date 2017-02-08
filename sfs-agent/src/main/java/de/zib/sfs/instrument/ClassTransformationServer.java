@@ -68,22 +68,26 @@ public class ClassTransformationServer extends
                 case "java/io/FileInputStream":
                     cr.accept(
                             new FileInputStreamAdapter(cw, request
-                                    .getNativeMethodPrefix()), 0);
+                                    .getNativeMethodPrefix()),
+                            ClassReader.EXPAND_FRAMES);
                     break;
                 case "java/io/FileOutputStream":
                     cr.accept(
                             new FileOutputStreamAdapter(cw, request
-                                    .getNativeMethodPrefix()), 0);
+                                    .getNativeMethodPrefix()),
+                            ClassReader.EXPAND_FRAMES);
                     break;
                 case "java/io/RandomAccessFile":
                     cr.accept(
                             new RandomAccessFileAdapter(cw, request
-                                    .getNativeMethodPrefix()), 0);
+                                    .getNativeMethodPrefix()),
+                            ClassReader.EXPAND_FRAMES);
                     break;
                 case "sun/nio/ch/FileChannelImpl":
                     cr.accept(
                             new FileChannelImplAdapter(cw, request
-                                    .getNativeMethodPrefix()), 0);
+                                    .getNativeMethodPrefix()),
+                            ClassReader.EXPAND_FRAMES);
                     break;
                 default:
                     throw new IllegalArgumentException("Invalid class: "

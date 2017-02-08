@@ -16,6 +16,7 @@ import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.commons.AdviceAdapter;
 
 /**
  * Class adapter that instruments {@link java.io.FileOutputStream}.
@@ -78,7 +79,10 @@ public class FileOutputStreamAdapter extends ClassVisitor {
     public MethodVisitor visitMethod(int access, String name, String desc,
             String signature, String[] exceptions) {
         MethodVisitor mv;
-        if (isOpenMethod(access, name, desc, signature, exceptions)
+        if ("<init>".equals(name)) {
+            mv = new ConstructorAdapter(api, cv.visitMethod(access, name, desc,
+                    signature, exceptions), access, name, desc);
+        } else if (isOpenMethod(access, name, desc, signature, exceptions)
                 || isWriteMethod(access, name, desc, signature, exceptions)
                 || isWriteBytesMethod(access, name, desc, signature, exceptions)) {
             // rename native methods so we can wrap them
@@ -111,23 +115,6 @@ public class FileOutputStreamAdapter extends ClassVisitor {
                 openMethodDescriptor, null, new String[] { Type
                         .getInternalName(FileNotFoundException.class) });
         openMV.visitCode();
-
-        // callback = new FileOutputStreamCallback();
-        openMV.visitVarInsn(Opcodes.ALOAD, 0);
-        openMV.visitTypeInsn(Opcodes.NEW, fileOutputStreamCallbackInternalName);
-        openMV.visitInsn(Opcodes.DUP);
-        try {
-            openMV.visitMethodInsn(
-                    Opcodes.INVOKESPECIAL,
-                    fileOutputStreamCallbackInternalName,
-                    "<init>",
-                    Type.getConstructorDescriptor(FileOutputStreamCallback.class
-                            .getConstructor()), false);
-        } catch (Exception e) {
-            throw new RuntimeException("Could not access constructor", e);
-        }
-        openMV.visitFieldInsn(Opcodes.PUTFIELD, fileOutputStreamInternalName,
-                "callback", fileOutputStreamCallbackDescriptor);
 
         // long startTime = System.currentTimeMillis();
         openMV.visitMethodInsn(Opcodes.INVOKESTATIC, systemInternalName,
@@ -250,6 +237,37 @@ public class FileOutputStreamAdapter extends ClassVisitor {
         writeBytesMV.visitEnd();
 
         cv.visitEnd();
+    }
+
+    private static class ConstructorAdapter extends AdviceAdapter {
+
+        protected ConstructorAdapter(int api, MethodVisitor mv, int access,
+                String name, String desc) {
+            super(api, mv, access, name, desc);
+        }
+
+        @Override
+        protected void onMethodEnter() {
+            // callback = new FileOutputStreamCallback();
+            mv.visitVarInsn(Opcodes.ALOAD, 0);
+            mv.visitTypeInsn(Opcodes.NEW,
+                    Type.getInternalName(FileOutputStreamCallback.class));
+            mv.visitInsn(Opcodes.DUP);
+            try {
+                mv.visitMethodInsn(
+                        Opcodes.INVOKESPECIAL,
+                        Type.getInternalName(FileOutputStreamCallback.class),
+                        "<init>",
+                        Type.getConstructorDescriptor(FileOutputStreamCallback.class
+                                .getConstructor()), false);
+            } catch (Exception e) {
+                throw new RuntimeException("Could not access constructor", e);
+            }
+            mv.visitFieldInsn(Opcodes.PUTFIELD,
+                    Type.getInternalName(FileOutputStream.class), "callback",
+                    Type.getDescriptor(FileOutputStreamCallback.class));
+        }
+
     }
 
     // Helper methods

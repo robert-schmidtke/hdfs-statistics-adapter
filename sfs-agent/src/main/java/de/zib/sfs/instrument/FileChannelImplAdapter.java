@@ -7,7 +7,6 @@
  */
 package de.zib.sfs.instrument;
 
-import java.io.FileDescriptor;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
@@ -16,6 +15,7 @@ import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.commons.AdviceAdapter;
 
 import sun.nio.ch.FileChannelImpl;
 
@@ -82,10 +82,10 @@ public class FileChannelImplAdapter extends ClassVisitor {
     public MethodVisitor visitMethod(int access, String name, String desc,
             String signature, String[] exceptions) {
         MethodVisitor mv;
-        if (isConstructor(access, name, desc, signature, exceptions)) {
+        if ("<init>".equals(name)) {
             // add initialization of the callback field to constructor
             mv = new ConstructorAdapter(api, cv.visitMethod(access, name, desc,
-                    signature, exceptions));
+                    signature, exceptions), access, name, desc);
         } else if (isReadMethod(access, name, desc, signature, exceptions)
                 || isWriteMethod(access, name, desc, signature, exceptions)) {
             // rename native methods so we can wrap them
@@ -298,68 +298,38 @@ public class FileChannelImplAdapter extends ClassVisitor {
         cv.visitEnd();
     }
 
-    private static class ConstructorAdapter extends MethodVisitor {
+    private static class ConstructorAdapter extends AdviceAdapter {
 
-        public ConstructorAdapter(int api, MethodVisitor mv) {
-            super(api, mv);
+        protected ConstructorAdapter(int api, MethodVisitor mv, int access,
+                String name, String desc) {
+            super(api, mv, access, name, desc);
         }
 
         @Override
-        public void visitInsn(int opcode) {
-            // just before each return without arguments (every return in a
-            // constructor), add the initialization of our callback
-            if (opcode == Opcodes.RETURN) {
-                // callback = new FileChannelImplCallback();
-                mv.visitVarInsn(Opcodes.ALOAD, 0);
-                mv.visitTypeInsn(Opcodes.NEW,
-                        Type.getInternalName(FileChannelImplCallback.class));
-                mv.visitInsn(Opcodes.DUP);
-                try {
-                    mv.visitMethodInsn(
-                            Opcodes.INVOKESPECIAL,
-                            Type.getInternalName(FileChannelImplCallback.class),
-                            "<init>",
-                            Type.getConstructorDescriptor(FileChannelImplCallback.class
-                                    .getConstructor()), false);
-                } catch (Exception e) {
-                    throw new RuntimeException("Could not access constructor",
-                            e);
-                }
-                mv.visitFieldInsn(Opcodes.PUTFIELD,
-                        Type.getInternalName(FileChannelImpl.class),
-                        "callback",
-                        Type.getDescriptor(FileChannelImplCallback.class));
+        protected void onMethodEnter() {
+            // callback = new FileChannelImplCallback();
+            mv.visitVarInsn(Opcodes.ALOAD, 0);
+            mv.visitTypeInsn(Opcodes.NEW,
+                    Type.getInternalName(FileChannelImplCallback.class));
+            mv.visitInsn(Opcodes.DUP);
+            try {
+                mv.visitMethodInsn(
+                        Opcodes.INVOKESPECIAL,
+                        Type.getInternalName(FileChannelImplCallback.class),
+                        "<init>",
+                        Type.getConstructorDescriptor(FileChannelImplCallback.class
+                                .getConstructor()), false);
+            } catch (Exception e) {
+                throw new RuntimeException("Could not access constructor", e);
             }
-
-            // proceed as intended
-            mv.visitInsn(opcode);
-        }
-
-        @Override
-        public void visitMaxs(int maxStack, int maxLocals) {
-            mv.visitMaxs(0, 0);
+            mv.visitFieldInsn(Opcodes.PUTFIELD,
+                    Type.getInternalName(FileChannelImpl.class), "callback",
+                    Type.getDescriptor(FileChannelImplCallback.class));
         }
 
     }
 
     // Helper methods
-
-    private boolean isConstructor(int access, String name, String desc,
-            String signature, String[] exceptions) {
-        try {
-            return access == Opcodes.ACC_PRIVATE
-                    && "<init>".equals(name)
-                    && Type.getMethodDescriptor(Type.VOID_TYPE,
-                            Type.getType(FileDescriptor.class),
-                            Type.getType(String.class), Type.BOOLEAN_TYPE,
-                            Type.BOOLEAN_TYPE, Type.BOOLEAN_TYPE,
-                            Type.getType(Object.class)).equals(desc)
-                    && null == signature
-                    && (exceptions == null || exceptions.length == 0);
-        } catch (Exception e) {
-            throw new RuntimeException("Cannot access constructor", e);
-        }
-    }
 
     private boolean isReadMethod(int access, String name, String desc,
             String signature, String[] exceptions) {

@@ -16,6 +16,7 @@ import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.commons.AdviceAdapter;
 
 /**
  * Class adapter that instruments {@link java.io.RandomAccessFile}.
@@ -78,7 +79,10 @@ public class RandomAccessFileAdapter extends ClassVisitor {
     public MethodVisitor visitMethod(int access, String name, String desc,
             String signature, String[] exceptions) {
         MethodVisitor mv;
-        if (isOpenMethod(access, name, desc, signature, exceptions)
+        if ("<init>".equals(name)) {
+            mv = new ConstructorAdapter(api, cv.visitMethod(access, name, desc,
+                    signature, exceptions), access, name, desc);
+        } else if (isOpenMethod(access, name, desc, signature, exceptions)
                 || isReadMethod(access, name, desc, signature, exceptions)
                 || isReadBytesMethod(access, name, desc, signature, exceptions)
                 || isWriteMethod(access, name, desc, signature, exceptions)
@@ -117,23 +121,6 @@ public class RandomAccessFileAdapter extends ClassVisitor {
                 openMethodDescriptor, null, new String[] { Type
                         .getInternalName(FileNotFoundException.class) });
         openMV.visitCode();
-
-        // callback = new RandomAccessFileCallback();
-        openMV.visitVarInsn(Opcodes.ALOAD, 0);
-        openMV.visitTypeInsn(Opcodes.NEW, randomAccessFileCallbackInternalName);
-        openMV.visitInsn(Opcodes.DUP);
-        try {
-            openMV.visitMethodInsn(
-                    Opcodes.INVOKESPECIAL,
-                    randomAccessFileCallbackInternalName,
-                    "<init>",
-                    Type.getConstructorDescriptor(RandomAccessFileCallback.class
-                            .getConstructor()), false);
-        } catch (Exception e) {
-            throw new RuntimeException("Could not access constructor", e);
-        }
-        openMV.visitFieldInsn(Opcodes.PUTFIELD, randomAccessFileInternalName,
-                "callback", randomAccessFileCallbackDescriptor);
 
         // long startTime = System.currentTimeMillis();
         openMV.visitMethodInsn(Opcodes.INVOKESTATIC, systemInternalName,
@@ -343,6 +330,37 @@ public class RandomAccessFileAdapter extends ClassVisitor {
         writeBytesMV.visitEnd();
 
         cv.visitEnd();
+    }
+
+    private static class ConstructorAdapter extends AdviceAdapter {
+
+        protected ConstructorAdapter(int api, MethodVisitor mv, int access,
+                String name, String desc) {
+            super(api, mv, access, name, desc);
+        }
+
+        @Override
+        protected void onMethodEnter() {
+            // callback = new RandomAccessFileCallback();
+            mv.visitVarInsn(Opcodes.ALOAD, 0);
+            mv.visitTypeInsn(Opcodes.NEW,
+                    Type.getInternalName(RandomAccessFileCallback.class));
+            mv.visitInsn(Opcodes.DUP);
+            try {
+                mv.visitMethodInsn(
+                        Opcodes.INVOKESPECIAL,
+                        Type.getInternalName(RandomAccessFileCallback.class),
+                        "<init>",
+                        Type.getConstructorDescriptor(RandomAccessFileCallback.class
+                                .getConstructor()), false);
+            } catch (Exception e) {
+                throw new RuntimeException("Could not access constructor", e);
+            }
+            mv.visitFieldInsn(Opcodes.PUTFIELD,
+                    Type.getInternalName(RandomAccessFile.class), "callback",
+                    Type.getDescriptor(RandomAccessFileCallback.class));
+        }
+
     }
 
     // Helper methods
