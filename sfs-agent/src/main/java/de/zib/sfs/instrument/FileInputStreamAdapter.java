@@ -112,20 +112,18 @@ public class FileInputStreamAdapter extends ClassVisitor {
 
         // callback = new FileInputStreamCallback();
         openMV.visitVarInsn(Opcodes.ALOAD, 0);
-        openMV.visitTypeInsn(Opcodes.NEW,
-                Type.getInternalName(FileInputStreamCallback.class));
+        openMV.visitTypeInsn(Opcodes.NEW, fileInputStreamCallbackInternalName);
         openMV.visitInsn(Opcodes.DUP);
         try {
-            openMV.visitMethodInsn(Opcodes.INVOKESPECIAL, Type
-                    .getInternalName(FileInputStreamCallback.class), "<init>",
+            openMV.visitMethodInsn(Opcodes.INVOKESPECIAL,
+                    fileInputStreamCallbackInternalName, "<init>",
                     Type.getConstructorDescriptor(FileInputStreamCallback.class
                             .getConstructor()), false);
         } catch (Exception e) {
             throw new RuntimeException("Could not access constructor", e);
         }
-        openMV.visitFieldInsn(Opcodes.PUTFIELD,
-                Type.getInternalName(FileInputStream.class), "callback",
-                Type.getDescriptor(FileInputStreamCallback.class));
+        openMV.visitFieldInsn(Opcodes.PUTFIELD, fileInputStreamInternalName,
+                "callback", fileInputStreamCallbackDescriptor);
 
         // long startTime = System.currentTimeMillis();
         openMV.visitMethodInsn(Opcodes.INVOKESTATIC, systemInternalName,
