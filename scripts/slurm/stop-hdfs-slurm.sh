@@ -104,6 +104,21 @@ if [ -f \$pidfile ]; then
 else
   echo "DataNode PID file \$pidfile does not exist."
 fi
+
+#pidfile=/local/$HDFS_LOCAL_DIR/datanode-jstat-$datanode.pid
+#if [ -f \$pidfile ]; then
+#  pid=\$(cat \$pidfile)
+#  if [ -e /proc/\$pid ]; then
+#    kill \$pid
+#    echo "Result: \$?"
+#  else
+#    echo "jstat PID \$pid does not exist"
+#  fi
+#  rm \$pidfile
+#  cp /local/$HDFS_LOCAL_LOG_DIR/datanode-jstat-$datanode.log $HADOOP_PREFIX/log-$SLURM_JOB_ID/datanode-jstat-$datanode.log
+#else
+#  echo "jstat PID file \$pidfile does not exist."
+#fi
 EOF
 
   chmod +x $datanode_script
@@ -204,6 +219,21 @@ if [ -f \$pidfile ]; then
 else
   echo "PID file \$pidfile does not exist."
 fi
+
+#pidfile=/local/$HDFS_LOCAL_DIR/nodemanager-jstat-$datanode.pid
+#if [ -f \$pidfile ]; then
+#  pid=\$(cat \$pidfile)
+#  if [ -e /proc/\$pid ]; then
+#    kill \$pid
+#    echo "Result: \$?"
+#  fi
+#  rm \$pidfile
+#  cp /local/$HDFS_LOCAL_LOG_DIR/nodemanager-jstat-$datanode.log $HADOOP_PREFIX/log-$SLURM_JOB_ID/nodemanager-jstat-$datanode.log
+#  rm -rf /local/$HDFS_LOCAL_LOG_DIR
+#  rm -rf /local/$HDFS_LOCAL_DIR
+#else
+#  echo "jstat PID file \$pidfile does not exist."
+#fi
 EOF
   chmod +x $nodemanager_script
 
