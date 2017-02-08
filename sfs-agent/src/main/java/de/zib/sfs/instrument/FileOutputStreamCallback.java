@@ -15,34 +15,22 @@ import de.zib.sfs.instrument.statistics.OperationStatisticsAggregator;
 
 public class FileOutputStreamCallback {
 
-    private final OperationStatisticsAggregator aggregator;
-
-    public FileOutputStreamCallback() {
-        // may be null during early phases of JVM initialization
-        aggregator = OperationStatisticsAggregator.getInstance();
-    }
-
     public void onOpenEnd(long startTime, long endTime) {
-        if (aggregator != null) {
-            aggregator.aggregate(new OperationStatistics(OperationSource.JVM,
-                    OperationCategory.OTHER, startTime, endTime));
-        }
+        OperationStatisticsAggregator.instance
+                .aggregate(new OperationStatistics(OperationSource.JVM,
+                        OperationCategory.OTHER, startTime, endTime));
     }
 
     public void onWriteEnd(long startTime, long endTime) {
-        if (aggregator != null) {
-            aggregator.aggregate(new DataOperationStatistics(
-                    OperationSource.JVM, OperationCategory.WRITE, startTime,
-                    endTime, 1));
-        }
+        OperationStatisticsAggregator.instance
+                .aggregate(new DataOperationStatistics(OperationSource.JVM,
+                        OperationCategory.WRITE, startTime, endTime, 1));
     }
 
     public void onWriteBytesEnd(long startTime, long endTime, int len) {
-        if (aggregator != null) {
-            aggregator.aggregate(new DataOperationStatistics(
-                    OperationSource.JVM, OperationCategory.WRITE, startTime,
-                    endTime, len));
-        }
+        OperationStatisticsAggregator.instance
+                .aggregate(new DataOperationStatistics(OperationSource.JVM,
+                        OperationCategory.WRITE, startTime, endTime, len));
     }
 
 }

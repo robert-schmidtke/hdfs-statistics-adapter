@@ -15,35 +15,25 @@ import de.zib.sfs.instrument.statistics.ReadDataOperationStatistics;
 
 public class FileInputStreamCallback {
 
-    private final OperationStatisticsAggregator aggregator;
-
-    public FileInputStreamCallback() {
-        // may be null during early phases of JVM initialization
-        aggregator = OperationStatisticsAggregator.getInstance();
-    }
-
     public void onOpenEnd(long startTime, long endTime) {
-        if (aggregator != null) {
-            aggregator.aggregate(new OperationStatistics(OperationSource.JVM,
-                    OperationCategory.OTHER, startTime, endTime));
-        }
+        OperationStatisticsAggregator.instance
+                .aggregate(new OperationStatistics(OperationSource.JVM,
+                        OperationCategory.OTHER, startTime, endTime));
     }
 
     public void onReadEnd(long startTime, long endTime, int readResult) {
-        if (aggregator != null) {
-            aggregator.aggregate(new ReadDataOperationStatistics(
-                    OperationSource.JVM, OperationCategory.READ, startTime,
-                    endTime, readResult == -1 ? 0 : 1, null, false));
-        }
+        OperationStatisticsAggregator.instance
+                .aggregate(new ReadDataOperationStatistics(OperationSource.JVM,
+                        OperationCategory.READ, startTime, endTime,
+                        readResult == -1 ? 0 : 1, null, false));
     }
 
     public void onReadBytesEnd(long startTime, long endTime, int readBytesResult) {
-        if (aggregator != null) {
-            aggregator.aggregate(new ReadDataOperationStatistics(
-                    OperationSource.JVM, OperationCategory.READ, startTime,
-                    endTime, readBytesResult == -1 ? 0 : readBytesResult, null,
-                    false));
-        }
+        OperationStatisticsAggregator.instance
+                .aggregate(new ReadDataOperationStatistics(OperationSource.JVM,
+                        OperationCategory.READ, startTime, endTime,
+                        readBytesResult == -1 ? 0 : readBytesResult, null,
+                        false));
     }
 
 }

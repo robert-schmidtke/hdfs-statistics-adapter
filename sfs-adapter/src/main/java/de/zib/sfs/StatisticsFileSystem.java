@@ -71,11 +71,6 @@ public class StatisticsFileSystem extends FileSystem {
     private String wrappedFSScheme;
 
     /**
-     * The aggregator for file system call statistics.
-     */
-    private OperationStatisticsAggregator aggregator;
-
-    /**
      * Flag to track whether this file system is closed already.
      */
     private boolean closed = false;
@@ -166,7 +161,7 @@ public class StatisticsFileSystem extends FileSystem {
             System.setProperty("de.zib.sfs.output.directory", "/tmp");
         }
 
-        aggregator = OperationStatisticsAggregator.getInstance();
+        OperationStatisticsAggregator.instance.initialize();
         if (LOG.isDebugEnabled()) {
             LOG.debug("Initialized file system statistics aggregator.");
         }
@@ -279,8 +274,8 @@ public class StatisticsFileSystem extends FileSystem {
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream = new WrappedFSDataOutputStream(
                 wrappedFS.append(unwrappedPath, bufferSize, progress),
-                aggregator);
-        aggregator
+                OperationStatisticsAggregator.instance);
+        OperationStatisticsAggregator.instance
                 .aggregate(new OperationStatistics(OperationSource.JVM,
                         OperationCategory.OTHER, startTime, System
                                 .currentTimeMillis()));
@@ -327,8 +322,8 @@ public class StatisticsFileSystem extends FileSystem {
         FSDataOutputStream stream = new WrappedFSDataOutputStream(
                 wrappedFS.create(unwrappedPath, permission, overwrite,
                         bufferSize, replication, blockSize, progress),
-                aggregator);
-        aggregator
+                OperationStatisticsAggregator.instance);
+        OperationStatisticsAggregator.instance
                 .aggregate(new OperationStatistics(OperationSource.JVM,
                         OperationCategory.OTHER, startTime, System
                                 .currentTimeMillis()));
@@ -340,7 +335,7 @@ public class StatisticsFileSystem extends FileSystem {
         long startTime = System.currentTimeMillis();
         Path unwrappedPath = unwrapPath(f);
         boolean result = wrappedFS.delete(unwrappedPath, recursive);
-        aggregator
+        OperationStatisticsAggregator.instance
                 .aggregate(new OperationStatistics(OperationSource.JVM,
                         OperationCategory.OTHER, startTime, System
                                 .currentTimeMillis()));
@@ -359,7 +354,7 @@ public class StatisticsFileSystem extends FileSystem {
                 unwrapPath(file.getPath()));
         BlockLocation[] blockLocations = wrappedFS.getFileBlockLocations(
                 unwrappedFile, start, len);
-        aggregator
+        OperationStatisticsAggregator.instance
                 .aggregate(new OperationStatistics(OperationSource.JVM,
                         OperationCategory.OTHER, startTime, System
                                 .currentTimeMillis()));
@@ -373,7 +368,7 @@ public class StatisticsFileSystem extends FileSystem {
         FileStatus fileStatus = wrappedFS.getFileStatus(unwrappedPath);
         fileStatus.setPath(setAuthority(wrapPath(fileStatus.getPath()), f
                 .toUri().getAuthority()));
-        aggregator
+        OperationStatisticsAggregator.instance
                 .aggregate(new OperationStatistics(OperationSource.JVM,
                         OperationCategory.OTHER, startTime, System
                                 .currentTimeMillis()));
@@ -408,7 +403,7 @@ public class StatisticsFileSystem extends FileSystem {
             fileStatus.setPath(setAuthority(wrapPath(fileStatus.getPath()), f
                     .toUri().getAuthority()));
         }
-        aggregator
+        OperationStatisticsAggregator.instance
                 .aggregate(new OperationStatistics(OperationSource.JVM,
                         OperationCategory.OTHER, startTime, System
                                 .currentTimeMillis()));
@@ -420,7 +415,7 @@ public class StatisticsFileSystem extends FileSystem {
         long startTime = System.currentTimeMillis();
         Path unwrappedPath = unwrapPath(f);
         boolean result = wrappedFS.mkdirs(unwrappedPath, permission);
-        aggregator
+        OperationStatisticsAggregator.instance
                 .aggregate(new OperationStatistics(OperationSource.JVM,
                         OperationCategory.OTHER, startTime, System
                                 .currentTimeMillis()));
@@ -432,8 +427,9 @@ public class StatisticsFileSystem extends FileSystem {
         long startTime = System.currentTimeMillis();
         Path unwrappedPath = unwrapPath(f);
         WrappedFSDataInputStream stream = new WrappedFSDataInputStream(
-                wrappedFS.open(unwrappedPath, bufferSize), aggregator);
-        aggregator
+                wrappedFS.open(unwrappedPath, bufferSize),
+                OperationStatisticsAggregator.instance);
+        OperationStatisticsAggregator.instance
                 .aggregate(new OperationStatistics(OperationSource.JVM,
                         OperationCategory.OTHER, startTime, System
                                 .currentTimeMillis()));
@@ -446,7 +442,7 @@ public class StatisticsFileSystem extends FileSystem {
         Path unwrappedSrc = unwrapPath(src);
         Path unwrappedDst = unwrapPath(dst);
         boolean result = wrappedFS.rename(unwrappedSrc, unwrappedDst);
-        aggregator
+        OperationStatisticsAggregator.instance
                 .aggregate(new OperationStatistics(OperationSource.JVM,
                         OperationCategory.OTHER, startTime, System
                                 .currentTimeMillis()));

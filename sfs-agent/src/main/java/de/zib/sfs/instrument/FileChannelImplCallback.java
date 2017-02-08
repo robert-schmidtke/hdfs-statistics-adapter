@@ -15,43 +15,32 @@ import de.zib.sfs.instrument.statistics.ReadDataOperationStatistics;
 
 public class FileChannelImplCallback {
 
-    private final OperationStatisticsAggregator aggregator;
-
-    public FileChannelImplCallback() {
-        // may be null during early phases of JVM initialization
-        aggregator = OperationStatisticsAggregator.getInstance();
-    }
-
     public void onReadEnd(long startTime, long endTime, int readResult) {
-        if (startTime != -1L) {
-            aggregator.aggregate(new ReadDataOperationStatistics(
-                    OperationSource.JVM, OperationCategory.READ, startTime,
-                    endTime, readResult == -1 ? 0 : readResult, null, false));
-        }
+        OperationStatisticsAggregator.instance
+                .aggregate(new ReadDataOperationStatistics(OperationSource.JVM,
+                        OperationCategory.READ, startTime, endTime,
+                        readResult == -1 ? 0 : readResult, null, false));
     }
 
     public void onReadEnd(long startTime, long endTime, long readResult) {
-        if (startTime != -1L) {
-            aggregator.aggregate(new ReadDataOperationStatistics(
-                    OperationSource.JVM, OperationCategory.READ, startTime,
-                    endTime, readResult == -1 ? 0 : readResult, null, false));
-        }
+        OperationStatisticsAggregator.instance
+                .aggregate(new ReadDataOperationStatistics(OperationSource.JVM,
+                        OperationCategory.READ, startTime, endTime,
+                        readResult == -1 ? 0 : readResult, null, false));
     }
 
     public void onWriteEnd(long startTime, long endTime, int writeResult) {
-        if (startTime != -1L) {
-            aggregator.aggregate(new DataOperationStatistics(
-                    OperationSource.JVM, OperationCategory.WRITE, startTime,
-                    endTime, writeResult));
-        }
+        OperationStatisticsAggregator.instance
+                .aggregate(new DataOperationStatistics(OperationSource.JVM,
+                        OperationCategory.WRITE, startTime, endTime,
+                        writeResult));
     }
 
     public void onWriteEnd(long startTime, long endTime, long writeResult) {
-        if (startTime != -1L) {
-            aggregator.aggregate(new DataOperationStatistics(
-                    OperationSource.JVM, OperationCategory.WRITE, startTime,
-                    endTime, writeResult));
-        }
+        OperationStatisticsAggregator.instance
+                .aggregate(new DataOperationStatistics(OperationSource.JVM,
+                        OperationCategory.WRITE, startTime, endTime,
+                        writeResult));
     }
 
 }

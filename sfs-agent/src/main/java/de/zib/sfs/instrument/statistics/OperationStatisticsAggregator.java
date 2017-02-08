@@ -23,13 +23,15 @@ import de.zib.sfs.instrument.statistics.OperationStatistics.Aggregator.NotAggreg
 
 public class OperationStatisticsAggregator {
 
-    private final String systemHostname, systemKey;
-    private final int systemPid;
+    private boolean initialized;
 
-    private final long timeBinDuration;
-    private final int timeBinCacheSize;
+    private String systemHostname, systemKey;
+    private int systemPid;
 
-    private final String outputDirectory, outputSeparator;
+    private long timeBinDuration;
+    private int timeBinCacheSize;
+
+    private String outputDirectory, outputSeparator;
 
     // for each source/category combination, map a time bin to an aggregator
     private final List<ConcurrentSkipListMap<Long, OperationStatistics.Aggregator>> aggregators;
@@ -39,42 +41,9 @@ public class OperationStatisticsAggregator {
 
     private final ForkJoinPool threadPool;
 
-    private static final Object initLock = new Object();
-    private static OperationStatisticsAggregator instance;
-
-    public static OperationStatisticsAggregator getInstance() {
-        if (instance == null) {
-            // acquire lock only when it might be necessary
-            synchronized (initLock) {
-                if (instance == null) {
-                    try {
-                        instance = new OperationStatisticsAggregator();
-                    } catch (IllegalStateException e) {
-                        // swallow, it's too early during JVM startup
-                    }
-                }
-            }
-        }
-        return instance;
-    }
+    public static final OperationStatisticsAggregator instance = new OperationStatisticsAggregator();
 
     private OperationStatisticsAggregator() {
-        systemHostname = System.getProperty("de.zib.sfs.hostname");
-        if (systemHostname == null) {
-            throw new IllegalStateException("Agent not yet initialized");
-        }
-
-        systemPid = Integer.parseInt(System.getProperty("de.zib.sfs.pid"));
-        systemKey = System.getProperty("de.zib.sfs.key");
-
-        this.timeBinDuration = Long.parseLong(System
-                .getProperty("de.zib.sfs.timeBin.duration"));
-        this.timeBinCacheSize = Integer.parseInt(System
-                .getProperty("de.zib.sfs.timeBin.cacheSize"));
-        this.outputDirectory = System
-                .getProperty("de.zib.sfs.output.directory");
-        outputSeparator = ",";
-
         // map each source/category combination, map a time bin to an aggregator
         aggregators = new ArrayList<ConcurrentSkipListMap<Long, OperationStatistics.Aggregator>>();
         for (int i = 0; i < OperationSource.values().length
@@ -97,9 +66,36 @@ public class OperationStatisticsAggregator {
         threadPool = new ForkJoinPool(Runtime.getRuntime()
                 .availableProcessors(),
                 ForkJoinPool.defaultForkJoinWorkerThreadFactory, null, true);
+
+        initialized = false;
+    }
+
+    public void initialize() {
+        if (initialized) {
+            return;
+        }
+
+        systemHostname = System.getProperty("de.zib.sfs.hostname");
+
+        systemPid = Integer.parseInt(System.getProperty("de.zib.sfs.pid"));
+        systemKey = System.getProperty("de.zib.sfs.key");
+
+        this.timeBinDuration = Long.parseLong(System
+                .getProperty("de.zib.sfs.timeBin.duration"));
+        this.timeBinCacheSize = Integer.parseInt(System
+                .getProperty("de.zib.sfs.timeBin.cacheSize"));
+        this.outputDirectory = System
+                .getProperty("de.zib.sfs.output.directory");
+        outputSeparator = ",";
+
+        initialized = true;
     }
 
     public void aggregate(final OperationStatistics operationStatistics) {
+        if (!initialized) {
+            return;
+        }
+
         // asynchronously schedule aggregation
         final ForkJoinTask<Void> task = new ForkJoinTask<Void>() {
             private static final long serialVersionUID = -5794694736335116368L;
@@ -152,6 +148,10 @@ public class OperationStatisticsAggregator {
     }
 
     public void shutdown() {
+        if (!initialized) {
+            return;
+        }
+
         // wait a bit for all currently running threads before shutting down
         if (!threadPool.awaitQuiescence(30, TimeUnit.SECONDS)) {
             System.err.println("Thread pool did not quiesce");
