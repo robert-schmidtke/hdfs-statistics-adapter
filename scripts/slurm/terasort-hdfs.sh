@@ -218,21 +218,21 @@ rm -rf $HADOOP_HOME/log-*
 rm -rf $HADOOP_HOME/logs/*
 rm -rf $SFS_TARGET_DIRECTORY/*
 
-echo "$(date): Generating TeraSort data on HDFS"
-$HADOOP_HOME/bin/hadoop jar \
-  $HADOOP_HOME/share/hadoop/mapreduce/hadoop-mapreduce-examples-${HADOOP_VERSION}.jar teragen \
-  -Dmapreduce.job.maps=$((${#HADOOP_DATANODES[@]} * ${TASK_SLOTS})) \
-  10995116277 hdfs://$MASTER:8020/user/$USER/input
-echo "$(date): Generating TeraSort data on HDFS done"
-
-$HADOOP_HOME/bin/hadoop fs -mkdir -p hdfs://$MASTER:8020/user/$USER/output
-
-echo "$(date): Running TeraSort"
 SCHEME="hdfs"
 if [ -z "$NO_SFS" ]; then
   SCHEME="sfs"
 fi
 
+echo "$(date): Generating TeraSort data on HDFS"
+$HADOOP_HOME/bin/hadoop jar \
+  $HADOOP_HOME/share/hadoop/mapreduce/hadoop-mapreduce-examples-${HADOOP_VERSION}.jar teragen \
+  -Dmapreduce.job.maps=$((${#HADOOP_DATANODES[@]} * ${TASK_SLOTS})) \
+  10995116277 $SCHEME://$MASTER:8020/user/$USER/input
+echo "$(date): Generating TeraSort data on HDFS done"
+
+$HADOOP_HOME/bin/hadoop fs -mkdir -p hdfs://$MASTER:8020/user/$USER/output
+
+echo "$(date): Running TeraSort"
 case $ENGINE in
   flink)
     $FLINK_HOME/bin/flink run \
