@@ -50,14 +50,6 @@ else
   exit 1
 fi
 
-if [ -f /etc/debian_version ]
-  then
-    function module { eval `/usr/bin/modulecmd bash $*`; }
-    export MODULEPATH=/dassw/ubuntu/modules
-fi
-
-module load java/oracle-jdk1.8.0_45
-
 export HOSTNAME=$(hostname)
 
 export FLINK_HOME=/scratch/$USER/flink-1.1.3
