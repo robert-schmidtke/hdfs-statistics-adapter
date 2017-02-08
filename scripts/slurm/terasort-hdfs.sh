@@ -50,14 +50,6 @@ else
   exit 1
 fi
 
-if [ -f /etc/debian_version ]
-  then
-    function module { eval `/usr/bin/modulecmd bash $*`; }
-    export MODULEPATH=/dassw/ubuntu/modules
-fi
-
-module load java/oracle-jdk1.8.0_45
-
 export HOSTNAME=$(hostname)
 
 export FLINK_HOME=/scratch/$USER/flink-1.1.3
@@ -100,7 +92,20 @@ echo "$(date): Creating local folders"
 srun -N$SLURM_JOB_NUM_NODES mkdir -p /local/$USER/hdfs
 srun -N$SLURM_JOB_NUM_NODES mkdir -p /tmp/sfs
 srun -N$SLURM_JOB_NUM_NODES mkdir -p /local/$USER/flink
+#srun -N$SLURM_JOB_NUM_NODES mkdir -p /local/$USER/collectl
 echo "$(date): Creating local folders done"
+
+#echo "$(date): Starting collectl"
+#start_collectl_script="${SLURM_JOB_ID}-start-collectl.sh"
+#cat >> $start_collectl_script << EOF
+##!/bin/bash
+#nohup collectl -P -f /local/$USER/collectl/\$(hostname).log -s cCdDmMnNZ > /local/$USER/collectl/collectl.log 2>&1 &
+#echo \$! > /local/$USER/collectl/collectl.pid
+#EOF
+#chmod +x $start_collectl_script
+#srun -N$SLURM_JOB_NUM_NODES $start_collectl_script
+#rm $start_collectl_script
+#echo "$(date): Starting collectl done"
 
 if [ -z "$NO_SFS" ]; then
   echo "$(date): Starting transformer JVMs"
@@ -213,21 +218,21 @@ rm -rf $HADOOP_HOME/log-*
 rm -rf $HADOOP_HOME/logs/*
 rm -rf $SFS_TARGET_DIRECTORY/*
 
-echo "$(date): Generating TeraSort data on HDFS"
-$HADOOP_HOME/bin/hadoop jar \
-  $HADOOP_HOME/share/hadoop/mapreduce/hadoop-mapreduce-examples-${HADOOP_VERSION}.jar teragen \
-  -Dmapreduce.job.maps=$((${#HADOOP_DATANODES[@]} * ${TASK_SLOTS})) \
-  10995116277 hdfs://$MASTER:8020/user/$USER/input
-echo "$(date): Generating TeraSort data on HDFS done"
-
-$HADOOP_HOME/bin/hadoop fs -mkdir -p hdfs://$MASTER:8020/user/$USER/output
-
-echo "$(date): Running TeraSort"
 SCHEME="hdfs"
 if [ -z "$NO_SFS" ]; then
   SCHEME="sfs"
 fi
 
+echo "$(date): Generating TeraSort data on HDFS"
+$HADOOP_HOME/bin/hadoop jar \
+  $HADOOP_HOME/share/hadoop/mapreduce/hadoop-mapreduce-examples-${HADOOP_VERSION}.jar teragen \
+  -Dmapreduce.job.maps=$((${#HADOOP_DATANODES[@]} * ${TASK_SLOTS})) \
+  10995116277 $SCHEME://$MASTER:8020/user/$USER/input
+echo "$(date): Generating TeraSort data on HDFS done"
+
+$HADOOP_HOME/bin/hadoop fs -mkdir -p hdfs://$MASTER:8020/user/$USER/output
+
+echo "$(date): Running TeraSort"
 case $ENGINE in
   flink)
     $FLINK_HOME/bin/flink run \
@@ -285,6 +290,20 @@ EOF
   echo "$(date): Stopping transformer JVMs done"
 fi
 
+#echo "$(date): Stopping collectl"
+#stop_collectl_script="${SLURM_JOB_ID}-stop-collectl.sh"
+#cat >> $stop_collectl_script << EOF
+##!/bin/bash
+#kill \$(</local/$USER/collectl/collectl.pid)
+#rm /local/$USER/collectl/collectl.pid
+#rm /local/$USER/collectl/collectl.log
+#cp /local/$USER/collectl/\$(hostname).log* /scratch/$USER/\$(hostname).collectl.gz
+#EOF
+#chmod +x $stop_collectl_script
+#srun $stop_collectl_script
+#rm $stop_collectl_script
+#echo "$(date): Stopping collectl done"
+
 echo "$(date): Cleaning Java processes"
 srun -N$SLURM_JOB_NUM_NODES killall -sSIGKILL java
 echo "$(date): Cleaning Java processes done"
@@ -310,6 +329,7 @@ if [ "$RET_CODE" -eq "0" ]; then
   srun -N$SLURM_JOB_NUM_NODES rm -rf /tmp/sfs
   srun -N$SLURM_JOB_NUM_NODES rm -rf /local/$USER/flink
   srun -N$SLURM_JOB_NUM_NODES rm -rf /tmp/*
+#  srun -N$SLURM_JOB_NUM_NODES rm -rf /local/$USER/collectl
   echo "$(date): Cleaning local directories done"
 else
   echo "$(date): Some task did not run successfully, not cleaning local directories."
