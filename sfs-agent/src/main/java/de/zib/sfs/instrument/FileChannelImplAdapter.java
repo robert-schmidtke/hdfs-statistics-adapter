@@ -344,6 +344,23 @@ public class FileChannelImplAdapter extends ClassVisitor {
 
     // Helper methods
 
+    private boolean isConstructor(int access, String name, String desc,
+            String signature, String[] exceptions) {
+        try {
+            return access == Opcodes.ACC_PRIVATE
+                    && "<init>".equals(name)
+                    && Type.getMethodDescriptor(Type.VOID_TYPE,
+                            Type.getType(FileDescriptor.class),
+                            Type.getType(String.class), Type.BOOLEAN_TYPE,
+                            Type.BOOLEAN_TYPE, Type.BOOLEAN_TYPE,
+                            Type.getType(Object.class)).equals(desc)
+                    && null == signature
+                    && (exceptions == null || exceptions.length == 0);
+        } catch (Exception e) {
+            throw new RuntimeException("Cannot access constructor", e);
+        }
+    }
+
     private boolean isReadMethod(int access, String name, String desc,
             String signature, String[] exceptions) {
         return access == Opcodes.ACC_PUBLIC
@@ -374,22 +391,5 @@ public class FileChannelImplAdapter extends ClassVisitor {
                 && exceptions.length == 1
                 && Type.getInternalName(IOException.class)
                         .equals(exceptions[0]);
-    }
-
-    private boolean isConstructor(int access, String name, String desc,
-            String signature, String[] exceptions) {
-        try {
-            return access == Opcodes.ACC_PRIVATE
-                    && "<init>".equals(name)
-                    && Type.getMethodDescriptor(Type.VOID_TYPE,
-                            Type.getType(FileDescriptor.class),
-                            Type.getType(String.class), Type.BOOLEAN_TYPE,
-                            Type.BOOLEAN_TYPE, Type.BOOLEAN_TYPE,
-                            Type.getType(Object.class)).equals(desc)
-                    && null == signature
-                    && (exceptions == null || exceptions.length == 0);
-        } catch (Exception e) {
-            throw new RuntimeException("Cannot access constructor", e);
-        }
     }
 }
