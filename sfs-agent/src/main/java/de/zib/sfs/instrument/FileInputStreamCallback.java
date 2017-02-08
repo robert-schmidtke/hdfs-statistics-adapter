@@ -7,63 +7,42 @@
  */
 package de.zib.sfs.instrument;
 
-import java.io.FileInputStream;
-
 import de.zib.sfs.instrument.statistics.OperationCategory;
 import de.zib.sfs.instrument.statistics.OperationSource;
 import de.zib.sfs.instrument.statistics.OperationStatistics;
-import de.zib.sfs.instrument.statistics.ReadDataOperationStatistics;
 import de.zib.sfs.instrument.statistics.OperationStatisticsAggregator;
+import de.zib.sfs.instrument.statistics.ReadDataOperationStatistics;
 
 public class FileInputStreamCallback {
 
-    private final FileInputStream fis;
-
     private final OperationStatisticsAggregator aggregator;
 
-    public FileInputStreamCallback(FileInputStream fis) {
-        this.fis = fis;
-
+    public FileInputStreamCallback() {
         // may be null during early phases of JVM initialization
         aggregator = OperationStatisticsAggregator.getInstance();
     }
 
-    public long onOpenBegin(String name) {
-        return aggregator != null ? System.currentTimeMillis() : -1L;
-    }
-
-    public void onOpenEnd(long startTime, String name) {
-        if (startTime != -1L) {
+    public void onOpenEnd(long startTime, long endTime) {
+        if (aggregator != null) {
             aggregator.aggregate(new OperationStatistics(OperationSource.JVM,
-                    OperationCategory.OTHER, startTime, System
-                            .currentTimeMillis()));
+                    OperationCategory.OTHER, startTime, endTime));
         }
     }
 
-    public long onReadBegin() {
-        return aggregator != null ? System.currentTimeMillis() : -1L;
-    }
-
-    public void onReadEnd(long startTime, int readResult) {
-        if (startTime != -1L) {
+    public void onReadEnd(long startTime, long endTime, int readResult) {
+        if (aggregator != null) {
             aggregator.aggregate(new ReadDataOperationStatistics(
                     OperationSource.JVM, OperationCategory.READ, startTime,
-                    System.currentTimeMillis(), readResult == -1 ? 0 : 1, null,
+                    endTime, readResult == -1 ? 0 : 1, null, false));
+        }
+    }
+
+    public void onReadBytesEnd(long startTime, long endTime, int readBytesResult) {
+        if (aggregator != null) {
+            aggregator.aggregate(new ReadDataOperationStatistics(
+                    OperationSource.JVM, OperationCategory.READ, startTime,
+                    endTime, readBytesResult == -1 ? 0 : readBytesResult, null,
                     false));
-        }
-    }
-
-    public long onReadBytesBegin(byte[] b, int off, int len) {
-        return aggregator != null ? System.currentTimeMillis() : -1L;
-    }
-
-    public void onReadBytesEnd(long startTime, int readBytesResult, byte[] b,
-            int off, int len) {
-        if (startTime != -1L) {
-            aggregator.aggregate(new ReadDataOperationStatistics(
-                    OperationSource.JVM, OperationCategory.READ, startTime,
-                    System.currentTimeMillis(), readBytesResult == -1 ? 0
-                            : readBytesResult, null, false));
         }
     }
 
