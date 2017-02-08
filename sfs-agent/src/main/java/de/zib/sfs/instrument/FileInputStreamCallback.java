@@ -9,31 +9,28 @@ package de.zib.sfs.instrument;
 
 import de.zib.sfs.instrument.statistics.OperationCategory;
 import de.zib.sfs.instrument.statistics.OperationSource;
-import de.zib.sfs.instrument.statistics.OperationStatistics;
 import de.zib.sfs.instrument.statistics.OperationStatisticsAggregator;
-import de.zib.sfs.instrument.statistics.ReadDataOperationStatistics;
 
 public class FileInputStreamCallback {
 
     public void onOpenEnd(long startTime, long endTime) {
-        OperationStatisticsAggregator.instance
-                .aggregate(new OperationStatistics(OperationSource.JVM,
-                        OperationCategory.OTHER, startTime, endTime));
+        OperationStatisticsAggregator.instance.aggregateOperationStatistics(
+                OperationSource.JVM, OperationCategory.OTHER, startTime,
+                endTime);
     }
 
     public void onReadEnd(long startTime, long endTime, int readResult) {
         OperationStatisticsAggregator.instance
-                .aggregate(new ReadDataOperationStatistics(OperationSource.JVM,
+                .aggregateReadDataOperationStatistics(OperationSource.JVM,
                         OperationCategory.READ, startTime, endTime,
-                        readResult == -1 ? 0 : 1, null, false));
+                        readResult == -1 ? 0 : 1, false);
     }
 
     public void onReadBytesEnd(long startTime, long endTime, int readBytesResult) {
         OperationStatisticsAggregator.instance
-                .aggregate(new ReadDataOperationStatistics(OperationSource.JVM,
+                .aggregateReadDataOperationStatistics(OperationSource.JVM,
                         OperationCategory.READ, startTime, endTime,
-                        readBytesResult == -1 ? 0 : readBytesResult, null,
-                        false));
+                        readBytesResult == -1 ? 0 : readBytesResult, false);
     }
 
 }

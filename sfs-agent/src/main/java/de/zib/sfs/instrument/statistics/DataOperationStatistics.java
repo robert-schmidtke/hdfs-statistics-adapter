@@ -13,13 +13,11 @@ public class DataOperationStatistics extends OperationStatistics {
 
         private long data;
 
-        public Aggregator() {
-        }
-
-        public Aggregator(DataOperationStatistics statistics,
-                long timeBinDuration) {
-            super(statistics, timeBinDuration);
-            data += statistics.getData();
+        public Aggregator(long timeBinDuration, OperationSource source,
+                OperationCategory category, long startTime, long endTime,
+                long data) {
+            super(timeBinDuration, source, category, startTime, endTime);
+            this.data = data;
         }
 
         public long getData() {
@@ -59,37 +57,5 @@ public class DataOperationStatistics extends OperationStatistics {
             sb.append(separator).append(data);
             return sb.toString();
         }
-    }
-
-    private long data;
-
-    public DataOperationStatistics() {
-    }
-
-    public DataOperationStatistics(OperationSource source,
-            OperationCategory category, long startTime, long endTime, long data) {
-        super(source, category, startTime, endTime);
-        this.data = data;
-    }
-
-    public long getData() {
-        return data;
-    }
-
-    public void setData(long data) {
-        this.data = data;
-    }
-
-    @Override
-    public String toCsv(String separator) {
-        StringBuilder sb = new StringBuilder();
-        sb.append(super.toCsv(separator));
-        sb.append(separator).append("data:").append(data);
-        return sb.toString();
-    }
-
-    @Override
-    public Aggregator getAggregator(long timeBinDuration) {
-        return new Aggregator(this, timeBinDuration);
     }
 }

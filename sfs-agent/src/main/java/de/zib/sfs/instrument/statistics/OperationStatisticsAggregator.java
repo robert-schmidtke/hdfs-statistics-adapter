@@ -28,7 +28,9 @@ public class OperationStatisticsAggregator {
     private String systemHostname, systemKey;
     private int systemPid;
 
-    private long timeBinDuration;
+    // needs to have a positive non-zero value before it has been properly
+    // initialized, as it might be used before that
+    private long timeBinDuration = 1L;
     private int timeBinCacheSize;
 
     private String outputDirectory, outputSeparator;
@@ -91,59 +93,31 @@ public class OperationStatisticsAggregator {
         initialized = true;
     }
 
-    public void aggregate(final OperationStatistics operationStatistics) {
-        if (!initialized) {
-            return;
-        }
-
-        // asynchronously schedule aggregation
-        final ForkJoinTask<Void> task = new ForkJoinTask<Void>() {
-            private static final long serialVersionUID = -5794694736335116368L;
-
-            @Override
-            public Void getRawResult() {
-                return null;
-            }
-
-            @Override
-            protected void setRawResult(Void value) {
-            }
-
-            @Override
-            protected boolean exec() {
-                // get the time bin applicable for this operation
-                OperationStatistics.Aggregator aggregator = operationStatistics
-                        .getAggregator(timeBinDuration);
-                aggregators.get(
-                        getUniqueIndex(aggregator.getSource(),
-                                aggregator.getCategory())).merge(
-                        aggregator.getTimeBin(), aggregator, (v1, v2) -> {
-                            try {
-                                return v1.aggregate(v2);
-                            } catch (NotAggregatableException e) {
-                                throw new IllegalArgumentException(e);
-                            }
-                        });
-
-                // make sure to emit aggregates when the cache is full
-                aggregators.forEach(v -> {
-                    for (int i = v.size() - timeBinCacheSize; i > 0; --i) {
-                        try {
-                            write(v.remove(v.firstKey()));
-                        } catch (IOException e) {
-                            throw new RuntimeException(e);
-                        }
-                    }
-                });
-
-                return true;
-            }
-        };
-
+    public void aggregateOperationStatistics(OperationSource source,
+            OperationCategory category, long startTime, long endTime) {
         try {
-            threadPool.execute(task);
+            threadPool.execute(new AggregationTask(source, category, startTime,
+                    endTime));
         } catch (RejectedExecutionException e) {
-            // when the pool is shut down already
+        }
+    }
+
+    public void aggregateDataOperationStatistics(OperationSource source,
+            OperationCategory category, long startTime, long endTime, long data) {
+        try {
+            threadPool.execute(new AggregationTask(source, category, startTime,
+                    endTime, data));
+        } catch (RejectedExecutionException e) {
+        }
+    }
+
+    public void aggregateReadDataOperationStatistics(OperationSource source,
+            OperationCategory category, long startTime, long endTime,
+            long data, boolean isRemote) {
+        try {
+            threadPool.execute(new AggregationTask(source, category, startTime,
+                    endTime, data, isRemote));
+        } catch (RejectedExecutionException e) {
         }
     }
 
@@ -260,6 +234,76 @@ public class OperationStatisticsAggregator {
             }
         default:
             throw new IllegalArgumentException(source.name());
+        }
+    }
+
+    private class AggregationTask extends ForkJoinTask<Void> {
+
+        private static final long serialVersionUID = -6851294902690575903L;
+
+        private final OperationStatistics.Aggregator aggregator;
+
+        public AggregationTask(OperationSource source,
+                OperationCategory category, long startTime, long endTime,
+                long data, boolean isRemote) {
+            aggregator = new ReadDataOperationStatistics.Aggregator(
+                    timeBinDuration, source, category, startTime, endTime,
+                    data, isRemote);
+        }
+
+        public AggregationTask(OperationSource source,
+                OperationCategory category, long startTime, long endTime,
+                long data) {
+            aggregator = new DataOperationStatistics.Aggregator(
+                    timeBinDuration, source, category, startTime, endTime, data);
+        }
+
+        public AggregationTask(OperationSource source,
+                OperationCategory category, long startTime, long endTime) {
+            aggregator = new OperationStatistics.Aggregator(timeBinDuration,
+                    source, category, startTime, endTime);
+        }
+
+        @Override
+        public Void getRawResult() {
+            return null;
+        }
+
+        @Override
+        protected void setRawResult(Void value) {
+        }
+
+        @Override
+        protected boolean exec() {
+            if (!initialized) {
+                // pretend everything is fine
+                return true;
+            }
+
+            // get the time bin applicable for this operation
+            aggregators.get(
+                    getUniqueIndex(aggregator.getSource(),
+                            aggregator.getCategory())).merge(
+                    aggregator.getTimeBin(), aggregator, (v1, v2) -> {
+                        try {
+                            return v1.aggregate(v2);
+                        } catch (NotAggregatableException e) {
+                            throw new IllegalArgumentException(e);
+                        }
+                    });
+
+            // make sure to emit aggregates when the cache is full
+            aggregators.forEach(v -> {
+                for (int i = v.size() - timeBinCacheSize; i > 0; --i) {
+                    try {
+                        write(v.remove(v.firstKey()));
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+            });
+
+            return true;
         }
     }
 }

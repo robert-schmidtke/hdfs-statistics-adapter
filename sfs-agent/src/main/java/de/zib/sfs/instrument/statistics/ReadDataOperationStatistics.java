@@ -13,16 +13,14 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
 
         private long remoteCount, remoteDuration, remoteData;
 
-        public Aggregator() {
-        }
-
-        public Aggregator(ReadDataOperationStatistics statistics,
-                long timeBinDuration) {
-            super(statistics, timeBinDuration);
-            if (statistics.isRemote()) {
+        public Aggregator(long timeBinDuration, OperationSource source,
+                OperationCategory category, long startTime, long endTime,
+                long data, boolean isRemote) {
+            super(timeBinDuration, source, category, startTime, endTime, data);
+            if (isRemote) {
                 remoteCount = 1;
-                remoteDuration = statistics.getDuration();
-                remoteData = statistics.getData();
+                remoteDuration = endTime - startTime;
+                remoteData = data;
             } else {
                 remoteCount = 0;
                 remoteDuration = 0;
@@ -89,62 +87,6 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
             sb.append(separator).append(remoteData);
             return sb.toString();
         }
-    }
-
-    private String remoteHostname;
-
-    private boolean remote;
-
-    public ReadDataOperationStatistics() {
-    }
-
-    public ReadDataOperationStatistics(OperationSource source,
-            OperationCategory category, long startTime, long endTime,
-            long data, String remoteHostname, boolean remote) {
-        super(source, category, startTime, endTime, data);
-        if (remoteHostname == null) {
-            this.remoteHostname = null;
-        } else {
-            // hostname is usually obtained via $(hostname), remoteHostname
-            // could be a reverse DNS lookup, so it could have a domain
-            // attached, e.g. "acme" vs. "acme.example.com"
-            int index = remoteHostname.indexOf(".");
-            if (index != -1) {
-                this.remoteHostname = remoteHostname.substring(0, index);
-            } else {
-                this.remoteHostname = remoteHostname;
-            }
-        }
-        this.remote = remote;
-    }
-
-    public String getRemoteHostname() {
-        return remoteHostname;
-    }
-
-    public void setRemoteHostname(String remoteHostname) {
-        this.remoteHostname = remoteHostname;
-    }
-
-    public boolean isRemote() {
-        return remote;
-    }
-
-    public void setRemote(boolean remote) {
-        this.remote = remote;
-    }
-
-    @Override
-    public String toCsv(String separator) {
-        StringBuilder sb = new StringBuilder();
-        sb.append(super.toCsv(separator));
-        sb.append(separator).append("remoteHostname:").append(remoteHostname);
-        return sb.toString();
-    }
-
-    @Override
-    public Aggregator getAggregator(long timeBinDuration) {
-        return new Aggregator(this, timeBinDuration);
     }
 
 }

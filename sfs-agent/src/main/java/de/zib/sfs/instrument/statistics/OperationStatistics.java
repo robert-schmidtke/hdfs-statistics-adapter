@@ -25,23 +25,19 @@ public class OperationStatistics {
 
         private long count;
 
-        private long timeBin, timeBinDuration, cpuTime;
+        private long timeBin, cpuTime;
 
         private OperationSource source;
 
         private OperationCategory category;
 
-        public Aggregator() {
-        }
-
-        public Aggregator(OperationStatistics statistics, long timeBinDuration) {
+        public Aggregator(long timeBinDuration, OperationSource source,
+                OperationCategory category, long startTime, long endTime) {
             count = 1;
-            this.timeBinDuration = timeBinDuration;
-            timeBin = statistics.getStartTime() - statistics.getStartTime()
-                    % timeBinDuration;
-            cpuTime = statistics.getDuration();
-            source = statistics.getSource();
-            category = statistics.getCategory();
+            timeBin = startTime - startTime % timeBinDuration;
+            cpuTime = endTime - startTime;
+            this.source = source;
+            this.category = category;
         }
 
         public long getCount() {
@@ -58,14 +54,6 @@ public class OperationStatistics {
 
         public void setTimeBin(long timeBin) {
             this.timeBin = timeBin;
-        }
-
-        public long getTimeBinDuration() {
-            return timeBinDuration;
-        }
-
-        public void setTimeBinDuration(long timeBinDuration) {
-            this.timeBinDuration = timeBinDuration;
         }
 
         public long getCpuTime() {
@@ -146,85 +134,5 @@ public class OperationStatistics {
             sb.append(toCsv(",")).append("}");
             return sb.toString();
         }
-    }
-
-    private long startTime, endTime;
-
-    private OperationSource source;
-
-    private OperationCategory category;
-
-    public OperationStatistics() {
-    }
-
-    public OperationStatistics(OperationSource source,
-            OperationCategory category, long startTime, long endTime) {
-        this.source = source;
-        this.category = category;
-        this.startTime = startTime;
-        this.endTime = endTime;
-    }
-
-    public long getStartTime() {
-        return startTime;
-    }
-
-    public void setStartTime(long startTime) {
-        this.startTime = startTime;
-    }
-
-    public long getEndTime() {
-        return endTime;
-    }
-
-    public void setEndTime(long endTime) {
-        this.endTime = endTime;
-    }
-
-    public long getDuration() {
-        return endTime - startTime;
-    }
-
-    public void setDuration(long duration) {
-        throw new UnsupportedOperationException("setDuration");
-    }
-
-    public OperationSource getSource() {
-        return source;
-    }
-
-    public void setSource(OperationSource source) {
-        this.source = source;
-    }
-
-    public OperationCategory getCategory() {
-        return category;
-    }
-
-    public void setCategory(OperationCategory category) {
-        this.category = category;
-    }
-
-    public String toCsv(String separator) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("startTime:").append(startTime);
-        sb.append(separator).append("endTime:").append(endTime);
-        sb.append(separator).append("duration:").append(endTime - startTime);
-        sb.append(separator).append("source:").append(source);
-        sb.append(separator).append("category:").append(category);
-        return sb.toString();
-    }
-
-    @Override
-    public String toString() {
-        StringBuilder sb = new StringBuilder();
-        sb.append(getClass().getName()).append("{");
-        sb.append(toCsv(","));
-        sb.append("}");
-        return sb.toString();
-    }
-
-    public Aggregator getAggregator(long timeBinDuration) {
-        return new Aggregator(this, timeBinDuration);
     }
 }
