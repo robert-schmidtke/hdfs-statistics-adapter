@@ -217,7 +217,9 @@ rm -rf $HADOOP_HOME/logs/*
 rm -rf $SFS_TARGET_DIRECTORY/*
 
 SCHEME="hdfs"
-if [ -z "$NO_SFS" ]; then
+if [ -z "$NO_SFS" ] && [ "$ENGINE" == "hadoop" ]; then
+  # for Flink and Spark we have wrapped different file systems that are not available in Hadoop during input data generation
+  # so support Hadoop SFS only
   SCHEME="sfs"
 fi
 
@@ -229,6 +231,12 @@ $HADOOP_HOME/bin/hadoop jar \
 echo "$(date): Generating TeraSort data on HDFS done"
 
 $HADOOP_HOME/bin/hadoop fs -mkdir -p hdfs://$MASTER:8020/user/$USER/output
+
+SCHEME="hdfs"
+if [ -z "$NO_SFS" ]; then
+  # for the actual TeraSort we support all engines
+  SCHEME="sfs"
+fi
 
 echo "$(date): Running TeraSort"
 case $ENGINE in
