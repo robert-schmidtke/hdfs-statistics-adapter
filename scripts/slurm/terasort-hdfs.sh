@@ -120,7 +120,8 @@ EOF
 fi
 
 echo "$(date): Starting HDFS"
-rm -rf $HADOOP_HOME/logs/*
+rm -rf $HADOOP_HOME/logs
+mkdir $HADOOP_HOME/logs
 cp ./start-hdfs-slurm.sh $HADOOP_HOME/sbin
 
 # 256M block size, replication factor of 1, 50G total node memory for YARN, put first datanode on namenode host
@@ -211,10 +212,13 @@ EOF
     ;;
 esac
 
-rm -rf $FLINK_HOME/log/*
+rm -rf $FLINK_HOME/log
+mkdir $FLINK_HOME/log
 rm -rf $HADOOP_HOME/log-*
-rm -rf $HADOOP_HOME/logs/*
-rm -rf $SFS_TARGET_DIRECTORY/*
+rm -rf $HADOOP_HOME/logs
+mkdir $HADOOP_HOME/logs
+rm -rf $SFS_TARGET_DIRECTORY
+mkdir $SFS_TARGET_DIRECTORY
 
 SCHEME="hdfs"
 if [ -z "$NO_SFS" ] && [ "$ENGINE" == "hadoop" ]; then
