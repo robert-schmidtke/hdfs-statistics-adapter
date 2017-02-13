@@ -204,6 +204,7 @@ public class OperationStatisticsAggregator {
 
             writers[index].write(sb.toString());
             writers[index].newLine();
+            writers[index].flush();
         }
     }
 
