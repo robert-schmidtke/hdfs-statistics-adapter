@@ -119,7 +119,13 @@ EOF
   echo "$(date): Starting transformer JVMs done"
 fi
 
+rm -rf $FLINK_HOME/log
+mkdir $FLINK_HOME/log
+rm -rf $SFS_TARGET_DIRECTORY
+mkdir $SFS_TARGET_DIRECTORY
+
 echo "$(date): Starting HDFS"
+rm -rf $HADOOP_HOME/log-*
 rm -rf $HADOOP_HOME/logs
 mkdir $HADOOP_HOME/logs
 cp ./start-hdfs-slurm.sh $HADOOP_HOME/sbin
@@ -211,14 +217,6 @@ EOF
     # nothing to do
     ;;
 esac
-
-rm -rf $FLINK_HOME/log
-mkdir $FLINK_HOME/log
-rm -rf $HADOOP_HOME/log-*
-rm -rf $HADOOP_HOME/logs
-mkdir $HADOOP_HOME/logs
-rm -rf $SFS_TARGET_DIRECTORY
-mkdir $SFS_TARGET_DIRECTORY
 
 SCHEME="hdfs"
 if [ -z "$NO_SFS" ] && [ "$ENGINE" == "hadoop" ]; then
