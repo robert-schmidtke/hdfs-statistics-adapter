@@ -46,7 +46,7 @@ public class OperationStatisticsAggregator {
 
     private final ForkJoinPool threadPool;
 
-    private final DateFormat dateFormat = new SimpleDateFormat("yyyyMMdd-HH:mm:ss.SSS");
+    private final DateFormat dateFormat = new SimpleDateFormat("yyyMMdd-HH:mm:ss.SSS");
 
     public static final OperationStatisticsAggregator instance = new OperationStatisticsAggregator();
 
