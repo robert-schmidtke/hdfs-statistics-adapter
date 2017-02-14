@@ -19,7 +19,7 @@ import java.util.concurrent.ForkJoinTask;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 
-import de.zib.sfs.instrument.statistics.OperationStatistics.Aggregator.NotAggregatableException;
+import de.zib.sfs.instrument.statistics.OperationStatistics;
 
 public class OperationStatisticsAggregator {
 
@@ -35,8 +35,9 @@ public class OperationStatisticsAggregator {
 
     private String outputDirectory, outputSeparator;
 
-    // for each source/category combination, map a time bin to an aggregator
-    private final List<ConcurrentSkipListMap<Long, OperationStatistics.Aggregator>> aggregators;
+    // for each source/category combination, map a time bin to an aggregate
+    // operation statistics
+    private final List<ConcurrentSkipListMap<Long, OperationStatistics>> aggregates;
 
     private final BufferedWriter[] writers;
     private final Object[] writerLocks;
@@ -46,11 +47,11 @@ public class OperationStatisticsAggregator {
     public static final OperationStatisticsAggregator instance = new OperationStatisticsAggregator();
 
     private OperationStatisticsAggregator() {
-        // map each source/category combination, map a time bin to an aggregator
-        aggregators = new ArrayList<ConcurrentSkipListMap<Long, OperationStatistics.Aggregator>>();
+        // map each source/category combination, map a time bin to an aggregate
+        aggregates = new ArrayList<ConcurrentSkipListMap<Long, OperationStatistics>>();
         for (int i = 0; i < OperationSource.values().length
                 * OperationCategory.values().length; ++i) {
-            aggregators.add(new ConcurrentSkipListMap<>());
+            aggregates.add(new ConcurrentSkipListMap<>());
         }
 
         // similar for the writers
@@ -144,8 +145,8 @@ public class OperationStatisticsAggregator {
             e.printStackTrace();
         }
 
-        // write remaining aggregators
-        aggregators.forEach(v -> {
+        // write remaining aggregates
+        aggregates.forEach(v -> {
             for (int i = v.size(); i > 0; --i) {
                 try {
                     write(v.remove(v.firstKey()));
@@ -167,16 +168,15 @@ public class OperationStatisticsAggregator {
         }
     }
 
-    private void write(OperationStatistics.Aggregator aggregator)
-            throws IOException {
-        int index = getUniqueIndex(aggregator.getSource(),
-                aggregator.getCategory());
+    private void write(OperationStatistics aggregate) throws IOException {
+        int index = getUniqueIndex(aggregate.getSource(),
+                aggregate.getCategory());
         synchronized (writerLocks[index]) {
             if (writers[index] == null) {
                 String filename = systemHostname + "." + systemPid + "."
                         + systemKey + "."
-                        + aggregator.getSource().name().toLowerCase() + "."
-                        + aggregator.getCategory().name().toLowerCase() + "."
+                        + aggregate.getSource().name().toLowerCase() + "."
+                        + aggregate.getCategory().name().toLowerCase() + "."
                         + System.currentTimeMillis() + ".csv";
 
                 File file = new File(outputDirectory, filename);
@@ -186,7 +186,7 @@ public class OperationStatisticsAggregator {
                     sb.append(outputSeparator).append("pid");
                     sb.append(outputSeparator).append("key");
                     sb.append(outputSeparator)
-                            .append(aggregator.getCsvHeaders(outputSeparator));
+                            .append(aggregate.getCsvHeaders(outputSeparator));
 
                     writers[index] = new BufferedWriter(new FileWriter(file));
                     writers[index].write(sb.toString());
@@ -200,8 +200,7 @@ public class OperationStatisticsAggregator {
             sb.append(systemHostname);
             sb.append(outputSeparator).append(systemPid);
             sb.append(outputSeparator).append(systemKey);
-            sb.append(outputSeparator)
-                    .append(aggregator.toCsv(outputSeparator));
+            sb.append(outputSeparator).append(aggregate.toCsv(outputSeparator));
 
             writers[index].write(sb.toString());
             writers[index].newLine();
@@ -243,27 +242,26 @@ public class OperationStatisticsAggregator {
 
         private static final long serialVersionUID = -6851294902690575903L;
 
-        private final OperationStatistics.Aggregator aggregator;
+        private final OperationStatistics aggregate;
 
         public AggregationTask(OperationSource source,
                 OperationCategory category, long startTime, long endTime,
                 long data, boolean isRemote) {
-            aggregator = new ReadDataOperationStatistics.Aggregator(
-                    timeBinDuration, source, category, startTime, endTime, data,
-                    isRemote);
+            aggregate = new ReadDataOperationStatistics(timeBinDuration, source,
+                    category, startTime, endTime, data, isRemote);
         }
 
         public AggregationTask(OperationSource source,
                 OperationCategory category, long startTime, long endTime,
                 long data) {
-            aggregator = new DataOperationStatistics.Aggregator(timeBinDuration,
-                    source, category, startTime, endTime, data);
+            aggregate = new DataOperationStatistics(timeBinDuration, source,
+                    category, startTime, endTime, data);
         }
 
         public AggregationTask(OperationSource source,
                 OperationCategory category, long startTime, long endTime) {
-            aggregator = new OperationStatistics.Aggregator(timeBinDuration,
-                    source, category, startTime, endTime);
+            aggregate = new OperationStatistics(timeBinDuration, source,
+                    category, startTime, endTime);
         }
 
         @Override
@@ -283,19 +281,19 @@ public class OperationStatisticsAggregator {
             }
 
             // get the time bin applicable for this operation
-            aggregators
-                    .get(getUniqueIndex(aggregator.getSource(),
-                            aggregator.getCategory()))
-                    .merge(aggregator.getTimeBin(), aggregator, (v1, v2) -> {
+            aggregates
+                    .get(getUniqueIndex(aggregate.getSource(),
+                            aggregate.getCategory()))
+                    .merge(aggregate.getTimeBin(), aggregate, (v1, v2) -> {
                         try {
                             return v1.aggregate(v2);
-                        } catch (NotAggregatableException e) {
+                        } catch (OperationStatistics.NotAggregatableException e) {
                             throw new IllegalArgumentException(e);
                         }
                     });
 
             // make sure to emit aggregates when the cache is full
-            aggregators.forEach(v -> {
+            aggregates.forEach(v -> {
                 for (int i = v.size() - timeBinCacheSize; i > 0; --i) {
                     try {
                         write(v.remove(v.firstKey()));
