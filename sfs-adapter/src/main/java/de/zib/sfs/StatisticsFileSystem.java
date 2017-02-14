@@ -95,7 +95,8 @@ public class StatisticsFileSystem extends FileSystem {
 
         String hostname = System.getProperty("de.zib.sfs.hostname");
         if (hostname == null) {
-            LOG.warn("'de.zib.sfs.hostname' not set, did the agent start properly?");
+            LOG.warn(
+                    "'de.zib.sfs.hostname' not set, did the agent start properly?");
 
             // Obtain hostname, preferably via executing hostname
             Process hostnameProcess = Runtime.getRuntime().exec("hostname");
@@ -119,8 +120,7 @@ public class StatisticsFileSystem extends FileSystem {
                     hostname = hostnameBuilder.toString();
                 }
             } catch (InterruptedException e) {
-                LOG.warn(
-                        "Error executing 'hostname', using $HOSTNAME instead.",
+                LOG.warn("Error executing 'hostname', using $HOSTNAME instead.",
                         e);
                 hostname = System.getenv("HOSTNAME");
             }
@@ -146,17 +146,20 @@ public class StatisticsFileSystem extends FileSystem {
         }
 
         if (System.getProperty("de.zib.sfs.timeBin.duration") == null) {
-            LOG.warn("'de.zib.sfs.timeBin.duration' not set, did the agent start properly?");
+            LOG.warn(
+                    "'de.zib.sfs.timeBin.duration' not set, did the agent start properly?");
             System.setProperty("de.zib.sfs.timeBin.duration", "1000");
         }
 
         if (System.getProperty("de.zib.sfs.timeBin.cacheSize") == null) {
-            LOG.warn("'de.zib.sfs.timeBin.cacheSize' not set, did the agent start properly?");
+            LOG.warn(
+                    "'de.zib.sfs.timeBin.cacheSize' not set, did the agent start properly?");
             System.setProperty("de.zib.sfs.timeBin.cacheSize", "30");
         }
 
         if (System.getProperty("de.zib.sfs.output.directory") == null) {
-            LOG.warn("'de.zib.sfs.output.directory' not set, did the agent start properly?");
+            LOG.warn(
+                    "'de.zib.sfs.output.directory' not set, did the agent start properly?");
             System.setProperty("de.zib.sfs.output.directory", "/tmp");
         }
 
@@ -169,21 +172,21 @@ public class StatisticsFileSystem extends FileSystem {
         String wrappedFSClassName = getConf()
                 .get(SFS_WRAPPED_FS_CLASS_NAME_KEY);
         if (wrappedFSClassName == null) {
-            throw new RuntimeException(SFS_WRAPPED_FS_CLASS_NAME_KEY
-                    + " not specified");
+            throw new RuntimeException(
+                    SFS_WRAPPED_FS_CLASS_NAME_KEY + " not specified");
         }
         wrappedFSScheme = getConf().get(SFS_WRAPPED_FS_SCHEME_KEY);
         if (wrappedFSScheme == null) {
-            throw new RuntimeException(SFS_WRAPPED_FS_SCHEME_KEY
-                    + " not specified");
+            throw new RuntimeException(
+                    SFS_WRAPPED_FS_SCHEME_KEY + " not specified");
         }
 
         Class<?> wrappedFSClass;
         try {
             wrappedFSClass = Class.forName(wrappedFSClassName);
         } catch (Exception e) {
-            throw new RuntimeException("Error obtaining class '"
-                    + wrappedFSClassName + "'", e);
+            throw new RuntimeException(
+                    "Error obtaining class '" + wrappedFSClassName + "'", e);
         }
 
         // Figure out what kind of file system we are wrapping.
@@ -203,14 +206,14 @@ public class StatisticsFileSystem extends FileSystem {
                 // Wrap Flink's file system as Hadoop first.
                 Class<? extends org.apache.flink.core.fs.FileSystem> flinkClass = wrappedFSClass
                         .asSubclass(org.apache.flink.core.fs.FileSystem.class);
-                if (wrappedFSClassName
-                        .equals("org.apache.flink.runtime.fs.hdfs.HadoopFileSystem")) {
+                if (wrappedFSClassName.equals(
+                        "org.apache.flink.runtime.fs.hdfs.HadoopFileSystem")) {
                     // Special known case of HadoopFileSystem, instantiate with
                     // null
                     Constructor<? extends org.apache.flink.core.fs.FileSystem> flinkConstructor = flinkClass
                             .getConstructor(Class.class);
-                    wrappedFS = new WrappedFlinkFileSystem(
-                            flinkConstructor.newInstance(new Object[] { null }));
+                    wrappedFS = new WrappedFlinkFileSystem(flinkConstructor
+                            .newInstance(new Object[] { null }));
                 } else {
                     wrappedFS = new WrappedFlinkFileSystem(
                             flinkClass.newInstance());
@@ -233,8 +236,8 @@ public class StatisticsFileSystem extends FileSystem {
         }
 
         if (name.getAuthority() != null) {
-            fileSystemUri = URI.create(getScheme() + "://"
-                    + name.getAuthority() + "/");
+            fileSystemUri = URI
+                    .create(getScheme() + "://" + name.getAuthority() + "/");
         } else {
             fileSystemUri = URI.create(getScheme() + ":///");
         }
@@ -348,8 +351,8 @@ public class StatisticsFileSystem extends FileSystem {
                 file.getPermission(), file.getOwner(), file.getGroup(),
                 (file.isSymlink() ? file.getSymlink() : null),
                 unwrapPath(file.getPath()));
-        BlockLocation[] blockLocations = wrappedFS.getFileBlockLocations(
-                unwrappedFile, start, len);
+        BlockLocation[] blockLocations = wrappedFS
+                .getFileBlockLocations(unwrappedFile, start, len);
         OperationStatisticsAggregator.instance.aggregateOperationStatistics(
                 OperationSource.JVM, OperationCategory.OTHER, startTime,
                 System.currentTimeMillis());
@@ -361,8 +364,8 @@ public class StatisticsFileSystem extends FileSystem {
         long startTime = System.currentTimeMillis();
         Path unwrappedPath = unwrapPath(f);
         FileStatus fileStatus = wrappedFS.getFileStatus(unwrappedPath);
-        fileStatus.setPath(setAuthority(wrapPath(fileStatus.getPath()), f
-                .toUri().getAuthority()));
+        fileStatus.setPath(setAuthority(wrapPath(fileStatus.getPath()),
+                f.toUri().getAuthority()));
         OperationStatisticsAggregator.instance.aggregateOperationStatistics(
                 OperationSource.JVM, OperationCategory.OTHER, startTime,
                 System.currentTimeMillis());
@@ -388,14 +391,14 @@ public class StatisticsFileSystem extends FileSystem {
     }
 
     @Override
-    public FileStatus[] listStatus(Path f) throws FileNotFoundException,
-            IOException {
+    public FileStatus[] listStatus(Path f)
+            throws FileNotFoundException, IOException {
         long startTime = System.currentTimeMillis();
         Path unwrappedPath = unwrapPath(f);
         FileStatus[] fileStatuses = wrappedFS.listStatus(unwrappedPath);
         for (FileStatus fileStatus : fileStatuses) {
-            fileStatus.setPath(setAuthority(wrapPath(fileStatus.getPath()), f
-                    .toUri().getAuthority()));
+            fileStatus.setPath(setAuthority(wrapPath(fileStatus.getPath()),
+                    f.toUri().getAuthority()));
         }
         OperationStatisticsAggregator.instance.aggregateOperationStatistics(
                 OperationSource.JVM, OperationCategory.OTHER, startTime,
@@ -452,9 +455,10 @@ public class StatisticsFileSystem extends FileSystem {
             URI pathUri = path.toUri();
             String query = pathUri.getQuery();
             String fragment = pathUri.getFragment();
-            return new Path(URI.create(pathUri.getScheme() + "://" + authority
-                    + "/" + pathUri.getPath()
-                    + (query != null ? ("?" + query) : ""))
+            return new Path(URI
+                    .create(pathUri.getScheme() + "://" + authority + "/"
+                            + pathUri.getPath()
+                            + (query != null ? ("?" + query) : ""))
                     + (fragment != null ? ("#" + fragment) : ""));
         } else {
             return path;
@@ -462,13 +466,13 @@ public class StatisticsFileSystem extends FileSystem {
     }
 
     private Path wrapPath(Path path) {
-        return new Path(replaceUriScheme(path.toUri(), wrappedFSScheme,
-                getScheme()));
+        return new Path(
+                replaceUriScheme(path.toUri(), wrappedFSScheme, getScheme()));
     }
 
     private Path unwrapPath(Path path) {
-        return new Path(replaceUriScheme(path.toUri(), getScheme(),
-                wrappedFSScheme));
+        return new Path(
+                replaceUriScheme(path.toUri(), getScheme(), wrappedFSScheme));
     }
 
     private URI replaceUriScheme(URI uri, String from, String to) {

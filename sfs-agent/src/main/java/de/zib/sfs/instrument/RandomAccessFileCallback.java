@@ -26,7 +26,8 @@ public class RandomAccessFileCallback {
                         readResult == -1 ? 0 : 1, false);
     }
 
-    public void onReadBytesEnd(long startTime, long endTime, int readBytesResult) {
+    public void onReadBytesEnd(long startTime, long endTime,
+            int readBytesResult) {
         OperationStatisticsAggregator.instance
                 .aggregateReadDataOperationStatistics(OperationSource.JVM,
                         OperationCategory.READ, startTime, endTime,
@@ -34,15 +35,15 @@ public class RandomAccessFileCallback {
     }
 
     public void onWriteEnd(long startTime, long endTime) {
-        OperationStatisticsAggregator.instance
-                .aggregateDataOperationStatistics(OperationSource.JVM,
-                        OperationCategory.WRITE, startTime, endTime, 1);
+        OperationStatisticsAggregator.instance.aggregateDataOperationStatistics(
+                OperationSource.JVM, OperationCategory.WRITE, startTime,
+                endTime, 1);
     }
 
     public void onWriteBytesEnd(long startTime, long endTime, int len) {
-        OperationStatisticsAggregator.instance
-                .aggregateDataOperationStatistics(OperationSource.JVM,
-                        OperationCategory.WRITE, startTime, endTime, len);
+        OperationStatisticsAggregator.instance.aggregateDataOperationStatistics(
+                OperationSource.JVM, OperationCategory.WRITE, startTime,
+                endTime, len);
     }
 
 }

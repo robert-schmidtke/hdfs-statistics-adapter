@@ -67,8 +67,8 @@ public class FileOutputStreamAdapter extends ClassVisitor {
     @Override
     public void visitSource(String source, String debug) {
         // private FileOutputStreamCallback callback;
-        FieldVisitor callbackFV = cv.visitField(Opcodes.ACC_PRIVATE,
-                "callback", fileOutputStreamCallbackDescriptor, null, null);
+        FieldVisitor callbackFV = cv.visitField(Opcodes.ACC_PRIVATE, "callback",
+                fileOutputStreamCallbackDescriptor, null, null);
         callbackFV.visitEnd();
 
         // proceed as intended
@@ -80,11 +80,13 @@ public class FileOutputStreamAdapter extends ClassVisitor {
             String signature, String[] exceptions) {
         MethodVisitor mv;
         if ("<init>".equals(name)) {
-            mv = new ConstructorAdapter(api, cv.visitMethod(access, name, desc,
-                    signature, exceptions), access, name, desc);
+            mv = new ConstructorAdapter(api,
+                    cv.visitMethod(access, name, desc, signature, exceptions),
+                    access, name, desc);
         } else if (isOpenMethod(access, name, desc, signature, exceptions)
                 || isWriteMethod(access, name, desc, signature, exceptions)
-                || isWriteBytesMethod(access, name, desc, signature, exceptions)) {
+                || isWriteBytesMethod(access, name, desc, signature,
+                        exceptions)) {
             // rename native methods so we can wrap them
             mv = cv.visitMethod(access, nativeMethodPrefix + name, desc,
                     signature, exceptions);
@@ -112,8 +114,8 @@ public class FileOutputStreamAdapter extends ClassVisitor {
         // private void open(String name, boolean append) throw
         // FileNotFoundException {
         MethodVisitor openMV = cv.visitMethod(Opcodes.ACC_PRIVATE, "open",
-                openMethodDescriptor, null, new String[] { Type
-                        .getInternalName(FileNotFoundException.class) });
+                openMethodDescriptor, null, new String[] {
+                        Type.getInternalName(FileNotFoundException.class) });
         openMV.visitCode();
 
         // long startTime = System.currentTimeMillis();
@@ -141,9 +143,10 @@ public class FileOutputStreamAdapter extends ClassVisitor {
         openMV.visitVarInsn(Opcodes.LLOAD, 3);
         openMV.visitVarInsn(Opcodes.LLOAD, 5);
         openMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
-                fileOutputStreamCallbackInternalName, "onOpenEnd", Type
-                        .getMethodDescriptor(Type.VOID_TYPE, Type.LONG_TYPE,
-                                Type.LONG_TYPE), false);
+                fileOutputStreamCallbackInternalName, "onOpenEnd",
+                Type.getMethodDescriptor(Type.VOID_TYPE, Type.LONG_TYPE,
+                        Type.LONG_TYPE),
+                false);
 
         // }
         openMV.visitInsn(Opcodes.RETURN);
@@ -181,9 +184,10 @@ public class FileOutputStreamAdapter extends ClassVisitor {
         writeMV.visitVarInsn(Opcodes.LLOAD, 3);
         writeMV.visitVarInsn(Opcodes.LLOAD, 5);
         writeMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
-                fileOutputStreamCallbackInternalName, "onWriteEnd", Type
-                        .getMethodDescriptor(Type.VOID_TYPE, Type.LONG_TYPE,
-                                Type.LONG_TYPE), false);
+                fileOutputStreamCallbackInternalName, "onWriteEnd",
+                Type.getMethodDescriptor(Type.VOID_TYPE, Type.LONG_TYPE,
+                        Type.LONG_TYPE),
+                false);
 
         // }
         writeMV.visitInsn(Opcodes.RETURN);
@@ -209,9 +213,8 @@ public class FileOutputStreamAdapter extends ClassVisitor {
         writeBytesMV.visitVarInsn(Opcodes.ILOAD, 3);
         writeBytesMV.visitVarInsn(Opcodes.ILOAD, 4);
         writeBytesMV.visitMethodInsn(Opcodes.INVOKESPECIAL,
-                fileOutputStreamInternalName,
-                nativeMethodPrefix + "writeBytes", writeBytesMethodDescriptor,
-                false);
+                fileOutputStreamInternalName, nativeMethodPrefix + "writeBytes",
+                writeBytesMethodDescriptor, false);
 
         // long endTime = System.currentTimeMillis();
         writeBytesMV.visitMethodInsn(Opcodes.INVOKESTATIC, systemInternalName,
@@ -227,9 +230,10 @@ public class FileOutputStreamAdapter extends ClassVisitor {
         writeBytesMV.visitVarInsn(Opcodes.LLOAD, 7);
         writeBytesMV.visitVarInsn(Opcodes.ILOAD, 3);
         writeBytesMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
-                fileOutputStreamCallbackInternalName, "onWriteBytesEnd", Type
-                        .getMethodDescriptor(Type.VOID_TYPE, Type.LONG_TYPE,
-                                Type.LONG_TYPE, Type.INT_TYPE), false);
+                fileOutputStreamCallbackInternalName, "onWriteBytesEnd",
+                Type.getMethodDescriptor(Type.VOID_TYPE, Type.LONG_TYPE,
+                        Type.LONG_TYPE, Type.INT_TYPE),
+                false);
 
         // }
         writeBytesMV.visitInsn(Opcodes.RETURN);
@@ -254,12 +258,13 @@ public class FileOutputStreamAdapter extends ClassVisitor {
                     Type.getInternalName(FileOutputStreamCallback.class));
             mv.visitInsn(Opcodes.DUP);
             try {
-                mv.visitMethodInsn(
-                        Opcodes.INVOKESPECIAL,
+                mv.visitMethodInsn(Opcodes.INVOKESPECIAL,
                         Type.getInternalName(FileOutputStreamCallback.class),
                         "<init>",
-                        Type.getConstructorDescriptor(FileOutputStreamCallback.class
-                                .getConstructor()), false);
+                        Type.getConstructorDescriptor(
+                                FileOutputStreamCallback.class
+                                        .getConstructor()),
+                        false);
             } catch (Exception e) {
                 throw new RuntimeException("Could not access constructor", e);
             }
@@ -276,16 +281,14 @@ public class FileOutputStreamAdapter extends ClassVisitor {
             String signature, String[] exceptions) {
         // wrap the generated accessor method and not the native open0 method
         // itself
-        return access == Opcodes.ACC_PRIVATE
-                && "open".equals(name)
+        return access == Opcodes.ACC_PRIVATE && "open".equals(name)
                 && Type.getMethodDescriptor(Type.VOID_TYPE,
-                        Type.getType(String.class), Type.BOOLEAN_TYPE).equals(
-                        desc)
-                && null == signature
-                && exceptions != null
+                        Type.getType(String.class), Type.BOOLEAN_TYPE)
+                        .equals(desc)
+                && null == signature && exceptions != null
                 && exceptions.length == 1
-                && Type.getInternalName(FileNotFoundException.class).equals(
-                        exceptions[0]);
+                && Type.getInternalName(FileNotFoundException.class)
+                        .equals(exceptions[0]);
     }
 
     private boolean isWriteMethod(int access, String name, String desc,
@@ -296,8 +299,7 @@ public class FileOutputStreamAdapter extends ClassVisitor {
                 && "write".equals(name)
                 && Type.getMethodDescriptor(Type.VOID_TYPE, Type.INT_TYPE,
                         Type.BOOLEAN_TYPE).equals(desc)
-                && null == signature
-                && exceptions != null
+                && null == signature && exceptions != null
                 && exceptions.length == 1
                 && Type.getInternalName(IOException.class)
                         .equals(exceptions[0]);
@@ -312,8 +314,7 @@ public class FileOutputStreamAdapter extends ClassVisitor {
                 && Type.getMethodDescriptor(Type.VOID_TYPE,
                         Type.getType(byte[].class), Type.INT_TYPE,
                         Type.INT_TYPE, Type.BOOLEAN_TYPE).equals(desc)
-                && null == signature
-                && exceptions != null
+                && null == signature && exceptions != null
                 && exceptions.length == 1
                 && Type.getInternalName(IOException.class)
                         .equals(exceptions[0]);

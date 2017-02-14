@@ -57,17 +57,16 @@ public class WrappedFlinkFileSystem extends FileSystem {
     @Override
     public FSDataOutputStream append(Path f, int bufferSize,
             Progressable progress) throws IOException {
-        throw new UnsupportedOperationException("append is not supported in "
-                + getClass().getSimpleName());
+        throw new UnsupportedOperationException(
+                "append is not supported in " + getClass().getSimpleName());
     }
 
     @Override
     public FSDataOutputStream create(Path f, FsPermission permission,
             boolean overwrite, int bufferSize, short replication,
             long blockSize, Progressable progress) throws IOException {
-        org.apache.flink.core.fs.FSDataOutputStream out = wrappedFlinkFS
-                .create(toFlinkPath(f), overwrite, bufferSize, replication,
-                        blockSize);
+        org.apache.flink.core.fs.FSDataOutputStream out = wrappedFlinkFS.create(
+                toFlinkPath(f), overwrite, bufferSize, replication, blockSize);
         statistics.incrementWriteOps(1);
         return toHadoopFSDataOutputStream(out, statistics);
     }
@@ -115,8 +114,8 @@ public class WrappedFlinkFileSystem extends FileSystem {
     }
 
     @Override
-    public FileStatus[] listStatus(Path f) throws FileNotFoundException,
-            IOException {
+    public FileStatus[] listStatus(Path f)
+            throws FileNotFoundException, IOException {
         org.apache.flink.core.fs.FileStatus[] flinkStatuses = wrappedFlinkFS
                 .listStatus(toFlinkPath(f));
         FileStatus[] hadoopStatuses = new FileStatus[flinkStatuses.length];
@@ -135,8 +134,8 @@ public class WrappedFlinkFileSystem extends FileSystem {
 
     @Override
     public FSDataInputStream open(Path f, int bufferSize) throws IOException {
-        org.apache.flink.core.fs.FSDataInputStream in = wrappedFlinkFS.open(
-                toFlinkPath(f), bufferSize);
+        org.apache.flink.core.fs.FSDataInputStream in = wrappedFlinkFS
+                .open(toFlinkPath(f), bufferSize);
         statistics.incrementReadOps(1);
         return toHadoopFSDataInputStream(in, statistics);
     }
@@ -170,7 +169,8 @@ public class WrappedFlinkFileSystem extends FileSystem {
     }
 
     private static BlockLocation toHadoopBlockLocation(
-            org.apache.flink.core.fs.BlockLocation location) throws IOException {
+            org.apache.flink.core.fs.BlockLocation location)
+            throws IOException {
         return new BlockLocation(null, location.getHosts(),
                 location.getOffset(), location.getLength());
     }
@@ -185,8 +185,8 @@ public class WrappedFlinkFileSystem extends FileSystem {
     private static FSDataInputStream toHadoopFSDataInputStream(
             final org.apache.flink.core.fs.FSDataInputStream in,
             final FileSystem.Statistics statistics) throws IOException {
-        return new FSDataInputStream(new WrappedFlinkFSDataInputStream(in,
-                statistics));
+        return new FSDataInputStream(
+                new WrappedFlinkFSDataInputStream(in, statistics));
     }
 
     private static FSDataOutputStream toHadoopFSDataOutputStream(

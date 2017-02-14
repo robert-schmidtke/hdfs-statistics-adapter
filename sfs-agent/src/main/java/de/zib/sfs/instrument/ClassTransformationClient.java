@@ -23,8 +23,8 @@ public class ClassTransformationClient {
     private final ClassTransformationServiceGrpc.ClassTransformationServiceBlockingStub stub;
 
     public ClassTransformationClient(int port) {
-        this(ManagedChannelBuilder.forAddress("0.0.0.0", port).usePlaintext(
-                true));
+        this(ManagedChannelBuilder.forAddress("0.0.0.0", port)
+                .usePlaintext(true));
     }
 
     private ClassTransformationClient(ManagedChannelBuilder<?> channelBuilder) {

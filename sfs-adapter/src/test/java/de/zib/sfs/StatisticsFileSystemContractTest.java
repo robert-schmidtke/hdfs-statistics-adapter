@@ -18,8 +18,8 @@ import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.HdfsConfiguration;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
 
-public class StatisticsFileSystemContractTest extends
-        FileSystemContractBaseTest {
+public class StatisticsFileSystemContractTest
+        extends FileSystemContractBaseTest {
 
     private final Path fileSystemPath;
 

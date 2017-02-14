@@ -41,8 +41,8 @@ public class ClassTransformationService {
         }
 
         if (serverPort < 0 && agentPort < 0) {
-            System.err.println("Could not parse options: "
-                    + Arrays.toString(args));
+            System.err.println(
+                    "Could not parse options: " + Arrays.toString(args));
             System.err.println("Required options for standalone mode:");
             System.err.println("  --port port");
             System.err.println("Required options for slave mode:");
@@ -123,9 +123,8 @@ public class ClassTransformationService {
             try {
                 classTransformationServer.start();
             } catch (IOException e) {
-                System.err
-                        .println("Could not start transformer server on port "
-                                + serverPort + ".");
+                System.err.println("Could not start transformer server on port "
+                        + serverPort + ".");
                 System.exit(1);
             }
         }
@@ -165,13 +164,13 @@ public class ClassTransformationService {
                             : "indefinitely");
             if (!classTransformationServer
                     .awaitEndClassTransformations(timeoutSeconds)) {
-                System.err
-                        .println("Agent failed to finish class transformations within "
+                System.err.println(
+                        "Agent failed to finish class transformations within "
                                 + timeoutSeconds + " seconds");
             }
         } catch (InterruptedException e) {
-            System.err
-                    .println("Error waiting for agent to finish class transformations");
+            System.err.println(
+                    "Error waiting for agent to finish class transformations");
             e.printStackTrace();
             System.exit(1);
         }

@@ -42,7 +42,7 @@ public class OperationStatisticsAggregator {
     private final Object[] writerLocks;
 
     private final ForkJoinPool threadPool;
-    
+
     public static final OperationStatisticsAggregator instance = new OperationStatisticsAggregator();
 
     private OperationStatisticsAggregator() {
@@ -65,8 +65,8 @@ public class OperationStatisticsAggregator {
         }
 
         // worker pool that will accept the aggregation tasks
-        threadPool = new ForkJoinPool(Runtime.getRuntime()
-                .availableProcessors(),
+        threadPool = new ForkJoinPool(
+                Runtime.getRuntime().availableProcessors(),
                 ForkJoinPool.defaultForkJoinWorkerThreadFactory, null, true);
 
         initialized = false;
@@ -82,10 +82,10 @@ public class OperationStatisticsAggregator {
         systemPid = Integer.parseInt(System.getProperty("de.zib.sfs.pid"));
         systemKey = System.getProperty("de.zib.sfs.key");
 
-        this.timeBinDuration = Long.parseLong(System
-                .getProperty("de.zib.sfs.timeBin.duration"));
-        this.timeBinCacheSize = Integer.parseInt(System
-                .getProperty("de.zib.sfs.timeBin.cacheSize"));
+        this.timeBinDuration = Long
+                .parseLong(System.getProperty("de.zib.sfs.timeBin.duration"));
+        this.timeBinCacheSize = Integer
+                .parseInt(System.getProperty("de.zib.sfs.timeBin.cacheSize"));
         this.outputDirectory = System
                 .getProperty("de.zib.sfs.output.directory");
         outputSeparator = ",";
@@ -96,14 +96,15 @@ public class OperationStatisticsAggregator {
     public void aggregateOperationStatistics(OperationSource source,
             OperationCategory category, long startTime, long endTime) {
         try {
-            threadPool.execute(new AggregationTask(source, category, startTime,
-                    endTime));
+            threadPool.execute(
+                    new AggregationTask(source, category, startTime, endTime));
         } catch (RejectedExecutionException e) {
         }
     }
 
     public void aggregateDataOperationStatistics(OperationSource source,
-            OperationCategory category, long startTime, long endTime, long data) {
+            OperationCategory category, long startTime, long endTime,
+            long data) {
         try {
             threadPool.execute(new AggregationTask(source, category, startTime,
                     endTime, data));
@@ -112,8 +113,8 @@ public class OperationStatisticsAggregator {
     }
 
     public void aggregateReadDataOperationStatistics(OperationSource source,
-            OperationCategory category, long startTime, long endTime,
-            long data, boolean isRemote) {
+            OperationCategory category, long startTime, long endTime, long data,
+            boolean isRemote) {
         try {
             threadPool.execute(new AggregationTask(source, category, startTime,
                     endTime, data, isRemote));
@@ -176,8 +177,7 @@ public class OperationStatisticsAggregator {
                         + systemKey + "."
                         + aggregator.getSource().name().toLowerCase() + "."
                         + aggregator.getCategory().name().toLowerCase() + "."
-                        + System.currentTimeMillis()
-                        + ".csv";
+                        + System.currentTimeMillis() + ".csv";
 
                 File file = new File(outputDirectory, filename);
                 if (!file.exists()) {
@@ -185,8 +185,8 @@ public class OperationStatisticsAggregator {
                     sb.append("hostname");
                     sb.append(outputSeparator).append("pid");
                     sb.append(outputSeparator).append("key");
-                    sb.append(outputSeparator).append(
-                            aggregator.getCsvHeaders(outputSeparator));
+                    sb.append(outputSeparator)
+                            .append(aggregator.getCsvHeaders(outputSeparator));
 
                     writers[index] = new BufferedWriter(new FileWriter(file));
                     writers[index].write(sb.toString());
@@ -249,15 +249,15 @@ public class OperationStatisticsAggregator {
                 OperationCategory category, long startTime, long endTime,
                 long data, boolean isRemote) {
             aggregator = new ReadDataOperationStatistics.Aggregator(
-                    timeBinDuration, source, category, startTime, endTime,
-                    data, isRemote);
+                    timeBinDuration, source, category, startTime, endTime, data,
+                    isRemote);
         }
 
         public AggregationTask(OperationSource source,
                 OperationCategory category, long startTime, long endTime,
                 long data) {
-            aggregator = new DataOperationStatistics.Aggregator(
-                    timeBinDuration, source, category, startTime, endTime, data);
+            aggregator = new DataOperationStatistics.Aggregator(timeBinDuration,
+                    source, category, startTime, endTime, data);
         }
 
         public AggregationTask(OperationSource source,
@@ -283,10 +283,10 @@ public class OperationStatisticsAggregator {
             }
 
             // get the time bin applicable for this operation
-            aggregators.get(
-                    getUniqueIndex(aggregator.getSource(),
-                            aggregator.getCategory())).merge(
-                    aggregator.getTimeBin(), aggregator, (v1, v2) -> {
+            aggregators
+                    .get(getUniqueIndex(aggregator.getSource(),
+                            aggregator.getCategory()))
+                    .merge(aggregator.getTimeBin(), aggregator, (v1, v2) -> {
                         try {
                             return v1.aggregate(v2);
                         } catch (NotAggregatableException e) {

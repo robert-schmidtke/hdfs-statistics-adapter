@@ -26,7 +26,8 @@ public class FileInputStreamCallback {
                         readResult == -1 ? 0 : 1, false);
     }
 
-    public void onReadBytesEnd(long startTime, long endTime, int readBytesResult) {
+    public void onReadBytesEnd(long startTime, long endTime,
+            int readBytesResult) {
         OperationStatisticsAggregator.instance
                 .aggregateReadDataOperationStatistics(OperationSource.JVM,
                         OperationCategory.READ, startTime, endTime,

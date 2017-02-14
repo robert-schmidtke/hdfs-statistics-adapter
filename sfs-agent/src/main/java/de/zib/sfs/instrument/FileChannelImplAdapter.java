@@ -69,8 +69,8 @@ public class FileChannelImplAdapter extends ClassVisitor {
     @Override
     public void visitSource(String source, String debug) {
         // private final FileChannelImplCallback callback;
-        FieldVisitor callbackFV = cv.visitField(Opcodes.ACC_PRIVATE
-                | Opcodes.ACC_FINAL, "callback",
+        FieldVisitor callbackFV = cv.visitField(
+                Opcodes.ACC_PRIVATE | Opcodes.ACC_FINAL, "callback",
                 fileChannelImplCallbackDescriptor, null, null);
         callbackFV.visitEnd();
 
@@ -84,8 +84,9 @@ public class FileChannelImplAdapter extends ClassVisitor {
         MethodVisitor mv;
         if ("<init>".equals(name)) {
             // add initialization of the callback field to constructor
-            mv = new ConstructorAdapter(api, cv.visitMethod(access, name, desc,
-                    signature, exceptions), access, name, desc);
+            mv = new ConstructorAdapter(api,
+                    cv.visitMethod(access, name, desc, signature, exceptions),
+                    access, name, desc);
         } else if (isReadMethod(access, name, desc, signature, exceptions)
                 || isWriteMethod(access, name, desc, signature, exceptions)) {
             // rename native methods so we can wrap them
@@ -139,16 +140,17 @@ public class FileChannelImplAdapter extends ClassVisitor {
 
         // callback.onReadEnd(startTime, endTime, readResult);
         readMVs[0].visitVarInsn(Opcodes.ALOAD, 0);
-        readMVs[0].visitFieldInsn(Opcodes.GETFIELD,
-                fileChannelImplInternalName, "callback",
-                fileChannelImplCallbackDescriptor);
+        readMVs[0].visitFieldInsn(Opcodes.GETFIELD, fileChannelImplInternalName,
+                "callback", fileChannelImplCallbackDescriptor);
         readMVs[0].visitVarInsn(Opcodes.LLOAD, 2);
         readMVs[0].visitVarInsn(Opcodes.LLOAD, 5);
         readMVs[0].visitVarInsn(Opcodes.ILOAD, 4);
-        readMVs[0].visitMethodInsn(Opcodes.INVOKEVIRTUAL,
-                fileChannelImplCallbackInternalName, "onReadEnd", Type
-                        .getMethodDescriptor(Type.VOID_TYPE, Type.LONG_TYPE,
-                                Type.LONG_TYPE, Type.INT_TYPE), false);
+        readMVs[0]
+                .visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+                        fileChannelImplCallbackInternalName,
+                        "onReadEnd", Type.getMethodDescriptor(Type.VOID_TYPE,
+                                Type.LONG_TYPE, Type.LONG_TYPE, Type.INT_TYPE),
+                        false);
 
         // return readResult;
         // }
@@ -186,16 +188,17 @@ public class FileChannelImplAdapter extends ClassVisitor {
 
         // callback.onReadEnd(startTime, endTime, readResult);
         readMVs[1].visitVarInsn(Opcodes.ALOAD, 0);
-        readMVs[1].visitFieldInsn(Opcodes.GETFIELD,
-                fileChannelImplInternalName, "callback",
-                fileChannelImplCallbackDescriptor);
+        readMVs[1].visitFieldInsn(Opcodes.GETFIELD, fileChannelImplInternalName,
+                "callback", fileChannelImplCallbackDescriptor);
         readMVs[1].visitVarInsn(Opcodes.LLOAD, 4);
         readMVs[1].visitVarInsn(Opcodes.LLOAD, 8);
         readMVs[1].visitVarInsn(Opcodes.LLOAD, 6);
-        readMVs[1].visitMethodInsn(Opcodes.INVOKEVIRTUAL,
-                fileChannelImplCallbackInternalName, "onReadEnd", Type
-                        .getMethodDescriptor(Type.VOID_TYPE, Type.LONG_TYPE,
-                                Type.LONG_TYPE, Type.LONG_TYPE), false);
+        readMVs[1]
+                .visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+                        fileChannelImplCallbackInternalName,
+                        "onReadEnd", Type.getMethodDescriptor(Type.VOID_TYPE,
+                                Type.LONG_TYPE, Type.LONG_TYPE, Type.LONG_TYPE),
+                        false);
 
         // return readResult;
         // }
@@ -236,10 +239,12 @@ public class FileChannelImplAdapter extends ClassVisitor {
         writeMVs[0].visitVarInsn(Opcodes.LLOAD, 2);
         writeMVs[0].visitVarInsn(Opcodes.LLOAD, 5);
         writeMVs[0].visitVarInsn(Opcodes.ILOAD, 4);
-        writeMVs[0].visitMethodInsn(Opcodes.INVOKEVIRTUAL,
-                fileChannelImplCallbackInternalName, "onWriteEnd", Type
-                        .getMethodDescriptor(Type.VOID_TYPE, Type.LONG_TYPE,
-                                Type.LONG_TYPE, Type.INT_TYPE), false);
+        writeMVs[0]
+                .visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+                        fileChannelImplCallbackInternalName,
+                        "onWriteEnd", Type.getMethodDescriptor(Type.VOID_TYPE,
+                                Type.LONG_TYPE, Type.LONG_TYPE, Type.INT_TYPE),
+                        false);
 
         // return writeResult;
         // }
@@ -283,10 +288,12 @@ public class FileChannelImplAdapter extends ClassVisitor {
         writeMVs[1].visitVarInsn(Opcodes.LLOAD, 4);
         writeMVs[1].visitVarInsn(Opcodes.LLOAD, 8);
         writeMVs[1].visitVarInsn(Opcodes.LLOAD, 6);
-        writeMVs[1].visitMethodInsn(Opcodes.INVOKEVIRTUAL,
-                fileChannelImplCallbackInternalName, "onWriteEnd", Type
-                        .getMethodDescriptor(Type.VOID_TYPE, Type.LONG_TYPE,
-                                Type.LONG_TYPE, Type.LONG_TYPE), false);
+        writeMVs[1]
+                .visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+                        fileChannelImplCallbackInternalName,
+                        "onWriteEnd", Type.getMethodDescriptor(Type.VOID_TYPE,
+                                Type.LONG_TYPE, Type.LONG_TYPE, Type.LONG_TYPE),
+                        false);
 
         // return writeResult;
         // }
@@ -313,12 +320,12 @@ public class FileChannelImplAdapter extends ClassVisitor {
                     Type.getInternalName(FileChannelImplCallback.class));
             mv.visitInsn(Opcodes.DUP);
             try {
-                mv.visitMethodInsn(
-                        Opcodes.INVOKESPECIAL,
+                mv.visitMethodInsn(Opcodes.INVOKESPECIAL,
                         Type.getInternalName(FileChannelImplCallback.class),
                         "<init>",
-                        Type.getConstructorDescriptor(FileChannelImplCallback.class
-                                .getConstructor()), false);
+                        Type.getConstructorDescriptor(
+                                FileChannelImplCallback.class.getConstructor()),
+                        false);
             } catch (Exception e) {
                 throw new RuntimeException("Could not access constructor", e);
             }
@@ -333,15 +340,14 @@ public class FileChannelImplAdapter extends ClassVisitor {
 
     private boolean isReadMethod(int access, String name, String desc,
             String signature, String[] exceptions) {
-        return access == Opcodes.ACC_PUBLIC
-                && "read".equals(name)
+        return access == Opcodes.ACC_PUBLIC && "read".equals(name)
                 && (Type.getMethodDescriptor(Type.INT_TYPE,
-                        Type.getType(ByteBuffer.class)).equals(desc) || Type
-                        .getMethodDescriptor(Type.LONG_TYPE,
-                                Type.getType(ByteBuffer[].class),
-                                Type.INT_TYPE, Type.INT_TYPE).equals(desc))
-                && null == signature
-                && exceptions != null
+                        Type.getType(ByteBuffer.class)).equals(
+                                desc)
+                        || Type.getMethodDescriptor(Type.LONG_TYPE,
+                                Type.getType(ByteBuffer[].class), Type.INT_TYPE,
+                                Type.INT_TYPE).equals(desc))
+                && null == signature && exceptions != null
                 && exceptions.length == 1
                 && Type.getInternalName(IOException.class)
                         .equals(exceptions[0]);
@@ -349,15 +355,14 @@ public class FileChannelImplAdapter extends ClassVisitor {
 
     private boolean isWriteMethod(int access, String name, String desc,
             String signature, String[] exceptions) {
-        return access == Opcodes.ACC_PUBLIC
-                && "write".equals(name)
+        return access == Opcodes.ACC_PUBLIC && "write".equals(name)
                 && (Type.getMethodDescriptor(Type.INT_TYPE,
-                        Type.getType(ByteBuffer.class)).equals(desc) || Type
-                        .getMethodDescriptor(Type.LONG_TYPE,
-                                Type.getType(ByteBuffer[].class),
-                                Type.INT_TYPE, Type.INT_TYPE).equals(desc))
-                && null == signature
-                && exceptions != null
+                        Type.getType(ByteBuffer.class)).equals(
+                                desc)
+                        || Type.getMethodDescriptor(Type.LONG_TYPE,
+                                Type.getType(ByteBuffer[].class), Type.INT_TYPE,
+                                Type.INT_TYPE).equals(desc))
+                && null == signature && exceptions != null
                 && exceptions.length == 1
                 && Type.getInternalName(IOException.class)
                         .equals(exceptions[0]);

@@ -22,10 +22,11 @@ public class StatisticsFileSystemDelegate extends DelegateToFileSystem {
             boolean authorityRequired) throws IOException, URISyntaxException {
         super(theUri, theFsImpl, conf, supportedScheme, authorityRequired);
     }
-    
+
     protected StatisticsFileSystemDelegate(URI theUri, Configuration conf)
             throws IOException, URISyntaxException {
-        this(theUri, new StatisticsFileSystem(), conf, theUri.getScheme(), false);
+        this(theUri, new StatisticsFileSystem(), conf, theUri.getScheme(),
+                false);
     }
 
 }

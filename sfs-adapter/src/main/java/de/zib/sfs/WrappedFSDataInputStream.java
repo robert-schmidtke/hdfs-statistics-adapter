@@ -31,8 +31,8 @@ import de.zib.sfs.instrument.statistics.OperationCategory;
 import de.zib.sfs.instrument.statistics.OperationSource;
 import de.zib.sfs.instrument.statistics.OperationStatisticsAggregator;
 
-public class WrappedFSDataInputStream extends InputStream implements
-        PositionedReadable, Seekable {
+public class WrappedFSDataInputStream extends InputStream
+        implements PositionedReadable, Seekable {
 
     private final FSDataInputStream in;
 
@@ -130,13 +130,9 @@ public class WrappedFSDataInputStream extends InputStream implements
         long startTime = System.currentTimeMillis();
         in.readFully(position, buffer);
         String datanodeHostname = getDatanodeHostNameString();
-        aggregator.aggregateReadDataOperationStatistics(
-                OperationSource.SFS,
-                OperationCategory.READ,
-                startTime,
-                System.currentTimeMillis(),
-                buffer.length,
-                hostname.equals(datanodeHostname)
+        aggregator.aggregateReadDataOperationStatistics(OperationSource.SFS,
+                OperationCategory.READ, startTime, System.currentTimeMillis(),
+                buffer.length, hostname.equals(datanodeHostname)
                         || "localhost".equals(datanodeHostname));
     }
 
@@ -146,13 +142,9 @@ public class WrappedFSDataInputStream extends InputStream implements
         long startTime = System.currentTimeMillis();
         in.readFully(position, buffer, offset, length);
         String datanodeHostname = getDatanodeHostNameString();
-        aggregator.aggregateReadDataOperationStatistics(
-                OperationSource.SFS,
-                OperationCategory.READ,
-                startTime,
-                System.currentTimeMillis(),
-                length,
-                hostname.equals(datanodeHostname)
+        aggregator.aggregateReadDataOperationStatistics(OperationSource.SFS,
+                OperationCategory.READ, startTime, System.currentTimeMillis(),
+                length, hostname.equals(datanodeHostname)
                         || "localhost".equals(datanodeHostname));
     }
 
@@ -171,14 +163,16 @@ public class WrappedFSDataInputStream extends InputStream implements
                 // call Hadoop's method directly
                 final HdfsDataInputStream hdfsIn = (HdfsDataInputStream) in;
                 if (hdfsIn.getCurrentDatanode() != null) {
-                    datanodeHostnameSupplier = () -> hdfsIn
-                            .getCurrentDatanode().getHostName();
+                    datanodeHostnameSupplier = () -> hdfsIn.getCurrentDatanode()
+                            .getHostName();
                     if (LOG.isDebugEnabled()) {
-                        LOG.debug("Using datanodeHostNameSupplier from Hadoop.");
+                        LOG.debug(
+                                "Using datanodeHostNameSupplier from Hadoop.");
                     }
                 } else {
                     if (LOG.isDebugEnabled()) {
-                        LOG.debug("datanodeHostNameSupplier from Hadoop has no DataNode information.");
+                        LOG.debug(
+                                "datanodeHostNameSupplier from Hadoop has no DataNode information.");
                     }
                     datanodeHostnameSupplier = () -> "";
                 }
@@ -195,34 +189,32 @@ public class WrappedFSDataInputStream extends InputStream implements
                     Method getCurrentDatanodeHostNameMethod = null;
                     InputStream bindToStream = null;
                     try {
-                        getCurrentDatanodeHostNameMethod = in
-                                .getClass()
-                                .getDeclaredMethod("getCurrentDatanodeHostName");
+                        getCurrentDatanodeHostNameMethod = in.getClass()
+                                .getDeclaredMethod(
+                                        "getCurrentDatanodeHostName");
                         bindToStream = in;
                     } catch (NoSuchMethodException e) {
-                        getCurrentDatanodeHostNameMethod = in
-                                .getWrappedStream()
-                                .getClass()
-                                .getDeclaredMethod("getCurrentDatanodeHostName");
+                        getCurrentDatanodeHostNameMethod = in.getWrappedStream()
+                                .getClass().getDeclaredMethod(
+                                        "getCurrentDatanodeHostName");
                         bindToStream = in.getWrappedStream();
                     }
 
                     MethodHandle datanodeHostNameSupplierTarget = LambdaMetafactory
-                            .metafactory(
-                                    methodHandlesLookup,
-                                    "get",
+                            .metafactory(methodHandlesLookup, "get",
                                     MethodType.methodType(Supplier.class,
                                             bindToStream.getClass()),
                                     MethodType.methodType(Object.class),
-                                    methodHandlesLookup
-                                            .unreflect(getCurrentDatanodeHostNameMethod),
+                                    methodHandlesLookup.unreflect(
+                                            getCurrentDatanodeHostNameMethod),
                                     MethodType.methodType(Object.class))
                             .getTarget();
                     datanodeHostnameSupplier = (Supplier<String>) datanodeHostNameSupplierTarget
                             .bindTo(bindToStream).invoke();
 
                     if (LOG.isDebugEnabled()) {
-                        LOG.debug("Using 'getCurrentDatanodeHostName' as datanodeHostNameSupplier.");
+                        LOG.debug(
+                                "Using 'getCurrentDatanodeHostName' as datanodeHostNameSupplier.");
                     }
                 } catch (Throwable t) {
                     datanodeHostnameSupplier = () -> "";
@@ -241,12 +233,14 @@ public class WrappedFSDataInputStream extends InputStream implements
             try {
                 // strip port if necessary
                 int portIndex = hostname.indexOf(":");
-                cachedHostname = InetAddress.getByName(
-                        portIndex == -1 ? hostname : hostname.substring(0,
-                                portIndex)).getHostName();
+                cachedHostname = InetAddress
+                        .getByName(portIndex == -1 ? hostname
+                                : hostname.substring(0, portIndex))
+                        .getHostName();
             } catch (UnknownHostException e) {
                 if (LOG.isDebugEnabled()) {
-                    LOG.debug("Could not determine hostname for " + hostname, e);
+                    LOG.debug("Could not determine hostname for " + hostname,
+                            e);
                 }
                 cachedHostname = "";
             }

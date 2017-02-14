@@ -124,10 +124,10 @@ public class InstrumentationTest {
             }
 
             byte[][] readBuffers = new byte[3][1048576];
-            numRead = fci.read(new ByteBuffer[] {
-                    ByteBuffer.wrap(readBuffers[0]),
-                    ByteBuffer.wrap(readBuffers[1]),
-                    ByteBuffer.wrap(readBuffers[2]) });
+            numRead = fci
+                    .read(new ByteBuffer[] { ByteBuffer.wrap(readBuffers[0]),
+                            ByteBuffer.wrap(readBuffers[1]),
+                            ByteBuffer.wrap(readBuffers[2]) });
             assert (numRead == 3 * 1048576);
             numRead = fci.read(ByteBuffer.wrap(readBuffer));
             assert (numRead == -1);

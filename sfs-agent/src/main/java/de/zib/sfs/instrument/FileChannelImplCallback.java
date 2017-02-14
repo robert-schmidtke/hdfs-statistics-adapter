@@ -28,17 +28,15 @@ public class FileChannelImplCallback {
     }
 
     public void onWriteEnd(long startTime, long endTime, int writeResult) {
-        OperationStatisticsAggregator.instance
-                .aggregateDataOperationStatistics(OperationSource.JVM,
-                        OperationCategory.WRITE, startTime, endTime,
-                        writeResult);
+        OperationStatisticsAggregator.instance.aggregateDataOperationStatistics(
+                OperationSource.JVM, OperationCategory.WRITE, startTime,
+                endTime, writeResult);
     }
 
     public void onWriteEnd(long startTime, long endTime, long writeResult) {
-        OperationStatisticsAggregator.instance
-                .aggregateDataOperationStatistics(OperationSource.JVM,
-                        OperationCategory.WRITE, startTime, endTime,
-                        writeResult);
+        OperationStatisticsAggregator.instance.aggregateDataOperationStatistics(
+                OperationSource.JVM, OperationCategory.WRITE, startTime,
+                endTime, writeResult);
     }
 
 }

@@ -67,8 +67,8 @@ public class FileInputStreamAdapter extends ClassVisitor {
     @Override
     public void visitSource(String source, String debug) {
         // private FileInputStreamCallback callback;
-        FieldVisitor callbackFV = cv.visitField(Opcodes.ACC_PRIVATE,
-                "callback", fileInputStreamCallbackDescriptor, null, null);
+        FieldVisitor callbackFV = cv.visitField(Opcodes.ACC_PRIVATE, "callback",
+                fileInputStreamCallbackDescriptor, null, null);
         callbackFV.visitEnd();
 
         // proceed as intended
@@ -80,11 +80,13 @@ public class FileInputStreamAdapter extends ClassVisitor {
             String signature, String[] exceptions) {
         MethodVisitor mv;
         if ("<init>".equals(name)) {
-            mv = new ConstructorAdapter(api, cv.visitMethod(access, name, desc,
-                    signature, exceptions), access, name, desc);
+            mv = new ConstructorAdapter(api,
+                    cv.visitMethod(access, name, desc, signature, exceptions),
+                    access, name, desc);
         } else if (isOpenMethod(access, name, desc, signature, exceptions)
                 || isReadMethod(access, name, desc, signature, exceptions)
-                || isReadBytesMethod(access, name, desc, signature, exceptions)) {
+                || isReadBytesMethod(access, name, desc, signature,
+                        exceptions)) {
             // rename native methods so we can wrap them
             mv = cv.visitMethod(access, nativeMethodPrefix + name, desc,
                     signature, exceptions);
@@ -110,8 +112,8 @@ public class FileInputStreamAdapter extends ClassVisitor {
 
         // private void open(String name) throws FileNotFoundException {
         MethodVisitor openMV = cv.visitMethod(Opcodes.ACC_PRIVATE, "open",
-                openMethodDescriptor, null, new String[] { Type
-                        .getInternalName(FileNotFoundException.class) });
+                openMethodDescriptor, null, new String[] {
+                        Type.getInternalName(FileNotFoundException.class) });
         openMV.visitCode();
 
         // long startTime = System.currentTimeMillis();
@@ -138,9 +140,10 @@ public class FileInputStreamAdapter extends ClassVisitor {
         openMV.visitVarInsn(Opcodes.LLOAD, 2);
         openMV.visitVarInsn(Opcodes.LLOAD, 4);
         openMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
-                fileInputStreamCallbackInternalName, "onOpenEnd", Type
-                        .getMethodDescriptor(Type.VOID_TYPE, Type.LONG_TYPE,
-                                Type.LONG_TYPE), false);
+                fileInputStreamCallbackInternalName, "onOpenEnd",
+                Type.getMethodDescriptor(Type.VOID_TYPE, Type.LONG_TYPE,
+                        Type.LONG_TYPE),
+                false);
 
         // }
         openMV.visitInsn(Opcodes.RETURN);
@@ -178,9 +181,10 @@ public class FileInputStreamAdapter extends ClassVisitor {
         readMV.visitVarInsn(Opcodes.LLOAD, 5);
         readMV.visitVarInsn(Opcodes.ILOAD, 4);
         readMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
-                fileInputStreamCallbackInternalName, "onReadEnd", Type
-                        .getMethodDescriptor(Type.VOID_TYPE, Type.LONG_TYPE,
-                                Type.LONG_TYPE, Type.INT_TYPE), false);
+                fileInputStreamCallbackInternalName, "onReadEnd",
+                Type.getMethodDescriptor(Type.VOID_TYPE, Type.LONG_TYPE,
+                        Type.LONG_TYPE, Type.INT_TYPE),
+                false);
 
         // return readResult;
         // }
@@ -225,9 +229,10 @@ public class FileInputStreamAdapter extends ClassVisitor {
         readBytesMV.visitVarInsn(Opcodes.LLOAD, 7);
         readBytesMV.visitVarInsn(Opcodes.ILOAD, 6);
         readBytesMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
-                fileInputStreamCallbackInternalName, "onReadBytesEnd", Type
-                        .getMethodDescriptor(Type.VOID_TYPE, Type.LONG_TYPE,
-                                Type.LONG_TYPE, Type.INT_TYPE), false);
+                fileInputStreamCallbackInternalName, "onReadBytesEnd",
+                Type.getMethodDescriptor(Type.VOID_TYPE, Type.LONG_TYPE,
+                        Type.LONG_TYPE, Type.INT_TYPE),
+                false);
 
         // return readBytesResult;
         // }
@@ -254,12 +259,12 @@ public class FileInputStreamAdapter extends ClassVisitor {
                     Type.getInternalName(FileInputStreamCallback.class));
             mv.visitInsn(Opcodes.DUP);
             try {
-                mv.visitMethodInsn(
-                        Opcodes.INVOKESPECIAL,
+                mv.visitMethodInsn(Opcodes.INVOKESPECIAL,
                         Type.getInternalName(FileInputStreamCallback.class),
                         "<init>",
-                        Type.getConstructorDescriptor(FileInputStreamCallback.class
-                                .getConstructor()), false);
+                        Type.getConstructorDescriptor(
+                                FileInputStreamCallback.class.getConstructor()),
+                        false);
             } catch (Exception e) {
                 throw new RuntimeException("Could not access constructor", e);
             }
@@ -276,26 +281,22 @@ public class FileInputStreamAdapter extends ClassVisitor {
             String signature, String[] exceptions) {
         // wrap the generated accessor method and not the native open0 method
         // itself
-        return access == Opcodes.ACC_PRIVATE
-                && "open".equals(name)
+        return access == Opcodes.ACC_PRIVATE && "open".equals(name)
                 && Type.getMethodDescriptor(Type.VOID_TYPE,
                         Type.getType(String.class)).equals(desc)
-                && null == signature
-                && exceptions != null
+                && null == signature && exceptions != null
                 && exceptions.length == 1
-                && Type.getInternalName(FileNotFoundException.class).equals(
-                        exceptions[0]);
+                && Type.getInternalName(FileNotFoundException.class)
+                        .equals(exceptions[0]);
     }
 
     private boolean isReadMethod(int access, String name, String desc,
             String signature, String[] exceptions) {
         // wrap the generated accessor method and not the native read0 method
         // itself
-        return access == Opcodes.ACC_PUBLIC
-                && "read".equals(name)
+        return access == Opcodes.ACC_PUBLIC && "read".equals(name)
                 && Type.getMethodDescriptor(Type.INT_TYPE).equals(desc)
-                && null == signature
-                && exceptions != null
+                && null == signature && exceptions != null
                 && exceptions.length == 1
                 && Type.getInternalName(IOException.class)
                         .equals(exceptions[0]);
@@ -310,8 +311,7 @@ public class FileInputStreamAdapter extends ClassVisitor {
                 && Type.getMethodDescriptor(Type.INT_TYPE,
                         Type.getType(byte[].class), Type.INT_TYPE,
                         Type.INT_TYPE).equals(desc)
-                && null == signature
-                && exceptions != null
+                && null == signature && exceptions != null
                 && exceptions.length == 1
                 && Type.getInternalName(IOException.class)
                         .equals(exceptions[0]);

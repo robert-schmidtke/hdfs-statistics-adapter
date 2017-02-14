@@ -58,40 +58,40 @@ public class ClassTransformationServer extends
         String className = request.getName();
         ByteString transformedClass = transformedClassesCache.get(className);
         if (transformedClass == null) {
-            ClassReader cr = new ClassReader(request.getBytecode()
-                    .toByteArray());
-            ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS
-                    | ClassWriter.COMPUTE_FRAMES);
+            ClassReader cr = new ClassReader(
+                    request.getBytecode().toByteArray());
+            ClassWriter cw = new ClassWriter(
+                    ClassWriter.COMPUTE_MAXS | ClassWriter.COMPUTE_FRAMES);
 
             try {
                 switch (className) {
                 case "java/io/FileInputStream":
                     cr.accept(
-                            new FileInputStreamAdapter(cw, request
-                                    .getNativeMethodPrefix()),
+                            new FileInputStreamAdapter(cw,
+                                    request.getNativeMethodPrefix()),
                             ClassReader.EXPAND_FRAMES);
                     break;
                 case "java/io/FileOutputStream":
                     cr.accept(
-                            new FileOutputStreamAdapter(cw, request
-                                    .getNativeMethodPrefix()),
+                            new FileOutputStreamAdapter(cw,
+                                    request.getNativeMethodPrefix()),
                             ClassReader.EXPAND_FRAMES);
                     break;
                 case "java/io/RandomAccessFile":
                     cr.accept(
-                            new RandomAccessFileAdapter(cw, request
-                                    .getNativeMethodPrefix()),
+                            new RandomAccessFileAdapter(cw,
+                                    request.getNativeMethodPrefix()),
                             ClassReader.EXPAND_FRAMES);
                     break;
                 case "sun/nio/ch/FileChannelImpl":
                     cr.accept(
-                            new FileChannelImplAdapter(cw, request
-                                    .getNativeMethodPrefix()),
+                            new FileChannelImplAdapter(cw,
+                                    request.getNativeMethodPrefix()),
                             ClassReader.EXPAND_FRAMES);
                     break;
                 default:
-                    throw new IllegalArgumentException("Invalid class: "
-                            + className);
+                    throw new IllegalArgumentException(
+                            "Invalid class: " + className);
                 }
 
                 transformedClass = ByteString.copyFrom(cw.toByteArray());
@@ -110,8 +110,8 @@ public class ClassTransformationServer extends
     @Override
     public void endClassTransformations(EndClassTransformationsRequest request,
             StreamObserver<EndClassTransformationsResponse> responseObserver) {
-        responseObserver.onNext(EndClassTransformationsResponse.newBuilder()
-                .build());
+        responseObserver
+                .onNext(EndClassTransformationsResponse.newBuilder().build());
         responseObserver.onCompleted();
 
         isEndClassTransformationsLock.lock();
@@ -137,8 +137,8 @@ public class ClassTransformationServer extends
         try {
             while (!isEndClassTransformations) {
                 if (timeoutSeconds > 0) {
-                    if (!isEndClassTransformationsCondition.await(
-                            timeoutSeconds, TimeUnit.SECONDS)) {
+                    if (!isEndClassTransformationsCondition
+                            .await(timeoutSeconds, TimeUnit.SECONDS)) {
                         // time elapsed
                         break;
                     }
