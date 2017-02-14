@@ -119,10 +119,12 @@ public class PostRunOperationStatisticsAggregator {
                             }
                         }
 
-                        try {
-                            writer.close();
-                        } catch (IOException e) {
-                            e.printStackTrace();
+                        if (writer != null) {
+                            try {
+                                writer.close();
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
                         }
                     }
                 });
