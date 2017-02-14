@@ -11,7 +11,10 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ForkJoinPool;
@@ -42,6 +45,8 @@ public class OperationStatisticsAggregator {
     private final Object[] writerLocks;
 
     private final ForkJoinPool threadPool;
+    
+    private final DateFormat dateFormat = new SimpleDateFormat("yyyyMMdd-HH:mm:ss.SSS");
 
     public static final OperationStatisticsAggregator instance = new OperationStatisticsAggregator();
 
@@ -175,7 +180,8 @@ public class OperationStatisticsAggregator {
                 String filename = systemHostname + "." + systemPid + "."
                         + systemKey + "."
                         + aggregator.getSource().name().toLowerCase() + "."
-                        + aggregator.getCategory().name().toLowerCase()
+                        + aggregator.getCategory().name().toLowerCase() + "."
+                        + dateFormat.format(new Date())
                         + ".csv";
 
                 File file = new File(outputDirectory, filename);
