@@ -29,7 +29,7 @@ import org.apache.hadoop.hdfs.client.HdfsDataInputStream;
 
 import de.zib.sfs.instrument.statistics.OperationCategory;
 import de.zib.sfs.instrument.statistics.OperationSource;
-import de.zib.sfs.instrument.statistics.OperationStatisticsAggregator;
+import de.zib.sfs.instrument.statistics.LiveOperationStatisticsAggregator;
 
 public class WrappedFSDataInputStream extends InputStream
         implements PositionedReadable, Seekable {
@@ -39,7 +39,7 @@ public class WrappedFSDataInputStream extends InputStream
     private final String hostname;
     private Supplier<String> datanodeHostnameSupplier;
 
-    private final OperationStatisticsAggregator aggregator;
+    private final LiveOperationStatisticsAggregator aggregator;
 
     // Shadow super class' LOG
     public static final Log LOG = LogFactory
@@ -48,7 +48,7 @@ public class WrappedFSDataInputStream extends InputStream
     private static Map<String, String> HOSTNAME_CACHE = new HashMap<String, String>();
 
     public WrappedFSDataInputStream(FSDataInputStream in,
-            OperationStatisticsAggregator aggregator) throws IOException {
+            LiveOperationStatisticsAggregator aggregator) throws IOException {
         this.in = in;
         this.aggregator = aggregator;
         hostname = System.getProperty("de.zib.sfs.hostname");

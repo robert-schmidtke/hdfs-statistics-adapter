@@ -320,9 +320,13 @@ if [ -z "$NO_SFS" ]; then
   echo "$(date): Copying logs"
   cat > copy-logs.sh << EOF
 #!/bin/bash
+
+# execute postrun aggregation
+java -cp $SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar de.zib.sfs.instrument.statistics.PostRunOperationStatisticsAggregator --path /tmp/$USER/sfs --prefix "\$(hostname)-" --suffix "-concat"
+
 cd /tmp/$USER/sfs
-for file in \$(ls *.csv); do
-  cp \$file $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname)-\$file
+for file in \$(ls *-concat.csv); do
+  cp \$file $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$file
 done
 EOF
   chmod +x copy-logs.sh

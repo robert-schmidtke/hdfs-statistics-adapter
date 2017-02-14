@@ -15,19 +15,19 @@ import org.apache.hadoop.fs.FileSystem.Statistics;
 
 import de.zib.sfs.instrument.statistics.OperationCategory;
 import de.zib.sfs.instrument.statistics.OperationSource;
-import de.zib.sfs.instrument.statistics.OperationStatisticsAggregator;
+import de.zib.sfs.instrument.statistics.LiveOperationStatisticsAggregator;
 
 public class WrappedFSDataOutputStream extends FSDataOutputStream {
 
-    private final OperationStatisticsAggregator aggregator;
+    private final LiveOperationStatisticsAggregator aggregator;
 
     public WrappedFSDataOutputStream(OutputStream out,
-            OperationStatisticsAggregator aggregator) throws IOException {
+            LiveOperationStatisticsAggregator aggregator) throws IOException {
         this(out, null, 0, aggregator);
     }
 
     public WrappedFSDataOutputStream(OutputStream out, Statistics stats,
-            long startPosition, OperationStatisticsAggregator aggregator)
+            long startPosition, LiveOperationStatisticsAggregator aggregator)
             throws IOException {
         super(out, stats, startPosition);
         this.aggregator = aggregator;

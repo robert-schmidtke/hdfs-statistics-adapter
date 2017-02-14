@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit;
 
 import de.zib.sfs.instrument.statistics.OperationStatistics;
 
-public class OperationStatisticsAggregator {
+public class LiveOperationStatisticsAggregator {
 
     private boolean initialized;
 
@@ -44,9 +44,9 @@ public class OperationStatisticsAggregator {
 
     private final ForkJoinPool threadPool;
 
-    public static final OperationStatisticsAggregator instance = new OperationStatisticsAggregator();
+    public static final LiveOperationStatisticsAggregator instance = new LiveOperationStatisticsAggregator();
 
-    private OperationStatisticsAggregator() {
+    private LiveOperationStatisticsAggregator() {
         // map each source/category combination, map a time bin to an aggregate
         aggregates = new ArrayList<ConcurrentSkipListMap<Long, OperationStatistics>>();
         for (int i = 0; i < OperationSource.values().length
