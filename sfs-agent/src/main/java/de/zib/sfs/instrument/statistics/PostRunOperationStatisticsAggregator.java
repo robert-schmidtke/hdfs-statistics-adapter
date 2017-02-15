@@ -75,6 +75,9 @@ public class PostRunOperationStatisticsAggregator {
                             }
                         });
 
+                        // 1 MB read buffer for copying log files
+                        char[] readBuf = new char[1024 * 1024];
+
                         BufferedWriter writer = null;
                         for (String csvFileName : csvFileNames) {
                             BufferedReader reader = null;
@@ -106,13 +109,14 @@ public class PostRunOperationStatisticsAggregator {
                                 }
 
                                 // copy the rest in bigger chunks
-                                char[] buf = new char[1024 * 1024 * 1024];
                                 int numRead = -1;
-                                while ((numRead = reader.read(buf)) != -1) {
-                                    writer.write(buf, 0, numRead);
+                                while ((numRead = reader.read(readBuf)) != -1) {
+                                    writer.write(readBuf, 0, numRead);
                                 }
+                                writer.flush();
 
                                 reader.close();
+                                reader = null;
                             } catch (IOException e) {
                                 e.printStackTrace();
                                 continue;
@@ -122,6 +126,7 @@ public class PostRunOperationStatisticsAggregator {
                         if (writer != null) {
                             try {
                                 writer.close();
+                                writer = null;
                             } catch (IOException e) {
                                 e.printStackTrace();
                             }
