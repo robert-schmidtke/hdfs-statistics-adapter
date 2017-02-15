@@ -278,7 +278,7 @@ public class StatisticsFileSystem extends FileSystem {
                 wrappedFS.append(unwrappedPath, bufferSize, progress),
                 LiveOperationStatisticsAggregator.instance);
         LiveOperationStatisticsAggregator.instance.aggregateOperationStatistics(
-                OperationSource.JVM, OperationCategory.OTHER, startTime,
+                OperationSource.SFS, OperationCategory.OTHER, startTime,
                 System.currentTimeMillis());
         return stream;
     }
@@ -325,7 +325,7 @@ public class StatisticsFileSystem extends FileSystem {
                         bufferSize, replication, blockSize, progress),
                 LiveOperationStatisticsAggregator.instance);
         LiveOperationStatisticsAggregator.instance.aggregateOperationStatistics(
-                OperationSource.JVM, OperationCategory.OTHER, startTime,
+                OperationSource.SFS, OperationCategory.OTHER, startTime,
                 System.currentTimeMillis());
         return stream;
     }
@@ -336,7 +336,7 @@ public class StatisticsFileSystem extends FileSystem {
         Path unwrappedPath = unwrapPath(f);
         boolean result = wrappedFS.delete(unwrappedPath, recursive);
         LiveOperationStatisticsAggregator.instance.aggregateOperationStatistics(
-                OperationSource.JVM, OperationCategory.OTHER, startTime,
+                OperationSource.SFS, OperationCategory.OTHER, startTime,
                 System.currentTimeMillis());
         return result;
     }
@@ -354,7 +354,7 @@ public class StatisticsFileSystem extends FileSystem {
         BlockLocation[] blockLocations = wrappedFS
                 .getFileBlockLocations(unwrappedFile, start, len);
         LiveOperationStatisticsAggregator.instance.aggregateOperationStatistics(
-                OperationSource.JVM, OperationCategory.OTHER, startTime,
+                OperationSource.SFS, OperationCategory.OTHER, startTime,
                 System.currentTimeMillis());
         return blockLocations;
     }
@@ -367,7 +367,7 @@ public class StatisticsFileSystem extends FileSystem {
         fileStatus.setPath(setAuthority(wrapPath(fileStatus.getPath()),
                 f.toUri().getAuthority()));
         LiveOperationStatisticsAggregator.instance.aggregateOperationStatistics(
-                OperationSource.JVM, OperationCategory.OTHER, startTime,
+                OperationSource.SFS, OperationCategory.OTHER, startTime,
                 System.currentTimeMillis());
         return fileStatus;
     }
@@ -401,7 +401,7 @@ public class StatisticsFileSystem extends FileSystem {
                     f.toUri().getAuthority()));
         }
         LiveOperationStatisticsAggregator.instance.aggregateOperationStatistics(
-                OperationSource.JVM, OperationCategory.OTHER, startTime,
+                OperationSource.SFS, OperationCategory.OTHER, startTime,
                 System.currentTimeMillis());
         return fileStatuses;
     }
@@ -412,7 +412,7 @@ public class StatisticsFileSystem extends FileSystem {
         Path unwrappedPath = unwrapPath(f);
         boolean result = wrappedFS.mkdirs(unwrappedPath, permission);
         LiveOperationStatisticsAggregator.instance.aggregateOperationStatistics(
-                OperationSource.JVM, OperationCategory.OTHER, startTime,
+                OperationSource.SFS, OperationCategory.OTHER, startTime,
                 System.currentTimeMillis());
         return result;
     }
@@ -425,7 +425,7 @@ public class StatisticsFileSystem extends FileSystem {
                 wrappedFS.open(unwrappedPath, bufferSize),
                 LiveOperationStatisticsAggregator.instance);
         LiveOperationStatisticsAggregator.instance.aggregateOperationStatistics(
-                OperationSource.JVM, OperationCategory.OTHER, startTime,
+                OperationSource.SFS, OperationCategory.OTHER, startTime,
                 System.currentTimeMillis());
         return new FSDataInputStream(stream);
     }
@@ -437,7 +437,7 @@ public class StatisticsFileSystem extends FileSystem {
         Path unwrappedDst = unwrapPath(dst);
         boolean result = wrappedFS.rename(unwrappedSrc, unwrappedDst);
         LiveOperationStatisticsAggregator.instance.aggregateOperationStatistics(
-                OperationSource.JVM, OperationCategory.OTHER, startTime,
+                OperationSource.SFS, OperationCategory.OTHER, startTime,
                 System.currentTimeMillis());
         return result;
     }

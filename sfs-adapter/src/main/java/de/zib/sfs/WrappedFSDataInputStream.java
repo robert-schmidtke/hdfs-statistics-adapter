@@ -99,7 +99,7 @@ public class WrappedFSDataInputStream extends InputStream
     public void seek(long desired) throws IOException {
         long startTime = System.currentTimeMillis();
         in.seek(desired);
-        aggregator.aggregateOperationStatistics(OperationSource.JVM,
+        aggregator.aggregateOperationStatistics(OperationSource.SFS,
                 OperationCategory.OTHER, startTime, System.currentTimeMillis());
     }
 
@@ -107,7 +107,7 @@ public class WrappedFSDataInputStream extends InputStream
     public boolean seekToNewSource(long targetPos) throws IOException {
         long startTime = System.currentTimeMillis();
         boolean result = in.seekToNewSource(targetPos);
-        aggregator.aggregateOperationStatistics(OperationSource.JVM,
+        aggregator.aggregateOperationStatistics(OperationSource.SFS,
                 OperationCategory.OTHER, startTime, System.currentTimeMillis());
         return result;
     }
