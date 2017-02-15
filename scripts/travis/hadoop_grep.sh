@@ -75,8 +75,12 @@ $HADOOP_HOME/bin/hadoop jar $HADOOP_HOME/share/hadoop/mapreduce/hadoop-mapreduce
 echo "$(date): Hadoop Output:"
 $HADOOP_HOME/bin/hdfs dfs -cat sfs:///tmp/user/$USER/output/*
 
+# run postrun aggregation
+echo "$(date): Running post-run aggregation"
+java -cp $TRAVIS_BUILD_DIR/sfs-agent/target/sfs-agent.jar de.zib.sfs.instrument.statistics.PostRunOperationStatisticsAggregator --path /tmp --prefix travis --suffix "-concat"
+
 echo "SFS Output:"
-for file in $(ls /tmp/*.csv); do
+for file in $(ls /tmp/*-concat.csv); do
   echo "${file}:"
   cat $file
 done
