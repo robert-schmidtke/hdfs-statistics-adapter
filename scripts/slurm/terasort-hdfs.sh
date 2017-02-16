@@ -228,7 +228,7 @@ fi
 echo "$(date): Generating TeraSort data on HDFS"
 $HADOOP_HOME/bin/hadoop jar \
   $HADOOP_HOME/share/hadoop/mapreduce/hadoop-mapreduce-examples-${HADOOP_VERSION}.jar teragen \
-  -Dmapreduce.job.maps=$((${#HADOOP_DATANODES[@]} * ${TASK_SLOTS})) \
+  -Dmapreduce.job.maps=$((${#HADOOP_DATANODES[@]} * ${TASK_SLOTS} * 4)) \
   10995116277 $SCHEME://$MASTER:8020/user/$USER/input
 echo "$(date): Generating TeraSort data on HDFS done"
 
