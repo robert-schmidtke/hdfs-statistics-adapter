@@ -106,6 +106,7 @@ public class PostRunOperationStatisticsAggregator {
 
                                     // write header only once
                                     writer.write(header);
+                                    writer.newLine();
                                 }
 
                                 // copy the rest in bigger chunks
