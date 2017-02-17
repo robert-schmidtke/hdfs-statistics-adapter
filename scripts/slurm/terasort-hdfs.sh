@@ -225,6 +225,10 @@ if [ -z "$NO_SFS" ] && [ "$ENGINE" == "hadoop" ]; then
   SCHEME="sfs"
 fi
 
+echo "$(date): Resetting XFS file system counters"
+srun sudo /sbin/sysctl -w fs.xfs.stats_clear=1
+echo "$(date): Resetting XFS file system counters done"
+
 echo "$(date): Generating TeraSort data on HDFS"
 $HADOOP_HOME/bin/hadoop jar \
   $HADOOP_HOME/share/hadoop/mapreduce/hadoop-mapreduce-examples-${HADOOP_VERSION}.jar teragen \
@@ -275,6 +279,18 @@ case $ENGINE in
 esac
 RET_CODE=$?
 echo "$(date): Running TeraSort done: $RET_CODE"
+
+echo "$(date): Dumping XFS file system counters"
+dump_xfs_stats_script="${SLURM_JOB_ID}-dump_xfs_stats.sh"
+cat >> $dump_xfs_stats_script << EOF
+#!/bin/bash
+cat /proc/fs/xfs/stat > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname)-xfs.stats
+EOF
+chmod +x $dump_xfs_stats_script
+srun -N$SLURM_JOB_NUM_NODES $dump_xfs_stats_script
+rm $dump_xfs_stats_script
+echo "$(date): Dumping XFS file system counters done"
+
 
 echo "$(date): Stopping HDFS"
 cp ./stop-hdfs-slurm.sh $HADOOP_HOME/sbin
