@@ -12,14 +12,13 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinTask;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
-
-import de.zib.sfs.instrument.statistics.OperationStatistics;
 
 public class LiveOperationStatisticsAggregator {
 
@@ -208,7 +207,7 @@ public class LiveOperationStatisticsAggregator {
         }
     }
 
-    private int getUniqueIndex(OperationSource source,
+    public static int getUniqueIndex(OperationSource source,
             OperationCategory category) {
         switch (source) {
         case JVM:
@@ -305,5 +304,31 @@ public class LiveOperationStatisticsAggregator {
 
             return true;
         }
+    }
+
+    // for testing only
+
+    public void reset() {
+        boolean assertionsEnabled = false;
+        assert (assertionsEnabled = true);
+        if (!assertionsEnabled) {
+            throw new UnsupportedOperationException(
+                    "reset() only supported with assertions enabled");
+        }
+        aggregates.clear();
+        for (int i = 0; i < OperationSource.values().length
+                * OperationCategory.values().length; ++i) {
+            aggregates.add(new ConcurrentSkipListMap<>());
+        }
+    }
+
+    public List<ConcurrentSkipListMap<Long, OperationStatistics>> getAggregates() {
+        boolean assertionsEnabled = false;
+        assert (assertionsEnabled = true);
+        if (!assertionsEnabled) {
+            throw new UnsupportedOperationException(
+                    "getAggregates() only supported with assertions enabled");
+        }
+        return Collections.unmodifiableList(aggregates);
     }
 }

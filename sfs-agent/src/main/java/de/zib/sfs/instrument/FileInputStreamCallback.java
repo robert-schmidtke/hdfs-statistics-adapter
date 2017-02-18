@@ -7,9 +7,9 @@
  */
 package de.zib.sfs.instrument;
 
+import de.zib.sfs.instrument.statistics.LiveOperationStatisticsAggregator;
 import de.zib.sfs.instrument.statistics.OperationCategory;
 import de.zib.sfs.instrument.statistics.OperationSource;
-import de.zib.sfs.instrument.statistics.LiveOperationStatisticsAggregator;
 
 public class FileInputStreamCallback {
 
