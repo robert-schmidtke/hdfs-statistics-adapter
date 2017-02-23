@@ -122,6 +122,18 @@ public class LiveOperationStatisticsAggregator {
         }
     }
 
+    public void flush() {
+        aggregates.forEach(v -> {
+            for (int i = v.size(); i > 0; --i) {
+                try {
+                    write(v.remove(v.firstKey()));
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+    }
+
     public void shutdown() {
         if (!initialized) {
             return;
@@ -145,15 +157,7 @@ public class LiveOperationStatisticsAggregator {
         }
 
         // write remaining aggregates
-        aggregates.forEach(v -> {
-            for (int i = v.size(); i > 0; --i) {
-                try {
-                    write(v.remove(v.firstKey()));
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-        });
+        flush();
 
         // finally close all writers
         for (BufferedWriter writer : writers) {
@@ -187,6 +191,7 @@ public class LiveOperationStatisticsAggregator {
                     sb.append(outputSeparator)
                             .append(aggregate.getCsvHeaders(outputSeparator));
 
+                    // we will receive writes to this file as well
                     writers[index] = new BufferedWriter(new FileWriter(file));
                     writers[index].write(sb.toString());
                     writers[index].newLine();
