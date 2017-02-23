@@ -254,11 +254,11 @@ public class InstrumentationTest {
             assertOperationData(aggregates, OperationSource.JVM,
                     OperationCategory.WRITE, 9 * 1048576, 9 * 1048576);
 
-            // we read 1 + 1 + 6 (+ 1 for the dummy transfer) = 9 MB, allow 32K
+            // we read 1 + 1 + 6 (+ 1 for the dummy transfer) = 9 MB, allow 48K
             // slack for the JVM
             assertOperationData(aggregates, OperationSource.JVM,
                     OperationCategory.READ, 9 * 1048576,
-                    9 * 1048576 + 32 * 1024);
+                    9 * 1048576 + 48 * 1024);
         } catch (NoClassDefFoundError e) {
             // we're not instrumented, discard
         }
