@@ -322,11 +322,13 @@ static void JNICALL ClassFileLoadHookCallback(
   static bool java_io_FileInputStream_seen = false;
   static bool java_io_FileOutputStream_seen = false;
   static bool java_io_RandomAccessFile_seen = false;
+  static bool java_lang_Shutdown_seen = false;
   static bool sun_nio_ch_FileChannelImpl_seen = false;
 
   // all transformations done
   if (java_io_FileInputStream_seen && java_io_FileOutputStream_seen &&
-      java_io_RandomAccessFile_seen && sun_nio_ch_FileChannelImpl_seen) {
+      java_io_RandomAccessFile_seen && java_lang_Shutdown_seen &&
+      sun_nio_ch_FileChannelImpl_seen) {
     LOG_VERBOSE("Ignoring class '%s' because all required classes have been "
                 "transformed.\n",
                 name);
@@ -355,6 +357,8 @@ static void JNICALL ClassFileLoadHookCallback(
     java_io_FileOutputStream_seen = true;
   } else if (strcmp(name, "java/io/RandomAccessFile") == 0) {
     java_io_RandomAccessFile_seen = true;
+  } else if (strcmp(name, "java/lang/Shutdown") == 0) {
+    java_lang_Shutdown_seen = true;
   } else if (strcmp(name, "sun/nio/ch/FileChannelImpl") == 0) {
     sun_nio_ch_FileChannelImpl_seen = true;
   } else {
@@ -376,7 +380,8 @@ static void JNICALL ClassFileLoadHookCallback(
   // indicate after all necessary classes are loaded that the transformer
   // JVM can shut down, if we have started it ourselves
   if (java_io_FileInputStream_seen && java_io_FileOutputStream_seen &&
-      java_io_RandomAccessFile_seen && sun_nio_ch_FileChannelImpl_seen) {
+      java_io_RandomAccessFile_seen && java_lang_Shutdown_seen &&
+      sun_nio_ch_FileChannelImpl_seen) {
     LOG_VERBOSE("All required classes have been transformed.\n");
     if (g_start_transformer_jvm) {
       LOG_VERBOSE("Stopping transformer JVM.\n");
@@ -398,6 +403,7 @@ static void JNICALL VMInitCallback(jvmtiEnv *jvmti_env, JNIEnv *jni_env,
   jni_env->FindClass("java/io/FileInputStream");
   jni_env->FindClass("java/io/FileOutputStream");
   jni_env->FindClass("java/io/RandomAccessFile");
+  jni_env->FindClass("java/lang/Shutdown");
   jni_env->FindClass("sun/nio/ch/FileChannelImpl");
 
   // set the hostname as system property
@@ -491,24 +497,6 @@ static void JNICALL VMInitCallback(jvmtiEnv *jvmti_env, JNIEnv *jni_env,
 // function to be call when the JVM shuts down
 static void JNICALL VMDeathCallback(jvmtiEnv *jvmti_env, JNIEnv *jni_env) {
   LOG_VERBOSE("Shutting down VM.\n");
-
-  // get the aggregator and shut it down
-  jclass live_operation_statistics_aggregator_class = jni_env->FindClass(
-      "de/zib/sfs/instrument/statistics/LiveOperationStatisticsAggregator");
-  jfieldID instance_field_id = jni_env->GetStaticFieldID(
-      live_operation_statistics_aggregator_class, "instance",
-      "Lde/zib/sfs/instrument/statistics/LiveOperationStatisticsAggregator;");
-  jobject live_operation_statistics_aggregator_instance =
-      jni_env->GetStaticObjectField(live_operation_statistics_aggregator_class,
-                                    instance_field_id);
-
-  LOG_VERBOSE("Shutting down LiveOperationStatisticsAggregator.\n");
-  jmethodID shutdown_method_id = jni_env->GetMethodID(
-      live_operation_statistics_aggregator_class, "shutdown", "()V");
-  jni_env->CallVoidMethod(live_operation_statistics_aggregator_instance,
-                          shutdown_method_id);
-  LOG_VERBOSE("LiveOperationStatisticsAggregator shut down successfully.\n");
-
   LOG_VERBOSE("VM shut down successfully.\n");
 }
 
