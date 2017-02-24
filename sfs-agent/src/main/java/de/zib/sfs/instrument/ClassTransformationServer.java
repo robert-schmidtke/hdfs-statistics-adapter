@@ -83,6 +83,10 @@ public class ClassTransformationServer extends
                                     request.getNativeMethodPrefix()),
                             ClassReader.EXPAND_FRAMES);
                     break;
+                case "java/lang/Shutdown":
+                    cr.accept(new ShutdownAdapter(cw),
+                            ClassReader.EXPAND_FRAMES);
+                    break;
                 case "sun/nio/ch/FileChannelImpl":
                     cr.accept(
                             new FileChannelImplAdapter(cw,

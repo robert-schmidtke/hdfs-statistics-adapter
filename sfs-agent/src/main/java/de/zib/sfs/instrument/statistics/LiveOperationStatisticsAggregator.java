@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.SortedMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinTask;
@@ -36,7 +37,7 @@ public class LiveOperationStatisticsAggregator {
 
     // for each source/category combination, map a time bin to an aggregate
     // operation statistics
-    private final List<ConcurrentSkipListMap<Long, OperationStatistics>> aggregates;
+    private final List<SortedMap<Long, OperationStatistics>> aggregates;
 
     private final BufferedWriter[] writers;
     private final Object[] writerLocks;
@@ -47,7 +48,7 @@ public class LiveOperationStatisticsAggregator {
 
     private LiveOperationStatisticsAggregator() {
         // map each source/category combination, map a time bin to an aggregate
-        aggregates = new ArrayList<ConcurrentSkipListMap<Long, OperationStatistics>>();
+        aggregates = new ArrayList<SortedMap<Long, OperationStatistics>>();
         for (int i = 0; i < OperationSource.values().length
                 * OperationCategory.values().length; ++i) {
             aggregates.add(new ConcurrentSkipListMap<>());
@@ -73,8 +74,11 @@ public class LiveOperationStatisticsAggregator {
     }
 
     public void initialize() {
-        if (initialized) {
-            return;
+        synchronized (this) {
+            if (initialized) {
+                return;
+            }
+            initialized = true;
         }
 
         systemHostname = System.getProperty("de.zib.sfs.hostname");
@@ -89,8 +93,6 @@ public class LiveOperationStatisticsAggregator {
         this.outputDirectory = System
                 .getProperty("de.zib.sfs.output.directory");
         outputSeparator = ",";
-
-        initialized = true;
     }
 
     public void aggregateOperationStatistics(OperationSource source,
@@ -122,21 +124,12 @@ public class LiveOperationStatisticsAggregator {
         }
     }
 
-    public void flush() {
-        aggregates.forEach(v -> {
-            for (int i = v.size(); i > 0; --i) {
-                try {
-                    write(v.remove(v.firstKey()));
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-        });
-    }
-
     public void shutdown() {
-        if (!initialized) {
-            return;
+        synchronized (this) {
+            if (!initialized) {
+                return;
+            }
+            initialized = false;
         }
 
         // wait a bit for all currently running threads before shutting down
@@ -157,7 +150,15 @@ public class LiveOperationStatisticsAggregator {
         }
 
         // write remaining aggregates
-        flush();
+        aggregates.forEach(v -> {
+            for (int i = v.size(); i > 0; --i) {
+                try {
+                    write(v.remove(v.firstKey()));
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        });
 
         // finally close all writers
         for (BufferedWriter writer : writers) {
@@ -285,27 +286,29 @@ public class LiveOperationStatisticsAggregator {
             }
 
             // get the time bin applicable for this operation
-            aggregates
+            SortedMap<Long, OperationStatistics> timeBins = aggregates
                     .get(getUniqueIndex(aggregate.getSource(),
-                            aggregate.getCategory()))
-                    .merge(aggregate.getTimeBin(), aggregate, (v1, v2) -> {
-                        try {
-                            return v1.aggregate(v2);
-                        } catch (OperationStatistics.NotAggregatableException e) {
-                            throw new IllegalArgumentException(e);
-                        }
-                    });
+                            aggregate.getCategory()));
+            timeBins.merge(aggregate.getTimeBin(), aggregate, (v1, v2) -> {
+                try {
+                    return v1.aggregate(v2);
+                } catch (OperationStatistics.NotAggregatableException e) {
+                    throw new IllegalArgumentException(e);
+                }
+            });
 
-            // make sure to emit aggregates when the cache is full
-            aggregates.forEach(v -> {
-                for (int i = v.size() - timeBinCacheSize; i > 0; --i) {
+            // make sure to emit aggregates when the cache is full until it's
+            // half full again to avoid writing every time bin size from now on
+            int size = timeBins.size();
+            if (size > timeBinCacheSize) {
+                for (int i = size / 2; i > 0; --i) {
                     try {
-                        write(v.remove(v.firstKey()));
+                        write(timeBins.remove(timeBins.firstKey()));
                     } catch (IOException e) {
                         throw new RuntimeException(e);
                     }
                 }
-            });
+            }
 
             return true;
         }
@@ -327,7 +330,7 @@ public class LiveOperationStatisticsAggregator {
         }
     }
 
-    public List<ConcurrentSkipListMap<Long, OperationStatistics>> getAggregates() {
+    public List<SortedMap<Long, OperationStatistics>> getAggregates() {
         boolean assertionsEnabled = false;
         assert (assertionsEnabled = true);
         if (!assertionsEnabled) {
