@@ -497,6 +497,24 @@ static void JNICALL VMInitCallback(jvmtiEnv *jvmti_env, JNIEnv *jni_env,
 // function to be call when the JVM shuts down
 static void JNICALL VMDeathCallback(jvmtiEnv *jvmti_env, JNIEnv *jni_env) {
   LOG_VERBOSE("Shutting down VM.\n");
+
+  // get the aggregator and shut it down
+  jclass live_operation_statistics_aggregator_class = jni_env->FindClass(
+      "de/zib/sfs/instrument/statistics/LiveOperationStatisticsAggregator");
+  jfieldID instance_field_id = jni_env->GetStaticFieldID(
+      live_operation_statistics_aggregator_class, "instance",
+      "Lde/zib/sfs/instrument/statistics/LiveOperationStatisticsAggregator;");
+  jobject live_operation_statistics_aggregator_instance =
+      jni_env->GetStaticObjectField(live_operation_statistics_aggregator_class,
+                                    instance_field_id);
+
+  LOG_VERBOSE("Shutting down LiveOperationStatisticsAggregator.\n");
+  jmethodID shutdown_method_id = jni_env->GetMethodID(
+      live_operation_statistics_aggregator_class, "shutdown", "()V");
+  jni_env->CallVoidMethod(live_operation_statistics_aggregator_instance,
+                          shutdown_method_id);
+  LOG_VERBOSE("LiveOperationStatisticsAggregator shut down successfully.\n");
+
   LOG_VERBOSE("VM shut down successfully.\n");
 }
 

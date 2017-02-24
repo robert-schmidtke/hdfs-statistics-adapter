@@ -299,13 +299,33 @@ public class StatisticsFileSystem extends FileSystem {
             return;
         }
 
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Closing wrapped file system.");
+        }
         wrappedFS.close();
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Closed wrapped file system.");
+        }
 
         // If called from a shutdown hook, org.apache.hadoop.fs.FileSystem will
         // be closed during its own shutdown hook, so avoid deadlock here by
         // only closing super when explicitly closed.
         if (!fromShutdownHook) {
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Closing parent file system.");
+            }
             super.close();
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Closed parent file system.");
+            }
+        }
+
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Flushing statistics.");
+        }
+        LiveOperationStatisticsAggregator.instance.flush();
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Flushed statistics.");
         }
 
         if (LOG.isDebugEnabled()) {

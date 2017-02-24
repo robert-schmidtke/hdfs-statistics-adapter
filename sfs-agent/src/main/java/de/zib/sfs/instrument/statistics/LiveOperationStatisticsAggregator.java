@@ -124,6 +124,18 @@ public class LiveOperationStatisticsAggregator {
         }
     }
 
+    public synchronized void flush() {
+        aggregates.forEach(v -> {
+            for (int i = v.size(); i > 0; --i) {
+                try {
+                    write(v.remove(v.firstKey()));
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+    }
+
     public void shutdown() {
         synchronized (this) {
             if (!initialized) {
@@ -150,15 +162,7 @@ public class LiveOperationStatisticsAggregator {
         }
 
         // write remaining aggregates
-        aggregates.forEach(v -> {
-            for (int i = v.size(); i > 0; --i) {
-                try {
-                    write(v.remove(v.firstKey()));
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-        });
+        flush();
 
         // finally close all writers
         for (BufferedWriter writer : writers) {
@@ -299,13 +303,15 @@ public class LiveOperationStatisticsAggregator {
 
             // make sure to emit aggregates when the cache is full until it's
             // half full again to avoid writing every time bin size from now on
-            int size = timeBins.size();
-            if (size > timeBinCacheSize) {
-                for (int i = size / 2; i > 0; --i) {
-                    try {
-                        write(timeBins.remove(timeBins.firstKey()));
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
+            synchronized (timeBins) {
+                int size = timeBins.size();
+                if (size > timeBinCacheSize) {
+                    for (int i = size / 2; i > 0; --i) {
+                        try {
+                            write(timeBins.remove(timeBins.firstKey()));
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
                     }
                 }
             }
