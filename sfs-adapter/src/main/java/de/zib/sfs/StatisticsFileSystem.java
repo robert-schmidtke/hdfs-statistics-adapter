@@ -309,14 +309,6 @@ public class StatisticsFileSystem extends FileSystem {
         }
 
         if (LOG.isDebugEnabled()) {
-            LOG.debug("Flushing statistics.");
-        }
-        LiveOperationStatisticsAggregator.instance.flush();
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("Flushed statistics.");
-        }
-
-        if (LOG.isDebugEnabled()) {
             LOG.debug("Closed file system.");
         }
         closed = true;
