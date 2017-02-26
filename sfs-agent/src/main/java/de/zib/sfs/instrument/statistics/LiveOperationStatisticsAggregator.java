@@ -14,7 +14,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.SortedMap;
+import java.util.Map;
+import java.util.NavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinTask;
@@ -37,7 +38,7 @@ public class LiveOperationStatisticsAggregator {
 
     // for each source/category combination, map a time bin to an aggregate
     // operation statistics
-    private final List<SortedMap<Long, OperationStatistics>> aggregates;
+    private final List<NavigableMap<Long, OperationStatistics>> aggregates;
 
     private final BufferedWriter[] writers;
     private final Object[] writerLocks;
@@ -48,7 +49,7 @@ public class LiveOperationStatisticsAggregator {
 
     private LiveOperationStatisticsAggregator() {
         // map each source/category combination, map a time bin to an aggregate
-        aggregates = new ArrayList<SortedMap<Long, OperationStatistics>>();
+        aggregates = new ArrayList<NavigableMap<Long, OperationStatistics>>();
         for (int i = 0; i < OperationSource.values().length
                 * OperationCategory.values().length; ++i) {
             aggregates.add(new ConcurrentSkipListMap<>());
@@ -124,11 +125,13 @@ public class LiveOperationStatisticsAggregator {
         }
     }
 
-    public synchronized void flush() {
+    public void flush() {
         aggregates.forEach(v -> {
-            for (int i = v.size(); i > 0; --i) {
+            Map.Entry<Long, OperationStatistics> entry = v.pollFirstEntry();
+            while (entry != null) {
                 try {
-                    write(v.remove(v.firstKey()));
+                    write(entry.getValue());
+                    entry = v.pollFirstEntry();
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -290,7 +293,7 @@ public class LiveOperationStatisticsAggregator {
             }
 
             // get the time bin applicable for this operation
-            SortedMap<Long, OperationStatistics> timeBins = aggregates
+            NavigableMap<Long, OperationStatistics> timeBins = aggregates
                     .get(getUniqueIndex(aggregate.getSource(),
                             aggregate.getCategory()));
             timeBins.merge(aggregate.getTimeBin(), aggregate, (v1, v2) -> {
@@ -303,15 +306,19 @@ public class LiveOperationStatisticsAggregator {
 
             // make sure to emit aggregates when the cache is full until it's
             // half full again to avoid writing every time bin size from now on
-            synchronized (timeBins) {
-                int size = timeBins.size();
-                if (size > timeBinCacheSize) {
-                    for (int i = size / 2; i > 0; --i) {
-                        try {
-                            write(timeBins.remove(timeBins.firstKey()));
-                        } catch (IOException e) {
-                            throw new RuntimeException(e);
+            int size = timeBins.size();
+            if (size > timeBinCacheSize) {
+                for (int i = size / 2; i > 0; --i) {
+                    try {
+                        Map.Entry<Long, OperationStatistics> entry = timeBins
+                                .pollFirstEntry();
+                        if (entry != null) {
+                            write(entry.getValue());
+                        } else {
+                            break;
                         }
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
                     }
                 }
             }
@@ -336,7 +343,7 @@ public class LiveOperationStatisticsAggregator {
         }
     }
 
-    public List<SortedMap<Long, OperationStatistics>> getAggregates() {
+    public List<NavigableMap<Long, OperationStatistics>> getAggregates() {
         boolean assertionsEnabled = false;
         assert (assertionsEnabled = true);
         if (!assertionsEnabled) {

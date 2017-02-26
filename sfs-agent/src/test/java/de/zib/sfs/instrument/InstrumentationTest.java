@@ -18,8 +18,8 @@ import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.WritableByteChannel;
 import java.util.List;
 import java.util.Map;
+import java.util.NavigableMap;
 import java.util.Random;
-import java.util.SortedMap;
 
 import de.zib.sfs.instrument.statistics.DataOperationStatistics;
 import de.zib.sfs.instrument.statistics.LiveOperationStatisticsAggregator;
@@ -232,7 +232,7 @@ public class InstrumentationTest {
             Thread.sleep(5000);
 
             // get statistics and check them
-            List<SortedMap<Long, OperationStatistics>> aggregates = aggregator
+            List<NavigableMap<Long, OperationStatistics>> aggregates = aggregator
                     .getAggregates();
 
             // no SFS involved here
@@ -266,7 +266,7 @@ public class InstrumentationTest {
     }
 
     private static void assertOperationCount(
-            List<SortedMap<Long, OperationStatistics>> aggregates,
+            List<NavigableMap<Long, OperationStatistics>> aggregates,
             OperationSource source, OperationCategory category, long atLeast) {
         Map<Long, OperationStatistics> operations = aggregates
                 .get(LiveOperationStatisticsAggregator.getUniqueIndex(source,
@@ -281,7 +281,7 @@ public class InstrumentationTest {
     }
 
     private static void assertOperationData(
-            List<SortedMap<Long, OperationStatistics>> aggregates,
+            List<NavigableMap<Long, OperationStatistics>> aggregates,
             OperationSource source, OperationCategory category, long atLeast,
             long atMost) {
         Map<Long, OperationStatistics> operations = aggregates
