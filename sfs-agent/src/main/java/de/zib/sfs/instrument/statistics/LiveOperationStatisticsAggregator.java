@@ -125,6 +125,20 @@ public class LiveOperationStatisticsAggregator {
         }
     }
 
+    public synchronized void flush() {
+        aggregates.forEach(v -> {
+            Map.Entry<Long, OperationStatistics> entry = v.pollFirstEntry();
+            while (entry != null) {
+                try {
+                    write(entry.getValue());
+                    entry = v.pollFirstEntry();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+    }
+
     public void shutdown() {
         synchronized (this) {
             if (!initialized) {
@@ -151,17 +165,7 @@ public class LiveOperationStatisticsAggregator {
         }
 
         // write remaining aggregates
-        aggregates.forEach(v -> {
-            Map.Entry<Long, OperationStatistics> entry = v.pollFirstEntry();
-            while (entry != null) {
-                try {
-                    write(entry.getValue());
-                    entry = v.pollFirstEntry();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-        });
+        flush();
 
         // finally close all writers
         for (BufferedWriter writer : writers) {
