@@ -28,9 +28,9 @@ import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.util.Progressable;
 
 import de.zib.sfs.flink.WrappedFlinkFileSystem;
+import de.zib.sfs.instrument.statistics.LiveOperationStatisticsAggregator;
 import de.zib.sfs.instrument.statistics.OperationCategory;
 import de.zib.sfs.instrument.statistics.OperationSource;
-import de.zib.sfs.instrument.statistics.LiveOperationStatisticsAggregator;
 
 /**
  * Implements the Hadoop {@link org.apache.hadoop.fs.FileSystem} interface as it
@@ -318,14 +318,6 @@ public class StatisticsFileSystem extends FileSystem {
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Closed parent file system.");
             }
-        }
-
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("Flushing statistics.");
-        }
-        LiveOperationStatisticsAggregator.instance.flush();
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("Flushed statistics.");
         }
 
         if (LOG.isDebugEnabled()) {
