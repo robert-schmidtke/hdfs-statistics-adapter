@@ -46,14 +46,14 @@ public class FileChannelImplAdapter extends ClassVisitor {
      *            {@link org.objectweb.asm.ClassVisitor} to delegate all visit
      *            calls to which are not explicitly overridden here. Most likely
      *            a {@link org.objectweb.asm.ClassWriter}.
-     * @param methodPrefix
+     * @param nativeMethodPrefix
      * @throws SecurityException
      * @throws NoSuchMethodException
      */
-    public FileChannelImplAdapter(ClassVisitor cv, String methodPrefix)
+    public FileChannelImplAdapter(ClassVisitor cv, String nativeMethodPrefix)
             throws NoSuchMethodException, SecurityException {
         super(Opcodes.ASM5, cv);
-        this.methodPrefix = methodPrefix;
+        this.methodPrefix = nativeMethodPrefix;
 
         systemInternalName = Type.getInternalName(System.class);
         currentTimeMillisDescriptor = Type.getMethodDescriptor(Type.LONG_TYPE);
