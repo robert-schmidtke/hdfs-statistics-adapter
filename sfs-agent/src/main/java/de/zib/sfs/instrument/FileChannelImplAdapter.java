@@ -7,10 +7,9 @@
  */
 package de.zib.sfs.instrument;
 
+import java.io.FileDescriptor;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.channels.ReadableByteChannel;
-import java.nio.channels.WritableByteChannel;
 
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.FieldVisitor;
@@ -114,15 +113,11 @@ public class FileChannelImplAdapter extends ClassVisitor {
                         Type.INT_TYPE),
                 Type.getMethodDescriptor(Type.INT_TYPE,
                         Type.getType(ByteBuffer.class), Type.LONG_TYPE),
-                Type.getMethodDescriptor(Type.LONG_TYPE, Type.LONG_TYPE,
-                        Type.LONG_TYPE,
-                        Type.getType(WritableByteChannel.class)),
                 Type.getMethodDescriptor(Type.LONG_TYPE,
-                        Type.getType(ReadableByteChannel.class), Type.LONG_TYPE,
-                        Type.LONG_TYPE) };
+                        Type.getType(FileDescriptor.class), Type.LONG_TYPE,
+                        Type.LONG_TYPE, Type.getType(FileDescriptor.class)) };
         MethodVisitor[] readMVs = new MethodVisitor[3];
         MethodVisitor[] writeMVs = new MethodVisitor[3];
-        MethodVisitor[] transferMVs = new MethodVisitor[2];
 
         String ioExceptionInternalName = Type
                 .getInternalName(IOException.class);
@@ -408,43 +403,43 @@ public class FileChannelImplAdapter extends ClassVisitor {
         writeMVs[2].visitMaxs(0, 0);
         writeMVs[2].visitEnd();
 
-        // public long transferTo(long position, long count, WritableByteChannel
-        // target) throws IOException {
-        transferMVs[0] = cv.visitMethod(Opcodes.ACC_PUBLIC, "transferTo",
-                methodDescriptors[3], null,
-                new String[] { ioExceptionInternalName });
-        transferMVs[0].visitCode();
+        // private long transferTo0(FileDescriptor src, long position, long
+        // count, FileDescriptor dst);{
+        MethodVisitor transferToMV = cv.visitMethod(Opcodes.ACC_PRIVATE,
+                "transferTo0", methodDescriptors[3], null, null);
+        transferToMV.visitCode();
 
         // long startTime = System.currentTimeMillis();
-        transferMVs[0].visitMethodInsn(Opcodes.INVOKESTATIC, systemInternalName,
+        transferToMV.visitMethodInsn(Opcodes.INVOKESTATIC, systemInternalName,
                 "currentTimeMillis", currentTimeMillisDescriptor, false);
-        transferMVs[0].visitVarInsn(Opcodes.LSTORE, 6);
+        transferToMV.visitVarInsn(Opcodes.LSTORE, 7);
 
-        // long transferResult = methodPrefixtransferTo(position, count,
-        // target);
-        transferMVs[0].visitVarInsn(Opcodes.ALOAD, 0);
-        transferMVs[0].visitVarInsn(Opcodes.LLOAD, 1);
-        transferMVs[0].visitVarInsn(Opcodes.LLOAD, 3);
-        transferMVs[0].visitVarInsn(Opcodes.ALOAD, 5);
-        transferMVs[0].visitMethodInsn(Opcodes.INVOKESPECIAL,
-                fileChannelImplInternalName, methodPrefix + "transferTo",
+        // long transferResult = methodPrefixtransferTo0(src, position, count,
+        // dst);
+        transferToMV.visitVarInsn(Opcodes.ALOAD, 0);
+        transferToMV.visitVarInsn(Opcodes.LLOAD, 1);
+        transferToMV.visitVarInsn(Opcodes.LLOAD, 2);
+        transferToMV.visitVarInsn(Opcodes.ALOAD, 4);
+        transferToMV.visitVarInsn(Opcodes.ALOAD, 6);
+        transferToMV.visitMethodInsn(Opcodes.INVOKESPECIAL,
+                fileChannelImplInternalName, methodPrefix + "transferTo0",
                 methodDescriptors[3], false);
-        transferMVs[0].visitVarInsn(Opcodes.LSTORE, 8);
+        transferToMV.visitVarInsn(Opcodes.LSTORE, 9);
 
         // long endTime = System.currentTimeMillis();
-        transferMVs[0].visitMethodInsn(Opcodes.INVOKESTATIC, systemInternalName,
+        transferToMV.visitMethodInsn(Opcodes.INVOKESTATIC, systemInternalName,
                 "currentTimeMillis", currentTimeMillisDescriptor, false);
-        transferMVs[0].visitVarInsn(Opcodes.LSTORE, 10);
+        transferToMV.visitVarInsn(Opcodes.LSTORE, 11);
 
         // callback.onTransferToEnd(startTime, endTime, transferResult);
-        transferMVs[0].visitVarInsn(Opcodes.ALOAD, 0);
-        transferMVs[0].visitFieldInsn(Opcodes.GETFIELD,
+        transferToMV.visitVarInsn(Opcodes.ALOAD, 0);
+        transferToMV.visitFieldInsn(Opcodes.GETFIELD,
                 fileChannelImplInternalName, "callback",
                 fileChannelImplCallbackDescriptor);
-        transferMVs[0].visitVarInsn(Opcodes.LLOAD, 6);
-        transferMVs[0].visitVarInsn(Opcodes.LLOAD, 10);
-        transferMVs[0].visitVarInsn(Opcodes.LLOAD, 8);
-        transferMVs[0].visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+        transferToMV.visitVarInsn(Opcodes.LLOAD, 7);
+        transferToMV.visitVarInsn(Opcodes.LLOAD, 11);
+        transferToMV.visitVarInsn(Opcodes.LLOAD, 9);
+        transferToMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
                 fileChannelImplCallbackInternalName, "onTransferToEnd",
                 Type.getMethodDescriptor(Type.VOID_TYPE, Type.LONG_TYPE,
                         Type.LONG_TYPE, Type.LONG_TYPE),
@@ -452,59 +447,10 @@ public class FileChannelImplAdapter extends ClassVisitor {
 
         // return transferResult;
         // }
-        transferMVs[0].visitVarInsn(Opcodes.LLOAD, 8);
-        transferMVs[0].visitInsn(Opcodes.LRETURN);
-        transferMVs[0].visitMaxs(0, 0);
-        transferMVs[0].visitEnd();
-
-        // public long transferFrom(ReadableByteChannel src, long position, long
-        // count) throws IOException {
-        transferMVs[1] = cv.visitMethod(Opcodes.ACC_PUBLIC, "transferFrom",
-                methodDescriptors[4], null,
-                new String[] { ioExceptionInternalName });
-        transferMVs[1].visitCode();
-
-        // long startTime = System.currentTimeMillis();
-        transferMVs[1].visitMethodInsn(Opcodes.INVOKESTATIC, systemInternalName,
-                "currentTimeMillis", currentTimeMillisDescriptor, false);
-        transferMVs[1].visitVarInsn(Opcodes.LSTORE, 6);
-
-        // long transferResult = methodPrefixtransferFrom(position, count,
-        // target);
-        transferMVs[1].visitVarInsn(Opcodes.ALOAD, 0);
-        transferMVs[1].visitVarInsn(Opcodes.ALOAD, 1);
-        transferMVs[1].visitVarInsn(Opcodes.LLOAD, 2);
-        transferMVs[1].visitVarInsn(Opcodes.LLOAD, 4);
-        transferMVs[1].visitMethodInsn(Opcodes.INVOKESPECIAL,
-                fileChannelImplInternalName, methodPrefix + "transferFrom",
-                methodDescriptors[4], false);
-        transferMVs[1].visitVarInsn(Opcodes.LSTORE, 8);
-
-        // long endTime = System.currentTimeMillis();
-        transferMVs[1].visitMethodInsn(Opcodes.INVOKESTATIC, systemInternalName,
-                "currentTimeMillis", currentTimeMillisDescriptor, false);
-        transferMVs[1].visitVarInsn(Opcodes.LSTORE, 10);
-
-        // callback.onTransferFromEnd(startTime, endTime, transferResult);
-        transferMVs[1].visitVarInsn(Opcodes.ALOAD, 0);
-        transferMVs[1].visitFieldInsn(Opcodes.GETFIELD,
-                fileChannelImplInternalName, "callback",
-                fileChannelImplCallbackDescriptor);
-        transferMVs[1].visitVarInsn(Opcodes.LLOAD, 6);
-        transferMVs[1].visitVarInsn(Opcodes.LLOAD, 10);
-        transferMVs[1].visitVarInsn(Opcodes.LLOAD, 8);
-        transferMVs[1].visitMethodInsn(Opcodes.INVOKEVIRTUAL,
-                fileChannelImplCallbackInternalName, "onTransferFromEnd",
-                Type.getMethodDescriptor(Type.VOID_TYPE, Type.LONG_TYPE,
-                        Type.LONG_TYPE, Type.LONG_TYPE),
-                false);
-
-        // return transferResult;
-        // }
-        transferMVs[1].visitVarInsn(Opcodes.LLOAD, 8);
-        transferMVs[1].visitInsn(Opcodes.LRETURN);
-        transferMVs[1].visitMaxs(0, 0);
-        transferMVs[1].visitEnd();
+        transferToMV.visitVarInsn(Opcodes.LLOAD, 9);
+        transferToMV.visitInsn(Opcodes.LRETURN);
+        transferToMV.visitMaxs(0, 0);
+        transferToMV.visitEnd();
 
         cv.visitEnd();
     }
@@ -580,23 +526,13 @@ public class FileChannelImplAdapter extends ClassVisitor {
 
     private boolean isTransferMethod(int access, String name, String desc,
             String signature, String[] exceptions) {
-        return access == Opcodes.ACC_PUBLIC
-                && (("transferFrom".equals(name) && Type
-                        .getMethodDescriptor(Type.LONG_TYPE,
-                                Type.getType(ReadableByteChannel.class),
-                                Type.LONG_TYPE, Type.LONG_TYPE)
-                        .equals(desc))
-                        || ("transferTo".equals(
-                                name)
-                                && Type
-                                        .getMethodDescriptor(Type.LONG_TYPE,
-                                                Type.LONG_TYPE, Type.LONG_TYPE,
-                                                Type.getType(
-                                                        WritableByteChannel.class))
-                                        .equals(desc)))
-                && null == signature && exceptions != null
-                && exceptions.length == 1
-                && Type.getInternalName(IOException.class)
-                        .equals(exceptions[0]);
+        return access == (Opcodes.ACC_PRIVATE | Opcodes.ACC_NATIVE)
+                && "transferTo0".equals(name)
+                && Type.getMethodDescriptor(Type.LONG_TYPE,
+                        Type.getType(FileDescriptor.class), Type.LONG_TYPE,
+                        Type.LONG_TYPE, Type.getType(FileDescriptor.class))
+                        .equals(desc)
+                && null == signature
+                && (exceptions == null || exceptions.length == 0);
     }
 }

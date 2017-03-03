@@ -141,7 +141,6 @@ public class InstrumentationTest {
                     ByteBuffer.wrap(writeBuffer), ByteBuffer.wrap(writeBuffer),
                     ByteBuffer.wrap(writeBuffer) });
 
-            // this gives 1M reads
             numWritten += fco.transferFrom(new ReadableByteChannel() {
                 boolean open = true;
 
@@ -189,7 +188,6 @@ public class InstrumentationTest {
                             ByteBuffer.wrap(readBuffers[1]),
                             ByteBuffer.wrap(readBuffers[2]) });
 
-            // this gives 1M writes
             numRead += fci.transferTo(0, 1048576, new WritableByteChannel() {
                 boolean open = true;
 
@@ -249,16 +247,16 @@ public class InstrumentationTest {
             assertOperationCount(aggregates, OperationSource.JVM,
                     OperationCategory.OTHER, 6);
 
-            // we wrote 1 + 1 + 6 (+ 1 for the dummy transfer) = 9 MB, no slack
+            // we wrote 1 + 1 + 6 = 8 MB, no slack
             // for the JVM
             assertOperationData(aggregates, OperationSource.JVM,
-                    OperationCategory.WRITE, 9 * 1048576, 9 * 1048576);
+                    OperationCategory.WRITE, 8 * 1048576, 8 * 1048576);
 
-            // we read 1 + 1 + 6 (+ 1 for the dummy transfer) = 9 MB, allow 48K
+            // we read 1 + 1 + 6 = 8 MB, allow 48K
             // slack for the JVM
             assertOperationData(aggregates, OperationSource.JVM,
-                    OperationCategory.READ, 9 * 1048576,
-                    9 * 1048576 + 48 * 1024);
+                    OperationCategory.READ, 8 * 1048576,
+                    8 * 1048576 + 48 * 1024);
         } catch (NoClassDefFoundError e) {
             // we're not instrumented, discard
         }
