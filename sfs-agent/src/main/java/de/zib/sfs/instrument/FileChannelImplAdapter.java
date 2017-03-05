@@ -422,9 +422,9 @@ public class FileChannelImplAdapter extends ClassVisitor {
         // long transferResult = methodPrefixtransferTo0(src, position, count,
         // dst);
         transferToMV.visitVarInsn(Opcodes.ALOAD, 0);
-        transferToMV.visitVarInsn(Opcodes.LLOAD, 1);
+        transferToMV.visitVarInsn(Opcodes.ALOAD, 1);
         transferToMV.visitVarInsn(Opcodes.LLOAD, 2);
-        transferToMV.visitVarInsn(Opcodes.ALOAD, 4);
+        transferToMV.visitVarInsn(Opcodes.LLOAD, 4);
         transferToMV.visitVarInsn(Opcodes.ALOAD, 6);
         transferToMV.visitMethodInsn(Opcodes.INVOKESPECIAL,
                 fileChannelImplInternalName, nativeMethodPrefix + "transferTo0",
