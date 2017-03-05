@@ -232,7 +232,7 @@ public class InstrumentationTest {
             RandomAccessFile writeFile = new RandomAccessFile(file, "rw");
             FileChannel fco = writeFile.getChannel();
 
-            MappedByteBuffer mbbo = fco.map(MapMode.READ_WRITE, 0, 1048576);
+            MappedByteBuffer mbbo = fco.map(MapMode.READ_WRITE, 0, 2 * 1048576);
 
             byte b = (byte) random.nextInt(Byte.MAX_VALUE);
             mbbo.put(b); // 1 byte
@@ -262,14 +262,24 @@ public class InstrumentationTest {
             }
             mbbo.put(writeBuffer);
 
+            byte[] writeBuffer2 = new byte[1048576];
+            for (int j = 0; j < writeBuffer2.length; ++j) {
+                writeBuffer2[j] = (byte) random.nextInt(Byte.MAX_VALUE);
+            }
+
+            // FIXME ByteBuffer.put(ByteBuffer src) will not be caught if src is
+            // a MemoryMappedBuffer itself, e.g. when copying from one memory
+            // mapped file to another.
+            mbbo.put(ByteBuffer.wrap(writeBuffer2));
+
             fco.close();
             writeFile.close();
-            assert (file.length() == 1048576);
+            assert (file.length() == 2 * 1048576);
 
             RandomAccessFile readFile = new RandomAccessFile(file, "r");
             FileChannel fci = readFile.getChannel();
 
-            MappedByteBuffer mbbi = fci.map(MapMode.READ_ONLY, 0, 1048576);
+            MappedByteBuffer mbbi = fci.map(MapMode.READ_ONLY, 0, 2 * 1048576);
 
             assert (b == mbbi.get());
             assert (c == mbbi.getChar());
@@ -283,6 +293,12 @@ public class InstrumentationTest {
             mbbi.get(readBuffer);
             for (int j = 0; j < readBuffer.length; ++j) {
                 assert (readBuffer[j] == writeBuffer[j]);
+            }
+
+            byte[] readBuffer2 = new byte[1048576];
+            mbbi.get(readBuffer2);
+            for (int j = 0; j < readBuffer2.length; ++j) {
+                assert (readBuffer2[j] == writeBuffer2[j]);
             }
 
             fci.close();
@@ -314,16 +330,16 @@ public class InstrumentationTest {
             assertOperationCount(aggregates, OperationSource.JVM,
                     OperationCategory.OTHER, 8);
 
-            // we wrote 1 + 1 + 6 + 1 = 9 MB, no slack
+            // we wrote 1 + 1 + 6 + 2 = 10 MB, no slack
             // for the JVM
             assertOperationData(aggregates, OperationSource.JVM,
-                    OperationCategory.WRITE, 9 * 1048576, 9 * 1048576);
+                    OperationCategory.WRITE, 10 * 1048576, 10 * 1048576);
 
-            // we read 1 + 1 + 6 + 1 = 9 MB, allow 48K
+            // we read 1 + 1 + 6 + 2 = 10 MB, allow 48K
             // slack for the JVM
             assertOperationData(aggregates, OperationSource.JVM,
-                    OperationCategory.READ, 9 * 1048576,
-                    9 * 1048576 + 48 * 1024);
+                    OperationCategory.READ, 10 * 1048576,
+                    10 * 1048576 + 48 * 1024);
         } catch (NoClassDefFoundError e) {
             // we're not instrumented, discard
         }
