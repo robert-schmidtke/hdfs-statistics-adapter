@@ -13,7 +13,9 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
+import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.channels.FileChannel.MapMode;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.WritableByteChannel;
 import java.util.List;
@@ -224,6 +226,71 @@ public class InstrumentationTest {
             file.delete();
         }
 
+        {
+            File file = File.createTempFile("channel", null);
+
+            RandomAccessFile writeFile = new RandomAccessFile(file, "rw");
+            FileChannel fco = writeFile.getChannel();
+
+            MappedByteBuffer mbbo = fco.map(MapMode.READ_WRITE, 0, 1048576);
+
+            byte b = (byte) random.nextInt(Byte.MAX_VALUE);
+            mbbo.put(b); // 1 byte
+
+            char c = (char) random.nextInt(Character.MAX_VALUE);
+            mbbo.putChar(c); // 2 bytes
+
+            double d = random.nextDouble();
+            mbbo.putDouble(d); // 8 bytes
+
+            float f = random.nextFloat();
+            mbbo.putFloat(f); // 4 bytes
+
+            int i = random.nextInt();
+            mbbo.putInt(i); // 4 bytes
+
+            long l = random.nextLong();
+            mbbo.putLong(l); // 8 bytes
+
+            short s = (short) random.nextInt(Short.MAX_VALUE);
+            mbbo.putShort(s); // 2 bytes
+
+            // fill the rest
+            byte[] writeBuffer = new byte[1048547];
+            for (int j = 0; j < writeBuffer.length; ++j) {
+                writeBuffer[j] = (byte) random.nextInt(Byte.MAX_VALUE);
+            }
+            mbbo.put(writeBuffer);
+
+            fco.close();
+            writeFile.close();
+            assert (file.length() == 1048576);
+
+            RandomAccessFile readFile = new RandomAccessFile(file, "r");
+            FileChannel fci = readFile.getChannel();
+
+            MappedByteBuffer mbbi = fci.map(MapMode.READ_ONLY, 0, 1048576);
+
+            assert (b == mbbi.get());
+            assert (c == mbbi.getChar());
+            assert (d == mbbi.getDouble());
+            assert (f == mbbi.getFloat());
+            assert (i == mbbi.getInt());
+            assert (l == mbbi.getLong());
+            assert (s == mbbi.getShort());
+
+            byte[] readBuffer = new byte[1048547];
+            mbbi.get(readBuffer);
+            for (int j = 0; j < readBuffer.length; ++j) {
+                assert (readBuffer[j] == writeBuffer[j]);
+            }
+
+            fci.close();
+            readFile.close();
+
+            file.delete();
+        }
+
         try {
             // same as above
             LiveOperationStatisticsAggregator aggregator = LiveOperationStatisticsAggregator.instance;
@@ -241,22 +308,22 @@ public class InstrumentationTest {
                         .size() == 0);
             }
 
-            // we opened the file 2 + 2 + 2 = 6 times, however the JVM might
+            // we opened the file 2 + 2 + 2 + 2 = 8 times, however the JVM might
             // open a lot more files, especially during class loading, so no
             // exact estimation possible
             assertOperationCount(aggregates, OperationSource.JVM,
-                    OperationCategory.OTHER, 6);
+                    OperationCategory.OTHER, 8);
 
-            // we wrote 1 + 1 + 6 = 8 MB, no slack
+            // we wrote 1 + 1 + 6 + 1 = 9 MB, no slack
             // for the JVM
             assertOperationData(aggregates, OperationSource.JVM,
-                    OperationCategory.WRITE, 8 * 1048576, 8 * 1048576);
+                    OperationCategory.WRITE, 9 * 1048576, 9 * 1048576);
 
-            // we read 1 + 1 + 6 = 8 MB, allow 48K
+            // we read 1 + 1 + 6 + 1 = 9 MB, allow 48K
             // slack for the JVM
             assertOperationData(aggregates, OperationSource.JVM,
-                    OperationCategory.READ, 8 * 1048576,
-                    8 * 1048576 + 48 * 1024);
+                    OperationCategory.READ, 9 * 1048576,
+                    9 * 1048576 + 48 * 1024);
         } catch (NoClassDefFoundError e) {
             // we're not instrumented, discard
         }

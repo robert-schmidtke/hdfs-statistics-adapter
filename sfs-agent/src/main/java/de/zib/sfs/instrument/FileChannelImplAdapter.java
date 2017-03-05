@@ -10,6 +10,8 @@ package de.zib.sfs.instrument;
 import java.io.FileDescriptor;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.MappedByteBuffer;
+import java.nio.channels.FileChannel.MapMode;
 
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.FieldVisitor;
@@ -29,7 +31,7 @@ import sun.nio.ch.FileChannelImpl;
 @SuppressWarnings("restriction")
 public class FileChannelImplAdapter extends ClassVisitor {
 
-    private final String methodPrefix;
+    private final String nativeMethodPrefix;
 
     private final String systemInternalName, currentTimeMillisDescriptor;
 
@@ -53,7 +55,7 @@ public class FileChannelImplAdapter extends ClassVisitor {
     public FileChannelImplAdapter(ClassVisitor cv, String nativeMethodPrefix)
             throws NoSuchMethodException, SecurityException {
         super(Opcodes.ASM5, cv);
-        this.methodPrefix = nativeMethodPrefix;
+        this.nativeMethodPrefix = nativeMethodPrefix;
 
         systemInternalName = Type.getInternalName(System.class);
         currentTimeMillisDescriptor = Type.getMethodDescriptor(Type.LONG_TYPE);
@@ -90,11 +92,11 @@ public class FileChannelImplAdapter extends ClassVisitor {
                     access, name, desc);
         } else if (isReadMethod(access, name, desc, signature, exceptions)
                 || isWriteMethod(access, name, desc, signature, exceptions)
-                || isTransferMethod(access, name, desc, signature,
-                        exceptions)) {
+                || isTransferMethod(access, name, desc, signature, exceptions)
+                || isMapMethod(access, name, desc, signature, exceptions)) {
             // rename native methods so we can wrap them
-            mv = cv.visitMethod(access, methodPrefix + name, desc, signature,
-                    exceptions);
+            mv = cv.visitMethod(access, nativeMethodPrefix + name, desc,
+                    signature, exceptions);
         } else {
             // simply copy the old method
             mv = cv.visitMethod(access, name, desc, signature, exceptions);
@@ -115,7 +117,10 @@ public class FileChannelImplAdapter extends ClassVisitor {
                         Type.getType(ByteBuffer.class), Type.LONG_TYPE),
                 Type.getMethodDescriptor(Type.LONG_TYPE,
                         Type.getType(FileDescriptor.class), Type.LONG_TYPE,
-                        Type.LONG_TYPE, Type.getType(FileDescriptor.class)) };
+                        Type.LONG_TYPE, Type.getType(FileDescriptor.class)),
+                Type.getMethodDescriptor(Type.getType(MappedByteBuffer.class),
+                        Type.getType(MapMode.class), Type.LONG_TYPE,
+                        Type.LONG_TYPE) };
         MethodVisitor[] readMVs = new MethodVisitor[3];
         MethodVisitor[] writeMVs = new MethodVisitor[3];
 
@@ -137,7 +142,7 @@ public class FileChannelImplAdapter extends ClassVisitor {
         readMVs[0].visitVarInsn(Opcodes.ALOAD, 0);
         readMVs[0].visitVarInsn(Opcodes.ALOAD, 1);
         readMVs[0].visitMethodInsn(Opcodes.INVOKESPECIAL,
-                fileChannelImplInternalName, methodPrefix + "read",
+                fileChannelImplInternalName, nativeMethodPrefix + "read",
                 methodDescriptors[0], false);
         readMVs[0].visitVarInsn(Opcodes.ISTORE, 4);
 
@@ -185,7 +190,7 @@ public class FileChannelImplAdapter extends ClassVisitor {
         readMVs[1].visitVarInsn(Opcodes.ILOAD, 2);
         readMVs[1].visitVarInsn(Opcodes.ILOAD, 3);
         readMVs[1].visitMethodInsn(Opcodes.INVOKESPECIAL,
-                fileChannelImplInternalName, methodPrefix + "read",
+                fileChannelImplInternalName, nativeMethodPrefix + "read",
                 methodDescriptors[1], false);
         readMVs[1].visitVarInsn(Opcodes.LSTORE, 6);
 
@@ -231,7 +236,7 @@ public class FileChannelImplAdapter extends ClassVisitor {
         readMVs[2].visitVarInsn(Opcodes.ALOAD, 1);
         readMVs[2].visitVarInsn(Opcodes.LLOAD, 2);
         readMVs[2].visitMethodInsn(Opcodes.INVOKESPECIAL,
-                fileChannelImplInternalName, methodPrefix + "read",
+                fileChannelImplInternalName, nativeMethodPrefix + "read",
                 methodDescriptors[2], false);
         readMVs[2].visitVarInsn(Opcodes.ISTORE, 6);
 
@@ -276,7 +281,7 @@ public class FileChannelImplAdapter extends ClassVisitor {
         writeMVs[0].visitVarInsn(Opcodes.ALOAD, 0);
         writeMVs[0].visitVarInsn(Opcodes.ALOAD, 1);
         writeMVs[0].visitMethodInsn(Opcodes.INVOKESPECIAL,
-                fileChannelImplInternalName, methodPrefix + "write",
+                fileChannelImplInternalName, nativeMethodPrefix + "write",
                 methodDescriptors[0], false);
         writeMVs[0].visitVarInsn(Opcodes.ISTORE, 4);
 
@@ -325,7 +330,7 @@ public class FileChannelImplAdapter extends ClassVisitor {
         writeMVs[1].visitVarInsn(Opcodes.ILOAD, 2);
         writeMVs[1].visitVarInsn(Opcodes.ILOAD, 3);
         writeMVs[1].visitMethodInsn(Opcodes.INVOKESPECIAL,
-                fileChannelImplInternalName, methodPrefix + "write",
+                fileChannelImplInternalName, nativeMethodPrefix + "write",
                 methodDescriptors[1], false);
         writeMVs[1].visitVarInsn(Opcodes.LSTORE, 6);
 
@@ -372,7 +377,7 @@ public class FileChannelImplAdapter extends ClassVisitor {
         writeMVs[2].visitVarInsn(Opcodes.ALOAD, 1);
         writeMVs[2].visitVarInsn(Opcodes.LLOAD, 2);
         writeMVs[2].visitMethodInsn(Opcodes.INVOKESPECIAL,
-                fileChannelImplInternalName, methodPrefix + "write",
+                fileChannelImplInternalName, nativeMethodPrefix + "write",
                 methodDescriptors[2], false);
         writeMVs[2].visitVarInsn(Opcodes.ISTORE, 6);
 
@@ -422,7 +427,7 @@ public class FileChannelImplAdapter extends ClassVisitor {
         transferToMV.visitVarInsn(Opcodes.ALOAD, 4);
         transferToMV.visitVarInsn(Opcodes.ALOAD, 6);
         transferToMV.visitMethodInsn(Opcodes.INVOKESPECIAL,
-                fileChannelImplInternalName, methodPrefix + "transferTo0",
+                fileChannelImplInternalName, nativeMethodPrefix + "transferTo0",
                 methodDescriptors[3], false);
         transferToMV.visitVarInsn(Opcodes.LSTORE, 9);
 
@@ -451,6 +456,39 @@ public class FileChannelImplAdapter extends ClassVisitor {
         transferToMV.visitInsn(Opcodes.LRETURN);
         transferToMV.visitMaxs(0, 0);
         transferToMV.visitEnd();
+
+        // public MappedByteBuffer map(MapMode mode, long position, long size)
+        // throws IOException {
+        MethodVisitor mapMV = cv.visitMethod(Opcodes.ACC_PUBLIC, "map",
+                methodDescriptors[4], null,
+                new String[] { ioExceptionInternalName });
+        mapMV.visitCode();
+
+        // MappedByteBuffer mbb = nativeMethodPrefixmap(mode, position, size);
+        mapMV.visitVarInsn(Opcodes.ALOAD, 0);
+        mapMV.visitVarInsn(Opcodes.ALOAD, 1);
+        mapMV.visitVarInsn(Opcodes.LLOAD, 2);
+        mapMV.visitVarInsn(Opcodes.LLOAD, 4);
+        mapMV.visitMethodInsn(Opcodes.INVOKESPECIAL,
+                fileChannelImplInternalName, nativeMethodPrefix + "map",
+                methodDescriptors[4], false);
+        mapMV.visitVarInsn(Opcodes.ASTORE, 6);
+
+        // mbb.setFromFileChannel(true);
+        mapMV.visitVarInsn(Opcodes.ALOAD, 6);
+        mapMV.visitInsn(Opcodes.ICONST_1);
+        mapMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+                Type.getInternalName(MappedByteBuffer.class),
+                "setFromFileChannel",
+                Type.getMethodDescriptor(Type.VOID_TYPE, Type.BOOLEAN_TYPE),
+                false);
+
+        // return mbb;
+        // }
+        mapMV.visitVarInsn(Opcodes.ALOAD, 6);
+        mapMV.visitInsn(Opcodes.ARETURN);
+        mapMV.visitMaxs(0, 0);
+        mapMV.visitEnd();
 
         cv.visitEnd();
     }
@@ -534,5 +572,18 @@ public class FileChannelImplAdapter extends ClassVisitor {
                         .equals(desc)
                 && null == signature
                 && (exceptions == null || exceptions.length == 0);
+    }
+
+    private boolean isMapMethod(int access, String name, String desc,
+            String signature, String[] exceptions) {
+        return access == Opcodes.ACC_PUBLIC && "map".equals(name)
+                && Type.getMethodDescriptor(
+                        Type.getType(MappedByteBuffer.class),
+                        Type.getType(MapMode.class), Type.LONG_TYPE,
+                        Type.LONG_TYPE).equals(desc)
+                && null == signature && exceptions != null
+                && exceptions.length == 1
+                && Type.getInternalName(IOException.class)
+                        .equals(exceptions[0]);
     }
 }

@@ -87,6 +87,18 @@ public class ClassTransformationServer extends
                     cr.accept(new ShutdownAdapter(cw),
                             ClassReader.EXPAND_FRAMES);
                     break;
+                case "java/nio/DirectByteBuffer":
+                    cr.accept(
+                            new DirectByteBufferAdapter(cw,
+                                    request.getNativeMethodPrefix()),
+                            ClassReader.EXPAND_FRAMES);
+                    break;
+                case "java/nio/MappedByteBuffer":
+                    cr.accept(
+                            new MappedByteBufferAdapter(cw,
+                                    request.getNativeMethodPrefix()),
+                            ClassReader.EXPAND_FRAMES);
+                    break;
                 case "sun/nio/ch/FileChannelImpl":
                     cr.accept(
                             new FileChannelImplAdapter(cw,

@@ -323,11 +323,14 @@ static void JNICALL ClassFileLoadHookCallback(
   static bool java_io_FileOutputStream_seen = false;
   static bool java_io_RandomAccessFile_seen = false;
   static bool java_lang_Shutdown_seen = false;
+  static bool java_nio_DirectByteBuffer_seen = false;
+  static bool java_nio_MappedByteBuffer_seen = false;
   static bool sun_nio_ch_FileChannelImpl_seen = false;
 
   // all transformations done
   if (java_io_FileInputStream_seen && java_io_FileOutputStream_seen &&
-      java_io_RandomAccessFile_seen && java_lang_Shutdown_seen &&
+      java_io_RandomAccessFile_seen && java_nio_DirectByteBuffer_seen &&
+      java_nio_MappedByteBuffer_seen && java_lang_Shutdown_seen &&
       sun_nio_ch_FileChannelImpl_seen) {
     LOG_VERBOSE("Ignoring class '%s' because all required classes have been "
                 "transformed.\n",
@@ -359,6 +362,10 @@ static void JNICALL ClassFileLoadHookCallback(
     java_io_RandomAccessFile_seen = true;
   } else if (strcmp(name, "java/lang/Shutdown") == 0) {
     java_lang_Shutdown_seen = true;
+  } else if (strcmp(name, "java/nio/DirectByteBuffer") == 0) {
+    java_nio_DirectByteBuffer_seen = true;
+  } else if (strcmp(name, "java/nio/MappedByteBuffer") == 0) {
+    java_nio_MappedByteBuffer_seen = true;
   } else if (strcmp(name, "sun/nio/ch/FileChannelImpl") == 0) {
     sun_nio_ch_FileChannelImpl_seen = true;
   } else {
@@ -381,6 +388,7 @@ static void JNICALL ClassFileLoadHookCallback(
   // JVM can shut down, if we have started it ourselves
   if (java_io_FileInputStream_seen && java_io_FileOutputStream_seen &&
       java_io_RandomAccessFile_seen && java_lang_Shutdown_seen &&
+      java_nio_DirectByteBuffer_seen && java_nio_MappedByteBuffer_seen &&
       sun_nio_ch_FileChannelImpl_seen) {
     LOG_VERBOSE("All required classes have been transformed.\n");
     if (g_start_transformer_jvm) {
@@ -404,6 +412,8 @@ static void JNICALL VMInitCallback(jvmtiEnv *jvmti_env, JNIEnv *jni_env,
   jni_env->FindClass("java/io/FileOutputStream");
   jni_env->FindClass("java/io/RandomAccessFile");
   jni_env->FindClass("java/lang/Shutdown");
+  jni_env->FindClass("java/nio/DirectByteBuffer");
+  jni_env->FindClass("java/nio/MappedByteBuffer");
   jni_env->FindClass("sun/nio/ch/FileChannelImpl");
 
   // set the hostname as system property
