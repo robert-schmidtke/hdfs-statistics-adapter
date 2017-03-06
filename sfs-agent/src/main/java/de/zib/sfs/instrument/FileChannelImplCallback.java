@@ -49,12 +49,4 @@ public class FileChannelImplCallback {
                         transferResult, false);
     }
 
-    public void onTransferFromEnd(long startTime, long endTime,
-            long transferResult) {
-        LiveOperationStatisticsAggregator.instance
-                .aggregateDataOperationStatistics(OperationSource.JVM,
-                        OperationCategory.WRITE, startTime, endTime,
-                        transferResult);
-    }
-
 }

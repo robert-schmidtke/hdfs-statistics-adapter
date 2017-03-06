@@ -262,15 +262,21 @@ public class InstrumentationTest {
             }
             mbbo.put(writeBuffer);
 
+            // write to a dummy file so we can map its buffer
+            // this gives an extra 1 MB in the write statistics
+            File dummyFile = File.createTempFile("from", null);
+            RandomAccessFile dummyRaf = new RandomAccessFile(dummyFile, "rw");
             byte[] writeBuffer2 = new byte[1048576];
             for (int j = 0; j < writeBuffer2.length; ++j) {
                 writeBuffer2[j] = (byte) random.nextInt(Byte.MAX_VALUE);
             }
+            dummyRaf.write(writeBuffer2);
+            dummyRaf.close();
 
-            // FIXME ByteBuffer.put(ByteBuffer src) will not be caught if src is
-            // a MemoryMappedBuffer itself, e.g. when copying from one memory
-            // mapped file to another.
-            mbbo.put(ByteBuffer.wrap(writeBuffer2));
+            // this gives an extra 1 MB in the read statistics
+            dummyRaf = new RandomAccessFile(dummyFile, "r");
+            mbbo.put(dummyRaf.getChannel().map(MapMode.READ_ONLY, 0, 1048576));
+            dummyRaf.close();
 
             fco.close();
             writeFile.close();
@@ -324,22 +330,23 @@ public class InstrumentationTest {
                         .size() == 0);
             }
 
-            // we opened the file 2 + 2 + 2 + 2 = 8 times, however the JVM might
+            // we opened the file 2 + 2 + 2 + 2 + 2 = 10 times, however the JVM
+            // might
             // open a lot more files, especially during class loading, so no
             // exact estimation possible
             assertOperationCount(aggregates, OperationSource.JVM,
-                    OperationCategory.OTHER, 8);
+                    OperationCategory.OTHER, 10);
 
-            // we wrote 1 + 1 + 6 + 2 = 10 MB, no slack
+            // we wrote 1 + 1 + 6 + 2 + 1 = 11 MB, no slack
             // for the JVM
             assertOperationData(aggregates, OperationSource.JVM,
-                    OperationCategory.WRITE, 10 * 1048576, 10 * 1048576);
+                    OperationCategory.WRITE, 11 * 1048576, 11 * 1048576);
 
-            // we read 1 + 1 + 6 + 2 = 10 MB, allow 48K
+            // we read 1 + 1 + 6 + 2 + 1 = 11 MB, allow 48K
             // slack for the JVM
             assertOperationData(aggregates, OperationSource.JVM,
-                    OperationCategory.READ, 10 * 1048576,
-                    10 * 1048576 + 48 * 1024);
+                    OperationCategory.READ, 11 * 1048576,
+                    11 * 1048576 + 48 * 1024);
         } catch (NoClassDefFoundError e) {
             // we're not instrumented, discard
         }

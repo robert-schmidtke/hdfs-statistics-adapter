@@ -7,7 +7,9 @@
  */
 package de.zib.sfs.instrument;
 
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
+import java.nio.MappedByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -164,80 +166,239 @@ public class DirectByteBufferAdapter extends ClassVisitor {
         bulkGetMV.visitMaxs(0, 0);
         bulkGetMV.visitEnd();
 
-        // public ByteBuffer put(byte[] dst, int offset, int length) {
-        MethodVisitor bulkPutMV = cv.visitMethod(Opcodes.ACC_PUBLIC, "put",
-                Type.getMethodDescriptor(Type.getType(ByteBuffer.class),
-                        Type.getType(byte[].class), Type.INT_TYPE,
-                        Type.INT_TYPE),
-                null, null);
-        bulkPutMV.visitCode();
+        {
+            // public ByteBuffer put(byte[] dst, int offset, int length) {
+            MethodVisitor bulkPutMV = cv.visitMethod(Opcodes.ACC_PUBLIC, "put",
+                    Type.getMethodDescriptor(Type.getType(ByteBuffer.class),
+                            Type.getType(byte[].class), Type.INT_TYPE,
+                            Type.INT_TYPE),
+                    null, null);
+            bulkPutMV.visitCode();
 
-        // if (!fromFileChannel) {
-        bulkPutMV.visitVarInsn(Opcodes.ALOAD, 0);
-        bulkPutMV.visitFieldInsn(Opcodes.GETFIELD, directByteBufferInternalName,
-                "fromFileChannel", Type.getDescriptor(Boolean.TYPE));
-        Label bulkPutFromFileChannelLabel = new Label();
-        bulkPutMV.visitJumpInsn(Opcodes.IFNE, bulkPutFromFileChannelLabel);
+            // if (!fromFileChannel) {
+            bulkPutMV.visitVarInsn(Opcodes.ALOAD, 0);
+            bulkPutMV.visitFieldInsn(Opcodes.GETFIELD,
+                    directByteBufferInternalName, "fromFileChannel",
+                    Type.getDescriptor(Boolean.TYPE));
+            Label bulkPutFromFileChannelLabel = new Label();
+            bulkPutMV.visitJumpInsn(Opcodes.IFNE, bulkPutFromFileChannelLabel);
 
-        // return nativeMethodPrefixput(dst, offset, length);
-        bulkPutMV.visitVarInsn(Opcodes.ALOAD, 0);
-        bulkPutMV.visitVarInsn(Opcodes.ALOAD, 1);
-        bulkPutMV.visitVarInsn(Opcodes.ILOAD, 2);
-        bulkPutMV.visitVarInsn(Opcodes.ILOAD, 3);
-        bulkPutMV.visitMethodInsn(Opcodes.INVOKESPECIAL,
-                directByteBufferInternalName, nativeMethodPrefix + "put",
-                Type.getMethodDescriptor(Type.getType(ByteBuffer.class),
-                        Type.getType(byte[].class), Type.INT_TYPE,
-                        Type.INT_TYPE),
-                false);
-        bulkPutMV.visitInsn(Opcodes.ARETURN);
+            // return nativeMethodPrefixput(dst, offset, length);
+            bulkPutMV.visitVarInsn(Opcodes.ALOAD, 0);
+            bulkPutMV.visitVarInsn(Opcodes.ALOAD, 1);
+            bulkPutMV.visitVarInsn(Opcodes.ILOAD, 2);
+            bulkPutMV.visitVarInsn(Opcodes.ILOAD, 3);
+            bulkPutMV.visitMethodInsn(Opcodes.INVOKESPECIAL,
+                    directByteBufferInternalName, nativeMethodPrefix + "put",
+                    Type.getMethodDescriptor(Type.getType(ByteBuffer.class),
+                            Type.getType(byte[].class), Type.INT_TYPE,
+                            Type.INT_TYPE),
+                    false);
+            bulkPutMV.visitInsn(Opcodes.ARETURN);
 
-        // }
-        bulkPutMV.visitLabel(bulkPutFromFileChannelLabel);
+            // }
+            bulkPutMV.visitLabel(bulkPutFromFileChannelLabel);
 
-        // long startTime = System.currentTimeMillis();
-        bulkPutMV.visitMethodInsn(Opcodes.INVOKESTATIC, systemInternalName,
-                "currentTimeMillis", currentTimeMillisDescriptor, false);
-        bulkPutMV.visitVarInsn(Opcodes.LSTORE, 4);
+            // long startTime = System.currentTimeMillis();
+            bulkPutMV.visitMethodInsn(Opcodes.INVOKESTATIC, systemInternalName,
+                    "currentTimeMillis", currentTimeMillisDescriptor, false);
+            bulkPutMV.visitVarInsn(Opcodes.LSTORE, 4);
 
-        // ByteBuffer result = nativeMethodPrefixput(dst, offset, length);
-        bulkPutMV.visitVarInsn(Opcodes.ALOAD, 0);
-        bulkPutMV.visitVarInsn(Opcodes.ALOAD, 1);
-        bulkPutMV.visitVarInsn(Opcodes.ILOAD, 2);
-        bulkPutMV.visitVarInsn(Opcodes.ILOAD, 3);
-        bulkPutMV.visitMethodInsn(Opcodes.INVOKESPECIAL,
-                directByteBufferInternalName, nativeMethodPrefix + "put",
-                Type.getMethodDescriptor(Type.getType(ByteBuffer.class),
-                        Type.getType(byte[].class), Type.INT_TYPE,
-                        Type.INT_TYPE),
-                false);
-        bulkPutMV.visitVarInsn(Opcodes.ASTORE, 6);
+            // ByteBuffer result = nativeMethodPrefixput(dst, offset, length);
+            bulkPutMV.visitVarInsn(Opcodes.ALOAD, 0);
+            bulkPutMV.visitVarInsn(Opcodes.ALOAD, 1);
+            bulkPutMV.visitVarInsn(Opcodes.ILOAD, 2);
+            bulkPutMV.visitVarInsn(Opcodes.ILOAD, 3);
+            bulkPutMV.visitMethodInsn(Opcodes.INVOKESPECIAL,
+                    directByteBufferInternalName, nativeMethodPrefix + "put",
+                    Type.getMethodDescriptor(Type.getType(ByteBuffer.class),
+                            Type.getType(byte[].class), Type.INT_TYPE,
+                            Type.INT_TYPE),
+                    false);
+            bulkPutMV.visitVarInsn(Opcodes.ASTORE, 6);
 
-        // long endTime = System.currentTimeMillis();
-        bulkPutMV.visitMethodInsn(Opcodes.INVOKESTATIC, systemInternalName,
-                "currentTimeMillis", currentTimeMillisDescriptor, false);
-        bulkPutMV.visitVarInsn(Opcodes.LSTORE, 7);
+            // long endTime = System.currentTimeMillis();
+            bulkPutMV.visitMethodInsn(Opcodes.INVOKESTATIC, systemInternalName,
+                    "currentTimeMillis", currentTimeMillisDescriptor, false);
+            bulkPutMV.visitVarInsn(Opcodes.LSTORE, 7);
 
-        // callback.onPutEnd(startTime, endTime, length);
-        bulkPutMV.visitVarInsn(Opcodes.ALOAD, 0);
-        bulkPutMV.visitFieldInsn(Opcodes.GETFIELD, directByteBufferInternalName,
-                "callback", directByteBufferCallbackDescriptor);
-        bulkPutMV.visitVarInsn(Opcodes.LLOAD, 4);
-        bulkPutMV.visitVarInsn(Opcodes.LLOAD, 7);
-        bulkPutMV.visitVarInsn(Opcodes.ILOAD, 3);
-        bulkPutMV
-                .visitMethodInsn(Opcodes.INVOKEVIRTUAL,
-                        directByteBufferCallbackInternalName,
-                        "onPutEnd", Type.getMethodDescriptor(Type.VOID_TYPE,
-                                Type.LONG_TYPE, Type.LONG_TYPE, Type.INT_TYPE),
-                        false);
+            // callback.onPutEnd(startTime, endTime, length);
+            bulkPutMV.visitVarInsn(Opcodes.ALOAD, 0);
+            bulkPutMV.visitFieldInsn(Opcodes.GETFIELD,
+                    directByteBufferInternalName, "callback",
+                    directByteBufferCallbackDescriptor);
+            bulkPutMV.visitVarInsn(Opcodes.LLOAD, 4);
+            bulkPutMV.visitVarInsn(Opcodes.LLOAD, 7);
+            bulkPutMV.visitVarInsn(Opcodes.ILOAD, 3);
+            bulkPutMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+                    directByteBufferCallbackInternalName,
+                    "onPutEnd", Type.getMethodDescriptor(Type.VOID_TYPE,
+                            Type.LONG_TYPE, Type.LONG_TYPE, Type.INT_TYPE),
+                    false);
 
-        // return result;
-        // }
-        bulkPutMV.visitVarInsn(Opcodes.ALOAD, 6);
-        bulkPutMV.visitInsn(Opcodes.ARETURN);
-        bulkPutMV.visitMaxs(0, 0);
-        bulkPutMV.visitEnd();
+            // return result;
+            // }
+            bulkPutMV.visitVarInsn(Opcodes.ALOAD, 6);
+            bulkPutMV.visitInsn(Opcodes.ARETURN);
+            bulkPutMV.visitMaxs(0, 0);
+            bulkPutMV.visitEnd();
+        }
+
+        {
+            // public ByteBuffer put(ByteBuffer src) {
+            MethodVisitor bulkPutMV = cv.visitMethod(Opcodes.ACC_PUBLIC, "put",
+                    Type.getMethodDescriptor(Type.getType(ByteBuffer.class),
+                            Type.getType(ByteBuffer.class)),
+                    null, null);
+            bulkPutMV.visitCode();
+
+            // This method is likely, at least partially, implemented using the
+            // already instrumented methods. However, it may also take some
+            // optimization shortcuts. To accommodate these cases, we disable
+            // instrumentation of the other methods temporarily through setting
+            // fromFileChannel to false. We will use src.remaining() as the
+            // number of bytes that were actually read and written. We will do
+            // the same with src, however report reads for it instead of writes.
+
+            // boolean wasFromFileChannel = fromFileChannel;
+            bulkPutMV.visitVarInsn(Opcodes.ALOAD, 0);
+            bulkPutMV.visitFieldInsn(Opcodes.GETFIELD,
+                    directByteBufferInternalName, "fromFileChannel",
+                    Type.getDescriptor(Boolean.TYPE));
+            bulkPutMV.visitVarInsn(Opcodes.ISTORE, 2);
+
+            // fromFileChannel = false;
+            bulkPutMV.visitVarInsn(Opcodes.ALOAD, 0);
+            bulkPutMV.visitInsn(Opcodes.ICONST_0);
+            bulkPutMV.visitFieldInsn(Opcodes.PUTFIELD,
+                    directByteBufferInternalName, "fromFileChannel",
+                    Type.getDescriptor(Boolean.TYPE));
+
+            // boolean srcFromFileChannel = false;
+            bulkPutMV.visitInsn(Opcodes.ICONST_0);
+            bulkPutMV.visitVarInsn(Opcodes.ISTORE, 3);
+
+            // if (src instanceof MappedByteBuffer) {
+            bulkPutMV.visitVarInsn(Opcodes.ALOAD, 1);
+            bulkPutMV.visitTypeInsn(Opcodes.INSTANCEOF,
+                    Type.getInternalName(MappedByteBuffer.class));
+            Label srcInstanceofMappedByteBufferLabel = new Label();
+            bulkPutMV.visitJumpInsn(Opcodes.IFEQ,
+                    srcInstanceofMappedByteBufferLabel);
+
+            // srcFromFileChannel = src.isFromFileChannel();
+            bulkPutMV.visitVarInsn(Opcodes.ALOAD, 1);
+            bulkPutMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+                    Type.getInternalName(MappedByteBuffer.class),
+                    "isFromFileChannel",
+                    Type.getMethodDescriptor(Type.BOOLEAN_TYPE), false);
+            bulkPutMV.visitVarInsn(Opcodes.ISTORE, 3);
+
+            // src.setFromFileChannel(false);
+            bulkPutMV.visitVarInsn(Opcodes.ALOAD, 1);
+            bulkPutMV.visitInsn(Opcodes.ICONST_0);
+            bulkPutMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+                    Type.getInternalName(MappedByteBuffer.class),
+                    "setFromFileChannel",
+                    Type.getMethodDescriptor(Type.VOID_TYPE, Type.BOOLEAN_TYPE),
+                    false);
+
+            // }
+            bulkPutMV.visitLabel(srcInstanceofMappedByteBufferLabel);
+
+            // int length = src.remaining();
+            bulkPutMV.visitVarInsn(Opcodes.ALOAD, 1);
+            bulkPutMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+                    Type.getInternalName(Buffer.class), "remaining",
+                    Type.getMethodDescriptor(Type.INT_TYPE), false);
+            bulkPutMV.visitVarInsn(Opcodes.ISTORE, 4);
+
+            // long startTime = System.currentTimeMillis();
+            bulkPutMV.visitMethodInsn(Opcodes.INVOKESTATIC, systemInternalName,
+                    "currentTimeMillis", currentTimeMillisDescriptor, false);
+            bulkPutMV.visitVarInsn(Opcodes.LSTORE, 5);
+
+            // ByteBuffer result = nativeMethodPrefixput(src);
+            bulkPutMV.visitVarInsn(Opcodes.ALOAD, 0);
+            bulkPutMV.visitVarInsn(Opcodes.ALOAD, 1);
+            bulkPutMV.visitMethodInsn(Opcodes.INVOKESPECIAL,
+                    directByteBufferInternalName, nativeMethodPrefix + "put",
+                    Type.getMethodDescriptor(Type.getType(ByteBuffer.class),
+                            Type.getType(ByteBuffer.class)),
+                    false);
+            bulkPutMV.visitVarInsn(Opcodes.ASTORE, 7);
+
+            // long endTime = System.currentTimeMillis();
+            bulkPutMV.visitMethodInsn(Opcodes.INVOKESTATIC, systemInternalName,
+                    "currentTimeMillis", currentTimeMillisDescriptor, false);
+            bulkPutMV.visitVarInsn(Opcodes.LSTORE, 8);
+
+            // if (wasFromFileChannel) {
+            bulkPutMV.visitVarInsn(Opcodes.ILOAD, 2);
+            Label wasFromFileChannelLabel = new Label();
+            bulkPutMV.visitJumpInsn(Opcodes.IFEQ, wasFromFileChannelLabel);
+
+            // callback.onPutEnd(startTime, endTime, length);
+            bulkPutMV.visitVarInsn(Opcodes.ALOAD, 0);
+            bulkPutMV.visitFieldInsn(Opcodes.GETFIELD,
+                    directByteBufferInternalName, "callback",
+                    directByteBufferCallbackDescriptor);
+            bulkPutMV.visitVarInsn(Opcodes.LLOAD, 5);
+            bulkPutMV.visitVarInsn(Opcodes.LLOAD, 8);
+            bulkPutMV.visitVarInsn(Opcodes.ILOAD, 4);
+            bulkPutMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+                    directByteBufferCallbackInternalName,
+                    "onPutEnd", Type.getMethodDescriptor(Type.VOID_TYPE,
+                            Type.LONG_TYPE, Type.LONG_TYPE, Type.INT_TYPE),
+                    false);
+
+            // fromFileChannel = true;
+            bulkPutMV.visitVarInsn(Opcodes.ALOAD, 0);
+            bulkPutMV.visitInsn(Opcodes.ICONST_1);
+            bulkPutMV.visitFieldInsn(Opcodes.PUTFIELD,
+                    directByteBufferInternalName, "fromFileChannel",
+                    Type.getDescriptor(Boolean.TYPE));
+
+            // }
+            bulkPutMV.visitLabel(wasFromFileChannelLabel);
+
+            // if (srcFromFileChannel) {
+            bulkPutMV.visitVarInsn(Opcodes.ILOAD, 3);
+            Label srcFromFileChannelLabel = new Label();
+            bulkPutMV.visitJumpInsn(Opcodes.IFEQ, srcFromFileChannelLabel);
+
+            // callback.onGetEnd(startTime, endTime, length);
+            bulkPutMV.visitVarInsn(Opcodes.ALOAD, 0);
+            bulkPutMV.visitFieldInsn(Opcodes.GETFIELD,
+                    directByteBufferInternalName, "callback",
+                    directByteBufferCallbackDescriptor);
+            bulkPutMV.visitVarInsn(Opcodes.LLOAD, 5);
+            bulkPutMV.visitVarInsn(Opcodes.LLOAD, 8);
+            bulkPutMV.visitVarInsn(Opcodes.ILOAD, 4);
+            bulkPutMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+                    directByteBufferCallbackInternalName,
+                    "onGetEnd", Type.getMethodDescriptor(Type.VOID_TYPE,
+                            Type.LONG_TYPE, Type.LONG_TYPE, Type.INT_TYPE),
+                    false);
+
+            // src.setFromFileChannel(true);
+            bulkPutMV.visitVarInsn(Opcodes.ALOAD, 1);
+            bulkPutMV.visitInsn(Opcodes.ICONST_1);
+            bulkPutMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+                    Type.getInternalName(MappedByteBuffer.class),
+                    "setFromFileChannel",
+                    Type.getMethodDescriptor(Type.VOID_TYPE, Type.BOOLEAN_TYPE),
+                    false);
+
+            // }
+            bulkPutMV.visitLabel(srcFromFileChannelLabel);
+
+            // return result;
+            bulkPutMV.visitVarInsn(Opcodes.ALOAD, 7);
+            bulkPutMV.visitInsn(Opcodes.ARETURN);
+            bulkPutMV.visitMaxs(0, 0);
+            bulkPutMV.visitEnd();
+        }
 
         // regular gets and puts
         for (Map.Entry<String, Type> type : TYPES.entrySet()) {
@@ -631,11 +792,14 @@ public class DirectByteBufferAdapter extends ClassVisitor {
             return false;
         }
 
-        // bulk put
+        // bulk puts
         if ("put".equals(name)) {
             if (Type.getMethodDescriptor(Type.getType(ByteBuffer.class),
                     Type.getType(byte[].class), Type.INT_TYPE, Type.INT_TYPE)
-                    .equals(desc)) {
+                    .equals(desc) || Type
+                            .getMethodDescriptor(Type.getType(ByteBuffer.class),
+                                    Type.getType(ByteBuffer.class))
+                            .equals(desc)) {
                 return true;
             }
         }

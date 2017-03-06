@@ -82,6 +82,22 @@ public class MappedByteBufferAdapter extends ClassVisitor {
         setFromFileChannelMV.visitMaxs(0, 0);
         setFromFileChannelMV.visitEnd();
 
+        // public boolean isFromFileChannel() {
+        MethodVisitor isFromFileChannelMV = cv.visitMethod(Opcodes.ACC_PUBLIC,
+                "isFromFileChannel",
+                Type.getMethodDescriptor(Type.BOOLEAN_TYPE), null, null);
+        isFromFileChannelMV.visitCode();
+
+        // return fromFileChannel;
+        // }
+        isFromFileChannelMV.visitVarInsn(Opcodes.ALOAD, 0);
+        isFromFileChannelMV.visitFieldInsn(Opcodes.GETFIELD,
+                Type.getInternalName(MappedByteBuffer.class), "fromFileChannel",
+                Type.getDescriptor(Boolean.TYPE));
+        isFromFileChannelMV.visitInsn(Opcodes.IRETURN);
+        isFromFileChannelMV.visitMaxs(0, 0);
+        isFromFileChannelMV.visitEnd();
+
         cv.visitEnd();
     }
 
