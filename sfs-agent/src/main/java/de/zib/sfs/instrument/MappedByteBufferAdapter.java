@@ -14,16 +14,15 @@ import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
-import org.objectweb.asm.commons.AdviceAdapter;
 
-public class MappedByteBufferAdapter extends ClassVisitor {
+public class MappedByteBufferAdapter extends AbstractSfsAdapter {
 
-    public MappedByteBufferAdapter(ClassVisitor cv, String nativeMethodPrefix) {
-        super(Opcodes.ASM5, cv);
+    public MappedByteBufferAdapter(ClassVisitor cv) {
+        super(cv, MappedByteBuffer.class);
     }
 
     @Override
-    public void visitSource(String source, String debug) {
+    protected void appendFields(ClassVisitor cv) {
         // add protected field that DirectByteBuffer can access to see if it was
         // created by a FileChannelImpl
 
@@ -32,37 +31,26 @@ public class MappedByteBufferAdapter extends ClassVisitor {
                 "fromFileChannel", Type.getDescriptor(Boolean.TYPE), null,
                 null);
         fromFileChannelFV.visitEnd();
-
-        cv.visitSource(source, debug);
     }
 
     @Override
-    public MethodVisitor visitMethod(int access, String name, String desc,
+    protected void initializeFields(MethodVisitor constructorMV) {
+        // fromFileChannel = false;
+        constructorMV.visitVarInsn(Opcodes.ALOAD, 0);
+        constructorMV.visitInsn(Opcodes.ICONST_0);
+        constructorMV.visitFieldInsn(Opcodes.PUTFIELD,
+                Type.getInternalName(MappedByteBuffer.class), "fromFileChannel",
+                Type.getDescriptor(Boolean.TYPE));
+    }
+
+    @Override
+    protected boolean wrapMethod(int access, String name, String desc,
             String signature, String[] exceptions) {
-        if ("<init>".equals(name)) {
-            return new AdviceAdapter(api,
-                    cv.visitMethod(access, name, desc, signature, exceptions),
-                    access, name, desc) {
-
-                @Override
-                protected void onMethodEnter() {
-                    // fromFileChannel = false;
-                    mv.visitVarInsn(Opcodes.ALOAD, 0);
-                    mv.visitInsn(Opcodes.ICONST_0);
-                    mv.visitFieldInsn(Opcodes.PUTFIELD,
-                            Type.getInternalName(MappedByteBuffer.class),
-                            "fromFileChannel",
-                            Type.getDescriptor(Boolean.TYPE));
-                }
-
-            };
-        } else {
-            return cv.visitMethod(access, name, desc, signature, exceptions);
-        }
+        return false;
     }
 
     @Override
-    public void visitEnd() {
+    protected void appendWrappedMethods(ClassVisitor cv) {
         // public void setFromFileChannel(boolean fromFileChannel) {
         MethodVisitor setFromFileChannelMV = cv.visitMethod(Opcodes.ACC_PUBLIC,
                 "setFromFileChannel",
@@ -70,7 +58,7 @@ public class MappedByteBufferAdapter extends ClassVisitor {
                 null, null);
         setFromFileChannelMV.visitCode();
 
-        // fromFileChannel = false;
+        // this.fromFileChannel = fromFileChannel;
         setFromFileChannelMV.visitVarInsn(Opcodes.ALOAD, 0);
         setFromFileChannelMV.visitVarInsn(Opcodes.ILOAD, 1);
         setFromFileChannelMV.visitFieldInsn(Opcodes.PUTFIELD,

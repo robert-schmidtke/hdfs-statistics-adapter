@@ -94,9 +94,7 @@ public class ClassTransformationServer extends
                             ClassReader.EXPAND_FRAMES);
                     break;
                 case "java/nio/MappedByteBuffer":
-                    cr.accept(
-                            new MappedByteBufferAdapter(cw,
-                                    request.getNativeMethodPrefix()),
+                    cr.accept(new MappedByteBufferAdapter(cw),
                             ClassReader.EXPAND_FRAMES);
                     break;
                 case "sun/nio/ch/FileChannelImpl":
