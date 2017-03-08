@@ -148,7 +148,7 @@ public class InstrumentationTest {
         {
             File file = File.createTempFile("channel", null);
 
-            // write a total of 6 MB
+            // write a total of 8 MB
             FileOutputStream fos = new FileOutputStream(file);
             ++openOperations;
 
@@ -160,6 +160,21 @@ public class InstrumentationTest {
             }
 
             long numWritten = fco.write(ByteBuffer.wrap(writeBuffer));
+            writeBytes += 1048576;
+
+            ByteBuffer allocatedWriteBuffer = ByteBuffer.allocate(1048576);
+            allocatedWriteBuffer.put(writeBuffer);
+            allocatedWriteBuffer.position(0);
+            numWritten += fco.write(allocatedWriteBuffer, 1048576);
+            fco.position(fco.position() + 1048576);
+            writeBytes += 1048576;
+
+            ByteBuffer allocatedDirectWriteBuffer = ByteBuffer
+                    .allocateDirect(1048576);
+            allocatedDirectWriteBuffer.put(writeBuffer);
+            allocatedDirectWriteBuffer.position(0);
+            numWritten += fco.write(allocatedDirectWriteBuffer, 2 * 1048576);
+            fco.position(fco.position() + 1048576);
             writeBytes += 1048576;
 
             numWritten += fco.write(ByteBuffer.wrap(writeBuffer), 1048576);
@@ -195,12 +210,12 @@ public class InstrumentationTest {
                 }
             }, 0, 1048576);
             writeBytes += 1048576;
-            assert (numWritten == 6 * 1048576);
+            assert (numWritten == 8 * 1048576);
 
             fco.close();
             fos.close();
 
-            // read a total of 6 MB
+            // read a total of 8 MB
             FileInputStream fis = new FileInputStream(file);
             ++openOperations;
 
@@ -209,6 +224,32 @@ public class InstrumentationTest {
             byte[] readBuffer = new byte[1048576];
             long numRead = fci.read(ByteBuffer.wrap(readBuffer));
             readBytes += 1048576;
+
+            ByteBuffer allocatedReadBuffer = ByteBuffer.allocate(1048576);
+            numRead += fci.read(allocatedReadBuffer, 1048576);
+            fci.position(fci.position() + 1048576);
+            readBytes += 1048576;
+
+            allocatedWriteBuffer.position(0);
+            allocatedReadBuffer.position(0);
+            for (int i = 0; i < 1048576; ++i) {
+                assert (allocatedWriteBuffer.get() == allocatedReadBuffer
+                        .get());
+            }
+
+            ByteBuffer allocatedDirectReadBuffer = ByteBuffer
+                    .allocateDirect(1048576);
+            numRead += fci.read(allocatedDirectReadBuffer, 2 * 1048576);
+            fci.position(fci.position() + 1048576);
+            readBytes += 1048576;
+
+            allocatedDirectWriteBuffer.position(0);
+            allocatedDirectReadBuffer.position(0);
+            for (int i = 0; i < 1048576; ++i) {
+                assert (allocatedDirectWriteBuffer
+                        .get() == allocatedDirectReadBuffer.get());
+            }
+
             numRead += fci.read(ByteBuffer.wrap(readBuffer), 1048576);
             readBytes += 1048576;
             for (int i = 0; i < 1048576; ++i) {
@@ -244,7 +285,7 @@ public class InstrumentationTest {
                 }
             });
             readBytes += 1048576;
-            assert (numRead == 6 * 1048576);
+            assert (numRead == 8 * 1048576);
             numRead = fci.read(ByteBuffer.wrap(readBuffer));
             assert (numRead == -1);
             fci.close();
