@@ -263,15 +263,13 @@ public class FileChannelImplAdapter extends AbstractSfsAdapter {
         } else {
             // if (buffer instanceof MappedByteBuffer) {
             mv.visitVarInsn(Opcodes.ALOAD, bufferArgumentIndex);
-            mv.visitInsn(Opcodes.ICONST_0);
-            mv.visitInsn(Opcodes.AALOAD);
             mv.visitTypeInsn(Opcodes.INSTANCEOF,
                     Type.getInternalName(MappedByteBuffer.class));
             Label bufferInstanceofMappedByteBufferLabel = new Label();
             mv.visitJumpInsn(Opcodes.IFEQ,
                     bufferInstanceofMappedByteBufferLabel);
 
-            // if (buffers.isFromFileChannel()) {
+            // if (buffer.isFromFileChannel()) {
             mv.visitVarInsn(Opcodes.ALOAD, bufferArgumentIndex);
             mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
                     Type.getInternalName(MappedByteBuffer.class),
