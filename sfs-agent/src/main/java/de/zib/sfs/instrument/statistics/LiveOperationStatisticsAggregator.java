@@ -329,10 +329,18 @@ public class LiveOperationStatisticsAggregator {
 
     // for testing only
 
+    public void quiesce() {
+        if (!assertionsEnabled()) {
+            throw new UnsupportedOperationException(
+                    "quiesce() only supported with assertions enabled");
+        }
+
+        while (!threadPool.awaitQuiescence(1000, TimeUnit.MILLISECONDS))
+            ;
+    }
+
     public void reset() {
-        boolean assertionsEnabled = false;
-        assert (assertionsEnabled = true);
-        if (!assertionsEnabled) {
+        if (!assertionsEnabled()) {
             throw new UnsupportedOperationException(
                     "reset() only supported with assertions enabled");
         }
@@ -344,12 +352,16 @@ public class LiveOperationStatisticsAggregator {
     }
 
     public List<NavigableMap<Long, OperationStatistics>> getAggregates() {
-        boolean assertionsEnabled = false;
-        assert (assertionsEnabled = true);
-        if (!assertionsEnabled) {
+        if (!assertionsEnabled()) {
             throw new UnsupportedOperationException(
                     "getAggregates() only supported with assertions enabled");
         }
         return Collections.unmodifiableList(aggregates);
+    }
+
+    private boolean assertionsEnabled() {
+        boolean assertionsEnabled = false;
+        assert (assertionsEnabled = true);
+        return assertionsEnabled;
     }
 }
