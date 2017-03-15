@@ -45,7 +45,7 @@ public class InstrumentationTest {
             LiveOperationStatisticsAggregator aggregator = LiveOperationStatisticsAggregator.instance;
 
             // we got it, now wait for all JVM related I/O to settle
-            Thread.sleep(5000);
+            aggregator.quiesce();
 
             // clear all statistics so we can check them later
             aggregator.reset();
@@ -62,39 +62,57 @@ public class InstrumentationTest {
         {
             File file = File.createTempFile("stream", null);
 
-            // write a total of 1 MB
+            // write a total of 3 MB
             FileOutputStream fos = new FileOutputStream(file);
             ++openOperations;
 
-            int writeByte = random.nextInt(Byte.MAX_VALUE);
-            fos.write(writeByte);
-            ++writeBytes;
-
-            byte[] writeBuffer = new byte[1048575];
-            for (int i = 0; i < writeBuffer.length; ++i) {
+            // use single byte writes
+            byte[] writeBuffer = new byte[1048576];
+            for (int i = 0; i < 1048576; ++i) {
                 writeBuffer[i] = (byte) random.nextInt(Byte.MAX_VALUE);
+                fos.write(writeBuffer[i]);
             }
+            writeBytes += 1048576;
+
+            // use simple array write
             fos.write(writeBuffer);
-            writeBytes += 1048575;
+            writeBytes += 1048576;
+
+            // use offset/length array write
+            fos.write(writeBuffer, 0, writeBuffer.length);
+            writeBytes += 1048576;
 
             fos.close();
-            assert (file.length() == 1048576);
+            assert (file.length() == 3 * 1048576);
 
-            // read a total of 1 MB
+            // read a total of 3 MB
             FileInputStream fis = new FileInputStream(file);
             ++openOperations;
 
-            int readByte = fis.read();
-            ++readBytes;
-            assert (readByte == writeByte);
+            // use single byte reads
+            for (int i = 0; i < 1048576; ++i) {
+                int readByte = fis.read();
+                assert (readByte == writeBuffer[i]);
+            }
+            readBytes += 1048576;
 
-            byte[] readBuffer = new byte[1048575];
+            // use simple array read
+            byte[] readBuffer = new byte[1048576];
             int numRead = fis.read(readBuffer);
-            readBytes += 1048575;
-            assert (numRead == 1048575);
-            for (int i = 0; i < 1048575; ++i) {
+            readBytes += 1048576;
+            assert (numRead == 1048576);
+            for (int i = 0; i < 1048576; ++i) {
                 assert (writeBuffer[i] == readBuffer[i]);
             }
+
+            // use offset/length array read
+            numRead = fis.read(readBuffer, 0, readBuffer.length);
+            readBytes += 1048576;
+            assert (numRead == 1048576);
+            for (int i = 0; i < 1048576; ++i) {
+                assert (writeBuffer[i] == readBuffer[i]);
+            }
+
             numRead = fis.read();
             assert (numRead == -1);
             fis.close();
@@ -421,7 +439,7 @@ public class InstrumentationTest {
         try {
             // same as above
             LiveOperationStatisticsAggregator aggregator = LiveOperationStatisticsAggregator.instance;
-            Thread.sleep(5000);
+            aggregator.quiesce();
 
             // get statistics and check them
             List<NavigableMap<Long, OperationStatistics>> aggregates = aggregator
