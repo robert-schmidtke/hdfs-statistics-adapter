@@ -46,7 +46,8 @@ public class FileOutputStreamAdapter extends AbstractSfsAdapter {
                 null,
                 new String[] {
                         Type.getInternalName(FileNotFoundException.class) },
-                "openCallback", null, resultDiscarder);
+                "openCallback", Type.getType(String.class),
+                new ParameterResultPasser(1));
 
         // 1 byte write, no result needed
         wrapMethod(Opcodes.ACC_PUBLIC, "write", Type.VOID_TYPE,
