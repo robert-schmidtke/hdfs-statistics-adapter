@@ -82,7 +82,10 @@ java -cp $TRAVIS_BUILD_DIR/sfs-agent/target/sfs-agent.jar de.zib.sfs.instrument.
 echo "SFS Output:"
 for file in $(ls /tmp/*-concat.csv); do
   echo "${file}:"
-  cat $file
+  wc -l $file
+  head $file
+  echo "..."
+  tail $file
 done
 
 # stop Hadoop
