@@ -7,9 +7,12 @@
  */
 package de.zib.sfs.instrument;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.FileReader;
+import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
@@ -18,16 +21,19 @@ import java.nio.channels.FileChannel;
 import java.nio.channels.FileChannel.MapMode;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.WritableByteChannel;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Random;
+import java.util.concurrent.ConcurrentSkipListMap;
 
 import de.zib.sfs.instrument.statistics.DataOperationStatistics;
 import de.zib.sfs.instrument.statistics.LiveOperationStatisticsAggregator;
 import de.zib.sfs.instrument.statistics.OperationCategory;
 import de.zib.sfs.instrument.statistics.OperationSource;
 import de.zib.sfs.instrument.statistics.OperationStatistics;
+import de.zib.sfs.instrument.statistics.ReadDataOperationStatistics;
 
 /**
  * Basic test cases that cover the wrapped methods of FileInputStream,
@@ -40,19 +46,6 @@ public class InstrumentationTest {
 
     public static void main(String[] args)
             throws IOException, InterruptedException {
-        try {
-            // try to get the aggregator
-            LiveOperationStatisticsAggregator aggregator = LiveOperationStatisticsAggregator.instance;
-
-            // we got it, now wait for all JVM related I/O to settle
-            aggregator.quiesce();
-
-            // clear all statistics so we can check them later
-            aggregator.reset();
-        } catch (NoClassDefFoundError e) {
-            // we're not instrumented, discard
-        }
-
         final Random random = new Random();
 
         // count operations and data
@@ -436,39 +429,95 @@ public class InstrumentationTest {
             file.delete();
         }
 
-        try {
-            // same as above
-            LiveOperationStatisticsAggregator aggregator = LiveOperationStatisticsAggregator.instance;
-            aggregator.quiesce();
+        // shutdown the aggregator and read what it has written
+        LiveOperationStatisticsAggregator aggregator = LiveOperationStatisticsAggregator.instance;
 
-            // get statistics and check them
-            List<NavigableMap<Long, OperationStatistics>> aggregates = aggregator
-                    .getAggregates();
-
-            // no SFS involved here
-            for (OperationCategory category : OperationCategory.values()) {
-                assert (aggregates
-                        .get(LiveOperationStatisticsAggregator
-                                .getUniqueIndex(OperationSource.SFS, category))
-                        .size() == 0);
-            }
-
-            // we opened the file a few times, however the JVM might open a lot
-            // more files, especially during class loading, so no exact
-            // estimation possible
-            assertOperationCount(aggregates, OperationSource.JVM,
-                    OperationCategory.OTHER, openOperations);
-
-            // no slack for the JVM
-            assertOperationData(aggregates, OperationSource.JVM,
-                    OperationCategory.WRITE, writeBytes, writeBytes);
-
-            // allow 48K slack for the JVM
-            assertOperationData(aggregates, OperationSource.JVM,
-                    OperationCategory.READ, readBytes, readBytes + 48 * 1024);
-        } catch (NoClassDefFoundError e) {
-            // we're not instrumented, discard
+        if (!aggregator.isInitialized()) {
+            // no instrumentation, we're done here
+            return;
         }
+
+        aggregator.shutdown();
+
+        List<NavigableMap<Long, OperationStatistics>> aggregates = new ArrayList<NavigableMap<Long, OperationStatistics>>();
+        for (int i = 0; i < OperationSource.values().length
+                * OperationCategory.values().length; ++i) {
+            aggregates.add(new ConcurrentSkipListMap<>());
+        }
+
+        // figure out the directory of log files
+        File outputDirectory = new File(aggregator.getLogFilePrefix())
+                .getParentFile();
+
+        // for each category, read all log files
+        for (OperationCategory category : OperationCategory.values()) {
+            File[] categoryFiles = outputDirectory
+                    .listFiles(new FilenameFilter() {
+                        @Override
+                        public boolean accept(File dir, String name) {
+                            return name.contains(
+                                    OperationSource.JVM.name().toLowerCase())
+                                    && name.contains(
+                                            category.name().toLowerCase())
+                                    && name.endsWith("csv");
+                        }
+                    });
+
+            // parse all files into OperationStatistics
+            for (File file : categoryFiles) {
+                BufferedReader reader = new BufferedReader(
+                        new FileReader(file));
+
+                // skip header
+                String line = reader.readLine();
+                while ((line = reader.readLine()) != null) {
+                    // LiveOperationStatisticsAggregator prepends hostname, pid
+                    // and key for each line
+                    OperationStatistics operationStatistics;
+                    switch (category) {
+                    case OTHER:
+                        operationStatistics = OperationStatistics.fromCsv(line,
+                                aggregator.getOutputSeparator(), 3);
+                        break;
+                    case WRITE:
+                        operationStatistics = DataOperationStatistics.fromCsv(
+                                line, aggregator.getOutputSeparator(), 3);
+                        break;
+                    case READ:
+                        operationStatistics = ReadDataOperationStatistics
+                                .fromCsv(line, aggregator.getOutputSeparator(),
+                                        3);
+                        break;
+                    default:
+                        throw new IllegalArgumentException(category.name());
+                    }
+
+                    // JVM must be the only source, no SFS involved
+                    assert (OperationSource.JVM
+                            .equals(operationStatistics.getSource()));
+
+                    // put the aggregates into the appropriate list/bin
+                    aggregates.get(LiveOperationStatisticsAggregator
+                            .getUniqueIndex(operationStatistics.getSource(),
+                                    operationStatistics.getCategory()))
+                            .put(operationStatistics.getTimeBin(),
+                                    operationStatistics);
+                }
+                reader.close();
+            }
+        }
+
+        // we opened the file a few times, however the JVM might open a lot
+        // more files, especially during class loading, so no exact
+        // estimation possible
+        assertOperationCount(aggregates, OperationSource.JVM,
+                OperationCategory.OTHER, openOperations);
+
+        // allow 1K slack for the JVM for writing, 48K for reading
+        assertOperationData(aggregates, OperationSource.JVM,
+                OperationCategory.WRITE, writeBytes, writeBytes + 1 * 1024);
+        assertOperationData(aggregates, OperationSource.JVM,
+                OperationCategory.READ, readBytes, readBytes + 48 * 1024);
 
     }
 

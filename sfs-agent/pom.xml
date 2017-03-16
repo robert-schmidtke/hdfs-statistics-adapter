@@ -292,7 +292,7 @@
                 <argument>-ea</argument>
                 <argument>-esa</argument>
                 <argument>-cp</argument>
-                <argument>.:${project.build.directory}/test-classes</argument>
+                <argument>.:${project.build.directory}/classes:${project.build.directory}/test-classes</argument>
                 <argument>de.zib.sfs.instrument.InstrumentationTest</argument>
               </arguments>
             </configuration>
@@ -308,7 +308,7 @@
             <configuration>
               <executable>java</executable>
               <arguments>
-                <argument>-agentpath:${project.build.directory}/${libsfs.name}=trans_jar=${project.build.directory}/sfs-agent.jar,key=test,bin_duration=1000,cache_size=5,out_dir=/tmp,verbose=n</argument>
+                <argument>-agentpath:${project.build.directory}/${libsfs.name}=trans_jar=${project.build.directory}/sfs-agent.jar,key=test,bin_duration=1000,cache_size=5,out_dir=${project.build.directory},verbose=n</argument>
                 <argument>-ea</argument>
                 <argument>-esa</argument>
                 <argument>-cp</argument>
