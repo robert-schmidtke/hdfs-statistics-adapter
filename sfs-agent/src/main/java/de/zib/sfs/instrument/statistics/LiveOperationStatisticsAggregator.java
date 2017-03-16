@@ -12,10 +12,11 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinTask;
@@ -34,11 +35,13 @@ public class LiveOperationStatisticsAggregator {
     private long timeBinDuration = 1L;
     private int timeBinCacheSize;
 
-    private String outputDirectory, outputSeparator;
+    private String outputSeparator;
+    private String logFilePrefix;
 
     // for each source/category combination, map a time bin to an aggregate
     // operation statistics
     private final List<NavigableMap<Long, OperationStatistics>> aggregates;
+    private final Queue<OperationStatistics> overflowQueue;
 
     private final BufferedWriter[] writers;
     private final Object[] writerLocks;
@@ -54,6 +57,8 @@ public class LiveOperationStatisticsAggregator {
                 * OperationCategory.values().length; ++i) {
             aggregates.add(new ConcurrentSkipListMap<>());
         }
+
+        overflowQueue = new ConcurrentLinkedQueue<>();
 
         // similar for the writers
         writers = new BufferedWriter[OperationSource.values().length
@@ -82,7 +87,11 @@ public class LiveOperationStatisticsAggregator {
             initialized = true;
         }
 
-        systemHostname = System.getProperty("de.zib.sfs.hostname");
+        outputSeparator = ",";
+
+        // guard against weird hostnames
+        systemHostname = System.getProperty("de.zib.sfs.hostname")
+                .replaceAll(outputSeparator, "");
 
         systemPid = Integer.parseInt(System.getProperty("de.zib.sfs.pid"));
         systemKey = System.getProperty("de.zib.sfs.key");
@@ -91,37 +100,59 @@ public class LiveOperationStatisticsAggregator {
                 .parseLong(System.getProperty("de.zib.sfs.timeBin.duration"));
         this.timeBinCacheSize = Integer
                 .parseInt(System.getProperty("de.zib.sfs.timeBin.cacheSize"));
-        this.outputDirectory = System
+        String outputDirectory = System
                 .getProperty("de.zib.sfs.output.directory");
-        outputSeparator = ",";
+
+        logFilePrefix = outputDirectory
+                + (outputDirectory.endsWith(File.separator) ? ""
+                        : File.separator)
+                + systemHostname + "." + systemPid + "." + systemKey;
     }
 
     public void aggregateOperationStatistics(OperationSource source,
             OperationCategory category, long startTime, long endTime) {
+        if (!initialized) {
+            return;
+        }
+
         try {
             threadPool.execute(
                     new AggregationTask(source, category, startTime, endTime));
         } catch (RejectedExecutionException e) {
+            overflowQueue.add(new OperationStatistics(timeBinDuration, source,
+                    category, startTime, endTime));
         }
     }
 
     public void aggregateDataOperationStatistics(OperationSource source,
             OperationCategory category, long startTime, long endTime,
             long data) {
+        if (!initialized) {
+            return;
+        }
+
         try {
             threadPool.execute(new AggregationTask(source, category, startTime,
                     endTime, data));
         } catch (RejectedExecutionException e) {
+            overflowQueue.add(new DataOperationStatistics(timeBinDuration,
+                    source, category, startTime, endTime, data));
         }
     }
 
     public void aggregateReadDataOperationStatistics(OperationSource source,
             OperationCategory category, long startTime, long endTime, long data,
             boolean isRemote) {
+        if (!initialized) {
+            return;
+        }
+
         try {
             threadPool.execute(new AggregationTask(source, category, startTime,
                     endTime, data, isRemote));
         } catch (RejectedExecutionException e) {
+            overflowQueue.add(new ReadDataOperationStatistics(timeBinDuration,
+                    source, category, startTime, endTime, data, isRemote));
         }
     }
 
@@ -147,9 +178,21 @@ public class LiveOperationStatisticsAggregator {
             initialized = false;
         }
 
-        // wait a bit for all currently running threads before shutting down
+        // wait a bit for all currently running threads before submitting the
+        // processing of the overflow queue
         if (!threadPool.awaitQuiescence(30, TimeUnit.SECONDS)) {
             System.err.println("Thread pool did not quiesce");
+        }
+
+        if (!overflowQueue.isEmpty()) {
+            for (int i = 0; i < Runtime.getRuntime()
+                    .availableProcessors(); ++i) {
+                threadPool.execute(new AggregationTask(overflowQueue.poll()));
+            }
+
+            if (!threadPool.awaitQuiescence(30, TimeUnit.SECONDS)) {
+                System.err.println("Thread pool did not quiesce");
+            }
         }
 
         // stop accepting new tasks
@@ -179,18 +222,29 @@ public class LiveOperationStatisticsAggregator {
         }
     }
 
+    public String getLogFilePrefix() {
+        return logFilePrefix;
+    }
+
+    public String getOutputSeparator() {
+        return outputSeparator;
+    }
+
+    public boolean isInitialized() {
+        return initialized;
+    }
+
     private void write(OperationStatistics aggregate) throws IOException {
         int index = getUniqueIndex(aggregate.getSource(),
                 aggregate.getCategory());
         synchronized (writerLocks[index]) {
             if (writers[index] == null) {
-                String filename = systemHostname + "." + systemPid + "."
-                        + systemKey + "."
+                String filename = getLogFilePrefix() + "."
                         + aggregate.getSource().name().toLowerCase() + "."
                         + aggregate.getCategory().name().toLowerCase() + "."
                         + System.currentTimeMillis() + ".csv";
 
-                File file = new File(outputDirectory, filename);
+                File file = new File(filename);
                 if (!file.exists()) {
                     StringBuilder sb = new StringBuilder();
                     sb.append("hostname");
@@ -254,7 +308,11 @@ public class LiveOperationStatisticsAggregator {
 
         private static final long serialVersionUID = -6851294902690575903L;
 
-        private final OperationStatistics aggregate;
+        private OperationStatistics aggregate;
+
+        public AggregationTask(OperationStatistics aggregate) {
+            this.aggregate = aggregate;
+        }
 
         public AggregationTask(OperationSource source,
                 OperationCategory category, long startTime, long endTime,
@@ -292,76 +350,43 @@ public class LiveOperationStatisticsAggregator {
                 return true;
             }
 
-            // get the time bin applicable for this operation
-            NavigableMap<Long, OperationStatistics> timeBins = aggregates
-                    .get(getUniqueIndex(aggregate.getSource(),
-                            aggregate.getCategory()));
-            timeBins.merge(aggregate.getTimeBin(), aggregate, (v1, v2) -> {
-                try {
-                    return v1.aggregate(v2);
-                } catch (OperationStatistics.NotAggregatableException e) {
-                    throw new IllegalArgumentException(e);
-                }
-            });
-
-            // make sure to emit aggregates when the cache is full until it's
-            // half full again to avoid writing every time bin size from now on
-            int size = timeBins.size();
-            if (size > timeBinCacheSize) {
-                for (int i = size / 2; i > 0; --i) {
+            while (aggregate != null) {
+                // get the time bin applicable for this operation
+                NavigableMap<Long, OperationStatistics> timeBins = aggregates
+                        .get(getUniqueIndex(aggregate.getSource(),
+                                aggregate.getCategory()));
+                timeBins.merge(aggregate.getTimeBin(), aggregate, (v1, v2) -> {
                     try {
-                        Map.Entry<Long, OperationStatistics> entry = timeBins
-                                .pollFirstEntry();
-                        if (entry != null) {
-                            write(entry.getValue());
-                        } else {
-                            break;
+                        return v1.aggregate(v2);
+                    } catch (OperationStatistics.NotAggregatableException e) {
+                        throw new IllegalArgumentException(e);
+                    }
+                });
+
+                // make sure to emit aggregates when the cache is full until
+                // it's half full again to avoid writing every time bin size
+                // from now on
+                int size = timeBins.size();
+                if (size > timeBinCacheSize) {
+                    for (int i = size / 2; i > 0; --i) {
+                        try {
+                            Map.Entry<Long, OperationStatistics> entry = timeBins
+                                    .pollFirstEntry();
+                            if (entry != null) {
+                                write(entry.getValue());
+                            } else {
+                                break;
+                            }
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
                         }
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
                     }
                 }
+
+                aggregate = overflowQueue.poll();
             }
 
             return true;
         }
-    }
-
-    // for testing only
-
-    public void quiesce() {
-        if (!assertionsEnabled()) {
-            throw new UnsupportedOperationException(
-                    "quiesce() only supported with assertions enabled");
-        }
-
-        while (!threadPool.awaitQuiescence(1000, TimeUnit.MILLISECONDS))
-            ;
-    }
-
-    public void reset() {
-        if (!assertionsEnabled()) {
-            throw new UnsupportedOperationException(
-                    "reset() only supported with assertions enabled");
-        }
-        aggregates.clear();
-        for (int i = 0; i < OperationSource.values().length
-                * OperationCategory.values().length; ++i) {
-            aggregates.add(new ConcurrentSkipListMap<>());
-        }
-    }
-
-    public List<NavigableMap<Long, OperationStatistics>> getAggregates() {
-        if (!assertionsEnabled()) {
-            throw new UnsupportedOperationException(
-                    "getAggregates() only supported with assertions enabled");
-        }
-        return Collections.unmodifiableList(aggregates);
-    }
-
-    private boolean assertionsEnabled() {
-        boolean assertionsEnabled = false;
-        assert (assertionsEnabled = true);
-        return assertionsEnabled;
     }
 }
