@@ -14,16 +14,18 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
     public ReadDataOperationStatistics(long timeBinDuration,
             OperationSource source, OperationCategory category, long startTime,
             long endTime, long data, boolean isRemote) {
-        super(timeBinDuration, source, category, startTime, endTime, data);
-        if (isRemote) {
-            remoteCount = 1;
-            remoteDuration = endTime - startTime;
-            remoteData = data;
-        } else {
-            remoteCount = 0;
-            remoteDuration = 0;
-            remoteData = 0;
-        }
+        this(1, startTime - startTime % timeBinDuration, endTime - startTime,
+                source, category, data, isRemote ? 1 : 0,
+                isRemote ? endTime - startTime : 0, isRemote ? data : 0);
+    }
+
+    public ReadDataOperationStatistics(long count, long timeBin, long cpuTime,
+            OperationSource source, OperationCategory category, long data,
+            long remoteCount, long remoteDuration, long remoteData) {
+        super(count, timeBin, cpuTime, source, category, data);
+        this.remoteCount = remoteCount;
+        this.remoteDuration = remoteDuration;
+        this.remoteData = remoteData;
     }
 
     public long getRemoteCount() {
@@ -51,22 +53,23 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
     }
 
     @Override
-    public OperationStatistics aggregate(OperationStatistics other)
+    public ReadDataOperationStatistics aggregate(OperationStatistics other)
             throws NotAggregatableException {
         if (!(other instanceof ReadDataOperationStatistics)) {
             throw new OperationStatistics.NotAggregatableException(
                     "aggregator must be of type " + getClass().getName());
         }
-        super.aggregate(other);
-
-        remoteCount += ((ReadDataOperationStatistics) other)
-                .getRemoteCount();
-        remoteDuration += ((ReadDataOperationStatistics) other)
-                .getRemoteDuration();
-        remoteData += ((ReadDataOperationStatistics) other)
-                .getRemoteData();
-
-        return this;
+        DataOperationStatistics aggregate = super.aggregate(other);
+        return new ReadDataOperationStatistics(aggregate.getCount(),
+                aggregate.getTimeBin(), aggregate.getCpuTime(),
+                aggregate.getSource(), aggregate.getCategory(),
+                aggregate.getData(),
+                remoteCount + ((ReadDataOperationStatistics) other)
+                        .getRemoteCount(),
+                remoteDuration + ((ReadDataOperationStatistics) other)
+                        .getRemoteDuration(),
+                remoteData + ((ReadDataOperationStatistics) other)
+                        .getRemoteData());
     }
 
     @Override
@@ -87,5 +90,19 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
         sb.append(separator).append(remoteDuration);
         sb.append(separator).append(remoteData);
         return sb.toString();
+    }
+
+    public static ReadDataOperationStatistics fromCsv(String line,
+            String separator, int off) {
+        String[] values = line.split(separator);
+        return new ReadDataOperationStatistics(Long.parseLong(values[off + 0]),
+                Long.parseLong(values[off + 1]),
+                Long.parseLong(values[off + 2]),
+                OperationSource.valueOf(values[off + 3].toUpperCase()),
+                OperationCategory.valueOf(values[off + 4].toUpperCase()),
+                Long.parseLong(values[off + 5]),
+                Long.parseLong(values[off + 6]),
+                Long.parseLong(values[off + 7]),
+                Long.parseLong(values[off + 8]));
     }
 }

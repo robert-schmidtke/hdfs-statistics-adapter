@@ -31,9 +31,15 @@ public class OperationStatistics {
 
     public OperationStatistics(long timeBinDuration, OperationSource source,
             OperationCategory category, long startTime, long endTime) {
-        count = 1;
-        timeBin = startTime - startTime % timeBinDuration;
-        cpuTime = endTime - startTime;
+        this(1, startTime - startTime % timeBinDuration, endTime - startTime,
+                source, category);
+    }
+
+    public OperationStatistics(long count, long timeBin, long cpuTime,
+            OperationSource source, OperationCategory category) {
+        this.count = count;
+        this.timeBin = timeBin;
+        this.cpuTime = cpuTime;
         this.source = source;
         this.category = category;
     }
@@ -99,10 +105,8 @@ public class OperationStatistics {
                     + category + ", " + other.getCategory());
         }
 
-        count += other.getCount();
-        cpuTime += other.getCpuTime();
-
-        return this;
+        return new OperationStatistics(count + other.getCount(), timeBin,
+                cpuTime + other.getCpuTime(), source, category);
     }
 
     public String getCsvHeaders(String separator) {
@@ -123,6 +127,16 @@ public class OperationStatistics {
         sb.append(separator).append(source.name().toLowerCase());
         sb.append(separator).append(category.name().toLowerCase());
         return sb.toString();
+    }
+
+    public static OperationStatistics fromCsv(String line, String separator,
+            int off) {
+        String[] values = line.split(separator);
+        return new OperationStatistics(Long.parseLong(values[off + 0]),
+                Long.parseLong(values[off + 1]),
+                Long.parseLong(values[off + 2]),
+                OperationSource.valueOf(values[off + 3].toUpperCase()),
+                OperationCategory.valueOf(values[off + 4].toUpperCase()));
     }
 
     @Override
