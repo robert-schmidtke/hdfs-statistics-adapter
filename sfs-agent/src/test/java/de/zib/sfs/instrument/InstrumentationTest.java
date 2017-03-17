@@ -55,7 +55,8 @@ public class InstrumentationTest {
         {
             File file = File.createTempFile("stream", null);
 
-            // write a total of 3 MB
+            // Write
+
             FileOutputStream fos = new FileOutputStream(file);
             ++openOperations;
 
@@ -78,14 +79,14 @@ public class InstrumentationTest {
             fos.close();
             assert (file.length() == 3 * 1048576);
 
-            // read a total of 3 MB
+            // Read
+
             FileInputStream fis = new FileInputStream(file);
             ++openOperations;
 
             // use single byte reads
             for (int i = 0; i < 1048576; ++i) {
-                int readByte = fis.read();
-                assert (readByte == writeBuffer[i]);
+                assert (fis.read() == writeBuffer[i]);
             }
             readBytes += 1048576;
 
@@ -116,39 +117,197 @@ public class InstrumentationTest {
         {
             File file = File.createTempFile("random", null);
 
-            // write a total of 1 MB
+            // Write
+
             RandomAccessFile writeFile = new RandomAccessFile(file, "rw");
             ++openOperations;
 
-            int writeByte = random.nextInt(Byte.MAX_VALUE);
-            writeFile.write(writeByte);
-            ++writeBytes;
-
-            byte[] writeBuffer = new byte[1048575];
-            for (int i = 0; i < writeBuffer.length; ++i) {
+            byte[] writeBuffer = new byte[1048576];
+            for (int i = 0; i < 1048576; ++i) {
                 writeBuffer[i] = (byte) random.nextInt(Byte.MAX_VALUE);
+                writeFile.write(writeBuffer[i]);
             }
+            writeBytes += 1048576;
+
             writeFile.write(writeBuffer);
-            writeBytes += 1048575;
+            writeBytes += 1048576;
+
+            writeFile.write(writeBuffer, 0, writeBuffer.length);
+            writeBytes += 1048576;
+
+            boolean[] bools = new boolean[1048576];
+            for (int i = 0; i < 1048576; ++i) {
+                bools[i] = random.nextBoolean();
+                writeFile.writeBoolean(bools[i]);
+            }
+            writeBytes += 1048576;
+
+            byte[] bytes = new byte[1048576];
+            for (int i = 0; i < 1048576; ++i) {
+                bytes[i] = (byte) random.nextInt(Byte.MAX_VALUE);
+                writeFile.writeByte(bytes[i]);
+            }
+            writeBytes += 1048576;
+
+            String string = new String(bytes);
+            writeFile.writeBytes(string);
+            writeBytes += 1048576;
+
+            char[] chars = new char[524288];
+            for (int i = 0; i < 524288; ++i) {
+                chars[i] = (char) random.nextInt(Character.MAX_VALUE);
+                writeFile.writeChar(chars[i]);
+            }
+            writeBytes += 1048576;
+
+            double[] doubles = new double[131072];
+            for (int i = 0; i < 131072; ++i) {
+                doubles[i] = random.nextDouble();
+                writeFile.writeDouble(doubles[i]);
+            }
+            writeBytes += 1048576;
+
+            float[] floats = new float[262144];
+            for (int i = 0; i < 262144; ++i) {
+                floats[i] = random.nextFloat();
+                writeFile.writeFloat(floats[i]);
+            }
+            writeBytes += 1048576;
+
+            int[] ints = new int[262144];
+            for (int i = 0; i < 262144; ++i) {
+                ints[i] = random.nextInt();
+                writeFile.writeInt(ints[i]);
+            }
+            writeBytes += 1048576;
+
+            long[] longs = new long[131072];
+            for (int i = 0; i < 131072; ++i) {
+                longs[i] = random.nextLong();
+                writeFile.writeLong(longs[i]);
+            }
+            writeBytes += 1048576;
+
+            short[] shorts = new short[524288];
+            for (int i = 0; i < 524288; ++i) {
+                shorts[i] = (short) random.nextInt(Short.MAX_VALUE);
+                writeFile.writeShort(shorts[i]);
+            }
+            writeBytes += 1048576;
+
+            writeFile.writeChars(string.substring(0, 524288));
+            writeBytes += 1048576;
+
+            // 64K restriction on UTF-8 string length
+            // so use 32 * 32K strings
+            int utf8StringLength = 0;
+            for (int i = 0; i < 32; ++i) {
+                String s = string.substring(i * 32 * 1024, (i + 1) * 32 * 1024);
+
+                // as per DataOutputStream.java
+                for (int j = 0; j < s.length(); ++j) {
+                    char c = s.charAt(j);
+                    if ((c >= 0x0001) && (c <= 0x007F)) {
+                        ++utf8StringLength;
+                    } else if (c > 0x07FF) {
+                        utf8StringLength += 3;
+                    } else {
+                        utf8StringLength += 2;
+                    }
+                }
+
+                writeFile.writeUTF(s);
+            }
+            writeBytes += 1048576;
 
             writeFile.close();
-            assert (file.length() == 1048576);
+            // 2 bytes extra per UTF write
+            assert (file.length() == 13 * 1048576 + utf8StringLength + 2 * 32);
 
-            // read a total of 1 MB
+            // Read
+
             RandomAccessFile readFile = new RandomAccessFile(file, "r");
             ++openOperations;
 
-            int readByte = readFile.read();
-            ++readBytes;
-            assert (readByte == writeByte);
+            for (int i = 0; i < 1048576; ++i) {
+                assert (readFile.read() == writeBuffer[i]);
+            }
+            readBytes += 1048576;
 
-            byte[] readBuffer = new byte[1048575];
+            byte[] readBuffer = new byte[1048576];
             int numRead = readFile.read(readBuffer);
-            readBytes += 1048575;
-            assert (numRead == 1048575);
-            for (int i = 0; i < 1048575; ++i) {
+            readBytes += 1048576;
+            assert (numRead == 1048576);
+            for (int i = 0; i < 1048576; ++i) {
                 assert (writeBuffer[i] == readBuffer[i]);
             }
+
+            numRead = readFile.read(readBuffer, 0, readBuffer.length);
+            readBytes += 1048576;
+            assert (numRead == 1048576);
+            for (int i = 0; i < 1048576; ++i) {
+                assert (writeBuffer[i] == readBuffer[i]);
+            }
+
+            for (int i = 0; i < 1048576; ++i) {
+                assert (readFile.readBoolean() == bools[i]);
+            }
+            readBytes += 1048576;
+
+            for (int i = 0; i < 1048576; ++i) {
+                assert (readFile.readByte() == bytes[i]);
+            }
+            readBytes += 1048576;
+
+            readFile.readFully(readBuffer);
+            readBytes += 1048576;
+            assert (new String(readBuffer).equals(string));
+
+            for (int i = 0; i < 524288; ++i) {
+                assert (readFile.readChar() == chars[i]);
+            }
+            readBytes += 1048576;
+
+            for (int i = 0; i < 131072; ++i) {
+                assert (readFile.readDouble() == doubles[i]);
+            }
+            readBytes += 1048576;
+
+            for (int i = 0; i < 262144; ++i) {
+                assert (readFile.readFloat() == floats[i]);
+            }
+            readBytes += 1048576;
+
+            for (int i = 0; i < 262144; ++i) {
+                assert (readFile.readInt() == ints[i]);
+            }
+            readBytes += 1048576;
+
+            for (int i = 0; i < 131072; ++i) {
+                assert (readFile.readLong() == longs[i]);
+            }
+            readBytes += 1048576;
+
+            for (int i = 0; i < 524288; ++i) {
+                assert (readFile.readShort() == shorts[i]);
+            }
+            readBytes += 1048576;
+
+            readFile.readFully(readBuffer, 0, readBuffer.length);
+            readBytes += 1048576;
+            char[] characters = new char[524288];
+            for (int i = 0; i < 524288; ++i) {
+                characters[i] = (char) ((readBuffer[2 * i] << 8)
+                        | readBuffer[2 * i + 1]);
+            }
+            assert (new String(characters).equals(string.substring(0, 524288)));
+
+            for (int i = 0; i < 32; ++i) {
+                assert (readFile.readUTF().equals(
+                        string.substring(i * 32 * 1024, (i + 1) * 32 * 1024)));
+            }
+            readBytes += 1048576;
+
             numRead = readFile.read();
             assert (numRead == -1);
             readFile.close();
@@ -513,9 +672,9 @@ public class InstrumentationTest {
         assertOperationCount(aggregates, OperationSource.JVM,
                 OperationCategory.OTHER, openOperations);
 
-        // allow 1K slack for the JVM for writing, 48K for reading
+        // allow 8K slack for the JVM for writing, 48K for reading
         assertOperationData(aggregates, OperationSource.JVM,
-                OperationCategory.WRITE, writeBytes, writeBytes + 1 * 1024);
+                OperationCategory.WRITE, writeBytes, writeBytes + 8 * 1024);
         assertOperationData(aggregates, OperationSource.JVM,
                 OperationCategory.READ, readBytes, readBytes + 48 * 1024);
 
