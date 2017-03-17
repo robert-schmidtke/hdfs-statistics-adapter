@@ -35,7 +35,11 @@ public class RandomAccessFileAdapter extends AbstractSfsAdapter {
             String signature, String[] exceptions) {
         return isOpenMethod(access, name, desc, signature, exceptions)
                 || isReadMethod(access, name, desc, signature, exceptions)
-                || isWriteMethod(access, name, desc, signature, exceptions);
+                || isReadFullyMethod(access, name, desc, signature, exceptions)
+                || isReadStringMethod(access, name, desc, signature, exceptions)
+                || isWriteMethod(access, name, desc, signature, exceptions)
+                || isWriteStringMethod(access, name, desc, signature,
+                        exceptions);
     }
 
     @Override
@@ -66,6 +70,47 @@ public class RandomAccessFileAdapter extends AbstractSfsAdapter {
                 null, new String[] { Type.getInternalName(IOException.class) },
                 "readBytesCallback", Type.INT_TYPE, resultPasser);
 
+        ResultPasser arrayLengthPasser = new ParameterResultPasser(1) {
+            @Override
+            public void passResult(MethodVisitor mv) {
+                mv.visitInsn(Opcodes.ARRAYLENGTH);
+            }
+        };
+
+        wrapMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL, "readFully",
+                Type.VOID_TYPE, new Type[] { Type.getType(byte[].class) }, null,
+                new String[] { Type.getInternalName(IOException.class) },
+                "readBytesCallback", Type.INT_TYPE, arrayLengthPasser);
+
+        wrapMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL, "readFully",
+                Type.VOID_TYPE,
+                new Type[] { Type.getType(byte[].class), Type.INT_TYPE,
+                        Type.INT_TYPE },
+                null, new String[] { Type.getInternalName(IOException.class) },
+                "readBytesCallback", Type.INT_TYPE,
+                new ParameterResultPasser(3));
+
+        // invokes .length(); on the current local variable
+        ResultPasser stringLengthPasser = new ReturnResultPasser() {
+            @Override
+            public void passResult(MethodVisitor mv) {
+                mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+                        Type.getInternalName(String.class), "length",
+                        Type.getMethodDescriptor(Type.INT_TYPE), false);
+            }
+        };
+
+        // record length of read string
+        wrapMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL, "readLine",
+                Type.getType(String.class), null, null,
+                new String[] { Type.getInternalName(IOException.class) },
+                "readBytesCallback", Type.INT_TYPE, stringLengthPasser);
+
+        wrapMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL, "readUTF",
+                Type.getType(String.class), null, null,
+                new String[] { Type.getInternalName(IOException.class) },
+                "readBytesCallback", Type.INT_TYPE, stringLengthPasser);
+
         // 1 byte write, no result needed
         wrapMethod(Opcodes.ACC_PUBLIC, "write", Type.VOID_TYPE,
                 new Type[] { Type.INT_TYPE }, null,
@@ -77,13 +122,7 @@ public class RandomAccessFileAdapter extends AbstractSfsAdapter {
         wrapMethod(Opcodes.ACC_PUBLIC, "write", Type.VOID_TYPE,
                 new Type[] { Type.getType(byte[].class) }, null,
                 new String[] { Type.getInternalName(IOException.class) },
-                "writeBytesCallback", Type.INT_TYPE,
-                new ParameterResultPasser(1) {
-                    @Override
-                    public void passResult(MethodVisitor mv) {
-                        mv.visitInsn(Opcodes.ARRAYLENGTH);
-                    }
-                });
+                "writeBytesCallback", Type.INT_TYPE, arrayLengthPasser);
 
         // have the len parameter put on top of the stack
         wrapMethod(Opcodes.ACC_PUBLIC, "write", Type.VOID_TYPE,
@@ -92,6 +131,42 @@ public class RandomAccessFileAdapter extends AbstractSfsAdapter {
                 null, new String[] { Type.getInternalName(IOException.class) },
                 "writeBytesCallback", Type.INT_TYPE,
                 new ParameterResultPasser(3));
+
+        // take length of parameter string instead of return value
+        stringLengthPasser = new ParameterResultPasser(1) {
+            @Override
+            public void passResult(MethodVisitor mv) {
+                mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+                        Type.getInternalName(String.class), "length",
+                        Type.getMethodDescriptor(Type.INT_TYPE), false);
+            }
+        };
+
+        wrapMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL, "writeBytes",
+                Type.VOID_TYPE, new Type[] { Type.getType(String.class) }, null,
+                new String[] { Type.getInternalName(IOException.class) },
+                "writeBytesCallback", Type.INT_TYPE, stringLengthPasser);
+
+        // twice the data if written as characters
+        wrapMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL, "writeChars",
+                Type.VOID_TYPE, new Type[] { Type.getType(String.class) }, null,
+                new String[] { Type.getInternalName(IOException.class) },
+                "writeBytesCallback", Type.INT_TYPE,
+                new ParameterResultPasser(1) {
+                    @Override
+                    public void passResult(MethodVisitor mv) {
+                        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+                                Type.getInternalName(String.class), "length",
+                                Type.getMethodDescriptor(Type.INT_TYPE), false);
+                        mv.visitInsn(Opcodes.ICONST_2);
+                        mv.visitInsn(Opcodes.IMUL);
+                    }
+                });
+
+        wrapMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL, "writeUTF",
+                Type.VOID_TYPE, new Type[] { Type.getType(String.class) }, null,
+                new String[] { Type.getInternalName(IOException.class) },
+                "writeBytesCallback", Type.INT_TYPE, stringLengthPasser);
     }
 
     private boolean isOpenMethod(int access, String name, String desc,
@@ -120,6 +195,32 @@ public class RandomAccessFileAdapter extends AbstractSfsAdapter {
                         .equals(exceptions[0]);
     }
 
+    private boolean isReadFullyMethod(int access, String name, String desc,
+            String signature, String[] exceptions) {
+        return access == Opcodes.ACC_PUBLIC && "readFully".equals(name)
+                && (Type.getMethodDescriptor(Type.VOID_TYPE,
+                        Type.getType(byte[].class)).equals(desc)
+                        || Type.getMethodDescriptor(Type.VOID_TYPE,
+                                Type.getType(byte[].class), Type.INT_TYPE,
+                                Type.INT_TYPE).equals(desc))
+                && null == signature && exceptions != null
+                && exceptions.length == 1
+                && Type.getInternalName(IOException.class)
+                        .equals(exceptions[0]);
+    }
+
+    private boolean isReadStringMethod(int access, String name, String desc,
+            String signature, String[] exceptions) {
+        return access == (Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL)
+                && ("readLine".equals(name) || "readUTF".equals(name))
+                && Type.getMethodDescriptor(Type.getType(String.class))
+                        .equals(desc)
+                && null == signature && exceptions != null
+                && exceptions.length == 1
+                && Type.getInternalName(IOException.class)
+                        .equals(exceptions[0]);
+    }
+
     private boolean isWriteMethod(int access, String name, String desc,
             String signature, String[] exceptions) {
         return access == Opcodes.ACC_PUBLIC && "write".equals(name)
@@ -130,6 +231,19 @@ public class RandomAccessFileAdapter extends AbstractSfsAdapter {
                         || Type.getMethodDescriptor(Type.VOID_TYPE,
                                 Type.getType(byte[].class), Type.INT_TYPE,
                                 Type.INT_TYPE).equals(desc))
+                && null == signature && exceptions != null
+                && exceptions.length == 1
+                && Type.getInternalName(IOException.class)
+                        .equals(exceptions[0]);
+    }
+
+    private boolean isWriteStringMethod(int access, String name, String desc,
+            String signature, String[] exceptions) {
+        return access == (Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL)
+                && ("writeBytes".equals(name) || "writeChars".equals(name)
+                        || "writeUTF".equals(name))
+                && Type.getMethodDescriptor(Type.VOID_TYPE,
+                        Type.getType(String.class)).equals(desc)
                 && null == signature && exceptions != null
                 && exceptions.length == 1
                 && Type.getInternalName(IOException.class)
