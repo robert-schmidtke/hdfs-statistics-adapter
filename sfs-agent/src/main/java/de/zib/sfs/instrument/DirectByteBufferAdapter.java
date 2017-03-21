@@ -66,22 +66,13 @@ public class DirectByteBufferAdapter extends AbstractSfsAdapter {
                     null, null);
             bulkPutMV.visitCode();
 
-            // if (instrumentationActive || !fromFileChannel) {
+            // if (instrumentationActive) {
             bulkPutMV.visitVarInsn(Opcodes.ALOAD, 0);
             bulkPutMV.visitFieldInsn(Opcodes.GETFIELD,
                     instrumentedTypeInternalName, "instrumentationActive",
                     Type.getDescriptor(Boolean.TYPE));
             Label instrumentationActiveLabel = new Label();
-            bulkPutMV.visitJumpInsn(Opcodes.IFNE, instrumentationActiveLabel);
-
-            bulkPutMV.visitVarInsn(Opcodes.ALOAD, 0);
-            bulkPutMV.visitFieldInsn(Opcodes.GETFIELD,
-                    instrumentedTypeInternalName, "fromFileChannel",
-                    Type.getDescriptor(Boolean.TYPE));
-            Label fromFileChannelLabel = new Label();
-            bulkPutMV.visitJumpInsn(Opcodes.IFNE, fromFileChannelLabel);
-
-            bulkPutMV.visitLabel(instrumentationActiveLabel);
+            bulkPutMV.visitJumpInsn(Opcodes.IFEQ, instrumentationActiveLabel);
 
             // return nativeMethodPrefixput(src);
             bulkPutMV.visitVarInsn(Opcodes.ALOAD, 0);
@@ -94,11 +85,14 @@ public class DirectByteBufferAdapter extends AbstractSfsAdapter {
             bulkPutMV.visitInsn(Opcodes.ARETURN);
 
             // }
-            bulkPutMV.visitLabel(fromFileChannelLabel);
+            bulkPutMV.visitLabel(instrumentationActiveLabel);
 
-            // instrumentationActive = true;
+            // instrumentationActive = fromFileChannel;
             bulkPutMV.visitVarInsn(Opcodes.ALOAD, 0);
-            bulkPutMV.visitInsn(Opcodes.ICONST_1);
+            bulkPutMV.visitVarInsn(Opcodes.ALOAD, 0);
+            bulkPutMV.visitFieldInsn(Opcodes.GETFIELD,
+                    instrumentedTypeInternalName, "fromFileChannel",
+                    Type.getDescriptor(Boolean.TYPE));
             bulkPutMV.visitFieldInsn(Opcodes.PUTFIELD,
                     instrumentedTypeInternalName, "instrumentationActive",
                     Type.getDescriptor(Boolean.TYPE));
@@ -162,6 +156,15 @@ public class DirectByteBufferAdapter extends AbstractSfsAdapter {
                     "currentTimeMillis", currentTimeMillisDescriptor, false);
             bulkPutMV.visitVarInsn(Opcodes.LSTORE, 8);
 
+            // if (instrumentationActive) {
+            bulkPutMV.visitVarInsn(Opcodes.ALOAD, 0);
+            bulkPutMV.visitFieldInsn(Opcodes.GETFIELD,
+                    instrumentedTypeInternalName, "instrumentationActive",
+                    Type.getDescriptor(Boolean.TYPE));
+            Label instrumentationStillActiveLabel = new Label();
+            bulkPutMV.visitJumpInsn(Opcodes.IFEQ,
+                    instrumentationStillActiveLabel);
+
             // callback.putCallback(startTime, endTime, length);
             bulkPutMV.visitVarInsn(Opcodes.ALOAD, 0);
             bulkPutMV.visitFieldInsn(Opcodes.GETFIELD,
@@ -175,6 +178,16 @@ public class DirectByteBufferAdapter extends AbstractSfsAdapter {
                     "putCallback", Type.getMethodDescriptor(Type.VOID_TYPE,
                             Type.LONG_TYPE, Type.LONG_TYPE, Type.INT_TYPE),
                     false);
+
+            // instrumentationActive = false;
+            bulkPutMV.visitVarInsn(Opcodes.ALOAD, 0);
+            bulkPutMV.visitInsn(Opcodes.ICONST_0);
+            bulkPutMV.visitFieldInsn(Opcodes.PUTFIELD,
+                    instrumentedTypeInternalName, "instrumentationActive",
+                    Type.getDescriptor(Boolean.TYPE));
+
+            // }
+            bulkPutMV.visitLabel(instrumentationStillActiveLabel);
 
             // if (srcInstrumentationActive) {
             bulkPutMV.visitVarInsn(Opcodes.ILOAD, 2);
@@ -209,6 +222,7 @@ public class DirectByteBufferAdapter extends AbstractSfsAdapter {
             bulkPutMV.visitLabel(srcInstrumentationActiveLabel);
 
             // return result;
+            // }
             bulkPutMV.visitVarInsn(Opcodes.ALOAD, 7);
             bulkPutMV.visitInsn(Opcodes.ARETURN);
             bulkPutMV.visitMaxs(0, 0);
