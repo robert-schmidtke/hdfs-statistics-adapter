@@ -7,6 +7,7 @@
  */
 package de.zib.sfs.instrument;
 
+import java.io.PrintStream;
 import java.nio.MappedByteBuffer;
 
 import org.objectweb.asm.ClassVisitor;
@@ -287,6 +288,18 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
         appendWrappedMethods(cv);
 
         cv.visitEnd();
+    }
+
+    protected void println(MethodVisitor mv, String string) {
+        // System.err.println(<string>);
+        mv.visitFieldInsn(Opcodes.GETSTATIC, Type.getInternalName(System.class),
+                "err", Type.getDescriptor(PrintStream.class));
+        mv.visitLdcInsn(string);
+        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+                Type.getInternalName(PrintStream.class), "println",
+                Type.getMethodDescriptor(Type.VOID_TYPE,
+                        Type.getType(String.class)),
+                false);
     }
 
     protected void storeTime(MethodVisitor mv, int index) {
