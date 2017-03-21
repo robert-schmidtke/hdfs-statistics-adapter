@@ -41,6 +41,10 @@ public class LiveOperationStatisticsAggregator {
     // for each source/category combination, map a time bin to an aggregate
     // operation statistics
     private final List<NavigableMap<Long, OperationStatistics>> aggregates;
+
+    // FIXME Not ideal data structure, there are supposedly faster concurrent
+    // queues out there. Plus it may grow quite large in face of high
+    // concurrency.
     private final Queue<OperationStatistics> overflowQueue;
 
     private final BufferedWriter[] writers;
@@ -171,11 +175,8 @@ public class LiveOperationStatisticsAggregator {
     }
 
     public void shutdown() {
-        synchronized (this) {
-            if (!initialized) {
-                return;
-            }
-            initialized = false;
+        if (!initialized) {
+            return;
         }
 
         // wait a bit for all currently running threads before submitting the
@@ -196,6 +197,12 @@ public class LiveOperationStatisticsAggregator {
         }
 
         // stop accepting new tasks
+        synchronized (this) {
+            if (!initialized) {
+                return;
+            }
+            initialized = false;
+        }
         threadPool.shutdown();
 
         // wait a bit for all still currently running tasks
@@ -345,11 +352,6 @@ public class LiveOperationStatisticsAggregator {
 
         @Override
         protected boolean exec() {
-            if (!initialized) {
-                // pretend everything is fine
-                return true;
-            }
-
             while (aggregate != null) {
                 // get the time bin applicable for this operation
                 NavigableMap<Long, OperationStatistics> timeBins = aggregates
