@@ -54,36 +54,36 @@ public class FileChannelImplAdapter extends AbstractSfsAdapter {
         wrapFileChannelImplMethod(Opcodes.ACC_PUBLIC, "read", Type.INT_TYPE,
                 new Type[] { Type.getType(ByteBuffer.class) }, null,
                 new String[] { Type.getInternalName(IOException.class) },
-                "readCallback", "writeCallback", Type.INT_TYPE, 0);
+                "readCallback", "writeCallback", Type.INT_TYPE, 0, false);
 
         wrapFileChannelImplMethod(Opcodes.ACC_PUBLIC, "read", Type.INT_TYPE,
                 new Type[] { Type.getType(ByteBuffer.class), Type.LONG_TYPE },
                 null, new String[] { Type.getInternalName(IOException.class) },
-                "readCallback", "writeCallback", Type.INT_TYPE, 0);
+                "readCallback", "writeCallback", Type.INT_TYPE, 0, false);
 
         wrapFileChannelImplMethod(Opcodes.ACC_PUBLIC, "read", Type.LONG_TYPE,
                 new Type[] { Type.getType(ByteBuffer[].class), Type.INT_TYPE,
                         Type.INT_TYPE },
                 null, new String[] { Type.getInternalName(IOException.class) },
-                "readCallback", "writeCallback", Type.LONG_TYPE, 0);
+                "readCallback", "writeCallback", Type.LONG_TYPE, 0, false);
 
         // repeat for write methods
 
         wrapFileChannelImplMethod(Opcodes.ACC_PUBLIC, "write", Type.INT_TYPE,
                 new Type[] { Type.getType(ByteBuffer.class) }, null,
                 new String[] { Type.getInternalName(IOException.class) },
-                "writeCallback", "readCallback", Type.INT_TYPE, 0);
+                "writeCallback", "readCallback", Type.INT_TYPE, 0, false);
 
         wrapFileChannelImplMethod(Opcodes.ACC_PUBLIC, "write", Type.INT_TYPE,
                 new Type[] { Type.getType(ByteBuffer.class), Type.LONG_TYPE },
                 null, new String[] { Type.getInternalName(IOException.class) },
-                "writeCallback", "readCallback", Type.INT_TYPE, 0);
+                "writeCallback", "readCallback", Type.INT_TYPE, 0, false);
 
         wrapFileChannelImplMethod(Opcodes.ACC_PUBLIC, "write", Type.LONG_TYPE,
                 new Type[] { Type.getType(ByteBuffer[].class), Type.INT_TYPE,
                         Type.INT_TYPE },
                 null, new String[] { Type.getInternalName(IOException.class) },
-                "writeCallback", "readCallback", Type.LONG_TYPE, 0);
+                "writeCallback", "readCallback", Type.LONG_TYPE, 0, false);
 
         // transferTo is basically a read
 
@@ -92,7 +92,7 @@ public class FileChannelImplAdapter extends AbstractSfsAdapter {
                 new Type[] { Type.LONG_TYPE, Type.LONG_TYPE,
                         Type.getType(WritableByteChannel.class) },
                 null, new String[] { Type.getInternalName(IOException.class) },
-                "readCallback", "writeCallback", Type.LONG_TYPE, 2);
+                "readCallback", "writeCallback", Type.LONG_TYPE, 2, true);
 
         // transferFrom is basically a write
 
@@ -101,7 +101,7 @@ public class FileChannelImplAdapter extends AbstractSfsAdapter {
                 new Type[] { Type.getType(ReadableByteChannel.class),
                         Type.LONG_TYPE, Type.LONG_TYPE },
                 null, new String[] { Type.getInternalName(IOException.class) },
-                "writeCallback", "readCallback", Type.LONG_TYPE, 0);
+                "writeCallback", "readCallback", Type.LONG_TYPE, 0, true);
 
         String mapMethodDescriptor = Type.getMethodDescriptor(
                 Type.getType(MappedByteBuffer.class),
@@ -145,7 +145,7 @@ public class FileChannelImplAdapter extends AbstractSfsAdapter {
             Type returnType, Type[] argumentTypes, String signature,
             String[] exceptions, String callbackName,
             String oppositeCallbackName, Type additionalCallbackArgumentType,
-            int bufferArgumentTypeIndex) {
+            int bufferArgumentTypeIndex, boolean isTransferMethod) {
         String methodDescriptor = Type.getMethodDescriptor(returnType,
                 argumentTypes);
 
@@ -261,28 +261,43 @@ public class FileChannelImplAdapter extends AbstractSfsAdapter {
             // }
             mv.visitLabel(bufferInstanceofMappedByteBufferLabel);
         } else {
+            // We need to handle the transferFrom/transferTo methods a little
+            // differently. Their "buffers" only need to be FileChannelImpls,
+            // the rest remains the same.
+
             // if (buffer instanceof MappedByteBuffer) {
+            // if (buffer instanceof FileChannelImpl) {
             mv.visitVarInsn(Opcodes.ALOAD, bufferArgumentIndex);
-            mv.visitTypeInsn(Opcodes.INSTANCEOF,
-                    Type.getInternalName(MappedByteBuffer.class));
+            if (!isTransferMethod) {
+                mv.visitTypeInsn(Opcodes.INSTANCEOF,
+                        Type.getInternalName(MappedByteBuffer.class));
+            } else {
+                mv.visitTypeInsn(Opcodes.INSTANCEOF,
+                        Type.getInternalName(FileChannelImpl.class));
+            }
             Label bufferInstanceofMappedByteBufferLabel = new Label();
             mv.visitJumpInsn(Opcodes.IFEQ,
                     bufferInstanceofMappedByteBufferLabel);
 
-            // if (buffer.isFromFileChannel()) {
-            mv.visitVarInsn(Opcodes.ALOAD, bufferArgumentIndex);
-            mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
-                    Type.getInternalName(MappedByteBuffer.class),
-                    "isFromFileChannel",
-                    Type.getMethodDescriptor(Type.BOOLEAN_TYPE), false);
+            // additional check required if the buffer is a MappedByteBuffer
             Label fromFileChannelLabel = new Label();
-            mv.visitJumpInsn(Opcodes.IFEQ, fromFileChannelLabel);
+            if (!isTransferMethod) {
+                // if (buffer.isFromFileChannel()) {
+                mv.visitVarInsn(Opcodes.ALOAD, bufferArgumentIndex);
+                mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+                        Type.getInternalName(MappedByteBuffer.class),
+                        "isFromFileChannel",
+                        Type.getMethodDescriptor(Type.BOOLEAN_TYPE), false);
+                mv.visitJumpInsn(Opcodes.IFEQ, fromFileChannelLabel);
+            }
 
             // buffer.setInstrumentationActive(true);
             mv.visitVarInsn(Opcodes.ALOAD, bufferArgumentIndex);
             mv.visitInsn(Opcodes.ICONST_1);
             mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
-                    Type.getInternalName(MappedByteBuffer.class),
+                    !isTransferMethod
+                            ? Type.getInternalName(MappedByteBuffer.class)
+                            : Type.getInternalName(FileChannelImpl.class),
                     "setInstrumentationActive",
                     Type.getMethodDescriptor(Type.VOID_TYPE, Type.BOOLEAN_TYPE),
                     false);
@@ -291,8 +306,10 @@ public class FileChannelImplAdapter extends AbstractSfsAdapter {
             mv.visitInsn(Opcodes.ICONST_1);
             mv.visitVarInsn(Opcodes.ISTORE, bufferInstrumentationActiveIndex);
 
-            // }
-            mv.visitLabel(fromFileChannelLabel);
+            if (!isTransferMethod) {
+                // }
+                mv.visitLabel(fromFileChannelLabel);
+            }
 
             // }
             mv.visitLabel(bufferInstanceofMappedByteBufferLabel);
@@ -382,7 +399,9 @@ public class FileChannelImplAdapter extends AbstractSfsAdapter {
             mv.visitVarInsn(Opcodes.ALOAD, bufferArgumentIndex);
             mv.visitInsn(Opcodes.ICONST_0);
             mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
-                    Type.getInternalName(MappedByteBuffer.class),
+                    !isTransferMethod
+                            ? Type.getInternalName(MappedByteBuffer.class)
+                            : Type.getInternalName(FileChannelImpl.class),
                     "setInstrumentationActive",
                     Type.getMethodDescriptor(Type.VOID_TYPE, Type.BOOLEAN_TYPE),
                     false);
