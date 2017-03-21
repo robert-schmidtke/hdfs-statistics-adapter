@@ -15,6 +15,8 @@ import java.io.FileReader;
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.nio.BufferOverflowException;
+import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
@@ -318,7 +320,8 @@ public class InstrumentationTest {
         {
             File file = File.createTempFile("channel", null);
 
-            // write a total of 8 MB
+            // Write
+
             FileOutputStream fos = new FileOutputStream(file);
             ++openOperations;
 
@@ -329,32 +332,97 @@ public class InstrumentationTest {
                 writeBuffer[i] = (byte) random.nextInt(Byte.MAX_VALUE);
             }
 
-            long numWritten = fco.write(ByteBuffer.wrap(writeBuffer));
-            writeBytes += 1048576;
-
+            // set up 3 write buffers
+            ByteBuffer wrappedWriteBuffer = ByteBuffer.wrap(writeBuffer);
             ByteBuffer allocatedWriteBuffer = ByteBuffer.allocate(1048576);
             allocatedWriteBuffer.put(writeBuffer);
             allocatedWriteBuffer.position(0);
-            numWritten += fco.write(allocatedWriteBuffer, 1048576);
-            fco.position(fco.position() + 1048576);
-            writeBytes += 1048576;
-
             ByteBuffer allocatedDirectWriteBuffer = ByteBuffer
                     .allocateDirect(1048576);
             allocatedDirectWriteBuffer.put(writeBuffer);
             allocatedDirectWriteBuffer.position(0);
-            numWritten += fco.write(allocatedDirectWriteBuffer, 2 * 1048576);
+
+            // write all 3 buffers
+            long numWritten = fco.write(wrappedWriteBuffer);
+            wrappedWriteBuffer.position(0);
+            writeBytes += 1048576;
+            numWritten += fco.write(allocatedWriteBuffer);
+            allocatedWriteBuffer.position(0);
+            writeBytes += 1048576;
+            numWritten += fco.write(allocatedDirectWriteBuffer);
+            allocatedDirectWriteBuffer.position(0);
+            writeBytes += 1048576;
+            // fco is now 3 MB
+
+            // write all 3 buffers using offsets
+            numWritten += fco.write(wrappedWriteBuffer, 3 * 1048576);
+            wrappedWriteBuffer.position(0);
             fco.position(fco.position() + 1048576);
             writeBytes += 1048576;
+            numWritten += fco.write(allocatedWriteBuffer, 4 * 1048576);
+            allocatedWriteBuffer.position(0);
+            fco.position(fco.position() + 1048576);
+            writeBytes += 1048576;
+            numWritten += fco.write(allocatedDirectWriteBuffer, 5 * 1048576);
+            allocatedDirectWriteBuffer.position(0);
+            fco.position(fco.position() + 1048576);
+            writeBytes += 1048576;
+            // fco is now 6 MB
 
-            numWritten += fco.write(ByteBuffer.wrap(writeBuffer), 1048576);
+            // write all 3 buffers using an array of them
+            numWritten += fco.write(new ByteBuffer[] { wrappedWriteBuffer,
+                    allocatedWriteBuffer, allocatedDirectWriteBuffer });
+            writeBytes += 3 * 1048576;
+            // fco is now 9 MB
+
+            // write to a dummy file so we can map its buffer
+            // this gives an extra 1 MB in the write statistics
+            File dummyFile = File.createTempFile("dummy", null);
+            RandomAccessFile dummyRaf = new RandomAccessFile(dummyFile, "rw");
+            ++openOperations;
+            dummyRaf.write(writeBuffer);
             writeBytes += 1048576;
 
-            numWritten += fco.write(new ByteBuffer[] {
-                    ByteBuffer.wrap(writeBuffer), ByteBuffer.wrap(writeBuffer),
-                    ByteBuffer.wrap(writeBuffer) });
-            writeBytes += 3 * 1048576;
+            dummyRaf.close();
 
+            dummyRaf = new RandomAccessFile(dummyFile, "r");
+            ++openOperations;
+            MappedByteBuffer mappedByteBuffer = dummyRaf.getChannel()
+                    .map(MapMode.READ_ONLY, 0, 1048576);
+
+            // use regular write
+            numWritten += fco.write(mappedByteBuffer);
+            writeBytes += 1048576;
+            readBytes += 1048576;
+            mappedByteBuffer.position(0);
+            // fco is now 10 MB
+
+            // use write with offset
+            numWritten += fco.write(mappedByteBuffer, 10 * 1048576);
+            fco.position(fco.position() + 1048576);
+            writeBytes += 1048576;
+            readBytes += 1048576;
+            mappedByteBuffer.position(0);
+            // fco is now 11 MB
+
+            // use array write
+            numWritten += fco.write(new ByteBuffer[] { mappedByteBuffer });
+            writeBytes += 1048576;
+            readBytes += 1048576;
+            mappedByteBuffer.position(0);
+            // fco is now 12 MB
+
+            // use transfer from file, incurring another 1 MB of reads
+            numWritten += fco.transferFrom(dummyRaf.getChannel(), 12 * 1048576,
+                    1048576);
+            fco.position(fco.position() + 1048576);
+            writeBytes += 1048576;
+            readBytes += 1048576;
+            // fco is now 13 MB
+
+            dummyRaf.close();
+
+            // use transfer from arbitrary source
             numWritten += fco.transferFrom(new ReadableByteChannel() {
                 boolean open = true;
 
@@ -378,41 +446,94 @@ public class InstrumentationTest {
                     dst.put(src, 0, src.length);
                     return src.length;
                 }
-            }, 0, 1048576);
+            }, 13 * 1048576, 1048576);
+            fco.position(fco.position() + 1048576);
             writeBytes += 1048576;
-            assert (numWritten == 8 * 1048576);
+            // fco is now 14 MB
+            assert (numWritten == 14 * 1048576);
 
             fco.close();
             fos.close();
+            assert (file.length() == 14 * 1048576);
 
-            // read a total of 8 MB
+            // Read
+
             FileInputStream fis = new FileInputStream(file);
             ++openOperations;
 
             FileChannel fci = fis.getChannel();
 
             byte[] readBuffer = new byte[1048576];
-            long numRead = fci.read(ByteBuffer.wrap(readBuffer));
-            readBytes += 1048576;
 
+            // set up 3 read buffers
+            ByteBuffer wrappedReadBuffer = ByteBuffer.wrap(readBuffer);
             ByteBuffer allocatedReadBuffer = ByteBuffer.allocate(1048576);
-            numRead += fci.read(allocatedReadBuffer, 1048576);
+            ByteBuffer allocatedDirectReadBuffer = ByteBuffer.allocate(1048576);
+
+            // read all 3 buffers
+            long numRead = fci.read(wrappedReadBuffer);
+            wrappedReadBuffer.position(0);
+            readBytes += 1048576;
+            numRead += fci.read(allocatedReadBuffer);
+            allocatedReadBuffer.position(0);
+            readBytes += 1048576;
+            numRead += fci.read(allocatedDirectReadBuffer);
+            allocatedDirectReadBuffer.position(0);
+            readBytes += 1048576;
+            // fci is now 3 MB
+
+            // read all 3 buffers using offsets
+            numRead += fci.read(wrappedReadBuffer, 3 * 1048576);
+            wrappedReadBuffer.position(0);
             fci.position(fci.position() + 1048576);
             readBytes += 1048576;
+            numRead += fci.read(allocatedReadBuffer, 4 * 1048576);
+            allocatedReadBuffer.position(0);
+            fci.position(fci.position() + 1048576);
+            readBytes += 1048576;
+            numRead += fci.read(allocatedDirectReadBuffer, 5 * 1048576);
+            allocatedDirectReadBuffer.position(0);
+            fci.position(fci.position() + 1048576);
+            readBytes += 1048576;
+            // fci is now 6 MB
 
+            // verify contents
+            wrappedWriteBuffer.position(0);
+            for (int i = 0; i < 1048576; ++i) {
+                assert (wrappedWriteBuffer.get() == wrappedReadBuffer.get());
+            }
+            allocatedWriteBuffer.position(0);
+            for (int i = 0; i < 1048576; ++i) {
+                assert (allocatedWriteBuffer.get() == allocatedReadBuffer
+                        .get());
+            }
+            allocatedDirectWriteBuffer.position(0);
+            for (int i = 0; i < 1048576; ++i) {
+                assert (allocatedDirectWriteBuffer
+                        .get() == allocatedDirectReadBuffer.get());
+            }
+
+            // read all 3 buffers using an array of them
+            wrappedReadBuffer.position(0);
+            allocatedReadBuffer.position(0);
+            allocatedDirectReadBuffer.position(0);
+            numRead += fci.read(new ByteBuffer[] { wrappedReadBuffer,
+                    allocatedReadBuffer, allocatedDirectReadBuffer });
+            readBytes += 3 * 1048576;
+            // fci is now 9 MB
+
+            // verify contents
+            wrappedWriteBuffer.position(0);
+            wrappedReadBuffer.position(0);
+            for (int i = 0; i < 1048576; ++i) {
+                assert (wrappedWriteBuffer.get() == wrappedReadBuffer.get());
+            }
             allocatedWriteBuffer.position(0);
             allocatedReadBuffer.position(0);
             for (int i = 0; i < 1048576; ++i) {
                 assert (allocatedWriteBuffer.get() == allocatedReadBuffer
                         .get());
             }
-
-            ByteBuffer allocatedDirectReadBuffer = ByteBuffer
-                    .allocateDirect(1048576);
-            numRead += fci.read(allocatedDirectReadBuffer, 2 * 1048576);
-            fci.position(fci.position() + 1048576);
-            readBytes += 1048576;
-
             allocatedDirectWriteBuffer.position(0);
             allocatedDirectReadBuffer.position(0);
             for (int i = 0; i < 1048576; ++i) {
@@ -420,52 +541,76 @@ public class InstrumentationTest {
                         .get() == allocatedDirectReadBuffer.get());
             }
 
-            numRead += fci.read(ByteBuffer.wrap(readBuffer), 1048576);
+            // read content back to file
+            dummyRaf = new RandomAccessFile(dummyFile, "rw");
+            ++openOperations;
+            mappedByteBuffer = dummyRaf.getChannel().map(MapMode.READ_WRITE, 0,
+                    1048576);
+
+            // use regular read
+            numRead += fci.read(mappedByteBuffer);
+            writeBytes += 1048576;
             readBytes += 1048576;
-            for (int i = 0; i < 1048576; ++i) {
-                assert (readBuffer[i] == writeBuffer[i]);
-            }
+            mappedByteBuffer.position(0);
+            // fci is now 10 MB
 
-            byte[][] readBuffers = new byte[3][1048576];
-            numRead += fci
-                    .read(new ByteBuffer[] { ByteBuffer.wrap(readBuffers[0]),
-                            ByteBuffer.wrap(readBuffers[1]),
-                            ByteBuffer.wrap(readBuffers[2]) });
-            readBytes += 3 * 1048576;
-
-            numRead += fci.transferTo(0, 1048576, new WritableByteChannel() {
-                boolean open = true;
-
-                @Override
-                public boolean isOpen() {
-                    return open;
-                }
-
-                @Override
-                public void close() throws IOException {
-                    open = false;
-                }
-
-                @Override
-                public int write(ByteBuffer src) throws IOException {
-                    // discard everything
-                    byte[] dst = new byte[src.remaining()];
-                    src.get(dst, 0, dst.length);
-                    return dst.length;
-                }
-            });
+            // use read with offset
+            numRead += fci.read(mappedByteBuffer, 10 * 1048576);
+            mappedByteBuffer.position(0);
+            fci.position(fci.position() + 1048576);
+            writeBytes += 1048576;
             readBytes += 1048576;
-            assert (numRead == 8 * 1048576);
-            numRead = fci.read(ByteBuffer.wrap(readBuffer));
+            // fci is now 11 MB
+
+            // use array read
+            numRead += fci.read(new ByteBuffer[] { mappedByteBuffer });
+            writeBytes += 1048576;
+            readBytes += 1048576;
+            mappedByteBuffer.position(0);
+            // fci is now 12 MB
+
+            // use transfer to file
+            numRead += fci.transferTo(12 * 1048576, 1048576,
+                    dummyRaf.getChannel());
+            fci.position(fci.position() + 1048576);
+            writeBytes += 1048576;
+            readBytes += 1048576;
+            // fci is now 13 MB
+
+            dummyRaf.close();
+
+            numRead += fci.transferTo(13 * 1048576, 1048576,
+                    new WritableByteChannel() {
+                        boolean open = true;
+
+                        @Override
+                        public boolean isOpen() {
+                            return open;
+                        }
+
+                        @Override
+                        public void close() throws IOException {
+                            open = false;
+                        }
+
+                        @Override
+                        public int write(ByteBuffer src) throws IOException {
+                            // discard everything
+                            byte[] dst = new byte[src.remaining()];
+                            src.get(dst, 0, dst.length);
+                            return dst.length;
+                        }
+                    });
+            readBytes += 1048576;
+            fci.position(fci.position() + 1048576);
+            // fci is now 14 MB
+            assert (numRead == 14 * 1048576);
+
+            wrappedReadBuffer.position(0);
+            numRead = fci.read(wrappedReadBuffer);
             assert (numRead == -1);
             fci.close();
             fis.close();
-
-            for (int i = 0; i < 3; ++i) {
-                for (int j = 0; j < 1048576; ++j) {
-                    assert (readBuffers[i][j] == writeBuffer[j]);
-                }
-            }
 
             file.delete();
         }
@@ -473,59 +618,139 @@ public class InstrumentationTest {
         {
             File file = File.createTempFile("channel", null);
 
+            // Write
+
             RandomAccessFile writeFile = new RandomAccessFile(file, "rw");
             ++openOperations;
 
             FileChannel fco = writeFile.getChannel();
 
-            MappedByteBuffer mbbo = fco.map(MapMode.READ_WRITE, 0, 2 * 1048576);
+            MappedByteBuffer mbbo = fco.map(MapMode.READ_WRITE, 0,
+                    20 * 1048576);
 
-            byte b = (byte) random.nextInt(Byte.MAX_VALUE);
-            mbbo.put(b); // 1 byte
-            ++writeBytes;
+            int index = 0;
 
-            char c = (char) random.nextInt(Character.MAX_VALUE);
-            mbbo.putChar(c); // 2 bytes
-            writeBytes += 2;
+            byte[] bytes = new byte[1048576];
+            for (int i = 0; i < 1048576; ++i) {
+                bytes[i] = (byte) random.nextInt(Byte.MAX_VALUE);
+                mbbo.put(bytes[i]);
+                index += 1;
+                mbbo.put(index, bytes[i]);
+                index += 1;
+                mbbo.position(index);
+            }
+            writeBytes += 2 * 1048576;
+            // mbbo is now 2 MB
 
-            double d = random.nextDouble();
-            mbbo.putDouble(d); // 8 bytes
-            writeBytes += 8;
+            char[] chars = new char[524288];
+            for (int i = 0; i < 524288; ++i) {
+                chars[i] = (char) random.nextInt(Character.MAX_VALUE);
+                mbbo.putChar(chars[i]);
+                index += 2;
+                mbbo.putChar(index, chars[i]);
+                index += 2;
+                mbbo.position(index);
+            }
+            writeBytes += 2 * 1048576;
+            // mbbo is now 4 MB
 
-            float f = random.nextFloat();
-            mbbo.putFloat(f); // 4 bytes
-            writeBytes += 4;
+            double[] doubles = new double[131072];
+            for (int i = 0; i < 131072; ++i) {
+                doubles[i] = random.nextDouble();
+                mbbo.putDouble(doubles[i]);
+                index += 8;
+                mbbo.putDouble(index, doubles[i]);
+                index += 8;
+                mbbo.position(index);
+            }
+            writeBytes += 2 * 1048576;
+            // mbbo is now 6 MB
 
-            int i = random.nextInt();
-            mbbo.putInt(i); // 4 bytes
-            writeBytes += 4;
+            float[] floats = new float[262144];
+            for (int i = 0; i < 262144; ++i) {
+                floats[i] = random.nextFloat();
+                mbbo.putFloat(floats[i]);
+                index += 4;
+                mbbo.putFloat(index, floats[i]);
+                index += 4;
+                mbbo.position(index);
+            }
+            writeBytes += 2 * 1048576;
+            // mbbo is now 8 MB
 
-            long l = random.nextLong();
-            mbbo.putLong(l); // 8 bytes
-            writeBytes += 8;
+            int[] ints = new int[262144];
+            for (int i = 0; i < 262144; ++i) {
+                ints[i] = random.nextInt();
+                mbbo.putInt(ints[i]);
+                index += 4;
+                mbbo.putInt(index, ints[i]);
+                index += 4;
+                mbbo.position(index);
+            }
+            writeBytes += 2 * 1048576;
+            // mbbo is now 10 MB
 
-            short s = (short) random.nextInt(Short.MAX_VALUE);
-            mbbo.putShort(s); // 2 bytes
-            writeBytes += 2;
+            long[] longs = new long[131072];
+            for (int i = 0; i < 131072; ++i) {
+                longs[i] = random.nextLong();
+                mbbo.putLong(longs[i]);
+                index += 8;
+                mbbo.putLong(index, longs[i]);
+                index += 8;
+                mbbo.position(index);
+            }
+            writeBytes += 2 * 1048576;
+            // mbbo is now 12 MB
 
-            // fill the rest
-            byte[] writeBuffer = new byte[1048547];
+            short[] shorts = new short[524288];
+            for (int i = 0; i < 524288; ++i) {
+                shorts[i] = (short) random.nextInt(Short.MAX_VALUE);
+                mbbo.putShort(shorts[i]);
+                index += 2;
+                mbbo.putShort(index, shorts[i]);
+                index += 2;
+                mbbo.position(index);
+            }
+            writeBytes += 2 * 1048576;
+            // mbbo is now 14 MB
+
+            byte[] writeBuffer = new byte[1048576];
             for (int j = 0; j < writeBuffer.length; ++j) {
                 writeBuffer[j] = (byte) random.nextInt(Byte.MAX_VALUE);
             }
             mbbo.put(writeBuffer);
-            writeBytes += 1048547;
+            writeBytes += 1048576;
+            // mbbo is now 15 MB
+
+            mbbo.put(writeBuffer, 0, writeBuffer.length);
+            writeBytes += 1048576;
+            // mbbo is now 16 MB
+
+            // set up 3 write buffers
+            ByteBuffer wrappedWriteBuffer = ByteBuffer.wrap(writeBuffer);
+            ByteBuffer allocatedWriteBuffer = ByteBuffer.allocate(1048576);
+            allocatedWriteBuffer.put(writeBuffer);
+            allocatedWriteBuffer.position(0);
+            ByteBuffer allocatedDirectWriteBuffer = ByteBuffer
+                    .allocateDirect(1048576);
+            allocatedDirectWriteBuffer.put(writeBuffer);
+            allocatedDirectWriteBuffer.position(0);
+
+            // write the 3 buffers
+            mbbo.put(wrappedWriteBuffer);
+            writeBytes += 1048576;
+            mbbo.put(allocatedWriteBuffer);
+            writeBytes += 1048576;
+            mbbo.put(allocatedDirectWriteBuffer);
+            writeBytes += 1048576;
+            // mbbo is now 19 MB
 
             // write to a dummy file so we can map its buffer
             // this gives an extra 1 MB in the write statistics
             File dummyFile = File.createTempFile("from", null);
             RandomAccessFile dummyRaf = new RandomAccessFile(dummyFile, "rw");
             ++openOperations;
-            byte[] writeBuffer2 = new byte[1048576];
-            for (int j = 0; j < writeBuffer2.length; ++j) {
-                writeBuffer2[j] = (byte) random.nextInt(Byte.MAX_VALUE);
-            }
-            dummyRaf.write(writeBuffer2);
+            dummyRaf.write(writeBuffer);
             writeBytes += 1048576;
 
             dummyRaf.close();
@@ -537,49 +762,163 @@ public class InstrumentationTest {
             mbbo.put(dummyRaf.getChannel().map(MapMode.READ_ONLY, 0, 1048576));
             writeBytes += 1048576;
             readBytes += 1048576;
+            // mbbo is now 20 MB
 
             dummyRaf.close();
 
+            try {
+                mbbo.put(Byte.MAX_VALUE);
+                assert (false);
+            } catch (BufferOverflowException e) {
+                // expected
+            }
+
             fco.close();
             writeFile.close();
-            assert (file.length() == 2 * 1048576);
+            assert (file.length() == 20 * 1048576);
+
+            // Read
 
             RandomAccessFile readFile = new RandomAccessFile(file, "r");
             ++openOperations;
 
             FileChannel fci = readFile.getChannel();
 
-            MappedByteBuffer mbbi = fci.map(MapMode.READ_ONLY, 0, 2 * 1048576);
+            MappedByteBuffer mbbi = fci.map(MapMode.READ_ONLY, 0, 20 * 1048576);
 
-            assert (b == mbbi.get());
-            ++readBytes;
-            assert (c == mbbi.getChar());
-            readBytes += 2;
-            assert (d == mbbi.getDouble());
-            readBytes += 8;
-            assert (f == mbbi.getFloat());
-            readBytes += 4;
-            assert (i == mbbi.getInt());
-            readBytes += 4;
-            assert (l == mbbi.getLong());
-            readBytes += 8;
-            assert (s == mbbi.getShort());
-            readBytes += 2;
+            index = 0;
 
-            byte[] readBuffer = new byte[1048547];
+            for (int i = 0; i < 1048576; ++i) {
+                assert (mbbi.get() == bytes[i]);
+                index += 1;
+                assert (mbbi.get(index) == bytes[i]);
+                index += 1;
+                mbbi.position(index);
+            }
+            readBytes += 2 * 1048576;
+            // mbbi is now 2 MB
+
+            for (int i = 0; i < 524288; ++i) {
+                assert (mbbi.getChar() == chars[i]);
+                index += 2;
+                assert (mbbi.getChar(index) == chars[i]);
+                index += 2;
+                mbbi.position(index);
+            }
+            readBytes += 2 * 1048576;
+            // mbbi is now 4 MB
+
+            for (int i = 0; i < 131072; ++i) {
+                assert (mbbi.getDouble() == doubles[i]);
+                index += 8;
+                assert (mbbi.getDouble(index) == doubles[i]);
+                index += 8;
+                mbbi.position(index);
+            }
+            readBytes += 2 * 1048576;
+            // mbbi is now 6 MB
+
+            for (int i = 0; i < 262144; ++i) {
+                assert (mbbi.getFloat() == floats[i]);
+                index += 4;
+                assert (mbbi.getFloat(index) == floats[i]);
+                index += 4;
+                mbbi.position(index);
+            }
+            readBytes += 2 * 1048576;
+            // mbbi is now 8 MB
+
+            for (int i = 0; i < 262144; ++i) {
+                assert (mbbi.getInt() == ints[i]);
+                index += 4;
+                assert (mbbi.getInt(index) == ints[i]);
+                index += 4;
+                mbbi.position(index);
+            }
+            readBytes += 2 * 1048576;
+            // mbbi is now 10 MB
+
+            for (int i = 0; i < 131072; ++i) {
+                assert (mbbi.getLong() == longs[i]);
+                index += 8;
+                assert (mbbi.getLong(index) == longs[i]);
+                index += 8;
+                mbbi.position(index);
+            }
+            readBytes += 2 * 1048576;
+            // mbbi is now 12 MB
+
+            for (int i = 0; i < 524288; ++i) {
+                assert (mbbi.getShort() == shorts[i]);
+                index += 2;
+                assert (mbbi.getShort(index) == shorts[i]);
+                index += 2;
+                mbbi.position(index);
+            }
+            readBytes += 2 * 1048576;
+            // mbbi is now 14 MB
+
+            byte[] readBuffer = new byte[1048576];
             mbbi.get(readBuffer);
-            readBytes += 1048547;
+            readBytes += 1048576;
+            // mbbi is now 15 MB
 
             for (int j = 0; j < readBuffer.length; ++j) {
                 assert (readBuffer[j] == writeBuffer[j]);
             }
 
-            byte[] readBuffer2 = new byte[1048576];
-            mbbi.get(readBuffer2);
+            mbbi.get(readBuffer, 0, readBuffer.length);
+            readBytes += 1048576;
+            // mbbi is now 16 MB
+
+            for (int j = 0; j < readBuffer.length; ++j) {
+                assert (readBuffer[j] == writeBuffer[j]);
+            }
+
+            // set up 3 read buffers to read the last MB of input
+            ByteBuffer wrappedReadBuffer = ByteBuffer.wrap(readBuffer);
+            ByteBuffer allocatedReadBuffer = ByteBuffer.allocate(1048576);
+            ByteBuffer allocatedDirectReadBuffer = ByteBuffer
+                    .allocateDirect(1048576);
+
+            int lastMBPosition = mbbi.capacity() - 1048576;
+            // mbbi is now at 19 MB
+
+            // read the 3 buffers
+
+            // FIXME It is lucky that this works because of HeapByteBuffer's
+            // put(ByteBuffer) implementation, as it invokes our instrumented
+            // methods. If it were to do something fancy, we would miss these
+            // two reads.
+            mbbi.position(lastMBPosition);
+            wrappedReadBuffer.put(mbbi);
+            readBytes += 1048576;
+            mbbi.position(lastMBPosition);
+            allocatedReadBuffer.put(mbbi);
             readBytes += 1048576;
 
-            for (int j = 0; j < readBuffer2.length; ++j) {
-                assert (readBuffer2[j] == writeBuffer2[j]);
+            // this is a DirectByteBuffer which we have already instrumented
+            mbbi.position(lastMBPosition);
+            allocatedDirectReadBuffer.put(mbbi);
+            readBytes += 1048576;
+
+            // this gives an extra 1 MB in the write statistics
+            dummyRaf = new RandomAccessFile(dummyFile, "rw");
+            ++openOperations;
+
+            mbbi.position(lastMBPosition);
+            dummyRaf.getChannel().map(MapMode.READ_WRITE, 0, 1048576).put(mbbi);
+            writeBytes += 1048576;
+            readBytes += 1048576;
+            // mbbi is now 20 MB
+
+            dummyRaf.close();
+
+            try {
+                mbbi.get();
+                assert (false);
+            } catch (BufferUnderflowException e) {
+                // expected
             }
 
             fci.close();
@@ -672,11 +1011,13 @@ public class InstrumentationTest {
         assertOperationCount(aggregates, OperationSource.JVM,
                 OperationCategory.OTHER, openOperations);
 
-        // allow 8K slack for the JVM for writing, 48K for reading
+        // Allow 8K slack for the JVM for writing, 64K for reading. This should
+        // be fine as we always operate on 1 MB chunks of data, so if we truly
+        // miss some operations, these tests should still fail.
         assertOperationData(aggregates, OperationSource.JVM,
                 OperationCategory.WRITE, writeBytes, writeBytes + 8 * 1024);
         assertOperationData(aggregates, OperationSource.JVM,
-                OperationCategory.READ, readBytes, readBytes + 48 * 1024);
+                OperationCategory.READ, readBytes, readBytes + 64 * 1024);
 
     }
 
