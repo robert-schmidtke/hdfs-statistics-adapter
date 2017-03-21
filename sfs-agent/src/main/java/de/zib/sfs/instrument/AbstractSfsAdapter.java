@@ -8,7 +8,6 @@
 package de.zib.sfs.instrument;
 
 import java.io.PrintStream;
-import java.nio.MappedByteBuffer;
 
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.FieldVisitor;
@@ -277,8 +276,8 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
         setInstrumentationActiveMV.visitVarInsn(Opcodes.ALOAD, 0);
         setInstrumentationActiveMV.visitVarInsn(Opcodes.ILOAD, 1);
         setInstrumentationActiveMV.visitFieldInsn(Opcodes.PUTFIELD,
-                Type.getInternalName(MappedByteBuffer.class),
-                "instrumentationActive", Type.getDescriptor(Boolean.TYPE));
+                instrumentedTypeInternalName, "instrumentationActive",
+                Type.getDescriptor(Boolean.TYPE));
 
         // }
         setInstrumentationActiveMV.visitInsn(Opcodes.RETURN);
