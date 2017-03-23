@@ -90,7 +90,7 @@ public class ZipFileAdapter extends ClassVisitor {
         @Override
         protected void onMethodExit(int opcode) {
             if (opcode == Opcodes.RETURN) {
-                // ZipFileCallback.openCallback(startTime,
+                // ZipFileCallback.constructorCallback(startTime,
                 // System.currentTimeMillis(), file.length());
                 mv.visitFieldInsn(Opcodes.GETFIELD,
                         Type.getInternalName(ZipFile.class), "startTime",

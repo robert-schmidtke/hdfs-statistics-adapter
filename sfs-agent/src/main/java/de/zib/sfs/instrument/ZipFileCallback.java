@@ -19,6 +19,22 @@ public class ZipFileCallback {
                 .aggregateReadDataOperationStatistics(OperationSource.JVM,
                         OperationCategory.READ, startTime, endTime, data,
                         false);
+
+        // For testing purposes, keep track of how much data was read using
+        // ZipFiles. Automatically disabled in non-assertion-enabled
+        // environments.
+        assert (incrementTotalData(data));
+    }
+
+    private static long totalData = 0;
+
+    private static boolean incrementTotalData(long data) {
+        totalData += data;
+        return true;
+    }
+
+    public static long getTotalData() {
+        return totalData;
     }
 
 }

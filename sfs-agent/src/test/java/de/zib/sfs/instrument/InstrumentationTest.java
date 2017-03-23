@@ -987,6 +987,14 @@ public class InstrumentationTest {
             zis.close();
             readBytes += file.length();
 
+            // Add what has been loaded by the JVM until now as expected data.
+            // This is because we have not used ZipFiles yet, however when the
+            // JVM loads Jars, our ZipFileCallback was invoked already. So as to
+            // manage our expectations for this test, we keep track of what was
+            // loaded by the JVM until now and assume there won't be much more
+            // afterwards.
+            readBytes += ZipFileCallback.getTotalData();
+
             // ZipFile, on the other hand is different, because it uses caching
             // in the constructor.
             ZipFile zipFile = new ZipFile(file);
