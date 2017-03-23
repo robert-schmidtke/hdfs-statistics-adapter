@@ -92,6 +92,7 @@ public class ZipFileAdapter extends ClassVisitor {
             if (opcode == Opcodes.RETURN) {
                 // ZipFileCallback.constructorCallback(startTime,
                 // System.currentTimeMillis(), file.length());
+                mv.visitVarInsn(Opcodes.ALOAD, 0);
                 mv.visitFieldInsn(Opcodes.GETFIELD,
                         Type.getInternalName(ZipFile.class), "startTime",
                         Type.getDescriptor(Long.TYPE));
