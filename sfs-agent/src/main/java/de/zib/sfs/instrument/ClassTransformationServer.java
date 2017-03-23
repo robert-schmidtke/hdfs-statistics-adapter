@@ -97,9 +97,7 @@ public class ClassTransformationServer extends
                             ClassReader.EXPAND_FRAMES);
                     break;
                 case "java/util/zip/ZipFile":
-                    cr.accept(
-                            new ZipFileAdapter(cw,
-                                    request.getNativeMethodPrefix()),
+                    cr.accept(new ZipFileAdapter(cw),
                             ClassReader.EXPAND_FRAMES);
                     break;
                 case "sun/nio/ch/FileChannelImpl":

@@ -7,16 +7,14 @@
  */
 package de.zib.sfs.instrument;
 
-import java.io.File;
-
 import de.zib.sfs.instrument.statistics.LiveOperationStatisticsAggregator;
 import de.zib.sfs.instrument.statistics.OperationCategory;
 import de.zib.sfs.instrument.statistics.OperationSource;
 
 public class ZipFileCallback {
 
-    public void openCallback(long startTime, long endTime, String filename) {
-        long data = new File(filename).length();
+    public static void constructorCallback(long startTime, long endTime,
+            long data) {
         LiveOperationStatisticsAggregator.instance
                 .aggregateReadDataOperationStatistics(OperationSource.JVM,
                         OperationCategory.READ, startTime, endTime, data,

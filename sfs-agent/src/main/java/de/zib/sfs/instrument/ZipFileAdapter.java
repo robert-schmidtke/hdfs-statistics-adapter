@@ -7,49 +7,117 @@
  */
 package de.zib.sfs.instrument;
 
+import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Constructor;
+import java.nio.charset.Charset;
 import java.util.zip.ZipFile;
 
 import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.FieldVisitor;
+import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.commons.AdviceAdapter;
 
-public class ZipFileAdapter extends AbstractSfsAdapter {
+public class ZipFileAdapter extends ClassVisitor {
 
-    protected ZipFileAdapter(ClassVisitor cv, String methodPrefix) {
-        super(cv, ZipFile.class, ZipFileCallback.class, methodPrefix);
+    private final String constructorDescriptor;
+
+    protected ZipFileAdapter(ClassVisitor cv) {
+        super(Opcodes.ASM5, cv);
+
+        Constructor<ZipFile> constructor;
+        try {
+            constructor = ZipFile.class.getConstructor(File.class, Integer.TYPE,
+                    Charset.class);
+            constructorDescriptor = Type.getConstructorDescriptor(constructor);
+        } catch (Exception e) {
+            throw new RuntimeException("Could not access constructor", e);
+        }
     }
 
     @Override
-    protected boolean wrapMethod(int access, String name, String desc,
-            String signature, String[] exceptions) {
-        return isOpenMethod(access, name, desc, signature, exceptions);
+    public void visitSource(String source, String debug) {
+        // private long startTime;
+        FieldVisitor startTimeFV = cv.visitField(Opcodes.ACC_PRIVATE,
+                "startTime", Type.getDescriptor(Long.TYPE), null, null);
+        startTimeFV.visitEnd();
+
+        cv.visitSource(source, debug);
     }
 
     @Override
-    protected void appendWrappedMethods(ClassVisitor cv) {
-        // pass the filename to the callback
-        wrapMethod(Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC, "open",
-                Type.LONG_TYPE,
-                new Type[] { Type.getType(String.class), Type.INT_TYPE,
-                        Type.LONG_TYPE, Type.BOOLEAN_TYPE },
-                null, new String[] { Type.getInternalName(IOException.class) },
-                "openCallback", Type.getType(String.class),
-                new ParameterResultPasser(1));
+    public MethodVisitor visitMethod(int access, String name, String desc,
+            String signature, String[] exceptions) {
+        MethodVisitor mv;
+        if (isConstructor(access, name, desc, signature, exceptions)) {
+            mv = new ConstructorAdapter(
+                    cv.visitMethod(access, name, desc, signature, exceptions),
+                    access, name, desc);
+        } else {
+            mv = cv.visitMethod(access, name, desc, signature, exceptions);
+        }
+        return mv;
     }
 
-    // Helper methods
+    /**
+     * Times execution of the entire constructor, storing the startTime in a
+     * private field to avoid cluttering the local stack of the constructor.
+     * 
+     * @author robert
+     *
+     */
+    protected class ConstructorAdapter extends AdviceAdapter {
 
-    private boolean isOpenMethod(int access, String name, String desc,
+        protected ConstructorAdapter(MethodVisitor mv, int access, String name,
+                String desc) {
+            super(Opcodes.ASM5, mv, access, name, desc);
+        }
+
+        @Override
+        protected void onMethodEnter() {
+            // startTime = System.currentTimeMillis();
+            mv.visitVarInsn(Opcodes.ALOAD, 0);
+            mv.visitMethodInsn(Opcodes.INVOKESTATIC,
+                    Type.getInternalName(System.class), "currentTimeMillis",
+                    Type.getMethodDescriptor(Type.LONG_TYPE), false);
+            mv.visitFieldInsn(Opcodes.PUTFIELD,
+                    Type.getInternalName(ZipFile.class), "startTime",
+                    Type.getDescriptor(Long.TYPE));
+        }
+
+        @Override
+        protected void onMethodExit(int opcode) {
+            if (opcode == Opcodes.RETURN) {
+                // ZipFileCallback.openCallback(startTime,
+                // System.currentTimeMillis(), file.length());
+                mv.visitFieldInsn(Opcodes.GETFIELD,
+                        Type.getInternalName(ZipFile.class), "startTime",
+                        Type.getDescriptor(Long.TYPE));
+                mv.visitMethodInsn(Opcodes.INVOKESTATIC,
+                        Type.getInternalName(System.class), "currentTimeMillis",
+                        Type.getMethodDescriptor(Type.LONG_TYPE), false);
+                mv.visitVarInsn(Opcodes.ALOAD, 1);
+                mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+                        Type.getInternalName(File.class), "length",
+                        Type.getMethodDescriptor(Type.LONG_TYPE), false);
+                mv.visitMethodInsn(Opcodes.INVOKESTATIC,
+                        Type.getInternalName(ZipFileCallback.class),
+                        "constructorCallback",
+                        Type.getMethodDescriptor(Type.VOID_TYPE, Type.LONG_TYPE,
+                                Type.LONG_TYPE, Type.LONG_TYPE),
+                        false);
+            }
+        }
+
+    }
+
+    private boolean isConstructor(int access, String name, String desc,
             String signature, String[] exceptions) {
-        return (Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC
-                | Opcodes.ACC_NATIVE) == access
-                && "open".equals(name)
-                && Type.getMethodDescriptor(Type.LONG_TYPE,
-                        Type.getType(String.class), Type.INT_TYPE,
-                        Type.LONG_TYPE, Type.BOOLEAN_TYPE).equals(desc)
-                && null == signature && exceptions != null
-                && exceptions.length == 1
+        return Opcodes.ACC_PUBLIC == access && "<init>".equals(name)
+                && desc.equals(constructorDescriptor) && null == signature
+                && null != exceptions && exceptions.length == 1
                 && Type.getInternalName(IOException.class)
                         .equals(exceptions[0]);
     }
