@@ -161,8 +161,11 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
             mv.visitVarInsn(argument.getOpcode(Opcodes.ILOAD), argumentIndex);
             argumentIndex += argument.getSize();
         }
-        mv.visitMethodInsn(Opcodes.INVOKESPECIAL, instrumentedTypeInternalName,
-                methodPrefix + name, methodDescriptor, false);
+        mv.visitMethodInsn(
+                (access & Opcodes.ACC_STATIC) == 0 ? Opcodes.INVOKESPECIAL
+                        : Opcodes.INVOKESTATIC,
+                instrumentedTypeInternalName, methodPrefix + name,
+                methodDescriptor, false);
         if (!Type.VOID_TYPE.equals(returnType)) {
             mv.visitInsn(returnType.getOpcode(Opcodes.IRETURN));
         } else {
@@ -192,8 +195,11 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
             mv.visitVarInsn(argument.getOpcode(Opcodes.ILOAD), argumentIndex);
             argumentIndex += argument.getSize();
         }
-        mv.visitMethodInsn(Opcodes.INVOKESPECIAL, instrumentedTypeInternalName,
-                methodPrefix + name, methodDescriptor, false);
+        mv.visitMethodInsn(
+                (access & Opcodes.ACC_STATIC) == 0 ? Opcodes.INVOKESPECIAL
+                        : Opcodes.INVOKESTATIC,
+                instrumentedTypeInternalName, methodPrefix + name,
+                methodDescriptor, false);
         int endTimeIndex = startTimeIndex + 2;
         if (!Type.VOID_TYPE.equals(returnType)) {
             mv.visitVarInsn(returnType.getOpcode(Opcodes.ISTORE),
@@ -308,7 +314,7 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
         mv.visitVarInsn(Opcodes.LSTORE, index);
     }
 
-    protected void initializeFields(MethodVisitor construcutorMV) {
+    protected void initializeFields(MethodVisitor constructorMV) {
     }
 
     protected class ConstructorAdapter extends AdviceAdapter {
