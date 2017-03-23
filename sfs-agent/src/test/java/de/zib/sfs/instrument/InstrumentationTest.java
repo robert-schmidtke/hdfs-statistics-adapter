@@ -7,6 +7,8 @@
  */
 package de.zib.sfs.instrument;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -14,6 +16,7 @@ import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FilenameFilter;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.RandomAccessFile;
 import java.nio.BufferOverflowException;
 import java.nio.BufferUnderflowException;
@@ -29,6 +32,13 @@ import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Random;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.jar.JarFile;
+import java.util.jar.JarInputStream;
+import java.util.jar.JarOutputStream;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
+import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
 
 import de.zib.sfs.instrument.statistics.DataOperationStatistics;
 import de.zib.sfs.instrument.statistics.LiveOperationStatisticsAggregator;
@@ -927,6 +937,145 @@ public class InstrumentationTest {
             file.delete();
         }
 
+        {
+            // play around with Zip and Jar files, as apparently they behave
+            // somewhat different
+            File file = File.createTempFile("zip", null);
+
+            // this is covered via our FileOutputStream instrumentation
+            ZipOutputStream zos = new ZipOutputStream(
+                    new BufferedOutputStream(new FileOutputStream(file)));
+            ++openOperations;
+
+            // compression ratio for random bytes seems to be around 87.7%, so
+            // choose a little more than 1MB here such that we get around 1MB of
+            // actual writes
+            byte[] writeData = new byte[1196250];
+            for (int i = 0; i < writeData.length; ++i) {
+                writeData[i] = (byte) random.nextInt(Byte.MAX_VALUE);
+            }
+
+            zos.putNextEntry(new ZipEntry("ze"));
+            zos.write(writeData);
+            zos.closeEntry();
+
+            zos.close();
+            writeBytes += file.length();
+
+            // this is covered via our FileInputStream instrumentation
+            ZipInputStream zis = new ZipInputStream(
+                    new BufferedInputStream(new FileInputStream(file)));
+            ++openOperations;
+
+            byte[] readData = new byte[writeData.length];
+            ZipEntry ze = zis.getNextEntry();
+            assert ("ze".equals(ze.getName()));
+
+            int numRead = 0;
+            while (readData.length - numRead > 0) {
+                numRead += zis.read(readData, numRead,
+                        readData.length - numRead);
+            }
+            assert (numRead == readData.length);
+
+            for (int i = 0; i < readData.length; ++i) {
+                assert (writeData[i] == readData[i]);
+            }
+
+            assert (zis.read() == -1);
+
+            zis.close();
+            readBytes += file.length();
+
+            // ZipFile, on the other hand is different, because it uses caching
+            // in the constructor.
+            ZipFile zipFile = new ZipFile(file);
+            readBytes += file.length();
+
+            assert (zipFile.size() == 1);
+            ze = zipFile.getEntry("ze");
+            assert ("ze".equals(ze.getName()));
+
+            // should not induce any more reads
+            for (int i = 0; i < 3; ++i) {
+                InputStream is = zipFile.getInputStream(ze);
+                numRead = 0;
+                while (readData.length - numRead > 0) {
+                    numRead += is.read(readData, numRead,
+                            readData.length - numRead);
+                }
+                assert (numRead == readData.length);
+
+                for (int j = 0; j < readData.length; ++j) {
+                    assert (writeData[j] == readData[j]);
+                }
+            }
+
+            zipFile.close();
+            file.delete();
+
+            // repeat for Jar files
+            file = File.createTempFile("jar", null);
+
+            JarOutputStream jos = new JarOutputStream(
+                    new BufferedOutputStream(new FileOutputStream(file)));
+            ++openOperations;
+
+            jos.putNextEntry(new ZipEntry("je"));
+            jos.write(writeData);
+            jos.closeEntry();
+
+            jos.close();
+            writeBytes += file.length();
+
+            JarInputStream jis = new JarInputStream(
+                    new BufferedInputStream(new FileInputStream(file)));
+            ++openOperations;
+
+            ZipEntry je = jis.getNextEntry();
+            assert ("je".equals(je.getName()));
+
+            numRead = 0;
+            while (readData.length - numRead > 0) {
+                numRead += jis.read(readData, numRead,
+                        readData.length - numRead);
+            }
+            assert (numRead == readData.length);
+
+            for (int i = 0; i < readData.length; ++i) {
+                assert (writeData[i] == readData[i]);
+            }
+
+            assert (jis.read() == -1);
+
+            jis.close();
+            readBytes += file.length();
+
+            JarFile jarFile = new JarFile(file);
+            readBytes += file.length();
+
+            assert (jarFile.size() == 1);
+            je = jarFile.getEntry("je");
+            assert ("je".equals(je.getName()));
+
+            for (int i = 0; i < 3; ++i) {
+                InputStream is = jarFile.getInputStream(je);
+                numRead = 0;
+                while (readData.length - numRead > 0) {
+                    numRead += is.read(readData, numRead,
+                            readData.length - numRead);
+                }
+                assert (numRead == readData.length);
+
+                for (int j = 0; j < readData.length; ++j) {
+                    assert (writeData[j] == readData[j]);
+                }
+            }
+
+            jarFile.close();
+            file.delete();
+        }
+
         // shutdown the aggregator and read what it has written
         LiveOperationStatisticsAggregator aggregator = LiveOperationStatisticsAggregator.instance;
 
@@ -1011,13 +1160,15 @@ public class InstrumentationTest {
         assertOperationCount(aggregates, OperationSource.JVM,
                 OperationCategory.OTHER, openOperations);
 
-        // Allow 8K slack for the JVM for writing, 64K for reading. This should
+        // Allow 8K slack for the JVM for writing, 144K for reading. This should
         // be fine as we always operate on 1 MB chunks of data, so if we truly
-        // miss some operations, these tests should still fail.
+        // miss some operations, these tests should still fail. The slack is
+        // mainly for reading Java classes which we instrument too, as well as
+        // some internal lock file writing.
         assertOperationData(aggregates, OperationSource.JVM,
                 OperationCategory.WRITE, writeBytes, writeBytes + 8 * 1024);
         assertOperationData(aggregates, OperationSource.JVM,
-                OperationCategory.READ, readBytes, readBytes + 64 * 1024);
+                OperationCategory.READ, readBytes, readBytes + 144 * 1024);
 
     }
 

@@ -7,10 +7,6 @@
  */
 package de.zib.sfs.instrument;
 
-import io.grpc.Server;
-import io.grpc.ServerBuilder;
-import io.grpc.stub.StreamObserver;
-
 import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -29,6 +25,9 @@ import de.zib.sfs.instrument.rpc.Sfs.ClassTransformationRequest;
 import de.zib.sfs.instrument.rpc.Sfs.ClassTransformationResponse;
 import de.zib.sfs.instrument.rpc.Sfs.EndClassTransformationsRequest;
 import de.zib.sfs.instrument.rpc.Sfs.EndClassTransformationsResponse;
+import io.grpc.Server;
+import io.grpc.ServerBuilder;
+import io.grpc.stub.StreamObserver;
 
 public class ClassTransformationServer extends
         ClassTransformationServiceGrpc.ClassTransformationServiceImplBase {
@@ -95,6 +94,12 @@ public class ClassTransformationServer extends
                     break;
                 case "java/nio/MappedByteBuffer":
                     cr.accept(new MappedByteBufferAdapter(cw),
+                            ClassReader.EXPAND_FRAMES);
+                    break;
+                case "java/util/zip/ZipFile":
+                    cr.accept(
+                            new ZipFileAdapter(cw,
+                                    request.getNativeMethodPrefix()),
                             ClassReader.EXPAND_FRAMES);
                     break;
                 case "sun/nio/ch/FileChannelImpl":
