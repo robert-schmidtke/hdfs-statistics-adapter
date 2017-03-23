@@ -278,7 +278,7 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
                 null, null);
         setInstrumentationActiveMV.visitCode();
 
-        // this.fromFileChannel = instrumentationActive;
+        // this.instrumentationActive = instrumentationActive;
         setInstrumentationActiveMV.visitVarInsn(Opcodes.ALOAD, 0);
         setInstrumentationActiveMV.visitVarInsn(Opcodes.ILOAD, 1);
         setInstrumentationActiveMV.visitFieldInsn(Opcodes.PUTFIELD,
