@@ -156,21 +156,8 @@ if [ -z "$NO_SFS" ]; then
   cp $SFS_DIRECTORY/sfs-adapter/target/sfs-adapter.jar $FLINK_HOME/lib/sfs-adapter.jar
   cp $SFS_DIRECTORY/sfs-adapter/target/sfs-adapter.jar $HADOOP_HOME/share/hadoop/common/sfs-adapter.jar
 
-  case $ENGINE in
-    flink)
-      srun $SRUN_STANDARD_OPTS ./start-hdfs-slurm.sh $HDFS_STANDARD_OPTS $SFS_STANDARD_OPTS \
-        --sfs-wrapped-fs "org.apache.flink.runtime.fs.hdfs.HadoopFileSystem"
-      ;;
-    spark)
-      # Spark does not have a wrapper for HDFS
-      srun $SRUN_STANDARD_OPTS ./start-hdfs-slurm.sh $HDFS_STANDARD_OPTS $SFS_STANDARD_OPTS \
-        --sfs-wrapped-fs "org.apache.hadoop.hdfs.DistributedFileSystem"
-      ;;
-    hadoop)
-      srun $SRUN_STANDARD_OPTS ./start-hdfs-slurm.sh $HDFS_STANDARD_OPTS $SFS_STANDARD_OPTS \
-        --sfs-wrapped-fs "org.apache.hadoop.hdfs.DistributedFileSystem"
-      ;;
-  esac
+  srun $SRUN_STANDARD_OPTS ./start-hdfs-slurm.sh $HDFS_STANDARD_OPTS $SFS_STANDARD_OPTS \
+    --sfs-wrapped-fs "org.apache.hadoop.hdfs.DistributedFileSystem"
 else
   # just start HDFS regularly
   srun $SRUN_STANDARD_OPTS ./start-hdfs-slurm.sh $HDFS_STANDARD_OPTS $SFS_STANDARD_OPTS
