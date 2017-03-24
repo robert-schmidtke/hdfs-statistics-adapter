@@ -8,6 +8,7 @@ usage() {
   echo "Usage: sbatch --nodes=<NODES> terasort-hdfs.sh"
   echo "  -e|--engine <flink|spark|hadoop> (default: not specified)"
   echo "  -n|--no-sfs (default: disabled)"
+  echo "  -d|--data <gigabytes> (default: 1024)"
 }
 
 while [[ $# -gt 0 ]]; do
@@ -19,6 +20,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     -n|--no-sfs)
       NO_SFS="true"
+      ;;
+    -d|--data)
+      DATA_GB="$2"
+      shift
       ;;
     *)
       echo "Invalid argument detected."
@@ -49,6 +54,8 @@ else
   usage
   exit 1
 fi
+
+DATA_GB=${DATA_GB:-1024}
 
 export HOSTNAME=$(hostname)
 
@@ -229,11 +236,21 @@ echo "$(date): Resetting XFS file system counters"
 srun sudo /sbin/sysctl -w fs.xfs.stats_clear=1
 echo "$(date): Resetting XFS file system counters done"
 
+# total amount of data to generate, in bytes
+# conveniently as multiple of gigabytes
+# (well, almost a gigabyte, to ensure divisibility by 100)
+TOTAL_DATA=$(($DATA_GB * 1073741800))
+
+# figure out the number of mappers to use for generation of data
+# rounding up one just in case
+DATA_PER_MAPPER=$((512 * 1048576))
+TERAGEN_MAPPERS=$((($TOTAL_DATA + $DATA_PER_MAPPER - 1) / $DATA_PER_MAPPER))
+
 echo "$(date): Generating TeraSort data on HDFS"
 $HADOOP_HOME/bin/hadoop jar \
   $HADOOP_HOME/share/hadoop/mapreduce/hadoop-mapreduce-examples-${HADOOP_VERSION}.jar teragen \
-  -Dmapreduce.job.maps=$((${#HADOOP_DATANODES[@]} * ${TASK_SLOTS} * 4)) \
-  10995116277 $SCHEME://$MASTER:8020/user/$USER/input
+  -Dmapreduce.job.maps=$TERAGEN_MAPPERS \
+  $(($TOTAL_DATA / 100)) $SCHEME://$MASTER:8020/user/$USER/input
 echo "$(date): Generating TeraSort data on HDFS done"
 
 $HADOOP_HOME/bin/hadoop fs -mkdir -p hdfs://$MASTER:8020/user/$USER/output
@@ -272,8 +289,8 @@ case $ENGINE in
     ;;
   hadoop)
     $HADOOP_HOME/bin/hadoop jar $HADOOP_HOME/share/hadoop/mapreduce/hadoop-mapreduce-examples-${HADOOP_VERSION}.jar terasort \
-      -Dmapreduce.job.maps=$((${#HADOOP_DATANODES[@]} * ${TASK_SLOTS} * 4)) \
-      -Dmapreduce.job.reduces=$((${#HADOOP_DATANODES[@]} * ${TASK_SLOTS} * 4)) \
+      -Dmapreduce.job.maps=$TERAGEN_MAPPERS \
+      -Dmapreduce.job.reduces=$TERAGEN_MAPPERS \
       $SCHEME://$MASTER:8020/user/$USER/input $SCHEME://$MASTER:8020/user/$USER/output
     ;;
 esac
