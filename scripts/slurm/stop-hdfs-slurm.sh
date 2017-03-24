@@ -3,6 +3,7 @@
 usage() {
   echo "Usage: srun --nodes=1-1 --nodelist=<NAMENODE> stop-hdfs-slurm.sh"
   echo "  -c|--colocate-datanode-with-namenode (default: not specified/false)"
+  echo "  -s|--shared-dir directory accessible on all nodes (default: not specified)"
 }
 
 if [ -z $SLURM_JOB_ID ]; then
@@ -17,6 +18,10 @@ while [[ $# -gt 0 ]]; do
     -c|--colocate-datanode-with-namenode)
       COLOCATE_DATANODE_WITH_NAMENODE="true"
       ;;
+    -s|--shared-dir)
+      SHARED_DIR="$2"
+      shift
+      ;;
     *)
       echo "Invalid argument detected."
       usage
@@ -24,6 +29,11 @@ while [[ $# -gt 0 ]]; do
   esac
   shift
 done
+
+if [ -z "$SHARED_DIR" ]; then
+  echo "No --shared-dir specified, aborting."
+  exit 1
+fi
 
 # set up the environment variables
 export HADOOP_PREFIX="$(pwd $(dirname $0))/.."
@@ -44,7 +54,7 @@ echo "Using Hadoop Distribution in '$HADOOP_PREFIX'."
 
 echo "Stopping Hadoop NameNode on '$HADOOP_NAMENODE' and DataNode(s) on '${HADOOP_DATANODES[@]}'."
 
-mkdir -p $HADOOP_PREFIX/log-$SLURM_JOB_ID
+mkdir -p $SHARED_DIR/hadoop-log-$SLURM_JOB_ID
 
 echo "$(date): Stopping NameNode."
 pidfile=/local/$HDFS_LOCAL_DIR/namenode-$(hostname).pid
@@ -67,7 +77,7 @@ if [ -f $pidfile ]; then
     echo "NameNode $pid is not running"
   fi
   rm $pidfile
-  cp /local/$HDFS_LOCAL_LOG_DIR/namenode-$(hostname).log $HADOOP_PREFIX/log-$SLURM_JOB_ID/namenode-$(hostname).log
+  cp /local/$HDFS_LOCAL_LOG_DIR/namenode-$(hostname).log $SHARED_DIR/hadoop-log-$SLURM_JOB_ID/namenode-$(hostname).log
 else
   echo "NameNode PID file $pidfile does not exist."
 fi
@@ -75,7 +85,7 @@ echo "Stopping NameNode done."
 
 for datanode in ${HADOOP_DATANODES[@]}; do
   echo "$(date): Stopping DataNode on $datanode."
-  datanode_script=$(dirname $0)/${SLURM_JOB_ID}-${datanode}-stop-datanode.sh
+  datanode_script=$SHARED_DIR/${SLURM_JOB_ID}-${datanode}-stop-datanode.sh
 
   cat > $datanode_script << EOF
 #!/bin/bash
@@ -100,7 +110,7 @@ if [ -f \$pidfile ]; then
     echo "DataNode \$pid is not running"
   fi
   rm \$pidfile
-  cp /local/$HDFS_LOCAL_LOG_DIR/datanode-$datanode.log $HADOOP_PREFIX/log-$SLURM_JOB_ID/datanode-$datanode.log
+  cp /local/$HDFS_LOCAL_LOG_DIR/datanode-$datanode.log $SHARED_DIR/hadoop-log-$SLURM_JOB_ID/datanode-$datanode.log
 else
   echo "DataNode PID file \$pidfile does not exist."
 fi
@@ -122,14 +132,15 @@ fi
 EOF
 
   chmod +x $datanode_script
-  srun --nodes=1-1 --nodelist=$datanode $datanode_script &
+  srun --nodes=1-1 --nodelist=$datanode cp $datanode_script $(dirname $0)/${SLURM_JOB_ID}-${datanode}-stop-datanode.sh
+  srun --nodes=1-1 --nodelist=$datanode $(dirname $0)/${SLURM_JOB_ID}-${datanode}-stop-datanode.sh &
 done
 
 echo "$(date): Waiting for all DataNodes to stop"
 wait
 for datanode in ${HADOOP_DATANODES[@]}; do
   echo "$(date): Stopping DataNode on $datanode done."
-  rm $(dirname $0)/${SLURM_JOB_ID}-${datanode}-stop-datanode.sh
+  rm $SHARED_DIR/${SLURM_JOB_ID}-${datanode}-stop-datanode.sh
 done
 
 echo "$(date): Stopping ResourceManager."
@@ -153,7 +164,7 @@ if [ -f $pidfile ]; then
     echo "ResourceManager $pid is not running"
   fi
   rm $pidfile
-  cp /local/$HDFS_LOCAL_LOG_DIR/resourcemanager-$(hostname).log $HADOOP_PREFIX/log-$SLURM_JOB_ID/resourcemanager-$(hostname).log
+  cp /local/$HDFS_LOCAL_LOG_DIR/resourcemanager-$(hostname).log $SHARED_DIR/hadoop-log-$SLURM_JOB_ID/resourcemanager-$(hostname).log
 else
   echo "PID file $pidfile does not exist."
 fi
@@ -180,7 +191,7 @@ if [ -f $pidfile ]; then
     echo "JobHistory Server $pid is not running"
   fi
   rm $pidfile
-  cp /local/$HDFS_LOCAL_LOG_DIR/jobhistory_server-$(hostname).log $HADOOP_PREFIX/log-$SLURM_JOB_ID/jobhistory_server-$(hostname).log
+  cp /local/$HDFS_LOCAL_LOG_DIR/jobhistory_server-$(hostname).log $SHARED_DIR/hadoop-log-$SLURM_JOB_ID/jobhistory_server-$(hostname).log
 else
   echo "PID file $pidfile does not exist."
 fi
@@ -188,7 +199,7 @@ echo "Stopping JobHistory Server done."
 
 for datanode in ${HADOOP_DATANODES[@]}; do
   echo "$(date): Stopping NodeManager on $datanode."
-  nodemanager_script=$(dirname $0)/${SLURM_JOB_ID}-${datanode}-stop-nodemanager.sh
+  nodemanager_script=$SHARED_DIR/${SLURM_JOB_ID}-${datanode}-stop-nodemanager.sh
 
   cat > $nodemanager_script << EOF
 #!/bin/bash
@@ -213,7 +224,7 @@ if [ -f \$pidfile ]; then
     echo "NodeManager \$pid is not running"
   fi
   rm \$pidfile
-  cp /local/$HDFS_LOCAL_LOG_DIR/nodemanager-$datanode.log $HADOOP_PREFIX/log-$SLURM_JOB_ID/nodemanager-$datanode.log
+  cp /local/$HDFS_LOCAL_LOG_DIR/nodemanager-$datanode.log $SHARED_DIR/hadoop-log-$SLURM_JOB_ID/nodemanager-$datanode.log
   rm -rf /local/$HDFS_LOCAL_LOG_DIR
   rm -rf /local/$HDFS_LOCAL_DIR
 else
@@ -238,15 +249,18 @@ EOF
   chmod +x $nodemanager_script
 
   echo "Stopping NodeManager on $datanode."
-  srun --nodes=1-1 --nodelist=$datanode $nodemanager_script &
+  srun --nodes=1-1 --nodelist=$datanode cp $nodemanager_script $(dirname $0)/${SLURM_JOB_ID}-${datanode}-stop-nodemanager.sh
+  srun --nodes=1-1 --nodelist=$datanode $(dirname $0)/${SLURM_JOB_ID}-${datanode}-stop-nodemanager.sh &
 done
 
 echo "$(date): Waiting for all NodeManagers to stop"
 wait
 for datanode in ${HADOOP_DATANODES[@]}; do
   echo "$(date): Stopping NodeManager on $datanode done."
-  rm $(dirname $0)/${SLURM_JOB_ID}-${datanode}-stop-nodemanager.sh
+  rm $SHARED_DIR/${SLURM_JOB_ID}-${datanode}-stop-nodemanager.sh
 done
+
+cp -R $HADOOP_PREFIX/logs/userlogs $SHARED_DIR/hadoop-log-$SLURM_JOB_ID/userlogs
 
 rm -rf /local/$HDFS_LOCAL_LOG_DIR
 rm -rf /local/$HDFS_LOCAL_DIR
