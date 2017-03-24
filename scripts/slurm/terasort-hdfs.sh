@@ -349,6 +349,9 @@ EOF
   echo "$(date): Copying logs done"
 fi
 
+# pack the results
+tar czf $SFS_DIRECTORY/$SLURM_JOB_ID-$ENGINE-terasort-results.tar.gz $SFS_TARGET_DIRECTORY
+
 if [ "$RET_CODE" -eq "0" ]; then
   echo "$(date): Cleaning local directories"
   srun -N$SLURM_JOB_NUM_NODES rm -rf /local/$USER
