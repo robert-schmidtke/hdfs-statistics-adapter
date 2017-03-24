@@ -8,5 +8,5 @@
 package de.zib.sfs.instrument.statistics;
 
 public enum OperationCategory {
-    READ, WRITE, OTHER;
+    READ, WRITE, OTHER, READZIP;
 }

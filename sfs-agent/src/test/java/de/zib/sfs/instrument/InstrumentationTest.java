@@ -937,6 +937,8 @@ public class InstrumentationTest {
             file.delete();
         }
 
+        long jvmZipReadBytes, zipReadBytes;
+
         {
             // play around with Zip and Jar files, as apparently they behave
             // somewhat different
@@ -993,12 +995,12 @@ public class InstrumentationTest {
             // manage our expectations for this test, we keep track of what was
             // loaded by the JVM until now and assume there won't be much more
             // afterwards.
-            readBytes += ZipFileCallback.getTotalData();
+            jvmZipReadBytes = ZipFileCallback.getTotalData();
 
             // ZipFile, on the other hand is different, because it uses caching
             // in the constructor.
             ZipFile zipFile = new ZipFile(file);
-            readBytes += file.length();
+            zipReadBytes = file.length();
 
             assert (zipFile.size() == 1);
             ze = zipFile.getEntry("ze");
@@ -1060,7 +1062,7 @@ public class InstrumentationTest {
             readBytes += file.length();
 
             JarFile jarFile = new JarFile(file);
-            readBytes += file.length();
+            zipReadBytes += file.length();
 
             assert (jarFile.size() == 1);
             je = jarFile.getEntry("je");
@@ -1128,7 +1130,7 @@ public class InstrumentationTest {
                 while ((line = reader.readLine()) != null) {
                     // LiveOperationStatisticsAggregator prepends hostname, pid
                     // and key for each line
-                    OperationStatistics operationStatistics;
+                    OperationStatistics operationStatistics = null;
                     switch (category) {
                     case OTHER:
                         operationStatistics = OperationStatistics.fromCsv(line,
@@ -1139,12 +1141,11 @@ public class InstrumentationTest {
                                 line, aggregator.getOutputSeparator(), 3);
                         break;
                     case READ:
+                    case READZIP:
                         operationStatistics = ReadDataOperationStatistics
                                 .fromCsv(line, aggregator.getOutputSeparator(),
                                         3);
                         break;
-                    default:
-                        throw new IllegalArgumentException(category.name());
                     }
 
                     // JVM must be the only source, no SFS involved
@@ -1177,7 +1178,9 @@ public class InstrumentationTest {
                 OperationCategory.WRITE, writeBytes, writeBytes + 8 * 1024);
         assertOperationData(aggregates, OperationSource.JVM,
                 OperationCategory.READ, readBytes, readBytes + 176 * 1024);
-
+        assertOperationData(aggregates, OperationSource.JVM,
+                OperationCategory.READZIP, jvmZipReadBytes + zipReadBytes,
+                jvmZipReadBytes + zipReadBytes);
     }
 
     private static void assertOperationCount(

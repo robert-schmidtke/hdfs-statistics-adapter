@@ -292,8 +292,8 @@ public class LiveOperationStatisticsAggregator {
                 return 1;
             case OTHER:
                 return 2;
-            default:
-                throw new IllegalArgumentException(category.name());
+            case READZIP:
+                return 6;
             }
         case SFS:
             switch (category) {
@@ -303,12 +303,12 @@ public class LiveOperationStatisticsAggregator {
                 return 4;
             case OTHER:
                 return 5;
-            default:
-                throw new IllegalArgumentException(category.name());
+            case READZIP:
+                return 7;
             }
-        default:
-            throw new IllegalArgumentException(source.name());
         }
+        throw new IllegalArgumentException(
+                source.name() + "/" + category.name());
     }
 
     private class AggregationTask extends ForkJoinTask<Void> {

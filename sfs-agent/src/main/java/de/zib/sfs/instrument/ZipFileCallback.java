@@ -17,7 +17,7 @@ public class ZipFileCallback {
             long data) {
         LiveOperationStatisticsAggregator.instance
                 .aggregateReadDataOperationStatistics(OperationSource.JVM,
-                        OperationCategory.READ, startTime, endTime, data,
+                        OperationCategory.READZIP, startTime, endTime, data,
                         false);
 
         // For testing purposes, keep track of how much data was read using
