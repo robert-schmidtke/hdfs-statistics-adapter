@@ -188,6 +188,7 @@ case $ENGINE in
     cat >> $FLINK_HOME/conf/flink-conf.yaml << EOF
 blob.storage.directory: /local/$USER/flink
 taskmanager.memory.off-heap: true
+akka.ask.timeout: 600 s
 EOF
 
     if [ -z "$NO_SFS" ]; then
