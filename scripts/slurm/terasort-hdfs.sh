@@ -137,9 +137,10 @@ rm -rf $HADOOP_HOME/logs
 mkdir $HADOOP_HOME/logs
 cp ./start-hdfs-slurm.sh $HADOOP_HOME/sbin
 
-# 256M block size, replication factor of 1, 50G total node memory for YARN, put first datanode on namenode host
+# 256M block size, replication factor of 1, 56G total node memory for YARN, put first datanode on namenode host
+HDFS_BLOCKSIZE=$((256 * 1048576))
 SRUN_STANDARD_OPTS="--nodelist=$MASTER --nodes=1-1 --chdir=$HADOOP_HOME/sbin"
-HDFS_STANDARD_OPTS="--blocksize 268435456 --replication 1 --memory 51200 --cores 16 --io-buffer 1048576 --colocate-datanode-with-namenode"
+HDFS_STANDARD_OPTS="--blocksize $HDFS_BLOCKSIZE --replication 1 --memory 57344 --cores 16 --io-buffer 1048576 --colocate-datanode-with-namenode"
 LD_LIBRARY_PATH_EXT="$GRPC_HOME/libs/opt:$GRPC_HOME/third_party/protobuf/src/.lib"
 
 if [ -z "$NO_SFS" ]; then
@@ -189,8 +190,8 @@ done
 echo "$(date): Starting HDFS done"
 
 TASK_SLOTS=16
-JOBMANAGER_MEMORY=4096
-TASKMANAGER_MEMORY=40960
+JOBMANAGER_MEMORY=8192
+TASKMANAGER_MEMORY=49152
 case $ENGINE in
   flink)
     echo "$(date): Configuring Flink for TeraSort"
