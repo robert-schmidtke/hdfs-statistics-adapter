@@ -134,8 +134,8 @@ mkdir $SFS_TARGET_DIRECTORY
 
 echo "$(date): Starting HDFS"
 srun rm -rf $HADOOP_HOME
-srun cp -R $HADOOP_SOURCE $HADOOP_HOME
-sbcast ./start-hdfs-slurm.sh $HADOOP_HOME/sbin/start-hdfs-slurm.sh
+srun --nodes=1-1 --nodelist=$MASTER cp -a $HADOOP_SOURCE $HADOOP_HOME
+srun --nodes=1-1 --nodelist=$MASTER cp $SFS_DIRECTORY/scripts/slurm/start-hdfs-slurm.sh $HADOOP_HOME/sbin/start-hdfs-slurm.sh
 
 # 256M block size, replication factor of 1, 56G total node memory for YARN, put first datanode on namenode host
 HDFS_BLOCKSIZE=$((256 * 1048576))
@@ -154,7 +154,7 @@ if [ -z "$NO_SFS" ]; then
   HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --ld-library-path $LD_LIBRARY_PATH_EXT"
   SFS_STANDARD_OPTS="--sfs-wrapped-scheme hdfs"
   cp $SFS_DIRECTORY/sfs-adapter/target/sfs-adapter.jar $FLINK_HOME/lib/sfs-adapter.jar
-  sbcast $SFS_DIRECTORY/sfs-adapter/target/sfs-adapter.jar $HADOOP_HOME/share/hadoop/common/sfs-adapter.jar
+  srun --nodes=1-1 --nodelist=$MASTER cp $SFS_DIRECTORY/sfs-adapter/target/sfs-adapter.jar $HADOOP_HOME/share/hadoop/common/sfs-adapter.jar
 
   srun $SRUN_STANDARD_OPTS ./start-hdfs-slurm.sh $HDFS_STANDARD_OPTS $SFS_STANDARD_OPTS \
     --sfs-wrapped-fs "org.apache.hadoop.hdfs.DistributedFileSystem"
