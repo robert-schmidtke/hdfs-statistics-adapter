@@ -101,10 +101,11 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
             callbackFV.visitEnd();
         }
 
-        // protected boolean instrumentationActive;
+        // private final InstrumentationActive instrumentationActive;
         FieldVisitor instrumentationActiveFV = cv.visitField(
-                Opcodes.ACC_PROTECTED, "instrumentationActive",
-                Type.getDescriptor(Boolean.TYPE), null, null);
+                Opcodes.ACC_PRIVATE | Opcodes.ACC_FINAL,
+                "instrumentationActive",
+                Type.getDescriptor(InstrumentationActive.class), null, null);
         instrumentationActiveFV.visitEnd();
 
         appendFields(cv);
@@ -147,10 +148,8 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
                 signature, exceptions);
         mv.visitCode();
 
-        // if (instrumentationActive) {
-        mv.visitVarInsn(Opcodes.ALOAD, 0);
-        mv.visitFieldInsn(Opcodes.GETFIELD, instrumentedTypeInternalName,
-                "instrumentationActive", Type.getDescriptor(Boolean.TYPE));
+        // if (isInstrumentationActive()) {
+        isInstrumentationActive(mv);
         Label instrumentationActiveLabel = new Label();
         mv.visitJumpInsn(Opcodes.IFEQ, instrumentationActiveLabel);
 
@@ -175,11 +174,8 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
         // }
         mv.visitLabel(instrumentationActiveLabel);
 
-        // instrumentationActive = true;
-        mv.visitVarInsn(Opcodes.ALOAD, 0);
-        mv.visitInsn(Opcodes.ICONST_1);
-        mv.visitFieldInsn(Opcodes.PUTFIELD, instrumentedTypeInternalName,
-                "instrumentationActive", Type.getDescriptor(Boolean.TYPE));
+        // setInstrumentationActive(true);
+        setInstrumentationActive(mv, true);
 
         // long startTime = System.currentTimeMillis();
         int startTimeIndex = 1;
@@ -247,11 +243,8 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
                 Type.getMethodDescriptor(Type.VOID_TYPE, callbackArgumentTypes),
                 false);
 
-        // instrumentationActive = false;
-        mv.visitVarInsn(Opcodes.ALOAD, 0);
-        mv.visitInsn(Opcodes.ICONST_0);
-        mv.visitFieldInsn(Opcodes.PUTFIELD, instrumentedTypeInternalName,
-                "instrumentationActive", Type.getDescriptor(Boolean.TYPE));
+        // setInstrumentationActive(false);
+        setInstrumentationActive(mv, false);
 
         // return result;?
         // }
@@ -278,17 +271,42 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
                 null, null);
         setInstrumentationActiveMV.visitCode();
 
-        // this.instrumentationActive = instrumentationActive;
+        // this.instrumentationActive.setInstrumentationActive(instrumentationActive);
         setInstrumentationActiveMV.visitVarInsn(Opcodes.ALOAD, 0);
-        setInstrumentationActiveMV.visitVarInsn(Opcodes.ILOAD, 1);
-        setInstrumentationActiveMV.visitFieldInsn(Opcodes.PUTFIELD,
+        setInstrumentationActiveMV.visitFieldInsn(Opcodes.GETFIELD,
                 instrumentedTypeInternalName, "instrumentationActive",
-                Type.getDescriptor(Boolean.TYPE));
+                Type.getDescriptor(InstrumentationActive.class));
+        setInstrumentationActiveMV.visitVarInsn(Opcodes.ILOAD, 1);
+        setInstrumentationActiveMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+                Type.getInternalName(InstrumentationActive.class),
+                "setInstrumentationActive",
+                Type.getMethodDescriptor(Type.VOID_TYPE, Type.BOOLEAN_TYPE),
+                false);
 
         // }
         setInstrumentationActiveMV.visitInsn(Opcodes.RETURN);
         setInstrumentationActiveMV.visitMaxs(0, 0);
         setInstrumentationActiveMV.visitEnd();
+
+        // public boolean isInstrumentationActive() {
+        MethodVisitor isInstrumentationActiveMV = cv.visitMethod(
+                Opcodes.ACC_PUBLIC, "isInstrumentationActive",
+                Type.getMethodDescriptor(Type.BOOLEAN_TYPE), null, null);
+        isInstrumentationActiveMV.visitCode();
+
+        // return instrumentationActive.isInstrumentationActive();
+        // }
+        isInstrumentationActiveMV.visitVarInsn(Opcodes.ALOAD, 0);
+        isInstrumentationActiveMV.visitFieldInsn(Opcodes.GETFIELD,
+                instrumentedTypeInternalName, "instrumentationActive",
+                Type.getDescriptor(InstrumentationActive.class));
+        isInstrumentationActiveMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+                Type.getInternalName(InstrumentationActive.class),
+                "isInstrumentationActive",
+                Type.getMethodDescriptor(Type.BOOLEAN_TYPE), false);
+        isInstrumentationActiveMV.visitInsn(Opcodes.IRETURN);
+        isInstrumentationActiveMV.visitMaxs(0, 0);
+        isInstrumentationActiveMV.visitEnd();
 
         appendWrappedMethods(cv);
 
@@ -312,6 +330,26 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
         mv.visitMethodInsn(Opcodes.INVOKESTATIC, systemInternalName,
                 "currentTimeMillis", currentTimeMillisDescriptor, false);
         mv.visitVarInsn(Opcodes.LSTORE, index);
+    }
+
+    protected void isInstrumentationActive(MethodVisitor mv) {
+        // isInstrumentationActive();
+        mv.visitVarInsn(Opcodes.ALOAD, 0);
+        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, instrumentedTypeInternalName,
+                "isInstrumentationActive",
+                Type.getMethodDescriptor(Type.BOOLEAN_TYPE), false);
+    }
+
+    protected void setInstrumentationActive(MethodVisitor mv,
+            boolean instrumentationActive) {
+        // setInstrumentationActive(<instrumentationActive>);
+        mv.visitVarInsn(Opcodes.ALOAD, 0);
+        mv.visitInsn(
+                instrumentationActive ? Opcodes.ICONST_1 : Opcodes.ICONST_0);
+        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, instrumentedTypeInternalName,
+                "setInstrumentationActive",
+                Type.getMethodDescriptor(Type.VOID_TYPE, Type.BOOLEAN_TYPE),
+                false);
     }
 
     protected void initializeFields(MethodVisitor constructorMV) {
@@ -339,15 +377,49 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
                         callbackTypeDescriptor);
             }
 
-            // instrumentationActive = false;
+            // instrumentationActive = new InstrumentationActive();
             mv.visitVarInsn(Opcodes.ALOAD, 0);
-            mv.visitInsn(Opcodes.ICONST_0);
+            mv.visitTypeInsn(Opcodes.NEW,
+                    Type.getInternalName(InstrumentationActive.class));
+            mv.visitInsn(Opcodes.DUP);
+            try {
+                mv.visitMethodInsn(Opcodes.INVOKESPECIAL,
+                        Type.getInternalName(InstrumentationActive.class),
+                        "<init>",
+                        Type.getConstructorDescriptor(
+                                InstrumentationActive.class.getConstructor()),
+                        false);
+            } catch (Exception e) {
+                throw new RuntimeException("Could not access constructor", e);
+            }
             mv.visitFieldInsn(Opcodes.PUTFIELD, instrumentedTypeInternalName,
-                    "instrumentationActive", Type.getDescriptor(Boolean.TYPE));
+                    "instrumentationActive",
+                    Type.getDescriptor(InstrumentationActive.class));
 
             initializeFields(mv);
         }
 
+    }
+
+    /**
+     * Custom thread local variable that tracks instrumentation.
+     * 
+     * @author robert
+     *
+     */
+    public static class InstrumentationActive extends ThreadLocal<Boolean> {
+        @Override
+        protected Boolean initialValue() {
+            return false;
+        }
+
+        public boolean isInstrumentationActive() {
+            return get();
+        }
+
+        public void setInstrumentationActive(boolean instrumentationActive) {
+            set(instrumentationActive);
+        }
     }
 
     protected static interface ResultPasser {

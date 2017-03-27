@@ -155,10 +155,8 @@ public class FileChannelImplAdapter extends AbstractSfsAdapter {
                 signature, exceptions);
         mv.visitCode();
 
-        // if (instrumentationActive) {
-        mv.visitVarInsn(Opcodes.ALOAD, 0);
-        mv.visitFieldInsn(Opcodes.GETFIELD, instrumentedTypeInternalName,
-                "instrumentationActive", Type.getDescriptor(Boolean.TYPE));
+        // if (isInstrumentationActive()) {
+        isInstrumentationActive(mv);
         Label instrumentationActiveLabel = new Label();
         mv.visitJumpInsn(Opcodes.IFEQ, instrumentationActiveLabel);
 
@@ -176,11 +174,8 @@ public class FileChannelImplAdapter extends AbstractSfsAdapter {
         // }
         mv.visitLabel(instrumentationActiveLabel);
 
-        // instrumentationActive = true;
-        mv.visitVarInsn(Opcodes.ALOAD, 0);
-        mv.visitInsn(Opcodes.ICONST_1);
-        mv.visitFieldInsn(Opcodes.PUTFIELD, instrumentedTypeInternalName,
-                "instrumentationActive", Type.getDescriptor(Boolean.TYPE));
+        // setInstrumentationActive(true);
+        setInstrumentationActive(mv, true);
 
         // we need to set the instrumentation flag for the source/destination
         // buffer(s) as well
@@ -410,11 +405,8 @@ public class FileChannelImplAdapter extends AbstractSfsAdapter {
         // }
         mv.visitLabel(bufferInstrumentationActiveLabel);
 
-        // instrumentationActive = false;
-        mv.visitVarInsn(Opcodes.ALOAD, 0);
-        mv.visitInsn(Opcodes.ICONST_0);
-        mv.visitFieldInsn(Opcodes.PUTFIELD, instrumentedTypeInternalName,
-                "instrumentationActive", Type.getDescriptor(Boolean.TYPE));
+        // setInstrumentationActive(false);
+        setInstrumentationActive(mv, false);
 
         // return result;
         // }

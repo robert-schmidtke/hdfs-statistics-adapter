@@ -66,11 +66,8 @@ public class DirectByteBufferAdapter extends AbstractSfsAdapter {
                     null, null);
             bulkPutMV.visitCode();
 
-            // if (instrumentationActive) {
-            bulkPutMV.visitVarInsn(Opcodes.ALOAD, 0);
-            bulkPutMV.visitFieldInsn(Opcodes.GETFIELD,
-                    instrumentedTypeInternalName, "instrumentationActive",
-                    Type.getDescriptor(Boolean.TYPE));
+            // if (isInstrumentationActive()) {
+            isInstrumentationActive(bulkPutMV);
             Label instrumentationActiveLabel = new Label();
             bulkPutMV.visitJumpInsn(Opcodes.IFEQ, instrumentationActiveLabel);
 
@@ -87,15 +84,16 @@ public class DirectByteBufferAdapter extends AbstractSfsAdapter {
             // }
             bulkPutMV.visitLabel(instrumentationActiveLabel);
 
-            // instrumentationActive = fromFileChannel;
+            // setInstrumentationActive(fromFileChannel);
             bulkPutMV.visitVarInsn(Opcodes.ALOAD, 0);
             bulkPutMV.visitVarInsn(Opcodes.ALOAD, 0);
             bulkPutMV.visitFieldInsn(Opcodes.GETFIELD,
                     instrumentedTypeInternalName, "fromFileChannel",
                     Type.getDescriptor(Boolean.TYPE));
-            bulkPutMV.visitFieldInsn(Opcodes.PUTFIELD,
-                    instrumentedTypeInternalName, "instrumentationActive",
-                    Type.getDescriptor(Boolean.TYPE));
+            bulkPutMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+                    instrumentedTypeInternalName, "setInstrumentationActive",
+                    Type.getMethodDescriptor(Type.VOID_TYPE, Type.BOOLEAN_TYPE),
+                    false);
 
             // boolean srcInstrumentationActive = false;
             bulkPutMV.visitInsn(Opcodes.ICONST_0);
@@ -156,11 +154,8 @@ public class DirectByteBufferAdapter extends AbstractSfsAdapter {
                     "currentTimeMillis", currentTimeMillisDescriptor, false);
             bulkPutMV.visitVarInsn(Opcodes.LSTORE, 8);
 
-            // if (instrumentationActive) {
-            bulkPutMV.visitVarInsn(Opcodes.ALOAD, 0);
-            bulkPutMV.visitFieldInsn(Opcodes.GETFIELD,
-                    instrumentedTypeInternalName, "instrumentationActive",
-                    Type.getDescriptor(Boolean.TYPE));
+            // if (isInstrumentationActive()) {
+            isInstrumentationActive(bulkPutMV);
             Label instrumentationStillActiveLabel = new Label();
             bulkPutMV.visitJumpInsn(Opcodes.IFEQ,
                     instrumentationStillActiveLabel);
@@ -179,12 +174,8 @@ public class DirectByteBufferAdapter extends AbstractSfsAdapter {
                             Type.LONG_TYPE, Type.LONG_TYPE, Type.INT_TYPE),
                     false);
 
-            // instrumentationActive = false;
-            bulkPutMV.visitVarInsn(Opcodes.ALOAD, 0);
-            bulkPutMV.visitInsn(Opcodes.ICONST_0);
-            bulkPutMV.visitFieldInsn(Opcodes.PUTFIELD,
-                    instrumentedTypeInternalName, "instrumentationActive",
-                    Type.getDescriptor(Boolean.TYPE));
+            // setInstrumentationActive(false);
+            setInstrumentationActive(bulkPutMV, false);
 
             // }
             bulkPutMV.visitLabel(instrumentationStillActiveLabel);
@@ -274,10 +265,8 @@ public class DirectByteBufferAdapter extends AbstractSfsAdapter {
                 signature, exceptions);
         mv.visitCode();
 
-        // if (instrumentationActive || !fromFileChannel) {
-        mv.visitVarInsn(Opcodes.ALOAD, 0);
-        mv.visitFieldInsn(Opcodes.GETFIELD, instrumentedTypeInternalName,
-                "instrumentationActive", Type.getDescriptor(Boolean.TYPE));
+        // if (isInstrumentationActive() || !fromFileChannel) {
+        isInstrumentationActive(mv);
         Label instrumentationActiveLabel = new Label();
         mv.visitJumpInsn(Opcodes.IFNE, instrumentationActiveLabel);
 
@@ -307,11 +296,8 @@ public class DirectByteBufferAdapter extends AbstractSfsAdapter {
         // }
         mv.visitLabel(fromFileChannelLabel);
 
-        // instrumentationActive = true;
-        mv.visitVarInsn(Opcodes.ALOAD, 0);
-        mv.visitInsn(Opcodes.ICONST_1);
-        mv.visitFieldInsn(Opcodes.PUTFIELD, instrumentedTypeInternalName,
-                "instrumentationActive", Type.getDescriptor(Boolean.TYPE));
+        // setInstrumentationActive(true);
+        setInstrumentationActive(mv, true);
 
         // long startTime = System.currentTimeMillis();
         int startTimeIndex = 1;
@@ -376,11 +362,8 @@ public class DirectByteBufferAdapter extends AbstractSfsAdapter {
                 Type.getMethodDescriptor(Type.VOID_TYPE, callbackArgumentTypes),
                 false);
 
-        // instrumentationActive = false;
-        mv.visitVarInsn(Opcodes.ALOAD, 0);
-        mv.visitInsn(Opcodes.ICONST_0);
-        mv.visitFieldInsn(Opcodes.PUTFIELD, instrumentedTypeInternalName,
-                "instrumentationActive", Type.getDescriptor(Boolean.TYPE));
+        // setInstrumentationActive(false);
+        setInstrumentationActive(mv, false);
 
         // return result;?
         // }

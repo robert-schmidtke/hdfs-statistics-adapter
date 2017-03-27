@@ -31,7 +31,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Random;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.jar.JarFile;
 import java.util.jar.JarInputStream;
 import java.util.jar.JarOutputStream;
@@ -57,7 +62,7 @@ import de.zib.sfs.instrument.statistics.ReadDataOperationStatistics;
 public class InstrumentationTest {
 
     public static void main(String[] args)
-            throws IOException, InterruptedException {
+            throws IOException, InterruptedException, ExecutionException {
         final Random random = new Random();
 
         // count operations and data
@@ -337,13 +342,13 @@ public class InstrumentationTest {
 
             FileChannel fco = fos.getChannel();
 
-            byte[] writeBuffer = new byte[1048576];
+            final byte[] writeBuffer = new byte[1048576];
             for (int i = 0; i < 1048576; ++i) {
                 writeBuffer[i] = (byte) random.nextInt(Byte.MAX_VALUE);
             }
 
             // set up 3 write buffers
-            ByteBuffer wrappedWriteBuffer = ByteBuffer.wrap(writeBuffer);
+            final ByteBuffer wrappedWriteBuffer = ByteBuffer.wrap(writeBuffer);
             ByteBuffer allocatedWriteBuffer = ByteBuffer.allocate(1048576);
             allocatedWriteBuffer.put(writeBuffer);
             allocatedWriteBuffer.position(0);
@@ -460,11 +465,39 @@ public class InstrumentationTest {
             fco.position(fco.position() + 1048576);
             writeBytes += 1048576;
             // fco is now 14 MB
-            assert (numWritten == 14 * 1048576);
+
+            // parallel positioned writes on the same fco because they're
+            // definitely allowed to run concurrently
+            final int availableProcessors = Runtime.getRuntime()
+                    .availableProcessors();
+            ExecutorService executor = Executors
+                    .newFixedThreadPool(availableProcessors);
+            List<Future<Integer>> numsWritten = new ArrayList<Future<Integer>>();
+            for (int i = 0; i < availableProcessors; ++i) {
+                final int offset = 14 * 1048576 + i * 1048576;
+                numsWritten.add(executor.submit(new Callable<Integer>() {
+                    @Override
+                    public Integer call() {
+                        try {
+                            return fco.write(ByteBuffer.wrap(writeBuffer),
+                                    offset);
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                    }
+                }));
+            }
+
+            for (Future<Integer> nw : numsWritten) {
+                numWritten += nw.get();
+            }
+            executor.shutdown();
+            writeBytes += availableProcessors * 1048576;
+            assert (numWritten == (14 + availableProcessors) * 1048576);
 
             fco.close();
             fos.close();
-            assert (file.length() == 14 * 1048576);
+            assert (file.length() == (14 + availableProcessors) * 1048576);
 
             // Read
 
@@ -615,7 +648,31 @@ public class InstrumentationTest {
             readBytes += 1048576;
             fci.position(fci.position() + 1048576);
             // fci is now 14 MB
-            assert (numRead == 14 * 1048576);
+
+            executor = Executors.newFixedThreadPool(availableProcessors);
+            List<Future<Integer>> numsRead = new ArrayList<Future<Integer>>();
+            for (int i = 0; i < availableProcessors; ++i) {
+                final int offset = 14 * 1048576 + i * 1048576;
+                numsRead.add(executor.submit(new Callable<Integer>() {
+                    @Override
+                    public Integer call() {
+                        try {
+                            return fci.read(ByteBuffer.wrap(readBuffer),
+                                    offset);
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                    }
+                }));
+            }
+
+            for (Future<Integer> nw : numsRead) {
+                numRead += nw.get();
+            }
+            executor.shutdown();
+            readBytes += availableProcessors * 1048576;
+            fci.position(fci.position() + availableProcessors * 1048576);
+            assert (numRead == (14 + availableProcessors) * 1048576);
 
             wrappedReadBuffer.position(0);
             numRead = fci.read(wrappedReadBuffer);
@@ -938,7 +995,7 @@ public class InstrumentationTest {
             file.delete();
         }
 
-        long jvmZipReadBytes, zipReadBytes;
+        long jvmZipReadBytes = 0, zipReadBytes = 0;
 
         {
             // play around with Zip and Jar files, as apparently they behave
@@ -1182,6 +1239,7 @@ public class InstrumentationTest {
         assertOperationData(aggregates, OperationSource.JVM,
                 OperationCategory.READZIP, jvmZipReadBytes + zipReadBytes,
                 jvmZipReadBytes + zipReadBytes);
+
     }
 
     private static void assertOperationCount(
