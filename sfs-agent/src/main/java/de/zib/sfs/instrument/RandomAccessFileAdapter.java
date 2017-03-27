@@ -197,7 +197,8 @@ public class RandomAccessFileAdapter extends AbstractSfsAdapter {
 
     private boolean isReadFullyMethod(int access, String name, String desc,
             String signature, String[] exceptions) {
-        return access == Opcodes.ACC_PUBLIC && "readFully".equals(name)
+        return access == (Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL)
+                && "readFully".equals(name)
                 && (Type.getMethodDescriptor(Type.VOID_TYPE,
                         Type.getType(byte[].class)).equals(desc)
                         || Type.getMethodDescriptor(Type.VOID_TYPE,
