@@ -478,7 +478,8 @@ public class InstrumentationTest {
             // set up 3 read buffers
             ByteBuffer wrappedReadBuffer = ByteBuffer.wrap(readBuffer);
             ByteBuffer allocatedReadBuffer = ByteBuffer.allocate(1048576);
-            ByteBuffer allocatedDirectReadBuffer = ByteBuffer.allocate(1048576);
+            ByteBuffer allocatedDirectReadBuffer = ByteBuffer
+                    .allocateDirect(1048576);
 
             // read all 3 buffers
             long numRead = fci.read(wrappedReadBuffer);
