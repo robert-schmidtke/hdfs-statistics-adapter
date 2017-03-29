@@ -22,10 +22,14 @@ import org.objectweb.asm.commons.AdviceAdapter;
 
 public class ZipFileAdapter extends ClassVisitor {
 
+    private final String methodPrefix;
+
     private final String constructorDescriptor;
 
-    protected ZipFileAdapter(ClassVisitor cv) {
+    protected ZipFileAdapter(ClassVisitor cv, String methodPrefix) {
         super(Opcodes.ASM5, cv);
+
+        this.methodPrefix = methodPrefix;
 
         Constructor<ZipFile> constructor;
         try {
@@ -55,10 +59,45 @@ public class ZipFileAdapter extends ClassVisitor {
             mv = new ConstructorAdapter(
                     cv.visitMethod(access, name, desc, signature, exceptions),
                     access, name, desc);
+        } else if (isCloseMethod(access, name, desc, signature, exceptions)) {
+            mv = cv.visitMethod(access, methodPrefix + name, desc, signature,
+                    exceptions);
         } else {
             mv = cv.visitMethod(access, name, desc, signature, exceptions);
         }
         return mv;
+    }
+
+    @Override
+    public void visitEnd() {
+        // public void close() {
+        MethodVisitor closeMethodMV = cv.visitMethod(Opcodes.ACC_PUBLIC,
+                "close", Type.getMethodDescriptor(Type.VOID_TYPE), null,
+                new String[] { Type.getInternalName(IOException.class) });
+        closeMethodMV.visitCode();
+
+        // ZipFileCallback.closeCallback(jzfile);
+        closeMethodMV.visitVarInsn(Opcodes.ALOAD, 0);
+        closeMethodMV.visitFieldInsn(Opcodes.GETFIELD,
+                Type.getInternalName(ZipFile.class), "jzfile",
+                Type.getDescriptor(Long.TYPE));
+        closeMethodMV.visitMethodInsn(Opcodes.INVOKESTATIC,
+                Type.getInternalName(ZipFileCallback.class), "closeCallback",
+                Type.getMethodDescriptor(Type.VOID_TYPE, Type.LONG_TYPE),
+                false);
+
+        // methodPrefixclose();
+        closeMethodMV.visitVarInsn(Opcodes.ALOAD, 0);
+        closeMethodMV.visitMethodInsn(Opcodes.INVOKESPECIAL,
+                Type.getInternalName(ZipFile.class), methodPrefix + "close",
+                Type.getMethodDescriptor(Type.VOID_TYPE), false);
+
+        // }
+        closeMethodMV.visitInsn(Opcodes.RETURN);
+        closeMethodMV.visitMaxs(0, 0);
+        closeMethodMV.visitEnd();
+
+        cv.visitEnd();
     }
 
     /**
@@ -91,7 +130,7 @@ public class ZipFileAdapter extends ClassVisitor {
         protected void onMethodExit(int opcode) {
             if (opcode == Opcodes.RETURN) {
                 // ZipFileCallback.constructorCallback(startTime,
-                // System.currentTimeMillis(), file.getPath(), file.length());
+                // System.currentTimeMillis(), jzfile, file.length());
                 mv.visitVarInsn(Opcodes.ALOAD, 0);
                 mv.visitFieldInsn(Opcodes.GETFIELD,
                         Type.getInternalName(ZipFile.class), "startTime",
@@ -99,11 +138,10 @@ public class ZipFileAdapter extends ClassVisitor {
                 mv.visitMethodInsn(Opcodes.INVOKESTATIC,
                         Type.getInternalName(System.class), "currentTimeMillis",
                         Type.getMethodDescriptor(Type.LONG_TYPE), false);
-                mv.visitVarInsn(Opcodes.ALOAD, 1);
-                mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
-                        Type.getInternalName(File.class), "getPath",
-                        Type.getMethodDescriptor(Type.getType(String.class)),
-                        false);
+                mv.visitVarInsn(Opcodes.ALOAD, 0);
+                mv.visitFieldInsn(Opcodes.GETFIELD,
+                        Type.getInternalName(ZipFile.class), "jzfile",
+                        Type.getDescriptor(Long.TYPE));
                 mv.visitVarInsn(Opcodes.ALOAD, 1);
                 mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
                         Type.getInternalName(File.class), "length",
@@ -112,8 +150,7 @@ public class ZipFileAdapter extends ClassVisitor {
                         Type.getInternalName(ZipFileCallback.class),
                         "constructorCallback",
                         Type.getMethodDescriptor(Type.VOID_TYPE, Type.LONG_TYPE,
-                                Type.LONG_TYPE, Type.getType(String.class),
-                                Type.LONG_TYPE),
+                                Type.LONG_TYPE, Type.LONG_TYPE, Type.LONG_TYPE),
                         false);
             }
         }
@@ -125,6 +162,16 @@ public class ZipFileAdapter extends ClassVisitor {
         return Opcodes.ACC_PUBLIC == access && "<init>".equals(name)
                 && desc.equals(constructorDescriptor) && null == signature
                 && null != exceptions && exceptions.length == 1
+                && Type.getInternalName(IOException.class)
+                        .equals(exceptions[0]);
+    }
+
+    private boolean isCloseMethod(int access, String name, String desc,
+            String signature, String[] exceptions) {
+        return Opcodes.ACC_PUBLIC == access && "close".equals(name)
+                && desc.equals(Type.getMethodDescriptor(Type.VOID_TYPE))
+                && signature == null && exceptions != null
+                && exceptions.length == 1
                 && Type.getInternalName(IOException.class)
                         .equals(exceptions[0]);
     }
