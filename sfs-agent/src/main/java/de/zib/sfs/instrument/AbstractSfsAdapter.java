@@ -8,6 +8,8 @@
 package de.zib.sfs.instrument;
 
 import java.io.PrintStream;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.FieldVisitor;
@@ -403,23 +405,24 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
     }
 
     /**
-     * Custom thread local variable that tracks instrumentation.
+     * Custom "thread local" variable that tracks instrumentation.
      * 
      * @author robert
      *
      */
-    public static class InstrumentationActive extends ThreadLocal<Boolean> {
-        @Override
-        protected Boolean initialValue() {
-            return false;
-        }
+    public static class InstrumentationActive {
+        private final Map<Thread, Boolean> instrumentingThreads = new ConcurrentHashMap<Thread, Boolean>();
 
         public boolean isInstrumentationActive() {
-            return get();
+            return instrumentingThreads.containsKey(Thread.currentThread());
         }
 
         public void setInstrumentationActive(boolean instrumentationActive) {
-            set(instrumentationActive);
+            if (instrumentationActive) {
+                instrumentingThreads.put(Thread.currentThread(), true);
+            } else {
+                instrumentingThreads.remove(Thread.currentThread());
+            }
         }
     }
 
