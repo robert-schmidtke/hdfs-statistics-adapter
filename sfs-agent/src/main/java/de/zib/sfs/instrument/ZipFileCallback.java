@@ -7,23 +7,31 @@
  */
 package de.zib.sfs.instrument;
 
+import java.util.HashSet;
+import java.util.Set;
+
 import de.zib.sfs.instrument.statistics.LiveOperationStatisticsAggregator;
 import de.zib.sfs.instrument.statistics.OperationCategory;
 import de.zib.sfs.instrument.statistics.OperationSource;
 
 public class ZipFileCallback {
 
-    public static void constructorCallback(long startTime, long endTime,
-            long data) {
-        LiveOperationStatisticsAggregator.instance
-                .aggregateReadDataOperationStatistics(OperationSource.JVM,
-                        OperationCategory.READZIP, startTime, endTime, data,
-                        false);
+    private static final Set<String> ZIP_CACHE = new HashSet<>();
 
-        // For testing purposes, keep track of how much data was read using
-        // ZipFiles. Automatically disabled in non-assertion-enabled
-        // environments.
-        assert (incrementTotalData(data));
+    public static void constructorCallback(long startTime, long endTime,
+            String filename, long data) {
+        // ZipFile caches ZIP files, so we need to count them only once as well
+        if (ZIP_CACHE.add(filename)) {
+            LiveOperationStatisticsAggregator.instance
+                    .aggregateReadDataOperationStatistics(OperationSource.JVM,
+                            OperationCategory.READZIP, startTime, endTime, data,
+                            false);
+
+            // For testing purposes, keep track of how much data was read using
+            // ZipFiles. Automatically disabled in non-assertion-enabled
+            // environments.
+            assert (incrementTotalData(data));
+        }
     }
 
     private static long totalData = 0;

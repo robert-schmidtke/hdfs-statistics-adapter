@@ -91,7 +91,7 @@ public class ZipFileAdapter extends ClassVisitor {
         protected void onMethodExit(int opcode) {
             if (opcode == Opcodes.RETURN) {
                 // ZipFileCallback.constructorCallback(startTime,
-                // System.currentTimeMillis(), file.length());
+                // System.currentTimeMillis(), file.getPath(), file.length());
                 mv.visitVarInsn(Opcodes.ALOAD, 0);
                 mv.visitFieldInsn(Opcodes.GETFIELD,
                         Type.getInternalName(ZipFile.class), "startTime",
@@ -101,13 +101,19 @@ public class ZipFileAdapter extends ClassVisitor {
                         Type.getMethodDescriptor(Type.LONG_TYPE), false);
                 mv.visitVarInsn(Opcodes.ALOAD, 1);
                 mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+                        Type.getInternalName(File.class), "getPath",
+                        Type.getMethodDescriptor(Type.getType(String.class)),
+                        false);
+                mv.visitVarInsn(Opcodes.ALOAD, 1);
+                mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
                         Type.getInternalName(File.class), "length",
                         Type.getMethodDescriptor(Type.LONG_TYPE), false);
                 mv.visitMethodInsn(Opcodes.INVOKESTATIC,
                         Type.getInternalName(ZipFileCallback.class),
                         "constructorCallback",
                         Type.getMethodDescriptor(Type.VOID_TYPE, Type.LONG_TYPE,
-                                Type.LONG_TYPE, Type.LONG_TYPE),
+                                Type.LONG_TYPE, Type.getType(String.class),
+                                Type.LONG_TYPE),
                         false);
             }
         }
