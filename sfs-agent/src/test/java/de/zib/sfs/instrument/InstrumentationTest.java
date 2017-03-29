@@ -60,1090 +60,1220 @@ import de.zib.sfs.instrument.statistics.ReadDataOperationStatistics;
  *
  */
 public class InstrumentationTest {
+    // same random bytes for every run
+    private static final Random RANDOM = new Random(0);
+
+    // count operations and data
+    private static int openOperations = 0;
+    private static long readBytes = 0, writeBytes = 0;
+    private static long jvmZipReadBytes = -1, zipReadBytes = -1;
 
     public static void main(String[] args)
             throws IOException, InterruptedException, ExecutionException {
-        final Random random = new Random();
+        // expect <test>,<true|false> as argument
+        assert (args.length == 1);
+        String[] arguments = args[0].split(",");
+        assert (arguments.length == 2);
+        String test = arguments[0];
+        boolean useThreading = Boolean.parseBoolean(arguments[1]);
 
-        // count operations and data
-        int openOperations = 0;
-        long readBytes = 0, writeBytes = 0;
+        int numProcessors = useThreading
+                ? Runtime.getRuntime().availableProcessors() : 1;
+        ExecutorService executor = Executors.newFixedThreadPool(numProcessors);
 
-        {
-            File file = File.createTempFile("stream", null);
-
-            // Write
-
-            FileOutputStream fos = new FileOutputStream(file);
-            ++openOperations;
-
-            // use single byte writes
-            byte[] writeBuffer = new byte[1048576];
-            for (int i = 0; i < 1048576; ++i) {
-                writeBuffer[i] = (byte) random.nextInt(Byte.MAX_VALUE);
-                fos.write(writeBuffer[i]);
-            }
-            writeBytes += 1048576;
-
-            // use simple array write
-            fos.write(writeBuffer);
-            writeBytes += 1048576;
-
-            // use offset/length array write
-            fos.write(writeBuffer, 0, writeBuffer.length);
-            writeBytes += 1048576;
-
-            fos.close();
-            assert (file.length() == 3 * 1048576);
-
-            // Read
-
-            FileInputStream fis = new FileInputStream(file);
-            ++openOperations;
-
-            // use single byte reads
-            for (int i = 0; i < 1048576; ++i) {
-                assert (fis.read() == writeBuffer[i]);
-            }
-            readBytes += 1048576;
-
-            // use simple array read
-            byte[] readBuffer = new byte[1048576];
-            int numRead = fis.read(readBuffer);
-            readBytes += 1048576;
-            assert (numRead == 1048576);
-            for (int i = 0; i < 1048576; ++i) {
-                assert (writeBuffer[i] == readBuffer[i]);
-            }
-
-            // use offset/length array read
-            numRead = fis.read(readBuffer, 0, readBuffer.length);
-            readBytes += 1048576;
-            assert (numRead == 1048576);
-            for (int i = 0; i < 1048576; ++i) {
-                assert (writeBuffer[i] == readBuffer[i]);
-            }
-
-            numRead = fis.read();
-            assert (numRead == -1);
-            fis.close();
-
-            file.delete();
+        switch (test) {
+        case "stream":
+            runStreamTest(executor, numProcessors);
+            break;
+        case "random":
+            runRandomTest(executor, numProcessors);
+            break;
+        case "channel":
+            runChannelTest(executor, numProcessors);
+            break;
+        case "mapped":
+            runMappedTest(executor, numProcessors);
+            break;
+        case "zip":
+            runZipTest(executor, numProcessors);
+            break;
+        case "all":
+            runStreamTest(executor, numProcessors);
+            runRandomTest(executor, numProcessors);
+            runChannelTest(executor, numProcessors);
+            runMappedTest(executor, numProcessors);
+            runZipTest(executor, numProcessors);
+            break;
+        case "none":
+            return;
+        default:
+            assert (false) : test;
         }
 
-        {
-            File file = File.createTempFile("random", null);
+        executor.shutdown();
 
-            // Write
+        assertStatistics();
+    }
 
-            RandomAccessFile writeFile = new RandomAccessFile(file, "rw");
-            ++openOperations;
+    private static void runStreamTest(ExecutorService executor,
+            int numProcessors) throws IOException {
+        // TODO add threading
 
-            byte[] writeBuffer = new byte[1048576];
-            for (int i = 0; i < 1048576; ++i) {
-                writeBuffer[i] = (byte) random.nextInt(Byte.MAX_VALUE);
-                writeFile.write(writeBuffer[i]);
-            }
-            writeBytes += 1048576;
+        File file = File.createTempFile("stream", null);
 
-            writeFile.write(writeBuffer);
-            writeBytes += 1048576;
+        // Write
 
-            writeFile.write(writeBuffer, 0, writeBuffer.length);
-            writeBytes += 1048576;
+        FileOutputStream fos = new FileOutputStream(file);
+        ++openOperations;
 
-            boolean[] bools = new boolean[1048576];
-            for (int i = 0; i < 1048576; ++i) {
-                bools[i] = random.nextBoolean();
-                writeFile.writeBoolean(bools[i]);
-            }
-            writeBytes += 1048576;
+        // use single byte writes
+        byte[] writeBuffer = new byte[1048576];
+        for (int i = 0; i < 1048576; ++i) {
+            writeBuffer[i] = (byte) RANDOM.nextInt(Byte.MAX_VALUE);
+            fos.write(writeBuffer[i]);
+        }
+        writeBytes += 1048576;
 
-            byte[] bytes = new byte[1048576];
-            for (int i = 0; i < 1048576; ++i) {
-                bytes[i] = (byte) random.nextInt(Byte.MAX_VALUE);
-                writeFile.writeByte(bytes[i]);
-            }
-            writeBytes += 1048576;
+        // use simple array write
+        fos.write(writeBuffer);
+        writeBytes += 1048576;
 
-            String string = new String(bytes);
-            writeFile.writeBytes(string);
-            writeBytes += 1048576;
+        // use offset/length array write
+        fos.write(writeBuffer, 0, writeBuffer.length);
+        writeBytes += 1048576;
 
-            char[] chars = new char[524288];
-            for (int i = 0; i < 524288; ++i) {
-                chars[i] = (char) random.nextInt(Character.MAX_VALUE);
-                writeFile.writeChar(chars[i]);
-            }
-            writeBytes += 1048576;
+        fos.close();
+        assert (file.length() == 3 * 1048576);
 
-            double[] doubles = new double[131072];
-            for (int i = 0; i < 131072; ++i) {
-                doubles[i] = random.nextDouble();
-                writeFile.writeDouble(doubles[i]);
-            }
-            writeBytes += 1048576;
+        // Read
 
-            float[] floats = new float[262144];
-            for (int i = 0; i < 262144; ++i) {
-                floats[i] = random.nextFloat();
-                writeFile.writeFloat(floats[i]);
-            }
-            writeBytes += 1048576;
+        FileInputStream fis = new FileInputStream(file);
+        ++openOperations;
 
-            int[] ints = new int[262144];
-            for (int i = 0; i < 262144; ++i) {
-                ints[i] = random.nextInt();
-                writeFile.writeInt(ints[i]);
-            }
-            writeBytes += 1048576;
+        // use single byte reads
+        for (int i = 0; i < 1048576; ++i) {
+            assert (fis.read() == writeBuffer[i]);
+        }
+        readBytes += 1048576;
 
-            long[] longs = new long[131072];
-            for (int i = 0; i < 131072; ++i) {
-                longs[i] = random.nextLong();
-                writeFile.writeLong(longs[i]);
-            }
-            writeBytes += 1048576;
+        // use simple array read
+        byte[] readBuffer = new byte[1048576];
+        int numRead = fis.read(readBuffer);
+        readBytes += 1048576;
+        assert (numRead == 1048576);
+        for (int i = 0; i < 1048576; ++i) {
+            assert (writeBuffer[i] == readBuffer[i]);
+        }
 
-            short[] shorts = new short[524288];
-            for (int i = 0; i < 524288; ++i) {
-                shorts[i] = (short) random.nextInt(Short.MAX_VALUE);
-                writeFile.writeShort(shorts[i]);
-            }
-            writeBytes += 1048576;
+        // use offset/length array read
+        numRead = fis.read(readBuffer, 0, readBuffer.length);
+        readBytes += 1048576;
+        assert (numRead == 1048576);
+        for (int i = 0; i < 1048576; ++i) {
+            assert (writeBuffer[i] == readBuffer[i]);
+        }
 
-            writeFile.writeChars(string.substring(0, 524288));
-            writeBytes += 1048576;
+        numRead = fis.read();
+        assert (numRead == -1);
+        fis.close();
 
-            // 64K restriction on UTF-8 string length
-            // so use 32 * 32K strings
-            int utf8StringLength = 0;
-            for (int i = 0; i < 32; ++i) {
-                String s = string.substring(i * 32 * 1024, (i + 1) * 32 * 1024);
+        file.delete();
+    }
 
-                // as per DataOutputStream.java
-                for (int j = 0; j < s.length(); ++j) {
-                    char c = s.charAt(j);
-                    if ((c >= 0x0001) && (c <= 0x007F)) {
-                        ++utf8StringLength;
-                    } else if (c > 0x07FF) {
-                        utf8StringLength += 3;
-                    } else {
-                        utf8StringLength += 2;
-                    }
+    private static void runRandomTest(ExecutorService executor,
+            int numProcessors) throws IOException {
+        assert (numProcessors == 1);
+
+        File file = File.createTempFile("random", null);
+
+        // Write
+
+        RandomAccessFile writeFile = new RandomAccessFile(file, "rw");
+        ++openOperations;
+
+        byte[] writeBuffer = new byte[1048576];
+        for (int i = 0; i < 1048576; ++i) {
+            writeBuffer[i] = (byte) RANDOM.nextInt(Byte.MAX_VALUE);
+            writeFile.write(writeBuffer[i]);
+        }
+        writeBytes += 1048576;
+
+        writeFile.write(writeBuffer);
+        writeBytes += 1048576;
+
+        writeFile.write(writeBuffer, 0, writeBuffer.length);
+        writeBytes += 1048576;
+
+        boolean[] bools = new boolean[1048576];
+        for (int i = 0; i < 1048576; ++i) {
+            bools[i] = RANDOM.nextBoolean();
+            writeFile.writeBoolean(bools[i]);
+        }
+        writeBytes += 1048576;
+
+        byte[] bytes = new byte[1048576];
+        for (int i = 0; i < 1048576; ++i) {
+            bytes[i] = (byte) RANDOM.nextInt(Byte.MAX_VALUE);
+            writeFile.writeByte(bytes[i]);
+        }
+        writeBytes += 1048576;
+
+        String string = new String(bytes);
+        writeFile.writeBytes(string);
+        writeBytes += 1048576;
+
+        char[] chars = new char[524288];
+        for (int i = 0; i < 524288; ++i) {
+            chars[i] = (char) RANDOM.nextInt(Character.MAX_VALUE);
+            writeFile.writeChar(chars[i]);
+        }
+        writeBytes += 1048576;
+
+        double[] doubles = new double[131072];
+        for (int i = 0; i < 131072; ++i) {
+            doubles[i] = RANDOM.nextDouble();
+            writeFile.writeDouble(doubles[i]);
+        }
+        writeBytes += 1048576;
+
+        float[] floats = new float[262144];
+        for (int i = 0; i < 262144; ++i) {
+            floats[i] = RANDOM.nextFloat();
+            writeFile.writeFloat(floats[i]);
+        }
+        writeBytes += 1048576;
+
+        int[] ints = new int[262144];
+        for (int i = 0; i < 262144; ++i) {
+            ints[i] = RANDOM.nextInt();
+            writeFile.writeInt(ints[i]);
+        }
+        writeBytes += 1048576;
+
+        long[] longs = new long[131072];
+        for (int i = 0; i < 131072; ++i) {
+            longs[i] = RANDOM.nextLong();
+            writeFile.writeLong(longs[i]);
+        }
+        writeBytes += 1048576;
+
+        short[] shorts = new short[524288];
+        for (int i = 0; i < 524288; ++i) {
+            shorts[i] = (short) RANDOM.nextInt(Short.MAX_VALUE);
+            writeFile.writeShort(shorts[i]);
+        }
+        writeBytes += 1048576;
+
+        writeFile.writeChars(string.substring(0, 524288));
+        writeBytes += 1048576;
+
+        // 64K restriction on UTF-8 string length
+        // so use 32 * 32K strings
+        int utf8StringLength = 0;
+        for (int i = 0; i < 32; ++i) {
+            String s = string.substring(i * 32 * 1024, (i + 1) * 32 * 1024);
+
+            // as per DataOutputStream.java
+            for (int j = 0; j < s.length(); ++j) {
+                char c = s.charAt(j);
+                if ((c >= 0x0001) && (c <= 0x007F)) {
+                    ++utf8StringLength;
+                } else if (c > 0x07FF) {
+                    utf8StringLength += 3;
+                } else {
+                    utf8StringLength += 2;
                 }
-
-                writeFile.writeUTF(s);
-            }
-            writeBytes += 1048576;
-
-            writeFile.close();
-            // 2 bytes extra per UTF write
-            assert (file.length() == 13 * 1048576 + utf8StringLength + 2 * 32);
-
-            // Read
-
-            RandomAccessFile readFile = new RandomAccessFile(file, "r");
-            ++openOperations;
-
-            for (int i = 0; i < 1048576; ++i) {
-                assert (readFile.read() == writeBuffer[i]);
-            }
-            readBytes += 1048576;
-
-            byte[] readBuffer = new byte[1048576];
-            int numRead = readFile.read(readBuffer);
-            readBytes += 1048576;
-            assert (numRead == 1048576);
-            for (int i = 0; i < 1048576; ++i) {
-                assert (writeBuffer[i] == readBuffer[i]);
             }
 
-            numRead = readFile.read(readBuffer, 0, readBuffer.length);
-            readBytes += 1048576;
-            assert (numRead == 1048576);
-            for (int i = 0; i < 1048576; ++i) {
-                assert (writeBuffer[i] == readBuffer[i]);
-            }
+            writeFile.writeUTF(s);
+        }
+        writeBytes += 1048576;
 
-            for (int i = 0; i < 1048576; ++i) {
-                assert (readFile.readBoolean() == bools[i]);
-            }
-            readBytes += 1048576;
+        writeFile.close();
+        // 2 bytes extra per UTF write
+        assert (file.length() == 13 * 1048576 + utf8StringLength + 2 * 32);
 
-            for (int i = 0; i < 1048576; ++i) {
-                assert (readFile.readByte() == bytes[i]);
-            }
-            readBytes += 1048576;
+        // Read
 
-            readFile.readFully(readBuffer);
-            readBytes += 1048576;
-            assert (new String(readBuffer).equals(string));
+        RandomAccessFile readFile = new RandomAccessFile(file, "r");
+        ++openOperations;
 
-            for (int i = 0; i < 524288; ++i) {
-                assert (readFile.readChar() == chars[i]);
-            }
-            readBytes += 1048576;
+        for (int i = 0; i < 1048576; ++i) {
+            assert (readFile.read() == writeBuffer[i]);
+        }
+        readBytes += 1048576;
 
-            for (int i = 0; i < 131072; ++i) {
-                assert (readFile.readDouble() == doubles[i]);
-            }
-            readBytes += 1048576;
-
-            for (int i = 0; i < 262144; ++i) {
-                assert (readFile.readFloat() == floats[i]);
-            }
-            readBytes += 1048576;
-
-            for (int i = 0; i < 262144; ++i) {
-                assert (readFile.readInt() == ints[i]);
-            }
-            readBytes += 1048576;
-
-            for (int i = 0; i < 131072; ++i) {
-                assert (readFile.readLong() == longs[i]);
-            }
-            readBytes += 1048576;
-
-            for (int i = 0; i < 524288; ++i) {
-                assert (readFile.readShort() == shorts[i]);
-            }
-            readBytes += 1048576;
-
-            readFile.readFully(readBuffer, 0, readBuffer.length);
-            readBytes += 1048576;
-            char[] characters = new char[524288];
-            for (int i = 0; i < 524288; ++i) {
-                characters[i] = (char) ((readBuffer[2 * i] << 8)
-                        | readBuffer[2 * i + 1]);
-            }
-            assert (new String(characters).equals(string.substring(0, 524288)));
-
-            for (int i = 0; i < 32; ++i) {
-                assert (readFile.readUTF().equals(
-                        string.substring(i * 32 * 1024, (i + 1) * 32 * 1024)));
-            }
-            readBytes += 1048576;
-
-            numRead = readFile.read();
-            assert (numRead == -1);
-            readFile.close();
-
-            file.delete();
+        byte[] readBuffer = new byte[1048576];
+        int numRead = readFile.read(readBuffer);
+        readBytes += 1048576;
+        assert (numRead == 1048576);
+        for (int i = 0; i < 1048576; ++i) {
+            assert (writeBuffer[i] == readBuffer[i]);
         }
 
-        {
-            File file = File.createTempFile("channel", null);
+        numRead = readFile.read(readBuffer, 0, readBuffer.length);
+        readBytes += 1048576;
+        assert (numRead == 1048576);
+        for (int i = 0; i < 1048576; ++i) {
+            assert (writeBuffer[i] == readBuffer[i]);
+        }
 
-            // Write
+        for (int i = 0; i < 1048576; ++i) {
+            assert (readFile.readBoolean() == bools[i]);
+        }
+        readBytes += 1048576;
 
-            FileOutputStream fos = new FileOutputStream(file);
-            ++openOperations;
+        for (int i = 0; i < 1048576; ++i) {
+            assert (readFile.readByte() == bytes[i]);
+        }
+        readBytes += 1048576;
 
-            FileChannel fco = fos.getChannel();
+        readFile.readFully(readBuffer);
+        readBytes += 1048576;
+        assert (new String(readBuffer).equals(string));
 
-            final byte[] writeBuffer = new byte[1048576];
-            for (int i = 0; i < 1048576; ++i) {
-                writeBuffer[i] = (byte) random.nextInt(Byte.MAX_VALUE);
-            }
+        for (int i = 0; i < 524288; ++i) {
+            assert (readFile.readChar() == chars[i]);
+        }
+        readBytes += 1048576;
 
-            // set up 3 write buffers
-            final ByteBuffer wrappedWriteBuffer = ByteBuffer.wrap(writeBuffer);
-            ByteBuffer allocatedWriteBuffer = ByteBuffer.allocate(1048576);
-            allocatedWriteBuffer.put(writeBuffer);
-            allocatedWriteBuffer.position(0);
-            ByteBuffer allocatedDirectWriteBuffer = ByteBuffer
-                    .allocateDirect(1048576);
-            allocatedDirectWriteBuffer.put(writeBuffer);
-            allocatedDirectWriteBuffer.position(0);
+        for (int i = 0; i < 131072; ++i) {
+            assert (readFile.readDouble() == doubles[i]);
+        }
+        readBytes += 1048576;
 
-            // write all 3 buffers
-            long numWritten = fco.write(wrappedWriteBuffer);
-            wrappedWriteBuffer.position(0);
-            writeBytes += 1048576;
-            numWritten += fco.write(allocatedWriteBuffer);
-            allocatedWriteBuffer.position(0);
-            writeBytes += 1048576;
-            numWritten += fco.write(allocatedDirectWriteBuffer);
-            allocatedDirectWriteBuffer.position(0);
-            writeBytes += 1048576;
-            // fco is now 3 MB
+        for (int i = 0; i < 262144; ++i) {
+            assert (readFile.readFloat() == floats[i]);
+        }
+        readBytes += 1048576;
 
-            // write all 3 buffers using offsets
-            numWritten += fco.write(wrappedWriteBuffer, 3 * 1048576);
-            wrappedWriteBuffer.position(0);
-            fco.position(fco.position() + 1048576);
-            writeBytes += 1048576;
-            numWritten += fco.write(allocatedWriteBuffer, 4 * 1048576);
-            allocatedWriteBuffer.position(0);
-            fco.position(fco.position() + 1048576);
-            writeBytes += 1048576;
-            numWritten += fco.write(allocatedDirectWriteBuffer, 5 * 1048576);
-            allocatedDirectWriteBuffer.position(0);
-            fco.position(fco.position() + 1048576);
-            writeBytes += 1048576;
-            // fco is now 6 MB
+        for (int i = 0; i < 262144; ++i) {
+            assert (readFile.readInt() == ints[i]);
+        }
+        readBytes += 1048576;
 
-            // write all 3 buffers using an array of them
-            numWritten += fco.write(new ByteBuffer[] { wrappedWriteBuffer,
-                    allocatedWriteBuffer, allocatedDirectWriteBuffer });
-            writeBytes += 3 * 1048576;
-            // fco is now 9 MB
+        for (int i = 0; i < 131072; ++i) {
+            assert (readFile.readLong() == longs[i]);
+        }
+        readBytes += 1048576;
 
-            // write to a dummy file so we can map its buffer
-            // this gives an extra 1 MB in the write statistics
-            File dummyFile = File.createTempFile("dummy", null);
-            RandomAccessFile dummyRaf = new RandomAccessFile(dummyFile, "rw");
-            ++openOperations;
+        for (int i = 0; i < 524288; ++i) {
+            assert (readFile.readShort() == shorts[i]);
+        }
+        readBytes += 1048576;
+
+        readFile.readFully(readBuffer, 0, readBuffer.length);
+        readBytes += 1048576;
+        char[] characters = new char[524288];
+        for (int i = 0; i < 524288; ++i) {
+            characters[i] = (char) ((readBuffer[2 * i] << 8)
+                    | readBuffer[2 * i + 1]);
+        }
+        assert (new String(characters).equals(string.substring(0, 524288)));
+
+        for (int i = 0; i < 32; ++i) {
+            assert (readFile.readUTF().equals(
+                    string.substring(i * 32 * 1024, (i + 1) * 32 * 1024)));
+        }
+        readBytes += 1048576;
+
+        numRead = readFile.read();
+        assert (numRead == -1);
+        readFile.close();
+
+        file.delete();
+    }
+
+    private static void runChannelTest(ExecutorService executor,
+            int numProcessors)
+            throws IOException, InterruptedException, ExecutionException {
+        File file = File.createTempFile("channel", null);
+
+        // Write
+
+        FileOutputStream fos = new FileOutputStream(file);
+        ++openOperations;
+
+        FileChannel fco = fos.getChannel();
+
+        final byte[] writeBuffer = new byte[1048576];
+        for (int i = 0; i < 1048576; ++i) {
+            writeBuffer[i] = (byte) RANDOM.nextInt(Byte.MAX_VALUE);
+        }
+
+        // set up 3 write buffers
+        final ByteBuffer wrappedWriteBuffer = ByteBuffer.wrap(writeBuffer);
+        ByteBuffer allocatedWriteBuffer = ByteBuffer.allocate(1048576);
+        allocatedWriteBuffer.put(writeBuffer);
+        allocatedWriteBuffer.position(0);
+        ByteBuffer allocatedDirectWriteBuffer = ByteBuffer
+                .allocateDirect(1048576);
+        allocatedDirectWriteBuffer.put(writeBuffer);
+        allocatedDirectWriteBuffer.position(0);
+
+        // write all 3 buffers
+        long numWritten = fco.write(wrappedWriteBuffer);
+        wrappedWriteBuffer.position(0);
+        writeBytes += 1048576;
+        numWritten += fco.write(allocatedWriteBuffer);
+        allocatedWriteBuffer.position(0);
+        writeBytes += 1048576;
+        numWritten += fco.write(allocatedDirectWriteBuffer);
+        allocatedDirectWriteBuffer.position(0);
+        writeBytes += 1048576;
+        // fco is now 3 MB
+
+        // write all 3 buffers using offsets, possibly concurrently
+        List<Future<Long>> numsWritten = new ArrayList<Future<Long>>();
+        long currentFcoPosition = fco.position();
+        for (int i = 0; i < numProcessors; ++i) {
+            final long offset = currentFcoPosition + i * 3 * 1048576;
+            numsWritten.add(executor.submit(new Callable<Long>() {
+                @Override
+                public Long call() throws Exception {
+                    long numWritten = fco.write(wrappedWriteBuffer.duplicate(),
+                            offset);
+                    numWritten += fco.write(allocatedWriteBuffer.duplicate(),
+                            offset + 1048576);
+                    numWritten += fco.write(
+                            allocatedDirectWriteBuffer.duplicate(),
+                            offset + 2 * 1048576);
+                    return numWritten;
+                }
+            }));
+        }
+        for (Future<Long> nw : numsWritten) {
+            numWritten += nw.get();
+        }
+        fco.position(fco.position() + numProcessors * 3 * 1048576);
+        writeBytes += numProcessors * 3 * 1048576;
+        // fco is now 6 MB (for numProcessors == 1)
+
+        // write all 3 buffers using an array of them
+        numWritten += fco.write(new ByteBuffer[] { wrappedWriteBuffer,
+                allocatedWriteBuffer, allocatedDirectWriteBuffer });
+        writeBytes += 3 * 1048576;
+        // fco is now 9 MB
+
+        // write to a dummy file so we can map its buffer
+        // this gives an extra 1 MB in the write statistics
+        File dummyFile = File.createTempFile("dummy", null);
+        RandomAccessFile dummyRaf = new RandomAccessFile(dummyFile, "rw");
+        ++openOperations;
+        for (int i = 0; i < numProcessors; ++i) {
             dummyRaf.write(writeBuffer);
             writeBytes += 1048576;
-
-            dummyRaf.close();
-
-            dummyRaf = new RandomAccessFile(dummyFile, "r");
-            ++openOperations;
-            MappedByteBuffer mappedByteBuffer = dummyRaf.getChannel()
-                    .map(MapMode.READ_ONLY, 0, 1048576);
-
-            // use regular write
-            numWritten += fco.write(mappedByteBuffer);
-            writeBytes += 1048576;
-            readBytes += 1048576;
-            mappedByteBuffer.position(0);
-            // fco is now 10 MB
-
-            // use write with offset
-            numWritten += fco.write(mappedByteBuffer, 10 * 1048576);
-            fco.position(fco.position() + 1048576);
-            writeBytes += 1048576;
-            readBytes += 1048576;
-            mappedByteBuffer.position(0);
-            // fco is now 11 MB
-
-            // use array write
-            numWritten += fco.write(new ByteBuffer[] { mappedByteBuffer });
-            writeBytes += 1048576;
-            readBytes += 1048576;
-            mappedByteBuffer.position(0);
-            // fco is now 12 MB
-
-            // use transfer from file, incurring another 1 MB of reads
-            numWritten += fco.transferFrom(dummyRaf.getChannel(), 12 * 1048576,
-                    1048576);
-            fco.position(fco.position() + 1048576);
-            writeBytes += 1048576;
-            readBytes += 1048576;
-            // fco is now 13 MB
-
-            dummyRaf.close();
-
-            // use transfer from arbitrary source
-            numWritten += fco.transferFrom(new ReadableByteChannel() {
-                boolean open = true;
-
-                @Override
-                public boolean isOpen() {
-                    return open;
-                }
-
-                @Override
-                public void close() throws IOException {
-                    open = false;
-                }
-
-                @Override
-                public int read(ByteBuffer dst) throws IOException {
-                    // produce random bytes from this channel
-                    byte[] src = new byte[dst.remaining()];
-                    for (int i = 0; i < src.length; ++i) {
-                        src[i] = (byte) random.nextInt(Byte.MAX_VALUE);
-                    }
-                    dst.put(src, 0, src.length);
-                    return src.length;
-                }
-            }, 13 * 1048576, 1048576);
-            fco.position(fco.position() + 1048576);
-            writeBytes += 1048576;
-            // fco is now 14 MB
-
-            // parallel positioned writes on the same fco because they're
-            // definitely allowed to run concurrently
-            final int availableProcessors = Runtime.getRuntime()
-                    .availableProcessors();
-            ExecutorService executor = Executors
-                    .newFixedThreadPool(availableProcessors);
-            List<Future<Integer>> numsWritten = new ArrayList<Future<Integer>>();
-            for (int i = 0; i < availableProcessors; ++i) {
-                final int offset = 14 * 1048576 + i * 1048576;
-                numsWritten.add(executor.submit(new Callable<Integer>() {
-                    @Override
-                    public Integer call() {
-                        try {
-                            return fco.write(ByteBuffer.wrap(writeBuffer),
-                                    offset);
-                        } catch (IOException e) {
-                            throw new RuntimeException(e);
-                        }
-                    }
-                }));
-            }
-
-            for (Future<Integer> nw : numsWritten) {
-                numWritten += nw.get();
-            }
-            executor.shutdown();
-            writeBytes += availableProcessors * 1048576;
-            assert (numWritten == (14 + availableProcessors) * 1048576);
-
-            fco.close();
-            fos.close();
-            assert (file.length() == (14 + availableProcessors) * 1048576);
-
-            // Read
-
-            FileInputStream fis = new FileInputStream(file);
-            ++openOperations;
-
-            FileChannel fci = fis.getChannel();
-
-            byte[] readBuffer = new byte[1048576];
-
-            // set up 3 read buffers
-            ByteBuffer wrappedReadBuffer = ByteBuffer.wrap(readBuffer);
-            ByteBuffer allocatedReadBuffer = ByteBuffer.allocate(1048576);
-            ByteBuffer allocatedDirectReadBuffer = ByteBuffer
-                    .allocateDirect(1048576);
-
-            // read all 3 buffers
-            long numRead = fci.read(wrappedReadBuffer);
-            wrappedReadBuffer.position(0);
-            readBytes += 1048576;
-            numRead += fci.read(allocatedReadBuffer);
-            allocatedReadBuffer.position(0);
-            readBytes += 1048576;
-            numRead += fci.read(allocatedDirectReadBuffer);
-            allocatedDirectReadBuffer.position(0);
-            readBytes += 1048576;
-            // fci is now 3 MB
-
-            // read all 3 buffers using offsets
-            numRead += fci.read(wrappedReadBuffer, 3 * 1048576);
-            wrappedReadBuffer.position(0);
-            fci.position(fci.position() + 1048576);
-            readBytes += 1048576;
-            numRead += fci.read(allocatedReadBuffer, 4 * 1048576);
-            allocatedReadBuffer.position(0);
-            fci.position(fci.position() + 1048576);
-            readBytes += 1048576;
-            numRead += fci.read(allocatedDirectReadBuffer, 5 * 1048576);
-            allocatedDirectReadBuffer.position(0);
-            fci.position(fci.position() + 1048576);
-            readBytes += 1048576;
-            // fci is now 6 MB
-
-            // verify contents
-            wrappedWriteBuffer.position(0);
-            for (int i = 0; i < 1048576; ++i) {
-                assert (wrappedWriteBuffer.get() == wrappedReadBuffer.get());
-            }
-            allocatedWriteBuffer.position(0);
-            for (int i = 0; i < 1048576; ++i) {
-                assert (allocatedWriteBuffer.get() == allocatedReadBuffer
-                        .get());
-            }
-            allocatedDirectWriteBuffer.position(0);
-            for (int i = 0; i < 1048576; ++i) {
-                assert (allocatedDirectWriteBuffer
-                        .get() == allocatedDirectReadBuffer.get());
-            }
-
-            // read all 3 buffers using an array of them
-            wrappedReadBuffer.position(0);
-            allocatedReadBuffer.position(0);
-            allocatedDirectReadBuffer.position(0);
-            numRead += fci.read(new ByteBuffer[] { wrappedReadBuffer,
-                    allocatedReadBuffer, allocatedDirectReadBuffer });
-            readBytes += 3 * 1048576;
-            // fci is now 9 MB
-
-            // verify contents
-            wrappedWriteBuffer.position(0);
-            wrappedReadBuffer.position(0);
-            for (int i = 0; i < 1048576; ++i) {
-                assert (wrappedWriteBuffer.get() == wrappedReadBuffer.get());
-            }
-            allocatedWriteBuffer.position(0);
-            allocatedReadBuffer.position(0);
-            for (int i = 0; i < 1048576; ++i) {
-                assert (allocatedWriteBuffer.get() == allocatedReadBuffer
-                        .get());
-            }
-            allocatedDirectWriteBuffer.position(0);
-            allocatedDirectReadBuffer.position(0);
-            for (int i = 0; i < 1048576; ++i) {
-                assert (allocatedDirectWriteBuffer
-                        .get() == allocatedDirectReadBuffer.get());
-            }
-
-            // read content back to file
-            dummyRaf = new RandomAccessFile(dummyFile, "rw");
-            ++openOperations;
-            mappedByteBuffer = dummyRaf.getChannel().map(MapMode.READ_WRITE, 0,
-                    1048576);
-
-            // use regular read
-            numRead += fci.read(mappedByteBuffer);
-            writeBytes += 1048576;
-            readBytes += 1048576;
-            mappedByteBuffer.position(0);
-            // fci is now 10 MB
-
-            // use read with offset
-            numRead += fci.read(mappedByteBuffer, 10 * 1048576);
-            mappedByteBuffer.position(0);
-            fci.position(fci.position() + 1048576);
-            writeBytes += 1048576;
-            readBytes += 1048576;
-            // fci is now 11 MB
-
-            // use array read
-            numRead += fci.read(new ByteBuffer[] { mappedByteBuffer });
-            writeBytes += 1048576;
-            readBytes += 1048576;
-            mappedByteBuffer.position(0);
-            // fci is now 12 MB
-
-            // use transfer to file
-            numRead += fci.transferTo(12 * 1048576, 1048576,
-                    dummyRaf.getChannel());
-            fci.position(fci.position() + 1048576);
-            writeBytes += 1048576;
-            readBytes += 1048576;
-            // fci is now 13 MB
-
-            dummyRaf.close();
-
-            numRead += fci.transferTo(13 * 1048576, 1048576,
-                    new WritableByteChannel() {
-                        boolean open = true;
-
-                        @Override
-                        public boolean isOpen() {
-                            return open;
-                        }
-
-                        @Override
-                        public void close() throws IOException {
-                            open = false;
-                        }
-
-                        @Override
-                        public int write(ByteBuffer src) throws IOException {
-                            // discard everything
-                            byte[] dst = new byte[src.remaining()];
-                            src.get(dst, 0, dst.length);
-                            return dst.length;
-                        }
-                    });
-            readBytes += 1048576;
-            fci.position(fci.position() + 1048576);
-            // fci is now 14 MB
-
-            executor = Executors.newFixedThreadPool(availableProcessors);
-            List<Future<Integer>> numsRead = new ArrayList<Future<Integer>>();
-            for (int i = 0; i < availableProcessors; ++i) {
-                final int offset = 14 * 1048576 + i * 1048576;
-                numsRead.add(executor.submit(new Callable<Integer>() {
-                    @Override
-                    public Integer call() {
-                        try {
-                            return fci.read(ByteBuffer.wrap(readBuffer),
-                                    offset);
-                        } catch (IOException e) {
-                            throw new RuntimeException(e);
-                        }
-                    }
-                }));
-            }
-
-            for (Future<Integer> nw : numsRead) {
-                numRead += nw.get();
-            }
-            executor.shutdown();
-            readBytes += availableProcessors * 1048576;
-            fci.position(fci.position() + availableProcessors * 1048576);
-            assert (numRead == (14 + availableProcessors) * 1048576);
-
-            wrappedReadBuffer.position(0);
-            numRead = fci.read(wrappedReadBuffer);
-            assert (numRead == -1);
-            fci.close();
-            fis.close();
-
-            file.delete();
         }
 
-        {
-            File file = File.createTempFile("channel", null);
+        dummyRaf.close();
 
-            // Write
+        dummyRaf = new RandomAccessFile(dummyFile, "r");
+        ++openOperations;
+        final FileChannel readDummyRafChannel = dummyRaf.getChannel();
+        final MappedByteBuffer readMappedByteBuffer = readDummyRafChannel
+                .map(MapMode.READ_ONLY, 0, 1048576);
 
-            RandomAccessFile writeFile = new RandomAccessFile(file, "rw");
-            ++openOperations;
+        // use regular write
+        numWritten += fco.write(readMappedByteBuffer);
+        writeBytes += 1048576;
+        readBytes += 1048576;
+        readMappedByteBuffer.position(0);
+        // fco is now 10 MB
 
-            FileChannel fco = writeFile.getChannel();
+        // use write with offset
+        numsWritten.clear();
+        currentFcoPosition = fco.position();
+        for (int i = 0; i < numProcessors; ++i) {
+            final long offset = currentFcoPosition + i * 1048576;
+            numsWritten.add(executor.submit(new Callable<Long>() {
+                @Override
+                public Long call() throws Exception {
+                    return (long) fco.write(readMappedByteBuffer.duplicate(),
+                            offset);
+                }
+            }));
+        }
+        for (Future<Long> nw : numsWritten) {
+            numWritten += nw.get();
+        }
+        fco.position(fco.position() + numProcessors * 1048576);
+        writeBytes += numProcessors * 1048576;
+        readBytes += numProcessors * 1048576;
+        // fco is now 11 MB (for numProcessors == 1)
 
-            MappedByteBuffer mbbo = fco.map(MapMode.READ_WRITE, 0,
-                    20 * 1048576);
+        // use array write, combined with asReadOnlyBuffer and slice
+        numWritten += fco.write(
+                new ByteBuffer[] { readMappedByteBuffer.asReadOnlyBuffer(),
+                        readMappedByteBuffer.slice(), readMappedByteBuffer });
+        writeBytes += 3 * 1048576;
+        readBytes += 3 * 1048576;
+        readMappedByteBuffer.position(0);
+        // fco is now 12 MB
 
-            int index = 0;
+        // use transfer from file, incurring another 1 MB of reads
+        numsWritten.clear();
+        currentFcoPosition = fco.position();
+        readDummyRafChannel.position(0);
+        for (int i = 0; i < numProcessors; ++i) {
+            final long offset = currentFcoPosition + i * 1048576;
+            numsWritten.add(executor.submit(new Callable<Long>() {
+                @Override
+                public Long call() throws Exception {
+                    long remaining = 1048576;
+                    while (remaining > 0) {
+                        remaining -= fco.transferFrom(readDummyRafChannel,
+                                offset + 1048576 - remaining, remaining);
+                    }
+                    return 1048576L;
+                }
+            }));
+        }
+        for (Future<Long> nw : numsWritten) {
+            numWritten += nw.get();
+        }
+        fco.position(fco.position() + numProcessors * 1048576);
+        writeBytes += numProcessors * 1048576;
+        readBytes += numProcessors * 1048576;
+        // fco is now 13 MB (for numProcessors == 1)
 
-            byte[] bytes = new byte[1048576];
-            for (int i = 0; i < 1048576; ++i) {
-                bytes[i] = (byte) random.nextInt(Byte.MAX_VALUE);
-                mbbo.put(bytes[i]);
-                index += 1;
-                mbbo.put(index, bytes[i]);
-                index += 1;
-                mbbo.position(index);
-            }
-            writeBytes += 2 * 1048576;
-            // mbbo is now 2 MB
+        dummyRaf.close();
 
-            char[] chars = new char[524288];
-            for (int i = 0; i < 524288; ++i) {
-                chars[i] = (char) random.nextInt(Character.MAX_VALUE);
-                mbbo.putChar(chars[i]);
-                index += 2;
-                mbbo.putChar(index, chars[i]);
-                index += 2;
-                mbbo.position(index);
-            }
-            writeBytes += 2 * 1048576;
-            // mbbo is now 4 MB
+        // use transfer from arbitrary source
+        currentFcoPosition = fco.position();
+        numsWritten.clear();
+        for (int i = 0; i < numProcessors; ++i) {
+            final long offset = currentFcoPosition + i * 1048576;
+            numsWritten.add(executor.submit(new Callable<Long>() {
+                @Override
+                public Long call() throws Exception {
+                    long remaining = 1048576;
+                    while (remaining > 0) {
+                        remaining -= fco
+                                .transferFrom(new ReadableByteChannel() {
+                                    boolean open = true;
 
-            double[] doubles = new double[131072];
-            for (int i = 0; i < 131072; ++i) {
-                doubles[i] = random.nextDouble();
-                mbbo.putDouble(doubles[i]);
-                index += 8;
-                mbbo.putDouble(index, doubles[i]);
-                index += 8;
-                mbbo.position(index);
-            }
-            writeBytes += 2 * 1048576;
-            // mbbo is now 6 MB
+                                    @Override
+                                    public boolean isOpen() {
+                                        return open;
+                                    }
 
-            float[] floats = new float[262144];
-            for (int i = 0; i < 262144; ++i) {
-                floats[i] = random.nextFloat();
-                mbbo.putFloat(floats[i]);
-                index += 4;
-                mbbo.putFloat(index, floats[i]);
-                index += 4;
-                mbbo.position(index);
-            }
-            writeBytes += 2 * 1048576;
-            // mbbo is now 8 MB
+                                    @Override
+                                    public void close() throws IOException {
+                                        open = false;
+                                    }
 
-            int[] ints = new int[262144];
-            for (int i = 0; i < 262144; ++i) {
-                ints[i] = random.nextInt();
-                mbbo.putInt(ints[i]);
-                index += 4;
-                mbbo.putInt(index, ints[i]);
-                index += 4;
-                mbbo.position(index);
-            }
-            writeBytes += 2 * 1048576;
-            // mbbo is now 10 MB
+                                    @Override
+                                    public int read(ByteBuffer dst)
+                                            throws IOException {
+                                        // produce random bytes from this
+                                        // channel
+                                        byte[] src = new byte[dst.remaining()];
+                                        for (int i = 0; i < src.length; ++i) {
+                                            src[i] = (byte) InstrumentationTest.RANDOM
+                                                    .nextInt(Byte.MAX_VALUE);
+                                        }
+                                        dst.put(src, 0, src.length);
+                                        return src.length;
+                                    }
+                                }, offset + 1048576 - remaining, remaining);
+                    }
+                    return 1048576L;
+                }
+            }));
+        }
+        for (Future<Long> nw : numsWritten) {
+            numWritten += nw.get();
+        }
+        fco.position(fco.position() + numProcessors * 1048576);
+        writeBytes += numProcessors * 1048576;
+        // fco is now 14 MB (for numProcessors == 1)
 
-            long[] longs = new long[131072];
-            for (int i = 0; i < 131072; ++i) {
-                longs[i] = random.nextLong();
-                mbbo.putLong(longs[i]);
-                index += 8;
-                mbbo.putLong(index, longs[i]);
-                index += 8;
-                mbbo.position(index);
-            }
-            writeBytes += 2 * 1048576;
-            // mbbo is now 12 MB
+        fco.close();
+        fos.close();
+        assert (numWritten == 10 * 1048576 + 6 * numProcessors * 1048576);
+        assert (file.length() == 10 * 1048576 + 6 * numProcessors * 1048576);
 
-            short[] shorts = new short[524288];
-            for (int i = 0; i < 524288; ++i) {
-                shorts[i] = (short) random.nextInt(Short.MAX_VALUE);
-                mbbo.putShort(shorts[i]);
-                index += 2;
-                mbbo.putShort(index, shorts[i]);
-                index += 2;
-                mbbo.position(index);
-            }
-            writeBytes += 2 * 1048576;
-            // mbbo is now 14 MB
+        // Read
 
-            byte[] writeBuffer = new byte[1048576];
-            for (int j = 0; j < writeBuffer.length; ++j) {
-                writeBuffer[j] = (byte) random.nextInt(Byte.MAX_VALUE);
-            }
-            mbbo.put(writeBuffer);
-            writeBytes += 1048576;
-            // mbbo is now 15 MB
+        FileInputStream fis = new FileInputStream(file);
+        ++openOperations;
 
-            mbbo.put(writeBuffer, 0, writeBuffer.length);
-            writeBytes += 1048576;
-            // mbbo is now 16 MB
+        FileChannel fci = fis.getChannel();
 
-            // set up 3 write buffers
-            ByteBuffer wrappedWriteBuffer = ByteBuffer.wrap(writeBuffer);
-            ByteBuffer allocatedWriteBuffer = ByteBuffer.allocate(1048576);
-            allocatedWriteBuffer.put(writeBuffer);
-            allocatedWriteBuffer.position(0);
-            ByteBuffer allocatedDirectWriteBuffer = ByteBuffer
-                    .allocateDirect(1048576);
-            allocatedDirectWriteBuffer.put(writeBuffer);
-            allocatedDirectWriteBuffer.position(0);
+        byte[] readBuffer = new byte[1048576];
 
-            // write the 3 buffers
-            mbbo.put(wrappedWriteBuffer);
-            writeBytes += 1048576;
-            mbbo.put(allocatedWriteBuffer);
-            writeBytes += 1048576;
-            mbbo.put(allocatedDirectWriteBuffer);
-            writeBytes += 1048576;
-            // mbbo is now 19 MB
+        // set up 3 read buffers
+        ByteBuffer wrappedReadBuffer = ByteBuffer.wrap(readBuffer);
+        ByteBuffer allocatedReadBuffer = ByteBuffer.allocate(1048576);
+        ByteBuffer allocatedDirectReadBuffer = ByteBuffer
+                .allocateDirect(1048576);
 
-            // write to a dummy file so we can map its buffer
-            // this gives an extra 1 MB in the write statistics
-            File dummyFile = File.createTempFile("from", null);
-            RandomAccessFile dummyRaf = new RandomAccessFile(dummyFile, "rw");
-            ++openOperations;
-            dummyRaf.write(writeBuffer);
-            writeBytes += 1048576;
+        // read all 3 buffers
+        long numRead = fci.read(wrappedReadBuffer);
+        wrappedReadBuffer.position(0);
+        readBytes += 1048576;
+        numRead += fci.read(allocatedReadBuffer);
+        allocatedReadBuffer.position(0);
+        readBytes += 1048576;
+        numRead += fci.read(allocatedDirectReadBuffer);
+        allocatedDirectReadBuffer.position(0);
+        readBytes += 1048576;
+        // fci is now 3 MB
 
-            dummyRaf.close();
+        // read all 3 buffers using offsets
+        List<Future<Long>> numsRead = new ArrayList<Future<Long>>();
+        long currentFciPosition = fci.position();
+        for (int i = 0; i < numProcessors; ++i) {
+            final long offset = currentFciPosition + i * 3 * 1048576;
+            numsRead.add(executor.submit(new Callable<Long>() {
+                @Override
+                public Long call() throws Exception {
+                    long numRead = fci.read(wrappedReadBuffer.duplicate(),
+                            offset);
+                    numRead += fci.read(allocatedReadBuffer.duplicate(),
+                            offset + 1048576);
+                    numRead += fci.read(allocatedDirectReadBuffer.duplicate(),
+                            offset + 2 * 1048576);
+                    return numRead;
+                }
+            }));
+        }
+        for (Future<Long> nr : numsRead) {
+            numRead += nr.get();
+        }
+        fci.position(fci.position() + numProcessors * 3 * 1048576);
+        readBytes += numProcessors * 3 * 1048576;
+        // fci is now 6 MB (for numProcessors == 1)
 
-            // this gives an extra 1 MB in the read statistics
-            dummyRaf = new RandomAccessFile(dummyFile, "r");
-            ++openOperations;
+        // read all 3 buffers using an array of them
+        wrappedReadBuffer.position(0);
+        allocatedReadBuffer.position(0);
+        allocatedDirectReadBuffer.position(0);
+        numRead += fci.read(new ByteBuffer[] { wrappedReadBuffer,
+                allocatedReadBuffer, allocatedDirectReadBuffer });
+        readBytes += 3 * 1048576;
+        // fci is now 9 MB
 
-            mbbo.put(dummyRaf.getChannel().map(MapMode.READ_ONLY, 0, 1048576));
-            writeBytes += 1048576;
-            readBytes += 1048576;
-            // mbbo is now 20 MB
-
-            dummyRaf.close();
-
-            try {
-                mbbo.put(Byte.MAX_VALUE);
-                assert (false);
-            } catch (BufferOverflowException e) {
-                // expected
-            }
-
-            fco.close();
-            writeFile.close();
-            assert (file.length() == 20 * 1048576);
-
-            // Read
-
-            RandomAccessFile readFile = new RandomAccessFile(file, "r");
-            ++openOperations;
-
-            FileChannel fci = readFile.getChannel();
-
-            MappedByteBuffer mbbi = fci.map(MapMode.READ_ONLY, 0, 20 * 1048576);
-
-            index = 0;
-
-            for (int i = 0; i < 1048576; ++i) {
-                assert (mbbi.get() == bytes[i]);
-                index += 1;
-                assert (mbbi.get(index) == bytes[i]);
-                index += 1;
-                mbbi.position(index);
-            }
-            readBytes += 2 * 1048576;
-            // mbbi is now 2 MB
-
-            for (int i = 0; i < 524288; ++i) {
-                assert (mbbi.getChar() == chars[i]);
-                index += 2;
-                assert (mbbi.getChar(index) == chars[i]);
-                index += 2;
-                mbbi.position(index);
-            }
-            readBytes += 2 * 1048576;
-            // mbbi is now 4 MB
-
-            for (int i = 0; i < 131072; ++i) {
-                assert (mbbi.getDouble() == doubles[i]);
-                index += 8;
-                assert (mbbi.getDouble(index) == doubles[i]);
-                index += 8;
-                mbbi.position(index);
-            }
-            readBytes += 2 * 1048576;
-            // mbbi is now 6 MB
-
-            for (int i = 0; i < 262144; ++i) {
-                assert (mbbi.getFloat() == floats[i]);
-                index += 4;
-                assert (mbbi.getFloat(index) == floats[i]);
-                index += 4;
-                mbbi.position(index);
-            }
-            readBytes += 2 * 1048576;
-            // mbbi is now 8 MB
-
-            for (int i = 0; i < 262144; ++i) {
-                assert (mbbi.getInt() == ints[i]);
-                index += 4;
-                assert (mbbi.getInt(index) == ints[i]);
-                index += 4;
-                mbbi.position(index);
-            }
-            readBytes += 2 * 1048576;
-            // mbbi is now 10 MB
-
-            for (int i = 0; i < 131072; ++i) {
-                assert (mbbi.getLong() == longs[i]);
-                index += 8;
-                assert (mbbi.getLong(index) == longs[i]);
-                index += 8;
-                mbbi.position(index);
-            }
-            readBytes += 2 * 1048576;
-            // mbbi is now 12 MB
-
-            for (int i = 0; i < 524288; ++i) {
-                assert (mbbi.getShort() == shorts[i]);
-                index += 2;
-                assert (mbbi.getShort(index) == shorts[i]);
-                index += 2;
-                mbbi.position(index);
-            }
-            readBytes += 2 * 1048576;
-            // mbbi is now 14 MB
-
-            byte[] readBuffer = new byte[1048576];
-            mbbi.get(readBuffer);
-            readBytes += 1048576;
-            // mbbi is now 15 MB
-
-            for (int j = 0; j < readBuffer.length; ++j) {
-                assert (readBuffer[j] == writeBuffer[j]);
-            }
-
-            mbbi.get(readBuffer, 0, readBuffer.length);
-            readBytes += 1048576;
-            // mbbi is now 16 MB
-
-            for (int j = 0; j < readBuffer.length; ++j) {
-                assert (readBuffer[j] == writeBuffer[j]);
-            }
-
-            // set up 3 read buffers to read the last MB of input
-            ByteBuffer wrappedReadBuffer = ByteBuffer.wrap(readBuffer);
-            ByteBuffer allocatedReadBuffer = ByteBuffer.allocate(1048576);
-            ByteBuffer allocatedDirectReadBuffer = ByteBuffer
-                    .allocateDirect(1048576);
-
-            int lastMBPosition = mbbi.capacity() - 1048576;
-            // mbbi is now at 19 MB
-
-            // read the 3 buffers
-
-            // FIXME It is lucky that this works because of HeapByteBuffer's
-            // put(ByteBuffer) implementation, as it invokes our instrumented
-            // methods. If it were to do something fancy, we would miss these
-            // two reads.
-            mbbi.position(lastMBPosition);
-            wrappedReadBuffer.put(mbbi);
-            readBytes += 1048576;
-            mbbi.position(lastMBPosition);
-            allocatedReadBuffer.put(mbbi);
-            readBytes += 1048576;
-
-            // this is a DirectByteBuffer which we have already instrumented
-            mbbi.position(lastMBPosition);
-            allocatedDirectReadBuffer.put(mbbi);
-            readBytes += 1048576;
-
-            // this gives an extra 1 MB in the write statistics
-            dummyRaf = new RandomAccessFile(dummyFile, "rw");
-            ++openOperations;
-
-            mbbi.position(lastMBPosition);
-            dummyRaf.getChannel().map(MapMode.READ_WRITE, 0, 1048576).put(mbbi);
-            writeBytes += 1048576;
-            readBytes += 1048576;
-            // mbbi is now 20 MB
-
-            dummyRaf.close();
-
-            try {
-                mbbi.get();
-                assert (false);
-            } catch (BufferUnderflowException e) {
-                // expected
-            }
-
-            fci.close();
-            readFile.close();
-
-            file.delete();
+        // verify contents
+        wrappedWriteBuffer.position(0);
+        wrappedReadBuffer.position(0);
+        for (int i = 0; i < 1048576; ++i) {
+            assert (wrappedWriteBuffer.get() == wrappedReadBuffer.get());
+        }
+        allocatedWriteBuffer.position(0);
+        allocatedReadBuffer.position(0);
+        for (int i = 0; i < 1048576; ++i) {
+            assert (allocatedWriteBuffer.get() == allocatedReadBuffer.get());
+        }
+        allocatedDirectWriteBuffer.position(0);
+        allocatedDirectReadBuffer.position(0);
+        for (int i = 0; i < 1048576; ++i) {
+            assert (allocatedDirectWriteBuffer
+                    .get() == allocatedDirectReadBuffer.get());
         }
 
-        long jvmZipReadBytes = 0, zipReadBytes = 0;
+        // read content back to file
+        dummyRaf = new RandomAccessFile(dummyFile, "rw");
+        ++openOperations;
+        final FileChannel writeDummyRafChannel = dummyRaf.getChannel();
+        MappedByteBuffer writeMappedByteBuffer = writeDummyRafChannel
+                .map(MapMode.READ_WRITE, 0, 1048576);
 
-        {
-            // play around with Zip and Jar files, as apparently they behave
-            // somewhat different
-            File file = File.createTempFile("zip", null);
+        // use regular read
+        numRead += fci.read(writeMappedByteBuffer);
+        writeBytes += 1048576;
+        readBytes += 1048576;
+        writeMappedByteBuffer.position(0);
+        // fci is now 10 MB
 
-            // this is covered via our FileOutputStream instrumentation
-            ZipOutputStream zos = new ZipOutputStream(
-                    new BufferedOutputStream(new FileOutputStream(file)));
-            ++openOperations;
-
-            // compression ratio for random bytes seems to be around 87.7%, so
-            // choose a little more than 1MB here such that we get around 1MB of
-            // actual writes
-            byte[] writeData = new byte[1196250];
-            for (int i = 0; i < writeData.length; ++i) {
-                writeData[i] = (byte) random.nextInt(Byte.MAX_VALUE);
-            }
-
-            zos.putNextEntry(new ZipEntry("ze"));
-            zos.write(writeData);
-            zos.closeEntry();
-
-            zos.close();
-            writeBytes += file.length();
-
-            // this is covered via our FileInputStream instrumentation
-            ZipInputStream zis = new ZipInputStream(
-                    new BufferedInputStream(new FileInputStream(file)));
-            ++openOperations;
-
-            byte[] readData = new byte[writeData.length];
-            ZipEntry ze = zis.getNextEntry();
-            assert ("ze".equals(ze.getName()));
-
-            int numRead = 0;
-            while (readData.length - numRead > 0) {
-                numRead += zis.read(readData, numRead,
-                        readData.length - numRead);
-            }
-            assert (numRead == readData.length);
-
-            for (int i = 0; i < readData.length; ++i) {
-                assert (writeData[i] == readData[i]);
-            }
-
-            assert (zis.read() == -1);
-
-            zis.close();
-            readBytes += file.length();
-
-            // Add what has been loaded by the JVM until now as expected data.
-            // This is because we have not used ZipFiles yet, however when the
-            // JVM loads Jars, our ZipFileCallback was invoked already. So as to
-            // manage our expectations for this test, we keep track of what was
-            // loaded by the JVM until now and assume there won't be much more
-            // afterwards.
-            jvmZipReadBytes = ZipFileCallback.getTotalData();
-
-            // ZipFile, on the other hand is different, because it uses caching
-            // in the constructor.
-            ZipFile zipFile = new ZipFile(file);
-            zipReadBytes = file.length();
-
-            assert (zipFile.size() == 1);
-            ze = zipFile.getEntry("ze");
-            assert ("ze".equals(ze.getName()));
-
-            // should not induce any more reads
-            for (int i = 0; i < 3; ++i) {
-                InputStream is = zipFile.getInputStream(ze);
-                numRead = 0;
-                while (readData.length - numRead > 0) {
-                    numRead += is.read(readData, numRead,
-                            readData.length - numRead);
+        // use read with offset
+        numsRead.clear();
+        currentFciPosition = fci.position();
+        for (int i = 0; i < numProcessors; ++i) {
+            final long offset = currentFciPosition + i * 1048576;
+            numsRead.add(executor.submit(new Callable<Long>() {
+                @Override
+                public Long call() throws Exception {
+                    return (long) fci.read(writeMappedByteBuffer.duplicate(),
+                            offset);
                 }
-                assert (numRead == readData.length);
+            }));
+        }
+        for (Future<Long> nr : numsRead) {
+            numRead += nr.get();
+        }
+        fci.position(fci.position() + numProcessors * 1048576);
+        writeBytes += numProcessors * 1048576;
+        readBytes += numProcessors * 1048576;
+        // fci is now 11 MB (for numProcessors == 1)
 
-                for (int j = 0; j < readData.length; ++j) {
-                    assert (writeData[j] == readData[j]);
+        // use array read, combined with slice
+        numRead += fci.read(new ByteBuffer[] { writeMappedByteBuffer.slice(),
+                writeMappedByteBuffer.slice(), writeMappedByteBuffer });
+        writeBytes += 3 * 1048576;
+        readBytes += 3 * 1048576;
+        writeMappedByteBuffer.position(0);
+        // fci is now 12 MB
+
+        // use transfer to file
+        numsRead.clear();
+        currentFciPosition = fci.position();
+        for (int i = 0; i < numProcessors; ++i) {
+            final long offset = currentFciPosition + i * 1048576;
+            numsRead.add(executor.submit(new Callable<Long>() {
+                @Override
+                public Long call() throws Exception {
+                    long remaining = 1048576;
+                    while (remaining > 0) {
+                        remaining -= fci.transferTo(
+                                offset + 1048576 - remaining, remaining,
+                                writeDummyRafChannel);
+                    }
+                    return 1048576L;
                 }
-            }
+            }));
+        }
+        for (Future<Long> nr : numsRead) {
+            numRead += nr.get();
+        }
+        fci.position(fci.position() + numProcessors * 1048576);
+        writeBytes += numProcessors * 1048576;
+        readBytes += numProcessors * 1048576;
+        // fci is now 13 MB
 
-            zipFile.close();
-            file.delete();
+        dummyRaf.close();
 
-            // repeat for Jar files
-            file = File.createTempFile("jar", null);
+        numsRead.clear();
+        currentFciPosition = fci.position();
+        for (int i = 0; i < numProcessors; ++i) {
+            final long offset = currentFciPosition + i * 1048576;
+            numsRead.add(executor.submit(new Callable<Long>() {
+                @Override
+                public Long call() throws Exception {
+                    long remaining = 1048576;
+                    while (remaining > 0) {
+                        remaining -= fci.transferTo(
+                                offset + 1048576 - remaining, remaining,
+                                new WritableByteChannel() {
+                                    boolean open = true;
 
-            JarOutputStream jos = new JarOutputStream(
-                    new BufferedOutputStream(new FileOutputStream(file)));
-            ++openOperations;
+                                    @Override
+                                    public boolean isOpen() {
+                                        return open;
+                                    }
 
-            jos.putNextEntry(new ZipEntry("je"));
-            jos.write(writeData);
-            jos.closeEntry();
+                                    @Override
+                                    public void close() throws IOException {
+                                        open = false;
+                                    }
 
-            jos.close();
-            writeBytes += file.length();
+                                    @Override
+                                    public int write(ByteBuffer src)
+                                            throws IOException {
+                                        // discard everything
+                                        byte[] dst = new byte[src.remaining()];
+                                        src.get(dst, 0, dst.length);
+                                        return dst.length;
+                                    }
+                                });
+                    }
+                    return 1048576L;
+                }
+            }));
+        }
+        for (Future<Long> nr : numsRead) {
+            numRead += nr.get();
+        }
+        fci.position(fci.position() + numProcessors * 1048576);
+        readBytes += numProcessors * 1048576;
+        // fci is now 14 MB
+        assert (numRead == 10 * 1048576 + 6 * numProcessors * 1048576);
 
-            JarInputStream jis = new JarInputStream(
-                    new BufferedInputStream(new FileInputStream(file)));
-            ++openOperations;
+        wrappedReadBuffer.position(0);
+        numRead = fci.read(wrappedReadBuffer);
+        assert (numRead == -1);
+        fci.close();
+        fis.close();
 
-            ZipEntry je = jis.getNextEntry();
-            assert ("je".equals(je.getName()));
+        file.delete();
+    }
 
+    private static void runMappedTest(ExecutorService executor,
+            int numProcessors) throws IOException {
+        // TODO add threading
+
+        File file = File.createTempFile("mapped", null);
+
+        // Write
+
+        RandomAccessFile writeFile = new RandomAccessFile(file, "rw");
+        ++openOperations;
+
+        FileChannel fco = writeFile.getChannel();
+
+        MappedByteBuffer mbbo = fco.map(MapMode.READ_WRITE, 0, 20 * 1048576);
+
+        int index = 0;
+
+        byte[] bytes = new byte[1048576];
+        for (int i = 0; i < 1048576; ++i) {
+            bytes[i] = (byte) RANDOM.nextInt(Byte.MAX_VALUE);
+            mbbo.put(bytes[i]);
+            index += 1;
+            mbbo.put(index, bytes[i]);
+            index += 1;
+            mbbo.position(index);
+        }
+        writeBytes += 2 * 1048576;
+        // mbbo is now 2 MB
+
+        char[] chars = new char[524288];
+        for (int i = 0; i < 524288; ++i) {
+            chars[i] = (char) RANDOM.nextInt(Character.MAX_VALUE);
+            mbbo.putChar(chars[i]);
+            index += 2;
+            mbbo.putChar(index, chars[i]);
+            index += 2;
+            mbbo.position(index);
+        }
+        writeBytes += 2 * 1048576;
+        // mbbo is now 4 MB
+
+        double[] doubles = new double[131072];
+        for (int i = 0; i < 131072; ++i) {
+            doubles[i] = RANDOM.nextDouble();
+            mbbo.putDouble(doubles[i]);
+            index += 8;
+            mbbo.putDouble(index, doubles[i]);
+            index += 8;
+            mbbo.position(index);
+        }
+        writeBytes += 2 * 1048576;
+        // mbbo is now 6 MB
+
+        float[] floats = new float[262144];
+        for (int i = 0; i < 262144; ++i) {
+            floats[i] = RANDOM.nextFloat();
+            mbbo.putFloat(floats[i]);
+            index += 4;
+            mbbo.putFloat(index, floats[i]);
+            index += 4;
+            mbbo.position(index);
+        }
+        writeBytes += 2 * 1048576;
+        // mbbo is now 8 MB
+
+        int[] ints = new int[262144];
+        for (int i = 0; i < 262144; ++i) {
+            ints[i] = RANDOM.nextInt();
+            mbbo.putInt(ints[i]);
+            index += 4;
+            mbbo.putInt(index, ints[i]);
+            index += 4;
+            mbbo.position(index);
+        }
+        writeBytes += 2 * 1048576;
+        // mbbo is now 10 MB
+
+        long[] longs = new long[131072];
+        for (int i = 0; i < 131072; ++i) {
+            longs[i] = RANDOM.nextLong();
+            mbbo.putLong(longs[i]);
+            index += 8;
+            mbbo.putLong(index, longs[i]);
+            index += 8;
+            mbbo.position(index);
+        }
+        writeBytes += 2 * 1048576;
+        // mbbo is now 12 MB
+
+        short[] shorts = new short[524288];
+        for (int i = 0; i < 524288; ++i) {
+            shorts[i] = (short) RANDOM.nextInt(Short.MAX_VALUE);
+            mbbo.putShort(shorts[i]);
+            index += 2;
+            mbbo.putShort(index, shorts[i]);
+            index += 2;
+            mbbo.position(index);
+        }
+        writeBytes += 2 * 1048576;
+        // mbbo is now 14 MB
+
+        byte[] writeBuffer = new byte[1048576];
+        for (int j = 0; j < writeBuffer.length; ++j) {
+            writeBuffer[j] = (byte) RANDOM.nextInt(Byte.MAX_VALUE);
+        }
+        mbbo.put(writeBuffer);
+        writeBytes += 1048576;
+        // mbbo is now 15 MB
+
+        mbbo.put(writeBuffer, 0, writeBuffer.length);
+        writeBytes += 1048576;
+        // mbbo is now 16 MB
+
+        // set up 3 write buffers
+        ByteBuffer wrappedWriteBuffer = ByteBuffer.wrap(writeBuffer);
+        ByteBuffer allocatedWriteBuffer = ByteBuffer.allocate(1048576);
+        allocatedWriteBuffer.put(writeBuffer);
+        allocatedWriteBuffer.position(0);
+        ByteBuffer allocatedDirectWriteBuffer = ByteBuffer
+                .allocateDirect(1048576);
+        allocatedDirectWriteBuffer.put(writeBuffer);
+        allocatedDirectWriteBuffer.position(0);
+
+        // write the 3 buffers
+        mbbo.put(wrappedWriteBuffer);
+        writeBytes += 1048576;
+        mbbo.put(allocatedWriteBuffer);
+        writeBytes += 1048576;
+        mbbo.put(allocatedDirectWriteBuffer);
+        writeBytes += 1048576;
+        // mbbo is now 19 MB
+
+        // write to a dummy file so we can map its buffer
+        // this gives an extra 1 MB in the write statistics
+        File dummyFile = File.createTempFile("from", null);
+        RandomAccessFile dummyRaf = new RandomAccessFile(dummyFile, "rw");
+        ++openOperations;
+        dummyRaf.write(writeBuffer);
+        writeBytes += 1048576;
+
+        dummyRaf.close();
+
+        // this gives an extra 1 MB in the read statistics
+        dummyRaf = new RandomAccessFile(dummyFile, "r");
+        ++openOperations;
+
+        mbbo.put(dummyRaf.getChannel().map(MapMode.READ_ONLY, 0, 1048576));
+        writeBytes += 1048576;
+        readBytes += 1048576;
+        // mbbo is now 20 MB
+
+        dummyRaf.close();
+
+        try {
+            mbbo.put(Byte.MAX_VALUE);
+            assert (false);
+        } catch (BufferOverflowException e) {
+            // expected
+        }
+
+        fco.close();
+        writeFile.close();
+        assert (file.length() == 20 * 1048576);
+
+        // Read
+
+        RandomAccessFile readFile = new RandomAccessFile(file, "r");
+        ++openOperations;
+
+        FileChannel fci = readFile.getChannel();
+
+        MappedByteBuffer mbbi = fci.map(MapMode.READ_ONLY, 0, 20 * 1048576);
+
+        index = 0;
+
+        for (int i = 0; i < 1048576; ++i) {
+            assert (mbbi.get() == bytes[i]);
+            index += 1;
+            assert (mbbi.get(index) == bytes[i]);
+            index += 1;
+            mbbi.position(index);
+        }
+        readBytes += 2 * 1048576;
+        // mbbi is now 2 MB
+
+        for (int i = 0; i < 524288; ++i) {
+            assert (mbbi.getChar() == chars[i]);
+            index += 2;
+            assert (mbbi.getChar(index) == chars[i]);
+            index += 2;
+            mbbi.position(index);
+        }
+        readBytes += 2 * 1048576;
+        // mbbi is now 4 MB
+
+        for (int i = 0; i < 131072; ++i) {
+            assert (mbbi.getDouble() == doubles[i]);
+            index += 8;
+            assert (mbbi.getDouble(index) == doubles[i]);
+            index += 8;
+            mbbi.position(index);
+        }
+        readBytes += 2 * 1048576;
+        // mbbi is now 6 MB
+
+        for (int i = 0; i < 262144; ++i) {
+            assert (mbbi.getFloat() == floats[i]);
+            index += 4;
+            assert (mbbi.getFloat(index) == floats[i]);
+            index += 4;
+            mbbi.position(index);
+        }
+        readBytes += 2 * 1048576;
+        // mbbi is now 8 MB
+
+        for (int i = 0; i < 262144; ++i) {
+            assert (mbbi.getInt() == ints[i]);
+            index += 4;
+            assert (mbbi.getInt(index) == ints[i]);
+            index += 4;
+            mbbi.position(index);
+        }
+        readBytes += 2 * 1048576;
+        // mbbi is now 10 MB
+
+        for (int i = 0; i < 131072; ++i) {
+            assert (mbbi.getLong() == longs[i]);
+            index += 8;
+            assert (mbbi.getLong(index) == longs[i]);
+            index += 8;
+            mbbi.position(index);
+        }
+        readBytes += 2 * 1048576;
+        // mbbi is now 12 MB
+
+        for (int i = 0; i < 524288; ++i) {
+            assert (mbbi.getShort() == shorts[i]);
+            index += 2;
+            assert (mbbi.getShort(index) == shorts[i]);
+            index += 2;
+            mbbi.position(index);
+        }
+        readBytes += 2 * 1048576;
+        // mbbi is now 14 MB
+
+        byte[] readBuffer = new byte[1048576];
+        mbbi.get(readBuffer);
+        readBytes += 1048576;
+        // mbbi is now 15 MB
+
+        for (int j = 0; j < readBuffer.length; ++j) {
+            assert (readBuffer[j] == writeBuffer[j]);
+        }
+
+        mbbi.get(readBuffer, 0, readBuffer.length);
+        readBytes += 1048576;
+        // mbbi is now 16 MB
+
+        for (int j = 0; j < readBuffer.length; ++j) {
+            assert (readBuffer[j] == writeBuffer[j]);
+        }
+
+        // set up 3 read buffers to read the last MB of input
+        ByteBuffer wrappedReadBuffer = ByteBuffer.wrap(readBuffer);
+        ByteBuffer allocatedReadBuffer = ByteBuffer.allocate(1048576);
+        ByteBuffer allocatedDirectReadBuffer = ByteBuffer
+                .allocateDirect(1048576);
+
+        int lastMBPosition = mbbi.capacity() - 1048576;
+        // mbbi is now at 19 MB
+
+        // read the 3 buffers
+
+        // FIXME It is lucky that this works because of HeapByteBuffer's
+        // put(ByteBuffer) implementation, as it invokes our instrumented
+        // methods. If it were to do something fancy, we would miss these
+        // two reads.
+        mbbi.position(lastMBPosition);
+        wrappedReadBuffer.put(mbbi);
+        readBytes += 1048576;
+        mbbi.position(lastMBPosition);
+        allocatedReadBuffer.put(mbbi);
+        readBytes += 1048576;
+
+        // this is a DirectByteBuffer which we have already instrumented
+        mbbi.position(lastMBPosition);
+        allocatedDirectReadBuffer.put(mbbi);
+        readBytes += 1048576;
+
+        // this gives an extra 1 MB in the write statistics
+        dummyRaf = new RandomAccessFile(dummyFile, "rw");
+        ++openOperations;
+
+        mbbi.position(lastMBPosition);
+        dummyRaf.getChannel().map(MapMode.READ_WRITE, 0, 1048576).put(mbbi);
+        writeBytes += 1048576;
+        readBytes += 1048576;
+        // mbbi is now 20 MB
+
+        dummyRaf.close();
+
+        try {
+            mbbi.get();
+            assert (false);
+        } catch (BufferUnderflowException e) {
+            // expected
+        }
+
+        fci.close();
+        readFile.close();
+
+        file.delete();
+    }
+
+    private static void runZipTest(ExecutorService executor, int numProcessors)
+            throws IOException {
+        assert (numProcessors == 1);
+
+        // play around with Zip and Jar files, as apparently they behave
+        // somewhat different
+        File file = File.createTempFile("zip", null);
+
+        // this is covered via our FileOutputStream instrumentation
+        ZipOutputStream zos = new ZipOutputStream(
+                new BufferedOutputStream(new FileOutputStream(file)));
+        ++openOperations;
+
+        // compression ratio for random bytes seems to be around 87.7%, so
+        // choose a little more than 1MB here such that we get around 1MB of
+        // actual writes
+        byte[] writeData = new byte[1196250];
+        for (int i = 0; i < writeData.length; ++i) {
+            writeData[i] = (byte) RANDOM.nextInt(Byte.MAX_VALUE);
+        }
+
+        zos.putNextEntry(new ZipEntry("ze"));
+        zos.write(writeData);
+        zos.closeEntry();
+
+        zos.close();
+        writeBytes += file.length();
+
+        // this is covered via our FileInputStream instrumentation
+        ZipInputStream zis = new ZipInputStream(
+                new BufferedInputStream(new FileInputStream(file)));
+        ++openOperations;
+
+        byte[] readData = new byte[writeData.length];
+        ZipEntry ze = zis.getNextEntry();
+        assert ("ze".equals(ze.getName()));
+
+        int numRead = 0;
+        while (readData.length - numRead > 0) {
+            numRead += zis.read(readData, numRead, readData.length - numRead);
+        }
+        assert (numRead == readData.length);
+
+        for (int i = 0; i < readData.length; ++i) {
+            assert (writeData[i] == readData[i]);
+        }
+
+        assert (zis.read() == -1);
+
+        zis.close();
+        readBytes += file.length();
+
+        // Add what has been loaded by the JVM until now as expected data.
+        // This is because we have not used ZipFiles yet, however when the
+        // JVM loads Jars, our ZipFileCallback was invoked already. So as to
+        // manage our expectations for this test, we keep track of what was
+        // loaded by the JVM until now and assume there won't be much more
+        // afterwards.
+        jvmZipReadBytes = ZipFileCallback.getTotalData();
+
+        // ZipFile, on the other hand is different, because it uses caching
+        // in the constructor.
+        ZipFile zipFile = new ZipFile(file);
+        zipReadBytes = file.length();
+
+        assert (zipFile.size() == 1);
+        ze = zipFile.getEntry("ze");
+        assert ("ze".equals(ze.getName()));
+
+        // should not induce any reads
+        for (int i = 0; i < 3; ++i) {
+            InputStream is = zipFile.getInputStream(ze);
             numRead = 0;
             while (readData.length - numRead > 0) {
-                numRead += jis.read(readData, numRead,
+                numRead += is.read(readData, numRead,
                         readData.length - numRead);
             }
             assert (numRead == readData.length);
 
-            for (int i = 0; i < readData.length; ++i) {
-                assert (writeData[i] == readData[i]);
+            for (int j = 0; j < readData.length; ++j) {
+                assert (writeData[j] == readData[j]);
             }
-
-            assert (jis.read() == -1);
-
-            jis.close();
-            readBytes += file.length();
-
-            JarFile jarFile = new JarFile(file);
-            zipReadBytes += file.length();
-
-            assert (jarFile.size() == 1);
-            je = jarFile.getEntry("je");
-            assert ("je".equals(je.getName()));
-
-            for (int i = 0; i < 3; ++i) {
-                InputStream is = jarFile.getInputStream(je);
-                numRead = 0;
-                while (readData.length - numRead > 0) {
-                    numRead += is.read(readData, numRead,
-                            readData.length - numRead);
-                }
-                assert (numRead == readData.length);
-
-                for (int j = 0; j < readData.length; ++j) {
-                    assert (writeData[j] == readData[j]);
-                }
-            }
-
-            jarFile.close();
-            file.delete();
         }
 
+        // opening the same ZIP should hit the cache
+        new ZipFile(file).close();
+
+        zipFile.close();
+
+        // expect reads again
+        new ZipFile(file).close();
+        zipReadBytes += file.length();
+
+        file.delete();
+
+        // repeat for Jar files
+        file = File.createTempFile("jar", null);
+
+        JarOutputStream jos = new JarOutputStream(
+                new BufferedOutputStream(new FileOutputStream(file)));
+        ++openOperations;
+
+        jos.putNextEntry(new ZipEntry("je"));
+        jos.write(writeData);
+        jos.closeEntry();
+
+        jos.close();
+        writeBytes += file.length();
+
+        JarInputStream jis = new JarInputStream(
+                new BufferedInputStream(new FileInputStream(file)));
+        ++openOperations;
+
+        ZipEntry je = jis.getNextEntry();
+        assert ("je".equals(je.getName()));
+
+        numRead = 0;
+        while (readData.length - numRead > 0) {
+            numRead += jis.read(readData, numRead, readData.length - numRead);
+        }
+        assert (numRead == readData.length);
+
+        for (int i = 0; i < readData.length; ++i) {
+            assert (writeData[i] == readData[i]);
+        }
+
+        assert (jis.read() == -1);
+
+        jis.close();
+        readBytes += file.length();
+
+        JarFile jarFile = new JarFile(file);
+        zipReadBytes += file.length();
+
+        assert (jarFile.size() == 1);
+        je = jarFile.getEntry("je");
+        assert ("je".equals(je.getName()));
+
+        for (int i = 0; i < 3; ++i) {
+            InputStream is = jarFile.getInputStream(je);
+            numRead = 0;
+            while (readData.length - numRead > 0) {
+                numRead += is.read(readData, numRead,
+                        readData.length - numRead);
+            }
+            assert (numRead == readData.length);
+
+            for (int j = 0; j < readData.length; ++j) {
+                assert (writeData[j] == readData[j]);
+            }
+        }
+
+        new JarFile(file).close();
+        jarFile.close();
+
+        new JarFile(file).close();
+        zipReadBytes += file.length();
+
+        file.delete();
+    }
+
+    private static void assertStatistics() throws IOException {
         // shutdown the aggregator and read what it has written
         LiveOperationStatisticsAggregator aggregator = LiveOperationStatisticsAggregator.instance;
 
@@ -1218,6 +1348,10 @@ public class InstrumentationTest {
                                     operationStatistics);
                 }
                 reader.close();
+
+                // remove statistics file at the end to avoid counting it twice
+                // in future test runs
+                file.delete();
             }
         }
 
@@ -1236,10 +1370,11 @@ public class InstrumentationTest {
                 OperationCategory.WRITE, writeBytes, writeBytes + 8 * 1024);
         assertOperationData(aggregates, OperationSource.JVM,
                 OperationCategory.READ, readBytes, readBytes + 176 * 1024);
-        assertOperationData(aggregates, OperationSource.JVM,
-                OperationCategory.READZIP, jvmZipReadBytes + zipReadBytes,
-                jvmZipReadBytes + zipReadBytes);
-
+        if (jvmZipReadBytes != -1 && zipReadBytes != -1) {
+            assertOperationData(aggregates, OperationSource.JVM,
+                    OperationCategory.READZIP, jvmZipReadBytes + zipReadBytes,
+                    jvmZipReadBytes + zipReadBytes);
+        }
     }
 
     private static void assertOperationCount(

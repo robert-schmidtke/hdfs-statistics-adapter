@@ -20,6 +20,7 @@
 
     <!-- Plugin configurations -->
     <exec-maven-plugin.version>1.5.0</exec-maven-plugin.version>
+    <iterator-maven-plugin.version>0.5.0</iterator-maven-plugin.version>
     <maven-compiler-plugin.version>3.5.1</maven-compiler-plugin.version>
 
     <!-- https://github.com/apache/maven-plugins/commit/3964d2a2c3b5d2c3b73b8685755e772cfabeea40 -->
@@ -280,6 +281,7 @@
           </execution>
 
           <!-- Test the uninstrumented I/O classes -->
+          <!-- single-threaded only -->
           <execution>
             <id>test-uninstrumented</id>
             <phase>test</phase>
@@ -294,27 +296,58 @@
                 <argument>-cp</argument>
                 <argument>.:${project.build.directory}/classes:${project.build.directory}/test-classes</argument>
                 <argument>de.zib.sfs.instrument.InstrumentationTest</argument>
+                <argument>all,false</argument>
               </arguments>
             </configuration>
           </execution>
+        </executions>
+      </plugin>
 
-          <!-- Test the instrumented I/O classes, after package -->
+      <plugin>
+        <groupId>com.soebes.maven.plugins</groupId>
+        <artifactId>iterator-maven-plugin</artifactId>
+        <version>${iterator-maven-plugin.version}</version>
+        <executions>
           <execution>
-            <id>test-instrumented</id>
             <phase>package</phase>
             <goals>
-              <goal>exec</goal>
+              <goal>iterator</goal>
             </goals>
             <configuration>
-              <executable>java</executable>
-              <arguments>
-                <argument>-agentpath:${project.build.directory}/${libsfs.name}=trans_jar=${project.build.directory}/sfs-agent.jar,key=test,bin_duration=1000,cache_size=120,out_dir=${project.build.directory},verbose=n</argument>
-                <argument>-ea</argument>
-                <argument>-esa</argument>
-                <argument>-cp</argument>
-                <argument>.:${project.build.directory}/test-classes</argument>
-                <argument>de.zib.sfs.instrument.InstrumentationTest</argument>
-              </arguments>
+              <!-- Test the instrumented I/O classes -->
+              <!-- one benchmark at a time, with and without threading if applicable -->
+              <items>
+                <item>stream,false</item>
+                <item>stream,true</item>
+                <item>random,false</item>
+                <item>channel,false</item>
+                <item>channel,true</item>
+                <item>mapped,false</item>
+                <item>mapped,true</item>
+                <item>zip,false</item>
+              </items>
+              <pluginExecutors>
+                <pluginExecutor>
+                  <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>exec-maven-plugin</artifactId>
+                    <version>${exec-maven-plugin.version}</version>
+                  </plugin>
+                  <goal>exec</goal>
+                  <configuration>
+                    <executable>java</executable>
+                    <arguments>
+                      <argument>-agentpath:${project.build.directory}/${libsfs.name}=trans_jar=${project.build.directory}/sfs-agent.jar,key=test,bin_duration=1000,cache_size=120,out_dir=${project.build.directory},verbose=n</argument>
+                      <argument>-ea</argument>
+                      <argument>-esa</argument>
+                      <argument>-cp</argument>
+                      <argument>.:${project.build.directory}/test-classes</argument>
+                      <argument>de.zib.sfs.instrument.InstrumentationTest</argument>
+                      <argument>@item@</argument>
+                    </arguments>
+                  </configuration>
+                </pluginExecutor>
+              </pluginExecutors>
             </configuration>
           </execution>
         </executions>
