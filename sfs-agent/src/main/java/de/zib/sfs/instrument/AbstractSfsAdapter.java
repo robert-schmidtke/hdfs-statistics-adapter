@@ -352,7 +352,8 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
                 false);
     }
 
-    protected void initializeFields(MethodVisitor constructorMV) {
+    protected void initializeFields(MethodVisitor constructorMV,
+            String constructorDesc) {
     }
 
     protected class ConstructorAdapter extends AdviceAdapter {
@@ -396,7 +397,7 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
                     "instrumentationActive",
                     Type.getDescriptor(InstrumentationActive.class));
 
-            initializeFields(mv);
+            initializeFields(mv, methodDesc);
         }
 
     }

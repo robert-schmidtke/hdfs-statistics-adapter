@@ -45,6 +45,36 @@ public class DirectByteBufferAdapter extends AbstractSfsAdapter {
     }
 
     @Override
+    protected void initializeFields(MethodVisitor constructorMV,
+            String constructorDesc) {
+        // if we're constructed from another buffer, make sure we're from a file
+        // too if the other buffer is too
+        if ("(Lsun/nio/ch/DirectBuffer;IIIII)V".equals(constructorDesc)) {
+            // if (db instanceof MappedByteBuffer) {
+            constructorMV.visitVarInsn(Opcodes.ALOAD, 1);
+            constructorMV.visitTypeInsn(Opcodes.INSTANCEOF,
+                    Type.getInternalName(MappedByteBuffer.class));
+            Label memoryMappedBufferLabel = new Label();
+            constructorMV.visitJumpInsn(Opcodes.IFEQ, memoryMappedBufferLabel);
+
+            // setFromFileChannel(db.isFromFileChannel());
+            constructorMV.visitVarInsn(Opcodes.ALOAD, 0);
+            constructorMV.visitVarInsn(Opcodes.ALOAD, 1);
+            constructorMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+                    Type.getInternalName(MappedByteBuffer.class),
+                    "isFromFileChannel",
+                    Type.getMethodDescriptor(Type.BOOLEAN_TYPE), false);
+            constructorMV.visitMethodInsn(Opcodes.INVOKESPECIAL,
+                    instrumentedTypeInternalName, "setFromFileChannel",
+                    Type.getMethodDescriptor(Type.VOID_TYPE, Type.BOOLEAN_TYPE),
+                    false);
+
+            // }
+            constructorMV.visitLabel(memoryMappedBufferLabel);
+        }
+    }
+
+    @Override
     protected void appendWrappedMethods(ClassVisitor cv) {
         wrapMethod(Opcodes.ACC_PUBLIC, "get", Type.getType(ByteBuffer.class),
                 new Type[] { Type.getType(byte[].class), Type.INT_TYPE,

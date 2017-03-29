@@ -34,7 +34,8 @@ public class MappedByteBufferAdapter extends AbstractSfsAdapter {
     }
 
     @Override
-    protected void initializeFields(MethodVisitor constructorMV) {
+    protected void initializeFields(MethodVisitor constructorMV,
+            String constructorDesc) {
         // fromFileChannel = false;
         constructorMV.visitVarInsn(Opcodes.ALOAD, 0);
         constructorMV.visitInsn(Opcodes.ICONST_0);
