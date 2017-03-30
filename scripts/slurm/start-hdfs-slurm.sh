@@ -13,7 +13,6 @@ usage() {
   echo "  -y|--yarn-opts the YARN_OPTS to set (default: not specified)"
   echo "  -l|--ld-library-path the LD_LIBRARY_PATH to set (default: not specified)"
   echo "  -c|--colocate-datanode-with-namenode (default: not specified/false)"
-  echo "  -s|--shared-dir directory accessible on all nodes (default: not specified)"
   echo "SFS specific options (default: not specified/do not use SFS):"
   echo "     --sfs-wrapped-fs <wrapped file system class name> (default: not specified; enables SFS if specified)"
   echo "     --sfs-wrapped-scheme <scheme of the wrapped file system> (default: not specified)"
@@ -71,10 +70,6 @@ while [[ $# -gt 0 ]]; do
       LD_LIBRARY_PATH_EXT="$2"
       shift
       ;;
-    -s|--shared-dir)
-      SHARED_DIR="$2"
-      shift
-      ;;
     --sfs-wrapped-fs)
       SFS_WRAPPED_FS="$2"
       shift
@@ -96,11 +91,6 @@ REPLICATION=${REPLICATION:-1}
 MEMORY=${MEMORY:-61440}
 CORES=${CORES:-16}
 IO_BUFFER=${IO_BUFFER:-1048576}
-
-if [ -z "$SHARED_DIR" ]; then
-  echo "No --shared-dir specified, aborting."
-  exit 1
-fi
 
 export HADOOP_OPTS
 export YARN_OPTS
@@ -373,7 +363,7 @@ echo $! > /local/$HDFS_LOCAL_DIR/namenode-$(hostname).pid
 echo "$(date): Starting NameNode done (PID file: /local/$HDFS_LOCAL_DIR/namenode-$(hostname).pid)."
 
 for datanode in ${HADOOP_DATANODES[@]}; do
-  datanode_script=$SHARED_DIR/${SLURM_JOB_ID}-${datanode}-start-datanode.sh
+  datanode_script=$(dirname $0)/${SLURM_JOB_ID}-${datanode}-start-datanode.sh
   cat > $datanode_script << EOF
 #!/bin/bash
 
@@ -398,8 +388,7 @@ echo \$pid > /local/$HDFS_LOCAL_DIR/datanode-$datanode.pid
 EOF
   chmod +x $datanode_script
   echo "$(date): Starting DataNode on $datanode."
-  srun --nodes=1-1 --nodelist=$datanode cp $datanode_script $(dirname $0)/${SLURM_JOB_ID}-${datanode}-start-datanode.sh
-  srun --nodes=1-1 --nodelist=$datanode $(dirname $0)/${SLURM_JOB_ID}-${datanode}-start-datanode.sh
+  srun --nodes=1-1 --nodelist=$datanode $datanode_script
   echo "$(date): Starting DataNode on $datanode done."
   rm $datanode_script
 done
@@ -414,7 +403,7 @@ echo $! > /local/$HDFS_LOCAL_DIR/resourcemanager-$(hostname).pid
 echo "$(date): Starting ResourceManager done (PID file /local/$HDFS_LOCAL_DIR/resourcemanager-$(hostname).pid)."
 
 for datanode in ${HADOOP_DATANODES[@]}; do
-  nodemanager_script=$SHARED_DIR/${SLURM_JOB_ID}-${datanode}-start-nodemanager.sh
+nodemanager_script=$(dirname $0)/${SLURM_JOB_ID}-${datanode}-start-nodemanager.sh
   cat > $nodemanager_script << EOF
 #!/bin/bash
 
@@ -434,8 +423,7 @@ echo \$pid > /local/$HDFS_LOCAL_DIR/nodemanager-$datanode.pid
 EOF
   chmod +x $nodemanager_script
   echo "$(date): Starting NodeManager on $datanode."
-  srun --nodes=1-1 --nodelist=$datanode cp $nodemanager_script $(dirname $0)/${SLURM_JOB_ID}-${datanode}-start-nodemanager.sh
-  srun --nodes=1-1 --nodelist=$datanode $(dirname $0)/${SLURM_JOB_ID}-${datanode}-start-nodemanager.sh
+  srun --nodes=1-1 --nodelist=$datanode $nodemanager_script
   echo "$(date): Starting NodeManager on $datanode done."
   rm $nodemanager_script
 done
