@@ -158,11 +158,11 @@ if [ -z "$NO_SFS" ]; then
   SFS_STANDARD_OPTS="--sfs-wrapped-scheme hdfs"
   cp $SFS_DIRECTORY/sfs-adapter/target/sfs-adapter.jar $FLINK_HOME/lib/sfs-adapter.jar
 
-  srun $SRUN_STANDARD_OPTS ./start-hdfs-slurm.sh $HDFS_STANDARD_OPTS $SFS_STANDARD_OPTS \
+  srun $SRUN_STANDARD_OPTS $HADOOP_HOME/sbin/start-hdfs-slurm.sh $HDFS_STANDARD_OPTS $SFS_STANDARD_OPTS \
     --sfs-wrapped-fs "org.apache.hadoop.hdfs.DistributedFileSystem"
 else
   # just start HDFS regularly
-  srun $SRUN_STANDARD_OPTS ./start-hdfs-slurm.sh $HDFS_STANDARD_OPTS $SFS_STANDARD_OPTS
+  srun $SRUN_STANDARD_OPTS $HADOOP_HOME/sbin/start-hdfs-slurm.sh $HDFS_STANDARD_OPTS $SFS_STANDARD_OPTS
 fi
 
 # get all configured datanodes
@@ -293,8 +293,8 @@ echo "$(date): Dumping XFS file system counters done"
 
 
 echo "$(date): Stopping HDFS"
-sbcast ./stop-hdfs-slurm.sh $HADOOP_HOME/sbin/stop-hdfs-slurm.sh
-srun --nodelist=$MASTER --nodes=1-1 --chdir=$HADOOP_HOME/sbin ./stop-hdfs-slurm.sh --colocate-datanode-with-namenode --shared-dir $SFS_DIRECTORY
+srun --nodes=1-1 --nodelist=$MASTER cp $SFS_DIRECTORY/scripts/slurm/stop-hdfs-slurm.sh $HADOOP_HOME/sbin/stop-hdfs-slurm.sh
+srun $SRUN_STANDARD_OPTS $HADOOP_HOME/sbin/stop-hdfs-slurm.sh --colocate-datanode-with-namenode --shared-dir $SFS_DIRECTORY
 echo "$(date): Stopping HDFS done"
 
 if [ -z "$NO_SFS" ]; then
