@@ -107,7 +107,7 @@ export YARN_OPTS
 export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$LD_LIBRARY_PATH_EXT"
 
 # set up the environment variables
-export HADOOP_PREFIX="$(realpath $(pwd $(dirname $0))/..)"
+export HADOOP_PREFIX="$(pwd $(dirname $0))/.."
 export HADOOP_CONF_DIR=$HADOOP_PREFIX/etc/hadoop
 export HADOOP_NODES=(`scontrol show hostnames`)
 export HADOOP_NAMENODE=${HADOOP_NODES[0]}
@@ -349,18 +349,6 @@ EOF
 
 done
 
-# distribute Hadoop to all nodes
-cp -a $HADOOP_PREFIX $SHARED_DIR/hadoop-$SLURM_JOB_ID
-for datanode in ${HADOOP_DATANODES[@]}; do
-  if [ "$datanode" != "$HADOOP_NAMENODE" ]; then
-    echo "$(date): Copying Hadoop to $datanode"
-    srun --nodes=1-1 --nodelist=$datanode --chdir=/tmp cp -a $SHARED_DIR/hadoop-$SLURM_JOB_ID $HADOOP_PREFIX &
-  fi
-done
-wait
-rm -rf $SHARED_DIR/hadoop-$SLURM_JOB_ID
-echo "$(date): Copying Hadoop to all DataNodes done"
-
 # start name node
 mkdir -p /local/$HDFS_LOCAL_DIR
 mkdir -p /local/${HDFS_LOCAL_DIR}/tmp
@@ -410,8 +398,8 @@ echo \$pid > /local/$HDFS_LOCAL_DIR/datanode-$datanode.pid
 EOF
   chmod +x $datanode_script
   echo "$(date): Starting DataNode on $datanode."
-  srun --nodes=1-1 --nodelist=$datanode cp $datanode_script $HADOOP_PREFIX/sbin/${SLURM_JOB_ID}-${datanode}-start-datanode.sh
-  srun --nodes=1-1 --nodelist=$datanode $HADOOP_PREFIX/sbin/${SLURM_JOB_ID}-${datanode}-start-datanode.sh
+  srun --nodes=1-1 --nodelist=$datanode cp $datanode_script $(dirname $0)/${SLURM_JOB_ID}-${datanode}-start-datanode.sh
+  srun --nodes=1-1 --nodelist=$datanode $(dirname $0)/${SLURM_JOB_ID}-${datanode}-start-datanode.sh
   echo "$(date): Starting DataNode on $datanode done."
   rm $datanode_script
 done
@@ -446,8 +434,8 @@ echo \$pid > /local/$HDFS_LOCAL_DIR/nodemanager-$datanode.pid
 EOF
   chmod +x $nodemanager_script
   echo "$(date): Starting NodeManager on $datanode."
-  srun --nodes=1-1 --nodelist=$datanode cp $nodemanager_script $HADOOP_PREFIX/sbin/${SLURM_JOB_ID}-${datanode}-start-nodemanager.sh
-  srun --nodes=1-1 --nodelist=$datanode $HADOOP_PREFIX/sbin/${SLURM_JOB_ID}-${datanode}-start-nodemanager.sh
+  srun --nodes=1-1 --nodelist=$datanode cp $nodemanager_script $(dirname $0)/${SLURM_JOB_ID}-${datanode}-start-nodemanager.sh
+  srun --nodes=1-1 --nodelist=$datanode $(dirname $0)/${SLURM_JOB_ID}-${datanode}-start-nodemanager.sh
   echo "$(date): Starting NodeManager on $datanode done."
   rm $nodemanager_script
 done
