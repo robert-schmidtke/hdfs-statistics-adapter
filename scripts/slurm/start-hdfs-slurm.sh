@@ -172,6 +172,7 @@ cat >> $HADOOP_CONF_DIR/core-site.xml << EOF
 EOF
 
 # name node configuration
+rm -rf $HADOOP_CONF_DIR/$HADOOP_NAMENODE
 mkdir -p $HADOOP_CONF_DIR/$HADOOP_NAMENODE
 export HADOOP_NAMENODE_HDFS_SITE=$HADOOP_CONF_DIR/$HADOOP_NAMENODE/hdfs-site.xml
 cp $HADOOP_CONF_DIR/hdfs-site.xml $HADOOP_NAMENODE_HDFS_SITE
@@ -204,6 +205,7 @@ cp $HADOOP_NAMENODE_HDFS_SITE $HADOOP_CONF_DIR/hdfs-site.xml
 
 # data node configurations
 for datanode in ${HADOOP_DATANODES[@]}; do
+  rm -rf $HADOOP_CONF_DIR/$datanode
   mkdir -p $HADOOP_CONF_DIR/$datanode
   hadoop_datanode_hdfs_site=$HADOOP_CONF_DIR/$datanode/hdfs-site.xml
   cp $HADOOP_CONF_DIR/hdfs-site.xml $hadoop_datanode_hdfs_site
