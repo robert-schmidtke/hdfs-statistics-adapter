@@ -11,7 +11,6 @@ import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.lang.reflect.Constructor;
 import java.net.URI;
 import java.util.Random;
 
@@ -27,7 +26,6 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.util.Progressable;
 
-import de.zib.sfs.flink.WrappedFlinkFileSystem;
 import de.zib.sfs.instrument.statistics.LiveOperationStatisticsAggregator;
 import de.zib.sfs.instrument.statistics.OperationCategory;
 import de.zib.sfs.instrument.statistics.OperationSource;
@@ -199,27 +197,6 @@ public class StatisticsFileSystem extends FileSystem {
                         .newInstance();
             } catch (Exception e) {
                 throw new RuntimeException("Error instantiating Hadoop class '"
-                        + wrappedFSClassName + "'", e);
-            }
-        } else if (wrappedFSClassName.startsWith("org.apache.flink")) {
-            try {
-                // Wrap Flink's file system as Hadoop first.
-                Class<? extends org.apache.flink.core.fs.FileSystem> flinkClass = wrappedFSClass
-                        .asSubclass(org.apache.flink.core.fs.FileSystem.class);
-                if (wrappedFSClassName.equals(
-                        "org.apache.flink.runtime.fs.hdfs.HadoopFileSystem")) {
-                    // Special known case of HadoopFileSystem, instantiate with
-                    // null
-                    Constructor<? extends org.apache.flink.core.fs.FileSystem> flinkConstructor = flinkClass
-                            .getConstructor(Class.class);
-                    wrappedFS = new WrappedFlinkFileSystem(flinkConstructor
-                            .newInstance(new Object[] { null }));
-                } else {
-                    wrappedFS = new WrappedFlinkFileSystem(
-                            flinkClass.newInstance());
-                }
-            } catch (Exception e) {
-                throw new RuntimeException("Error instantiating Flink class '"
                         + wrappedFSClassName + "'", e);
             }
         } else {
