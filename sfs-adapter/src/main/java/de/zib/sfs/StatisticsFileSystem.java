@@ -13,6 +13,11 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URI;
 import java.util.Random;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -279,7 +284,22 @@ public class StatisticsFileSystem extends FileSystem {
         if (LOG.isDebugEnabled()) {
             LOG.debug("Closing wrapped file system.");
         }
-        wrappedFS.close();
+
+        // wrap shutdown calls to other file systems in timeouts
+        ExecutorService shutdownExecutor = Executors.newSingleThreadExecutor();
+        Future<Void> f = shutdownExecutor.submit(new Callable<Void>() {
+            @Override
+            public Void call() throws Exception {
+                wrappedFS.close();
+                return null;
+            }
+        });
+        try {
+            f.get(30, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            LOG.warn("Closing wrapped file system failed.", e);
+        }
+
         if (LOG.isDebugEnabled()) {
             LOG.debug("Closed wrapped file system.");
         }
@@ -291,7 +311,21 @@ public class StatisticsFileSystem extends FileSystem {
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Closing parent file system.");
             }
-            super.close();
+
+            // same as for wrapped file system
+            f = shutdownExecutor.submit(new Callable<Void>() {
+                @Override
+                public Void call() throws Exception {
+                    StatisticsFileSystem.super.close();
+                    return null;
+                }
+            });
+            try {
+                f.get(30, TimeUnit.SECONDS);
+            } catch (Exception e) {
+                LOG.warn("Closing parent file system failed.", e);
+            }
+
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Closed parent file system.");
             }
