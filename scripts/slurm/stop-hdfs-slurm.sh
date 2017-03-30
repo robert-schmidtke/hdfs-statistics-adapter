@@ -36,7 +36,7 @@ if [ -z "$SHARED_DIR" ]; then
 fi
 
 # set up the environment variables
-export HADOOP_PREFIX="$(pwd $(dirname $0))/.."
+export HADOOP_PREFIX="$(realpath $(pwd $(dirname $0))/..)"
 export HADOOP_CONF_DIR=$HADOOP_PREFIX/etc/hadoop
 export HADOOP_NODES=(`scontrol show hostnames`)
 export HADOOP_NAMENODE=${HADOOP_NODES[0]}
@@ -132,8 +132,8 @@ fi
 EOF
 
   chmod +x $datanode_script
-  srun --nodes=1-1 --nodelist=$datanode cp $datanode_script $(dirname $0)/${SLURM_JOB_ID}-${datanode}-stop-datanode.sh
-  srun --nodes=1-1 --nodelist=$datanode $(dirname $0)/${SLURM_JOB_ID}-${datanode}-stop-datanode.sh &
+  srun --nodes=1-1 --nodelist=$datanode cp $datanode_script $HADOOP_PREFIX/sbin/${SLURM_JOB_ID}-${datanode}-stop-datanode.sh
+  srun --nodes=1-1 --nodelist=$datanode $HADOOP_PREFIX/sbin/${SLURM_JOB_ID}-${datanode}-stop-datanode.sh &
 done
 
 echo "$(date): Waiting for all DataNodes to stop"
@@ -250,8 +250,8 @@ EOF
   chmod +x $nodemanager_script
 
   echo "Stopping NodeManager on $datanode."
-  srun --nodes=1-1 --nodelist=$datanode cp $nodemanager_script $(dirname $0)/${SLURM_JOB_ID}-${datanode}-stop-nodemanager.sh
-  srun --nodes=1-1 --nodelist=$datanode $(dirname $0)/${SLURM_JOB_ID}-${datanode}-stop-nodemanager.sh &
+  srun --nodes=1-1 --nodelist=$datanode cp $nodemanager_script $HADOOP_PREFIX/sbin/${SLURM_JOB_ID}-${datanode}-stop-nodemanager.sh
+  srun --nodes=1-1 --nodelist=$datanode $HADOOP_PREFIX/sbin/${SLURM_JOB_ID}-${datanode}-stop-nodemanager.sh &
 done
 
 echo "$(date): Waiting for all NodeManagers to stop"
