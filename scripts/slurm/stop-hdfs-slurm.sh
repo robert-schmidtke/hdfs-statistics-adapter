@@ -225,6 +225,7 @@ if [ -f \$pidfile ]; then
   fi
   rm \$pidfile
   cp /local/$HDFS_LOCAL_LOG_DIR/nodemanager-$datanode.log $SHARED_DIR/hadoop-log-$SLURM_JOB_ID/nodemanager-$datanode.log
+  cp -R $HADOOP_PREFIX/logs/userlogs $SHARED_DIR/hadoop-log-$SLURM_JOB_ID/userlogs-$datanode
   rm -rf /local/$HDFS_LOCAL_LOG_DIR
   rm -rf /local/$HDFS_LOCAL_DIR
 else
@@ -259,8 +260,6 @@ for datanode in ${HADOOP_DATANODES[@]}; do
   echo "$(date): Stopping NodeManager on $datanode done."
   rm $SHARED_DIR/${SLURM_JOB_ID}-${datanode}-stop-nodemanager.sh
 done
-
-cp -R $HADOOP_PREFIX/logs/userlogs $SHARED_DIR/hadoop-log-$SLURM_JOB_ID/userlogs
 
 rm -rf /local/$HDFS_LOCAL_LOG_DIR
 rm -rf /local/$HDFS_LOCAL_DIR
