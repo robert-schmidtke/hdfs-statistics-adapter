@@ -135,6 +135,9 @@ mkdir $SFS_TARGET_DIRECTORY
 echo "$(date): Starting HDFS"
 srun rm -rf $HADOOP_HOME
 srun --nodes=1-1 --nodelist=$MASTER cp -a $HADOOP_SOURCE $HADOOP_HOME
+srun --nodes=1-1 --nodelist=$MASTER cp $SFS_DIRECTORY/sfs-agent/target/libsfs.so $HADOOP_HOME/share/hadoop/common/libsfs.so
+srun --nodes=1-1 --nodelist=$MASTER cp $SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar $HADOOP_HOME/share/hadoop/common/sfs-agent.jar
+srun --nodes=1-1 --nodelist=$MASTER cp $SFS_DIRECTORY/sfs-adapter/target/sfs-adapter.jar $HADOOP_HOME/share/hadoop/common/sfs-adapter.jar
 srun --nodes=1-1 --nodelist=$MASTER cp $SFS_DIRECTORY/scripts/slurm/start-hdfs-slurm.sh $HADOOP_HOME/sbin/start-hdfs-slurm.sh
 
 # 256M block size, replication factor of 1, 56G total node memory for YARN, put first datanode on namenode host
@@ -145,7 +148,7 @@ LD_LIBRARY_PATH_EXT="$GRPC_HOME/libs/opt:$GRPC_HOME/third_party/protobuf/src/.li
 
 if [ -z "$NO_SFS" ]; then
   # configure some additional options for SFS
-  OPTS="-agentpath:$SFS_DIRECTORY/sfs-agent/target/libsfs.so=trans_jar=$SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar,trans_address=0.0.0.0:4242"
+  OPTS="-agentpath:$HADOOP_HOME/share/hadoop/common/libsfs.so=trans_jar=$HADOOP_HOME/share/hadoop/common/sfs-agent.jar,trans_address=0.0.0.0:4242"
   OPTS="$OPTS,bin_duration=1000,cache_size=120,out_dir=/tmp/$USER/sfs,verbose=n"
   HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --hadoop-opts $OPTS,key=hdfs"
   HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --map-opts $OPTS,key=map"
@@ -154,7 +157,6 @@ if [ -z "$NO_SFS" ]; then
   HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --ld-library-path $LD_LIBRARY_PATH_EXT"
   SFS_STANDARD_OPTS="--sfs-wrapped-scheme hdfs"
   cp $SFS_DIRECTORY/sfs-adapter/target/sfs-adapter.jar $FLINK_HOME/lib/sfs-adapter.jar
-  srun --nodes=1-1 --nodelist=$MASTER cp $SFS_DIRECTORY/sfs-adapter/target/sfs-adapter.jar $HADOOP_HOME/share/hadoop/common/sfs-adapter.jar
 
   srun $SRUN_STANDARD_OPTS ./start-hdfs-slurm.sh $HDFS_STANDARD_OPTS $SFS_STANDARD_OPTS \
     --sfs-wrapped-fs "org.apache.hadoop.hdfs.DistributedFileSystem"
