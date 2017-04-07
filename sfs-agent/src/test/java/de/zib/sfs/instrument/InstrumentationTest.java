@@ -423,6 +423,18 @@ public class InstrumentationTest {
         writeBytes += 1048576;
         // fco is now 3 MB
 
+        // repeat with duplicates
+        numWritten += fco.write(wrappedWriteBuffer.duplicate());
+        wrappedWriteBuffer.position(0);
+        writeBytes += 1048576;
+        numWritten += fco.write(allocatedWriteBuffer.duplicate());
+        allocatedWriteBuffer.position(0);
+        writeBytes += 1048576;
+        numWritten += fco.write(allocatedDirectWriteBuffer.duplicate());
+        allocatedDirectWriteBuffer.position(0);
+        writeBytes += 1048576;
+        // fco is now 3 MB
+
         // write all 3 buffers using offsets, possibly concurrently
         List<Future<Long>> numsWritten = new ArrayList<Future<Long>>();
         long currentFcoPosition = fco.position();
@@ -479,6 +491,11 @@ public class InstrumentationTest {
         readBytes += 1048576;
         readMappedByteBuffer.position(0);
         // fco is now 10 MB
+
+        // use regular write and duplicate()
+        numWritten += fco.write(readMappedByteBuffer.duplicate());
+        writeBytes += 1048576;
+        readBytes += 1048576;
 
         // use write with offset
         numsWritten.clear();
@@ -590,8 +607,8 @@ public class InstrumentationTest {
 
         fco.close();
         fos.close();
-        assert (numWritten == 10 * 1048576 + 6 * numProcessors * 1048576);
-        assert (file.length() == 10 * 1048576 + 6 * numProcessors * 1048576);
+        assert (numWritten == 14 * 1048576 + 6 * numProcessors * 1048576);
+        assert (file.length() == 14 * 1048576 + 6 * numProcessors * 1048576);
 
         // Read
 
@@ -616,6 +633,18 @@ public class InstrumentationTest {
         allocatedReadBuffer.position(0);
         readBytes += 1048576;
         numRead += fci.read(allocatedDirectReadBuffer);
+        allocatedDirectReadBuffer.position(0);
+        readBytes += 1048576;
+        // fci is now 3 MB
+
+        // repeat with duplicates
+        numRead += fci.read(wrappedReadBuffer.duplicate());
+        wrappedReadBuffer.position(0);
+        readBytes += 1048576;
+        numRead += fci.read(allocatedReadBuffer.duplicate());
+        allocatedReadBuffer.position(0);
+        readBytes += 1048576;
+        numRead += fci.read(allocatedDirectReadBuffer.duplicate());
         allocatedDirectReadBuffer.position(0);
         readBytes += 1048576;
         // fci is now 3 MB
@@ -685,6 +714,11 @@ public class InstrumentationTest {
         readBytes += 1048576;
         writeMappedByteBuffer.position(0);
         // fci is now 10 MB
+
+        // use regular read with duplicate
+        numRead += fci.read(writeMappedByteBuffer.duplicate());
+        writeBytes += 1048576;
+        readBytes += 1048576;
 
         // use read with offset
         numsRead.clear();
@@ -787,7 +821,7 @@ public class InstrumentationTest {
         fci.position(fci.position() + numProcessors * 1048576);
         readBytes += numProcessors * 1048576;
         // fci is now 14 MB
-        assert (numRead == 10 * 1048576 + 6 * numProcessors * 1048576);
+        assert (numRead == 14 * 1048576 + 6 * numProcessors * 1048576);
 
         wrappedReadBuffer.position(0);
         numRead = fci.read(wrappedReadBuffer);
