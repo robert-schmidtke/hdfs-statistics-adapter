@@ -70,8 +70,7 @@ export MASTER=${NODES[0]}
 echo "Nodes: ${NODES[@]}"
 
 export HADOOP_VERSION=2.7.3
-export HADOOP_SOURCE=/scratch/$USER/hadoop-${HADOOP_VERSION}
-export HADOOP_HOME=/local/$USER/hadoop-${HADOOP_VERSION}
+export HADOOP_HOME=/scratch/$USER/hadoop-${HADOOP_VERSION}
 export HADOOP_CONF_DIR=$HADOOP_HOME/etc/hadoop
 export HDFS_LOCAL_DIR=$USER/hdfs
 export HDFS_LOCAL_LOG_DIR=$HDFS_LOCAL_DIR/log
@@ -133,22 +132,20 @@ rm -rf $SFS_TARGET_DIRECTORY
 mkdir $SFS_TARGET_DIRECTORY
 
 echo "$(date): Starting HDFS"
-srun rm -rf $HADOOP_HOME
-srun --nodes=1-1 --nodelist=$MASTER cp -a $HADOOP_SOURCE $HADOOP_HOME
-srun --nodes=1-1 --nodelist=$MASTER cp $SFS_DIRECTORY/sfs-agent/target/libsfs.so $HADOOP_HOME/share/hadoop/common/libsfs.so
-srun --nodes=1-1 --nodelist=$MASTER cp $SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar $HADOOP_HOME/share/hadoop/common/sfs-agent.jar
-srun --nodes=1-1 --nodelist=$MASTER cp $SFS_DIRECTORY/sfs-adapter/target/sfs-adapter.jar $HADOOP_HOME/share/hadoop/common/sfs-adapter.jar
-srun --nodes=1-1 --nodelist=$MASTER cp $SFS_DIRECTORY/scripts/slurm/start-hdfs-slurm.sh $HADOOP_HOME/sbin/start-hdfs-slurm.sh
+rm -rf $HADOOP_HOME/log-*
+rm -rf $HADOOP_HOME/logs
+mkdir $HADOOP_HOME/logs
+cp ./start-hdfs-slurm.sh $HADOOP_HOME/sbin
 
 # 256M block size, replication factor of 1, 56G total node memory for YARN, put first datanode on namenode host
 HDFS_BLOCKSIZE=$((256 * 1048576))
 SRUN_STANDARD_OPTS="--nodelist=$MASTER --nodes=1-1 --chdir=$HADOOP_HOME/sbin"
-HDFS_STANDARD_OPTS="--blocksize $HDFS_BLOCKSIZE --replication 1 --memory 57344 --cores 16 --io-buffer 1048576 --colocate-datanode-with-namenode --shared-dir $SFS_DIRECTORY"
+HDFS_STANDARD_OPTS="--blocksize $HDFS_BLOCKSIZE --replication 1 --memory 57344 --cores 16 --io-buffer 1048576 --colocate-datanode-with-namenode"
 LD_LIBRARY_PATH_EXT="$GRPC_HOME/libs/opt:$GRPC_HOME/third_party/protobuf/src/.lib"
 
 if [ -z "$NO_SFS" ]; then
   # configure some additional options for SFS
-  OPTS="-agentpath:$HADOOP_HOME/share/hadoop/common/libsfs.so=trans_jar=$HADOOP_HOME/share/hadoop/common/sfs-agent.jar,trans_address=0.0.0.0:4242"
+  OPTS="-agentpath:$SFS_DIRECTORY/sfs-agent/target/libsfs.so=trans_jar=$SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar,trans_address=0.0.0.0:4242"
   OPTS="$OPTS,bin_duration=1000,cache_size=120,out_dir=/tmp/$USER/sfs,verbose=n"
   HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --hadoop-opts $OPTS,key=hdfs"
   HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --map-opts $OPTS,key=map"
@@ -157,6 +154,7 @@ if [ -z "$NO_SFS" ]; then
   HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --ld-library-path $LD_LIBRARY_PATH_EXT"
   SFS_STANDARD_OPTS="--sfs-wrapped-scheme hdfs"
   cp $SFS_DIRECTORY/sfs-adapter/target/sfs-adapter.jar $FLINK_HOME/lib/sfs-adapter.jar
+  cp $SFS_DIRECTORY/sfs-adapter/target/sfs-adapter.jar $HADOOP_HOME/share/hadoop/common/sfs-adapter.jar
 
   srun $SRUN_STANDARD_OPTS $HADOOP_HOME/sbin/start-hdfs-slurm.sh $HDFS_STANDARD_OPTS $SFS_STANDARD_OPTS \
     --sfs-wrapped-fs "org.apache.hadoop.hdfs.DistributedFileSystem"
@@ -293,8 +291,8 @@ echo "$(date): Dumping XFS file system counters done"
 
 
 echo "$(date): Stopping HDFS"
-srun --nodes=1-1 --nodelist=$MASTER cp $SFS_DIRECTORY/scripts/slurm/stop-hdfs-slurm.sh $HADOOP_HOME/sbin/stop-hdfs-slurm.sh
-srun $SRUN_STANDARD_OPTS $HADOOP_HOME/sbin/stop-hdfs-slurm.sh --colocate-datanode-with-namenode --shared-dir $SFS_DIRECTORY
+cp ./stop-hdfs-slurm.sh $HADOOP_HOME/sbin
+srun --nodelist=$MASTER --nodes=1-1 --chdir=$HADOOP_HOME/sbin ./stop-hdfs-slurm.sh --colocate-datanode-with-namenode
 echo "$(date): Stopping HDFS done"
 
 if [ -z "$NO_SFS" ]; then
