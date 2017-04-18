@@ -120,6 +120,7 @@ public class InstrumentationTest {
         // TODO add threading
 
         File file = File.createTempFile("stream", null);
+        file.deleteOnExit();
 
         // Write
 
@@ -185,6 +186,7 @@ public class InstrumentationTest {
         assert (numProcessors == 1);
 
         File file = File.createTempFile("random", null);
+        file.deleteOnExit();
 
         // Write
 
@@ -388,6 +390,7 @@ public class InstrumentationTest {
             int numProcessors)
             throws IOException, InterruptedException, ExecutionException {
         File file = File.createTempFile("channel", null);
+        file.deleteOnExit();
 
         // Write
 
@@ -470,6 +473,7 @@ public class InstrumentationTest {
         // write to a dummy file so we can map its buffer
         // this gives an extra 1 MB in the write statistics
         File dummyFile = File.createTempFile("dummy", null);
+        dummyFile.deleteOnExit();
         RandomAccessFile dummyRaf = new RandomAccessFile(dummyFile, "rw");
         ++openOperations;
         for (int i = 0; i < numProcessors; ++i) {
@@ -837,6 +841,7 @@ public class InstrumentationTest {
         // TODO add threading
 
         File file = File.createTempFile("mapped", null);
+        file.deleteOnExit();
 
         // Write
 
@@ -967,6 +972,7 @@ public class InstrumentationTest {
         // write to a dummy file so we can map its buffer
         // this gives an extra 1 MB in the write statistics
         File dummyFile = File.createTempFile("from", null);
+        dummyFile.deleteOnExit();
         RandomAccessFile dummyRaf = new RandomAccessFile(dummyFile, "rw");
         ++openOperations;
         dummyRaf.write(writeBuffer);
@@ -1153,6 +1159,7 @@ public class InstrumentationTest {
         // play around with Zip and Jar files, as apparently they behave
         // somewhat different
         File file = File.createTempFile("zip", null);
+        file.deleteOnExit();
 
         // this is covered via our FileOutputStream instrumentation
         ZipOutputStream zos = new ZipOutputStream(
@@ -1243,6 +1250,7 @@ public class InstrumentationTest {
 
         // repeat for Jar files
         file = File.createTempFile("jar", null);
+        file.deleteOnExit();
 
         JarOutputStream jos = new JarOutputStream(
                 new BufferedOutputStream(new FileOutputStream(file)));
