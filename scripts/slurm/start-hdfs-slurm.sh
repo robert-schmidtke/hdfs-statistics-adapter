@@ -319,6 +319,10 @@ cat > $HADOOP_CONF_DIR/yarn-site.xml << EOF
     <name>yarn.nodemanager.resource.cpu-vcores</name>
     <value>${CORES}</value>
   </property>
+  <property>
+    <name>yarn.nodemanager.disk-health-checker.max-disk-utilization-per-disk-percentage</name>
+    <value>99.0</value>
+  </property>
 </configuration>
 EOF
 
