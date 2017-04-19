@@ -146,7 +146,7 @@ LD_LIBRARY_PATH_EXT="$GRPC_HOME/libs/opt:$GRPC_HOME/third_party/protobuf/src/.li
 if [ -z "$NO_SFS" ]; then
   # configure some additional options for SFS
   OPTS="-agentpath:$SFS_DIRECTORY/sfs-agent/target/libsfs.so=trans_jar=$SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar,trans_address=0.0.0.0:4242"
-  OPTS="$OPTS,bin_duration=1000,cache_size=120,out_dir=/tmp/$USER/sfs,verbose=n"
+  OPTS="$OPTS,bin_duration=1000,cache_size=60,out_dir=/tmp/$USER/sfs,verbose=n"
   HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --hadoop-opts $OPTS,key=hdfs"
   HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --map-opts $OPTS,key=map"
   HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --reduce-opts $OPTS,key=reduce"
@@ -240,6 +240,21 @@ $HADOOP_HOME/bin/hadoop jar \
   $(($TOTAL_DATA / 100)) $SCHEME://$MASTER:8020/user/$USER/input
 echo "$(date): Generating TeraSort data on HDFS done"
 
+echo "$(date): Dumping XFS file system counters"
+dump_xfs_stats_script="${SLURM_JOB_ID}-dump_xfs_stats.sh"
+cat >> $dump_xfs_stats_script << EOF
+#!/bin/bash
+cat /proc/fs/xfs/stat >> $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname)-xfs.stats
+EOF
+chmod +x $dump_xfs_stats_script
+srun -N$SLURM_JOB_NUM_NODES $dump_xfs_stats_script
+rm $dump_xfs_stats_script
+echo "$(date): Dumping XFS file system counters done"
+
+echo "$(date): Resetting XFS file system counters"
+srun sudo /sbin/sysctl -w fs.xfs.stats_clear=1
+echo "$(date): Resetting XFS file system counters done"
+
 $HADOOP_HOME/bin/hadoop fs -mkdir -p hdfs://$MASTER:8020/user/$USER/output
 
 echo "$(date): Running TeraSort"
@@ -282,13 +297,12 @@ echo "$(date): Dumping XFS file system counters"
 dump_xfs_stats_script="${SLURM_JOB_ID}-dump_xfs_stats.sh"
 cat >> $dump_xfs_stats_script << EOF
 #!/bin/bash
-cat /proc/fs/xfs/stat > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname)-xfs.stats
+cat /proc/fs/xfs/stat >> $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname)-xfs.stats
 EOF
 chmod +x $dump_xfs_stats_script
 srun -N$SLURM_JOB_NUM_NODES $dump_xfs_stats_script
 rm $dump_xfs_stats_script
 echo "$(date): Dumping XFS file system counters done"
-
 
 echo "$(date): Stopping HDFS"
 cp ./stop-hdfs-slurm.sh $HADOOP_HOME/sbin
