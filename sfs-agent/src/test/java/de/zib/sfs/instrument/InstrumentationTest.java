@@ -1371,7 +1371,7 @@ public class InstrumentationTest {
                                 line, aggregator.getOutputSeparator(), 3);
                         break;
                     case READ:
-                    case READZIP:
+                    case ZIP:
                         operationStatistics = ReadDataOperationStatistics
                                 .fromCsv(line, aggregator.getOutputSeparator(),
                                         3);
@@ -1414,7 +1414,7 @@ public class InstrumentationTest {
                 OperationCategory.READ, readBytes, readBytes + 176 * 1024);
         if (jvmZipReadBytes != -1 && zipReadBytes != -1) {
             assertOperationData(aggregates, OperationSource.JVM,
-                    OperationCategory.READZIP, jvmZipReadBytes + zipReadBytes,
+                    OperationCategory.ZIP, jvmZipReadBytes + zipReadBytes,
                     jvmZipReadBytes + zipReadBytes);
         }
     }

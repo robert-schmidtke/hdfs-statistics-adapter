@@ -292,7 +292,7 @@ public class LiveOperationStatisticsAggregator {
                 return 1;
             case OTHER:
                 return 2;
-            case READZIP:
+            case ZIP:
                 return 6;
             }
         case SFS:
@@ -303,7 +303,7 @@ public class LiveOperationStatisticsAggregator {
                 return 4;
             case OTHER:
                 return 5;
-            case READZIP:
+            case ZIP:
                 return 7;
             }
         }
