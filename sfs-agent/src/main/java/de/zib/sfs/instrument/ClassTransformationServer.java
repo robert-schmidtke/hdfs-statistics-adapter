@@ -25,6 +25,7 @@ import de.zib.sfs.instrument.rpc.Sfs.ClassTransformationRequest;
 import de.zib.sfs.instrument.rpc.Sfs.ClassTransformationResponse;
 import de.zib.sfs.instrument.rpc.Sfs.EndClassTransformationsRequest;
 import de.zib.sfs.instrument.rpc.Sfs.EndClassTransformationsResponse;
+import de.zib.sfs.instrument.util.LogUtil;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
 import io.grpc.stub.StreamObserver;
@@ -55,6 +56,9 @@ public class ClassTransformationServer extends
     public void classTransformation(ClassTransformationRequest request,
             StreamObserver<ClassTransformationResponse> responseObserver) {
         String className = request.getName();
+
+        LogUtil.stderr("Transforming class '%s'.\n", className);
+
         ByteString transformedClass = transformedClassesCache.get(className);
         if (transformedClass == null) {
             ClassReader cr = new ClassReader(
