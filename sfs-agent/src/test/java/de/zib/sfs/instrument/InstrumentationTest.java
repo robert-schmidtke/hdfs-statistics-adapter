@@ -636,25 +636,31 @@ public class InstrumentationTest {
         long numRead = fci.read(wrappedReadBuffer);
         wrappedReadBuffer.position(0);
         readBytes += 1048576;
+        assert (numRead == 1048576) : numRead + " : " + 1048576;
         numRead += fci.read(allocatedReadBuffer);
         allocatedReadBuffer.position(0);
         readBytes += 1048576;
+        assert (numRead == 2 * 1048576) : numRead + " : " + 2 * 1048576;
         numRead += fci.read(allocatedDirectReadBuffer);
         allocatedDirectReadBuffer.position(0);
         readBytes += 1048576;
+        assert (numRead == 3 * 1048576) : numRead + " : " + 3 * 1048576;
         // fci is now 3 MB
 
         // repeat with duplicates
         numRead += fci.read(wrappedReadBuffer.duplicate());
         wrappedReadBuffer.position(0);
         readBytes += 1048576;
+        assert (numRead == 4 * 1048576) : numRead + " : " + 4 * 1048576;
         numRead += fci.read(allocatedReadBuffer.duplicate());
         allocatedReadBuffer.position(0);
         readBytes += 1048576;
+        assert (numRead == 5 * 1048576) : numRead + " : " + 5 * 1048576;
         numRead += fci.read(allocatedDirectReadBuffer.duplicate());
         allocatedDirectReadBuffer.position(0);
         readBytes += 1048576;
-        // fci is now 3 MB
+        assert (numRead == 6 * 1048576) : numRead + " : " + 6 * 1048576;
+        // fci is now 6 MB
 
         // read all 3 buffers using offsets
         List<Future<Long>> numsRead = new ArrayList<Future<Long>>();
@@ -679,7 +685,9 @@ public class InstrumentationTest {
         }
         fci.position(fci.position() + numProcessors * 3 * 1048576);
         readBytes += numProcessors * 3 * 1048576;
-        // fci is now 6 MB (for numProcessors == 1)
+        expected = 6 * 1048576 + 3 * numProcessors * 1048576;
+        assert (numRead == expected) : numRead + " : " + expected;
+        // fci is now 9 MB (for numProcessors == 1)
 
         // read all 3 buffers using an array of them
         wrappedReadBuffer.position(0);
@@ -688,7 +696,9 @@ public class InstrumentationTest {
         numRead += fci.read(new ByteBuffer[] { wrappedReadBuffer,
                 allocatedReadBuffer, allocatedDirectReadBuffer });
         readBytes += 3 * 1048576;
-        // fci is now 9 MB
+        expected = 9 * 1048576 + 3 * numProcessors * 1048576;
+        assert (numRead == expected) : numRead + " : " + expected;
+        // fci is now 12 MB
 
         // verify contents
         wrappedWriteBuffer.position(0);
@@ -720,12 +730,17 @@ public class InstrumentationTest {
         writeBytes += 1048576;
         readBytes += 1048576;
         writeMappedByteBuffer.position(0);
-        // fci is now 10 MB
+        expected = 10 * 1048576 + 3 * numProcessors * 1048576;
+        assert (numRead == expected) : numRead + " : " + expected;
+        // fci is now 13 MB
 
         // use regular read with duplicate
         numRead += fci.read(writeMappedByteBuffer.duplicate());
         writeBytes += 1048576;
         readBytes += 1048576;
+        expected = 11 * 1048576 + 3 * numProcessors * 1048576;
+        assert (numRead == expected) : numRead + " : " + expected;
+        // fci is now at 14 MB
 
         // use read with offset
         numsRead.clear();
@@ -746,7 +761,9 @@ public class InstrumentationTest {
         fci.position(fci.position() + numProcessors * 1048576);
         writeBytes += numProcessors * 1048576;
         readBytes += numProcessors * 1048576;
-        // fci is now 11 MB (for numProcessors == 1)
+        expected = 11 * 1048576 + 4 * numProcessors * 1048576;
+        assert (numRead == expected) : numRead + " : " + expected;
+        // fci is now 15 MB (for numProcessors == 1)
 
         // use array read, combined with slice
         numRead += fci.read(new ByteBuffer[] { writeMappedByteBuffer.slice(),
@@ -754,7 +771,9 @@ public class InstrumentationTest {
         writeBytes += 3 * 1048576;
         readBytes += 3 * 1048576;
         writeMappedByteBuffer.position(0);
-        // fci is now 12 MB
+        // fci is now 18 MB
+        expected = 14 * 1048576 + 4 * numProcessors * 1048576;
+        assert (numRead == expected) : numRead + " : " + expected;
 
         // use transfer to file
         numsRead.clear();
@@ -780,7 +799,9 @@ public class InstrumentationTest {
         fci.position(fci.position() + numProcessors * 1048576);
         writeBytes += numProcessors * 1048576;
         readBytes += numProcessors * 1048576;
-        // fci is now 13 MB
+        // fci is now 19 MB
+        expected = 14 * 1048576 + 5 * numProcessors * 1048576;
+        assert (numRead == expected) : numRead + " : " + expected;
 
         dummyRaf.close();
 
@@ -827,7 +848,7 @@ public class InstrumentationTest {
         }
         fci.position(fci.position() + numProcessors * 1048576);
         readBytes += numProcessors * 1048576;
-        // fci is now 14 MB
+        // fci is now 20 MB
         expected = 14 * 1048576 + 6 * numProcessors * 1048576;
         assert (numRead == expected) : numRead + " : " + expected;
 
