@@ -144,7 +144,8 @@ public class InstrumentationTest {
         writeBytes += 1048576;
 
         fos.close();
-        assert (file.length() == 3 * 1048576);
+        assert (file.length() == 3 * 1048576) : file.length() + " : "
+                + 3 * 1048576;
 
         // Read
 
@@ -161,7 +162,7 @@ public class InstrumentationTest {
         byte[] readBuffer = new byte[1048576];
         int numRead = fis.read(readBuffer);
         readBytes += 1048576;
-        assert (numRead == 1048576);
+        assert (numRead == 1048576) : numRead + " : " + 1048576;
         for (int i = 0; i < 1048576; ++i) {
             assert (writeBuffer[i] == readBuffer[i]);
         }
@@ -169,7 +170,7 @@ public class InstrumentationTest {
         // use offset/length array read
         numRead = fis.read(readBuffer, 0, readBuffer.length);
         readBytes += 1048576;
-        assert (numRead == 1048576);
+        assert (numRead == 1048576) : numRead + " : " + 1048576;
         for (int i = 0; i < 1048576; ++i) {
             assert (writeBuffer[i] == readBuffer[i]);
         }
@@ -293,7 +294,8 @@ public class InstrumentationTest {
 
         writeFile.close();
         // 2 bytes extra per UTF write
-        assert (file.length() == 13 * 1048576 + utf8StringLength + 2 * 32);
+        long expected = 13 * 1048576 + utf8StringLength + 2 * 32;
+        assert (file.length() == expected) : file.length() + " : " + expected;
 
         // Read
 
@@ -308,14 +310,14 @@ public class InstrumentationTest {
         byte[] readBuffer = new byte[1048576];
         int numRead = readFile.read(readBuffer);
         readBytes += 1048576;
-        assert (numRead == 1048576);
+        assert (numRead == 1048576) : numRead + " : " + 1048576;
         for (int i = 0; i < 1048576; ++i) {
             assert (writeBuffer[i] == readBuffer[i]);
         }
 
         numRead = readFile.read(readBuffer, 0, readBuffer.length);
         readBytes += 1048576;
-        assert (numRead == 1048576);
+        assert (numRead == 1048576) : numRead + " : " + 1048576;
         for (int i = 0; i < 1048576; ++i) {
             assert (writeBuffer[i] == readBuffer[i]);
         }
@@ -611,8 +613,9 @@ public class InstrumentationTest {
 
         fco.close();
         fos.close();
-        assert (numWritten == 14 * 1048576 + 6 * numProcessors * 1048576);
-        assert (file.length() == 14 * 1048576 + 6 * numProcessors * 1048576);
+        long expected = 14 * 1048576 + 6 * numProcessors * 1048576;
+        assert (numWritten == expected) : numWritten + " : " + expected;
+        assert (file.length() == expected) : file.length() + " : " + expected;
 
         // Read
 
@@ -825,7 +828,8 @@ public class InstrumentationTest {
         fci.position(fci.position() + numProcessors * 1048576);
         readBytes += numProcessors * 1048576;
         // fci is now 14 MB
-        assert (numRead == 14 * 1048576 + 6 * numProcessors * 1048576);
+        expected = 14 * 1048576 + 6 * numProcessors * 1048576;
+        assert (numRead == expected) : numRead + " : " + expected;
 
         wrappedReadBuffer.position(0);
         numRead = fci.read(wrappedReadBuffer);
@@ -1000,7 +1004,8 @@ public class InstrumentationTest {
 
         fco.close();
         writeFile.close();
-        assert (file.length() == 20 * 1048576);
+        assert (file.length() == 20 * 1048576) : file.length() + " : "
+                + 20 * 1048576;
 
         // Read
 
@@ -1194,7 +1199,7 @@ public class InstrumentationTest {
         while (readData.length - numRead > 0) {
             numRead += zis.read(readData, numRead, readData.length - numRead);
         }
-        assert (numRead == readData.length);
+        assert (numRead == readData.length) : numRead + " : " + readData.length;
 
         for (int i = 0; i < readData.length; ++i) {
             assert (writeData[i] == readData[i]);
@@ -1274,7 +1279,7 @@ public class InstrumentationTest {
         while (readData.length - numRead > 0) {
             numRead += jis.read(readData, numRead, readData.length - numRead);
         }
-        assert (numRead == readData.length);
+        assert (numRead == readData.length) : numRead + " : " + readData.length;
 
         for (int i = 0; i < readData.length; ++i) {
             assert (writeData[i] == readData[i]);
@@ -1299,7 +1304,8 @@ public class InstrumentationTest {
                 numRead += is.read(readData, numRead,
                         readData.length - numRead);
             }
-            assert (numRead == readData.length);
+            assert (numRead == readData.length) : numRead + " : "
+                    + readData.length;
 
             for (int j = 0; j < readData.length; ++j) {
                 assert (writeData[j] == readData[j]);
