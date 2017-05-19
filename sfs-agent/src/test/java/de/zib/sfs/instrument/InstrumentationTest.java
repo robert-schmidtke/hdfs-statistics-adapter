@@ -1462,13 +1462,13 @@ public class InstrumentationTest {
         assertOperationCount(aggregates, OperationSource.JVM,
                 OperationCategory.OTHER, openOperations);
 
-        // Allow 8K slack for the JVM for writing, 176K for reading. This should
-        // be fine as we always operate on 1 MB chunks of data, so if we truly
-        // miss some operations, these tests should still fail. The slack is
-        // mainly for reading Java classes which we instrument too, as well as
-        // some internal lock file writing.
+        // Allow 64K slack for the JVM for writing, 176K for reading. This
+        // should be fine as we always operate on 1 MB chunks of data, so if we
+        // truly miss some operations, these tests should still fail. The slack
+        // is mainly for reading Java classes which we instrument too, as well
+        // as some internal lock file writing.
         assertOperationData(aggregates, OperationSource.JVM,
-                OperationCategory.WRITE, writeBytes, writeBytes + 8 * 1024);
+                OperationCategory.WRITE, writeBytes, writeBytes + 64 * 1024);
         System.err.println("Wrote " + writeBytes + " bytes");
         assertOperationData(aggregates, OperationSource.JVM,
                 OperationCategory.READ, readBytes, readBytes + 176 * 1024);
