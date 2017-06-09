@@ -75,6 +75,9 @@ public class InstrumentationTest {
     private static long readBytes = 0, writeBytes = 0;
     private static long jvmZipReadBytes = -1, zipReadBytes = -1;
 
+    // whether to count mmap calls as well or not
+    private static boolean traceMmap;
+
     public static void main(String[] args)
             throws IOException, InterruptedException, ExecutionException {
         // expect <test>,<true|false> as argument
@@ -87,6 +90,9 @@ public class InstrumentationTest {
         int numProcessors = useThreading
                 ? Runtime.getRuntime().availableProcessors() : 1;
         ExecutorService executor = Executors.newFixedThreadPool(numProcessors);
+
+        traceMmap = Boolean
+                .parseBoolean(System.getProperty("de.zib.sfs.traceMmap"));
 
         switch (test) {
         case "stream":
@@ -503,14 +509,14 @@ public class InstrumentationTest {
         // use regular write
         numWritten += fco.write(readMappedByteBuffer);
         writeBytes += BUFFER_SIZE;
-        readBytes += BUFFER_SIZE;
+        readBytes += traceMmap ? BUFFER_SIZE : 0L;
         readMappedByteBuffer.position(0);
         // fco is now 10 MB
 
         // use regular write and duplicate()
         numWritten += fco.write(readMappedByteBuffer.duplicate());
         writeBytes += BUFFER_SIZE;
-        readBytes += BUFFER_SIZE;
+        readBytes += traceMmap ? BUFFER_SIZE : 0L;
 
         // use write with offset
         numsWritten.clear();
@@ -530,7 +536,7 @@ public class InstrumentationTest {
         }
         fco.position(fco.position() + 1L * numProcessors * BUFFER_SIZE);
         writeBytes += 1L * numProcessors * BUFFER_SIZE;
-        readBytes += 1L * numProcessors * BUFFER_SIZE;
+        readBytes += traceMmap ? 1L * numProcessors * BUFFER_SIZE : 0L;
         // fco is now 11 MB (for numProcessors == 1)
 
         // use array write, combined with asReadOnlyBuffer and slice
@@ -538,7 +544,7 @@ public class InstrumentationTest {
                 new ByteBuffer[] { readMappedByteBuffer.asReadOnlyBuffer(),
                         readMappedByteBuffer.slice(), readMappedByteBuffer });
         writeBytes += 3L * BUFFER_SIZE;
-        readBytes += 3L * BUFFER_SIZE;
+        readBytes += traceMmap ? 3L * BUFFER_SIZE : 0L;
         readMappedByteBuffer.position(0);
         // fco is now 12 MB
 
@@ -565,7 +571,7 @@ public class InstrumentationTest {
         }
         fco.position(fco.position() + 1L * numProcessors * BUFFER_SIZE);
         writeBytes += 1L * numProcessors * BUFFER_SIZE;
-        readBytes += 1L * numProcessors * BUFFER_SIZE;
+        readBytes += traceMmap ? 1L * numProcessors * BUFFER_SIZE : 0L;
         // fco is now 13 MB (for numProcessors == 1)
 
         dummyRaf.close();
@@ -757,7 +763,7 @@ public class InstrumentationTest {
 
         // use regular read
         numRead += fci.read(writeMappedByteBuffer);
-        writeBytes += BUFFER_SIZE;
+        writeBytes += traceMmap ? BUFFER_SIZE : 0L;
         readBytes += BUFFER_SIZE;
         writeMappedByteBuffer.position(0);
         expected = 10L * BUFFER_SIZE + 3L * numProcessors * BUFFER_SIZE;
@@ -767,7 +773,7 @@ public class InstrumentationTest {
 
         // use regular read with duplicate
         numRead += fci.read(writeMappedByteBuffer.duplicate());
-        writeBytes += BUFFER_SIZE;
+        writeBytes += traceMmap ? BUFFER_SIZE : 0L;
         readBytes += BUFFER_SIZE;
         expected = 11L * BUFFER_SIZE + 3L * numProcessors * BUFFER_SIZE;
         assert (numRead == expected) : numRead + " : " + expected;
@@ -791,7 +797,7 @@ public class InstrumentationTest {
             numRead += nr.get();
         }
         fci.position(fci.position() + 1L * numProcessors * BUFFER_SIZE);
-        writeBytes += 1L * numProcessors * BUFFER_SIZE;
+        writeBytes += traceMmap ? 1L * numProcessors * BUFFER_SIZE : 0L;
         readBytes += 1L * numProcessors * BUFFER_SIZE;
         expected = 11L * BUFFER_SIZE + 4L * numProcessors * BUFFER_SIZE;
         assert (numRead == expected) : numRead + " : " + expected;
@@ -801,7 +807,7 @@ public class InstrumentationTest {
         // use array read, combined with slice
         numRead += fci.read(new ByteBuffer[] { writeMappedByteBuffer.slice(),
                 writeMappedByteBuffer.slice(), writeMappedByteBuffer });
-        writeBytes += 3L * BUFFER_SIZE;
+        writeBytes += traceMmap ? 3L * BUFFER_SIZE : 0L;
         readBytes += 3L * BUFFER_SIZE;
         writeMappedByteBuffer.position(0);
         // fci is now 18 MB
@@ -832,7 +838,8 @@ public class InstrumentationTest {
         }
         fci.position(fci.position() + 1L * numProcessors * BUFFER_SIZE);
         writeBytes += 1L * numProcessors * BUFFER_SIZE;
-        readBytes += 1L * numProcessors * BUFFER_SIZE;
+        readBytes += traceMmap ? 1L * numProcessors * BUFFER_SIZE : 0L;
+
         // fci is now 19 MB
         expected = 14L * BUFFER_SIZE + 5L * numProcessors * BUFFER_SIZE;
         assert (numRead == expected) : numRead + " : " + expected;

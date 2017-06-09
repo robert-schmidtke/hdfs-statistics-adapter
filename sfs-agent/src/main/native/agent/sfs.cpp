@@ -51,6 +51,9 @@ static std::string g_time_bin_cache_size;
 // path to a directory where the output CSV files will be stored
 static std::string g_output_directory;
 
+// whether to trace mmap calls as well
+static bool g_trace_mmap = false;
+
 // indicates whether we should do verbose logging
 static bool g_verbose = false;
 #define LOG_VERBOSE(...)                                                       \
@@ -90,6 +93,7 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
               << "  out_dir=/path/to/out/dir" << std::endl
               << "Optional options:" << std::endl
               << "  trans_address=trans-host:port (default: empty)"
+              << "  trace_mmap=y|n (default: n)"
               << "  verbose=y|n (default: n)" << std::endl;
     return JNI_EINVAL;
   }
@@ -162,6 +166,7 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
   g_time_bin_duration = cli_options.time_bin_duration;
   g_time_bin_cache_size = cli_options.time_bin_cache_size;
   g_output_directory = cli_options.output_directory;
+  g_trace_mmap = cli_options.trace_mmap;
 
   // set the prefix to use when wrapping native methods
   LOG_VERBOSE("Setting native method prefix.\n");
@@ -212,7 +217,7 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
     LOG_VERBOSE("Started agent transformation server on port '%d'.\n", port);
 
     // build the transformer JVM start command
-    g_transformer_jvm_cmd = new char *[9];
+    g_transformer_jvm_cmd = new char *[11];
     g_transformer_jvm_cmd[0] = strdup((java_home + "/bin/java").c_str());
     g_transformer_jvm_cmd[1] = strdup("-cp");
     g_transformer_jvm_cmd[2] = strdup(cli_options.transformer_jar_path.c_str());
@@ -220,15 +225,18 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
         strdup("de.zib.sfs.instrument.ClassTransformationService");
     g_transformer_jvm_cmd[4] = strdup("--communication-port-agent");
     g_transformer_jvm_cmd[5] = strdup(std::to_string(port).c_str());
-    g_transformer_jvm_cmd[6] = strdup("--verbose");
-    g_transformer_jvm_cmd[7] = strdup(g_verbose ? "y" : "n");
-    g_transformer_jvm_cmd[8] = NULL;
-    LOG_VERBOSE(
-        "Starting transformer JVM using command '%s %s %s %s %s %s %s %s'.\n",
-        g_transformer_jvm_cmd[0], g_transformer_jvm_cmd[1],
-        g_transformer_jvm_cmd[2], g_transformer_jvm_cmd[3],
-        g_transformer_jvm_cmd[4], g_transformer_jvm_cmd[5],
-        g_transformer_jvm_cmd[6], g_transformer_jvm_cmd[7]);
+    g_transformer_jvm_cmd[6] = strdup("--trace-mmap");
+    g_transformer_jvm_cmd[7] = strdup(g_trace_mmap ? "y" : "n");
+    g_transformer_jvm_cmd[8] = strdup("--verbose");
+    g_transformer_jvm_cmd[9] = strdup(g_verbose ? "y" : "n");
+    g_transformer_jvm_cmd[10] = NULL;
+    LOG_VERBOSE("Starting transformer JVM using command '%s %s %s %s %s %s %s "
+                "%s %s %s'.\n",
+                g_transformer_jvm_cmd[0], g_transformer_jvm_cmd[1],
+                g_transformer_jvm_cmd[2], g_transformer_jvm_cmd[3],
+                g_transformer_jvm_cmd[4], g_transformer_jvm_cmd[5],
+                g_transformer_jvm_cmd[6], g_transformer_jvm_cmd[7],
+                g_transformer_jvm_cmd[8], g_transformer_jvm_cmd[9]);
 
     char *envp[] = {NULL};
 
@@ -481,6 +489,15 @@ static void JNICALL VMInitCallback(jvmtiEnv *jvmti_env, JNIEnv *jni_env,
       jni_env->NewStringUTF("de.zib.sfs.output.directory"),
       jni_env->NewStringUTF(g_output_directory.c_str()));
 
+  // repeat for the tracing of mmap calls
+  LOG_VERBOSE("Setting system property '%s'='%s'.\n",
+              std::string("de.zib.sfs.traceMmap").c_str(),
+              g_trace_mmap ? "true" : "false");
+  jni_env->CallStaticVoidMethod(
+      system_class, set_property_method_id,
+      jni_env->NewStringUTF("de.zib.sfs.traceMmap"),
+      jni_env->NewStringUTF(g_trace_mmap ? "true" : "false"));
+
   // repeat for the verbosity
   LOG_VERBOSE("Setting system property '%s'='%s'.\n",
               std::string("de.zib.sfs.verbose").c_str(),
@@ -554,7 +571,7 @@ static void cleanup() {
   // clean the startup command for the transformer JVM
   if (g_transformer_jvm_cmd != NULL) {
     LOG_VERBOSE("Freeing transformer JVM command.\n");
-    for (size_t i = 0; i < 8; ++i) {
+    for (size_t i = 0; i < 10; ++i) {
       free(g_transformer_jvm_cmd[i]);
     }
     delete[] g_transformer_jvm_cmd;

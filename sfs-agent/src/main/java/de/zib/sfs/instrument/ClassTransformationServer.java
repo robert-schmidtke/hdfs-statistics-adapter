@@ -41,7 +41,9 @@ public class ClassTransformationServer extends
 
     private final Map<String, ByteString> transformedClassesCache;
 
-    public ClassTransformationServer(int port) {
+    private final boolean traceMmap;
+
+    public ClassTransformationServer(int port, boolean traceMmap) {
         server = ServerBuilder.forPort(port).addService(this).build();
 
         isEndClassTransformations = false;
@@ -50,6 +52,8 @@ public class ClassTransformationServer extends
                 .newCondition();
 
         transformedClassesCache = new ConcurrentHashMap<>();
+
+        this.traceMmap = traceMmap;
     }
 
     @Override
@@ -109,7 +113,7 @@ public class ClassTransformationServer extends
                 case "sun/nio/ch/FileChannelImpl":
                     cr.accept(
                             new FileChannelImplAdapter(cw,
-                                    request.getNativeMethodPrefix()),
+                                    request.getNativeMethodPrefix(), traceMmap),
                             ClassReader.EXPAND_FRAMES);
                     break;
                 default:

@@ -48,6 +48,7 @@ struct CliOptions {
   std::string time_bin_duration;
   std::string time_bin_cache_size;
   std::string output_directory;
+  bool trace_mmap;
   bool verbose;
 };
 
@@ -85,6 +86,7 @@ static bool parse_options(char *command_line_options, CliOptions *cli_options) {
   cli_options->time_bin_duration = -1;
   cli_options->time_bin_cache_size = -1;
   cli_options->output_directory = std::string("");
+  cli_options->trace_mmap = false;
   cli_options->verbose = false;
 
   bool tx_jar_path_set = false;
@@ -127,6 +129,10 @@ static bool parse_options(char *command_line_options, CliOptions *cli_options) {
         if (get_tok(&options, suboption, (int)sizeof(suboption), ',')) {
           cli_options->output_directory = std::string(suboption);
           output_directory_set = true;
+        }
+      } else if (strcmp(option, "trace_mmap") == 0) {
+        if (get_tok(&options, suboption, (int)sizeof(suboption), ',')) {
+          cli_options->trace_mmap = strcmp(suboption, "y") == 0;
         }
       } else if (strcmp(option, "verbose") == 0) {
         if (get_tok(&options, suboption, (int)sizeof(suboption), ',')) {

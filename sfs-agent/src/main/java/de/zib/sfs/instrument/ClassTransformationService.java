@@ -21,6 +21,7 @@ public class ClassTransformationService {
         int i = 0;
         int serverPort = -1, agentPort = -1;
         int timeoutSeconds = 30;
+        boolean traceMmap = false;
         boolean verbose = false;
         while (i < args.length) {
             switch (args[i]) {
@@ -32,6 +33,9 @@ public class ClassTransformationService {
                 break;
             case "--timeout":
                 timeoutSeconds = Integer.parseInt(args[++i]);
+                break;
+            case "--trace-mmap":
+                traceMmap = "y".equals(args[++i]);
                 break;
             case "--verbose":
                 verbose = "y".equals(args[++i]);
@@ -49,6 +53,7 @@ public class ClassTransformationService {
             System.err.println("  --communication-port-agent port");
             System.err.println("Optional options:");
             System.err.println("  --timeout seconds (default: 30)");
+            System.err.println("  --trace-mmap y|n (default: n)");
             System.err.println("  --verbose y|n (default: n)");
             System.exit(1);
         }
@@ -77,7 +82,7 @@ public class ClassTransformationService {
                             "Trying to start transformation server on port '%d'.\n",
                             port);
                     classTransformationServer = new ClassTransformationServer(
-                            port);
+                            port, traceMmap);
                     classTransformationServer.start();
                     started = true;
                 } catch (IOException e) {
@@ -119,7 +124,7 @@ public class ClassTransformationService {
             // we have a dedicated port to run on
             LogUtil.stderr("Starting on dedicated port '%d'.\n", serverPort);
             classTransformationServer = new ClassTransformationServer(
-                    serverPort);
+                    serverPort, traceMmap);
             try {
                 classTransformationServer.start();
             } catch (IOException e) {

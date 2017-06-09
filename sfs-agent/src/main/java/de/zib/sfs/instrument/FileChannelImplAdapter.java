@@ -31,10 +31,13 @@ import sun.nio.ch.FileChannelImpl;
 @SuppressWarnings("restriction")
 public class FileChannelImplAdapter extends AbstractSfsAdapter {
 
-    public FileChannelImplAdapter(ClassVisitor cv, String methodPrefix)
-            throws NoSuchMethodException, SecurityException {
+    private final boolean traceMmap;
+
+    public FileChannelImplAdapter(ClassVisitor cv, String methodPrefix,
+            boolean traceMmap) throws NoSuchMethodException, SecurityException {
         super(cv, FileChannelImpl.class, FileChannelImplCallback.class,
                 methodPrefix);
+        this.traceMmap = traceMmap;
     }
 
     @Override
@@ -133,6 +136,13 @@ public class FileChannelImplAdapter extends AbstractSfsAdapter {
                 Type.getMethodDescriptor(Type.VOID_TYPE, Type.BOOLEAN_TYPE),
                 false);
 
+        // if we don't want to trace mmap calls, then map needs to reset the
+        // instrumentationActive flag
+        if (!traceMmap) {
+            // setInstrumentationActive(false);
+            setInstrumentationActive(mapMV, false);
+        }
+
         // return mbb;
         // }
         mapMV.visitVarInsn(Opcodes.ALOAD, 6);
@@ -208,50 +218,54 @@ public class FileChannelImplAdapter extends AbstractSfsAdapter {
             mv.visitJumpInsn(Opcodes.IFEQ,
                     bufferInstanceofMappedByteBufferLabel);
 
-            // if (<buffers>[0].isFromFileChannel()) {
-            mv.visitVarInsn(Opcodes.ALOAD, bufferArgumentIndex);
-            mv.visitInsn(Opcodes.ICONST_0);
-            mv.visitInsn(Opcodes.AALOAD);
-            mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
-                    Type.getInternalName(MappedByteBuffer.class),
-                    "isFromFileChannel",
-                    Type.getMethodDescriptor(Type.BOOLEAN_TYPE), false);
-            Label fromFileChannelLabel = new Label();
-            mv.visitJumpInsn(Opcodes.IFEQ, fromFileChannelLabel);
+            // only trace mmapped file channels if desired
+            if (traceMmap) {
+                // if (<buffers>[0].isFromFileChannel()) {
+                mv.visitVarInsn(Opcodes.ALOAD, bufferArgumentIndex);
+                mv.visitInsn(Opcodes.ICONST_0);
+                mv.visitInsn(Opcodes.AALOAD);
+                mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+                        Type.getInternalName(MappedByteBuffer.class),
+                        "isFromFileChannel",
+                        Type.getMethodDescriptor(Type.BOOLEAN_TYPE), false);
+                Label fromFileChannelLabel = new Label();
+                mv.visitJumpInsn(Opcodes.IFEQ, fromFileChannelLabel);
 
-            int iIndex = bufferInstrumentationActiveIndex + 1;
+                int iIndex = bufferInstrumentationActiveIndex + 1;
 
-            // for (int i = 0; i < <buffers>.length; ++i) {
-            // <buffers>[i].setInstrumentationActive(true);
-            // }
-            mv.visitInsn(Opcodes.ICONST_0);
-            mv.visitVarInsn(Opcodes.ISTORE, iIndex);
-            Label loopConditionLabel = new Label();
-            mv.visitJumpInsn(Opcodes.GOTO, loopConditionLabel);
-            Label loopStartLabel = new Label();
-            mv.visitLabel(loopStartLabel);
-            mv.visitVarInsn(Opcodes.ALOAD, bufferArgumentIndex);
-            mv.visitVarInsn(Opcodes.ILOAD, iIndex);
-            mv.visitInsn(Opcodes.AALOAD);
-            mv.visitInsn(Opcodes.ICONST_1);
-            mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
-                    Type.getInternalName(MappedByteBuffer.class),
-                    "setInstrumentationActive",
-                    Type.getMethodDescriptor(Type.VOID_TYPE, Type.BOOLEAN_TYPE),
-                    false);
-            mv.visitIincInsn(iIndex, 1);
-            mv.visitLabel(loopConditionLabel);
-            mv.visitVarInsn(Opcodes.ILOAD, iIndex);
-            mv.visitVarInsn(Opcodes.ALOAD, bufferArgumentIndex);
-            mv.visitInsn(Opcodes.ARRAYLENGTH);
-            mv.visitJumpInsn(Opcodes.IF_ICMPLT, loopStartLabel);
+                // for (int i = 0; i < <buffers>.length; ++i) {
+                // <buffers>[i].setInstrumentationActive(true);
+                // }
+                mv.visitInsn(Opcodes.ICONST_0);
+                mv.visitVarInsn(Opcodes.ISTORE, iIndex);
+                Label loopConditionLabel = new Label();
+                mv.visitJumpInsn(Opcodes.GOTO, loopConditionLabel);
+                Label loopStartLabel = new Label();
+                mv.visitLabel(loopStartLabel);
+                mv.visitVarInsn(Opcodes.ALOAD, bufferArgumentIndex);
+                mv.visitVarInsn(Opcodes.ILOAD, iIndex);
+                mv.visitInsn(Opcodes.AALOAD);
+                mv.visitInsn(Opcodes.ICONST_1);
+                mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+                        Type.getInternalName(MappedByteBuffer.class),
+                        "setInstrumentationActive", Type.getMethodDescriptor(
+                                Type.VOID_TYPE, Type.BOOLEAN_TYPE),
+                        false);
+                mv.visitIincInsn(iIndex, 1);
+                mv.visitLabel(loopConditionLabel);
+                mv.visitVarInsn(Opcodes.ILOAD, iIndex);
+                mv.visitVarInsn(Opcodes.ALOAD, bufferArgumentIndex);
+                mv.visitInsn(Opcodes.ARRAYLENGTH);
+                mv.visitJumpInsn(Opcodes.IF_ICMPLT, loopStartLabel);
 
-            // bufferInstrumentationActive = true;
-            mv.visitInsn(Opcodes.ICONST_1);
-            mv.visitVarInsn(Opcodes.ISTORE, bufferInstrumentationActiveIndex);
+                // bufferInstrumentationActive = true;
+                mv.visitInsn(Opcodes.ICONST_1);
+                mv.visitVarInsn(Opcodes.ISTORE,
+                        bufferInstrumentationActiveIndex);
 
-            // }
-            mv.visitLabel(fromFileChannelLabel);
+                // }
+                mv.visitLabel(fromFileChannelLabel);
+            }
 
             // }
             mv.visitLabel(bufferInstanceofMappedByteBufferLabel);
@@ -274,9 +288,10 @@ public class FileChannelImplAdapter extends AbstractSfsAdapter {
             mv.visitJumpInsn(Opcodes.IFEQ,
                     bufferInstanceofMappedByteBufferLabel);
 
-            // additional check required if the buffer is a MappedByteBuffer
+            // additional check required if the buffer is a MappedByteBuffer,
+            // and we want to trace those
             Label fromFileChannelLabel = new Label();
-            if (!isTransferMethod) {
+            if (!isTransferMethod && traceMmap) {
                 // if (buffer.isFromFileChannel()) {
                 mv.visitVarInsn(Opcodes.ALOAD, bufferArgumentIndex);
                 mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
@@ -286,22 +301,28 @@ public class FileChannelImplAdapter extends AbstractSfsAdapter {
                 mv.visitJumpInsn(Opcodes.IFEQ, fromFileChannelLabel);
             }
 
-            // buffer.setInstrumentationActive(true);
-            mv.visitVarInsn(Opcodes.ALOAD, bufferArgumentIndex);
-            mv.visitInsn(Opcodes.ICONST_1);
-            mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
-                    !isTransferMethod
-                            ? Type.getInternalName(MappedByteBuffer.class)
-                            : Type.getInternalName(FileChannelImpl.class),
-                    "setInstrumentationActive",
-                    Type.getMethodDescriptor(Type.VOID_TYPE, Type.BOOLEAN_TYPE),
-                    false);
+            // either we're dealing with a FileChannelImpl (in a
+            // transferTo/transferFrom method), or this is a regular read or
+            // write and we want to count in mmapped buffers
+            if (isTransferMethod || traceMmap) {
+                // buffer.setInstrumentationActive(true);
+                mv.visitVarInsn(Opcodes.ALOAD, bufferArgumentIndex);
+                mv.visitInsn(Opcodes.ICONST_1);
+                mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+                        !isTransferMethod
+                                ? Type.getInternalName(MappedByteBuffer.class)
+                                : Type.getInternalName(FileChannelImpl.class),
+                        "setInstrumentationActive", Type.getMethodDescriptor(
+                                Type.VOID_TYPE, Type.BOOLEAN_TYPE),
+                        false);
 
-            // bufferInstrumentationActive = true;
-            mv.visitInsn(Opcodes.ICONST_1);
-            mv.visitVarInsn(Opcodes.ISTORE, bufferInstrumentationActiveIndex);
+                // bufferInstrumentationActive = true;
+                mv.visitInsn(Opcodes.ICONST_1);
+                mv.visitVarInsn(Opcodes.ISTORE,
+                        bufferInstrumentationActiveIndex);
+            }
 
-            if (!isTransferMethod) {
+            if (!isTransferMethod && traceMmap) {
                 // }
                 mv.visitLabel(fromFileChannelLabel);
             }
@@ -330,6 +351,16 @@ public class FileChannelImplAdapter extends AbstractSfsAdapter {
         // long endTime = System.currentTimeMillis();
         storeTime(mv, endTimeIndex);
 
+        // if map(...) was involved in this, then it may have reset the
+        // instrumentationActive flag if we don't trace mmap calls, so we need
+        // to check again whether instrumentation is still active, and only
+        // report the data then
+
+        // if (isInstrumentationActive()) {
+        isInstrumentationActive(mv);
+        Label instrumentationStillActiveLabel = new Label();
+        mv.visitJumpInsn(Opcodes.IFEQ, instrumentationStillActiveLabel);
+
         // callback.<callbackName>(startTime, endTime, result);
         mv.visitVarInsn(Opcodes.ALOAD, 0);
         mv.visitFieldInsn(Opcodes.GETFIELD, instrumentedTypeInternalName,
@@ -342,6 +373,69 @@ public class FileChannelImplAdapter extends AbstractSfsAdapter {
                 Type.getMethodDescriptor(Type.VOID_TYPE, Type.LONG_TYPE,
                         Type.LONG_TYPE, additionalCallbackArgumentType),
                 false);
+
+        // }
+        mv.visitLabel(instrumentationStillActiveLabel);
+
+        // same for the buffer
+
+        if (argumentTypes[bufferArgumentTypeIndex].getSort() != Type.ARRAY) {
+            // if (buffer instanceof MappedByteBuffer) {
+            // if (buffer instanceof FileChannelImpl) {
+            mv.visitVarInsn(Opcodes.ALOAD, bufferArgumentIndex);
+            if (!isTransferMethod) {
+                mv.visitTypeInsn(Opcodes.INSTANCEOF,
+                        Type.getInternalName(MappedByteBuffer.class));
+            } else {
+                mv.visitTypeInsn(Opcodes.INSTANCEOF,
+                        Type.getInternalName(FileChannelImpl.class));
+            }
+            Label bufferInstanceofMappedByteBufferLabel = new Label();
+            mv.visitJumpInsn(Opcodes.IFEQ,
+                    bufferInstanceofMappedByteBufferLabel);
+
+            // additional check required if the buffer is a MappedByteBuffer,
+            // and we want to trace those
+            Label fromFileChannelLabel = new Label();
+            if (!isTransferMethod && traceMmap) {
+                // if (buffer.isFromFileChannel()) {
+                mv.visitVarInsn(Opcodes.ALOAD, bufferArgumentIndex);
+                mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+                        Type.getInternalName(MappedByteBuffer.class),
+                        "isFromFileChannel",
+                        Type.getMethodDescriptor(Type.BOOLEAN_TYPE), false);
+                mv.visitJumpInsn(Opcodes.IFEQ, fromFileChannelLabel);
+            }
+
+            // either we're dealing with a FileChannelImpl (in a
+            // transferTo/transferFrom method), which might have flipped its
+            // instrumentationActive flag because mmap was used, or this is a
+            // regular read or write and we want to count in mmapped buffers
+            if (isTransferMethod || traceMmap) {
+                // if traceMmap is true, then we could actually just set
+                // bufferInstrumentationActive to true
+
+                // bufferInstrumentationActive =
+                // buffer.isInstrumentationActive();
+                mv.visitVarInsn(Opcodes.ALOAD, bufferArgumentIndex);
+                mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+                        !isTransferMethod
+                                ? Type.getInternalName(MappedByteBuffer.class)
+                                : Type.getInternalName(FileChannelImpl.class),
+                        "isInstrumentationActive",
+                        Type.getMethodDescriptor(Type.BOOLEAN_TYPE), false);
+                mv.visitVarInsn(Opcodes.ISTORE,
+                        bufferInstrumentationActiveIndex);
+            }
+
+            if (!isTransferMethod && traceMmap) {
+                // }
+                mv.visitLabel(fromFileChannelLabel);
+            }
+
+            // }
+            mv.visitLabel(bufferInstanceofMappedByteBufferLabel);
+        }
 
         // if (bufferInstrumentationActive) {
         mv.visitVarInsn(Opcodes.ILOAD, bufferInstrumentationActiveIndex);
