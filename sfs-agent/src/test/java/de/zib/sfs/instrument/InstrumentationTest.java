@@ -671,7 +671,7 @@ public class InstrumentationTest {
         assert (fci.position() == 3L * BUFFER_SIZE) : fci.position() + " : "
                 + 3L * BUFFER_SIZE;
         // fci is now 3 MB
-/*
+
         // repeat with duplicates
         numRead += fci.read(wrappedReadBuffer.duplicate());
         wrappedReadBuffer.position(0);
@@ -695,7 +695,7 @@ public class InstrumentationTest {
         assert (fci.position() == 6L * BUFFER_SIZE) : fci.position() + " : "
                 + 6L * BUFFER_SIZE;
         // fci is now 6 MB
-
+/*
         // read all 3 buffers using offsets
         List<Future<Long>> numsRead = new ArrayList<Future<Long>>();
         long currentFciPosition = fci.position();
