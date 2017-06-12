@@ -633,7 +633,7 @@ public class InstrumentationTest {
         assert (file.length() == expected) : file.length() + " : " + expected;
 
         // Read
-/*
+
         FileInputStream fis = new FileInputStream(file);
         ++openOperations;
 
@@ -671,7 +671,7 @@ public class InstrumentationTest {
         assert (fci.position() == 3L * BUFFER_SIZE) : fci.position() + " : "
                 + 3L * BUFFER_SIZE;
         // fci is now 3 MB
-
+/*
         // repeat with duplicates
         numRead += fci.read(wrappedReadBuffer.duplicate());
         wrappedReadBuffer.position(0);
