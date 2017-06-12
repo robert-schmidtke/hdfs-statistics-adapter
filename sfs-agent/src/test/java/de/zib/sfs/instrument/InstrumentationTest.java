@@ -695,7 +695,7 @@ public class InstrumentationTest {
         assert (fci.position() == 6L * BUFFER_SIZE) : fci.position() + " : "
                 + 6L * BUFFER_SIZE;
         // fci is now 6 MB
-/*
+
         // read all 3 buffers using offsets
         List<Future<Long>> numsRead = new ArrayList<Future<Long>>();
         long currentFciPosition = fci.position();
@@ -723,7 +723,7 @@ public class InstrumentationTest {
         assert (numRead == expected) : numRead + " : " + expected;
         assert (fci.position() == expected) : fci.position() + " : " + expected;
         // fci is now 9 MB (for numProcessors == 1)
-
+/*
         // read all 3 buffers using an array of them
         wrappedReadBuffer.position(0);
         allocatedReadBuffer.position(0);
