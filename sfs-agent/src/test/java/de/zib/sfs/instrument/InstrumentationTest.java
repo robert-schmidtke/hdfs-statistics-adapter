@@ -633,7 +633,7 @@ public class InstrumentationTest {
         assert (file.length() == expected) : file.length() + " : " + expected;
 
         // Read
-
+/*
         FileInputStream fis = new FileInputStream(file);
         ++openOperations;
 
@@ -900,7 +900,7 @@ public class InstrumentationTest {
         assert (numRead == -1);
         fci.close();
         fis.close();
-
+*/
         file.delete();
     }
 
