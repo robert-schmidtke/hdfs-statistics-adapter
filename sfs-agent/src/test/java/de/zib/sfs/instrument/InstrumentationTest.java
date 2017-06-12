@@ -90,6 +90,7 @@ public class InstrumentationTest {
         int numProcessors = useThreading
                 ? Runtime.getRuntime().availableProcessors() : 1;
         ExecutorService executor = Executors.newFixedThreadPool(numProcessors);
+        System.err.println("Running on " + numProcessors + " cores");
 
         traceMmap = Boolean
                 .parseBoolean(System.getProperty("de.zib.sfs.traceMmap"));
@@ -846,7 +847,7 @@ public class InstrumentationTest {
         assert (fci.position() == expected) : fci.position() + " : " + expected;
 
         dummyRaf.close();
-/*
+
         numsRead.clear();
         currentFciPosition = fci.position();
         for (int i = 0; i < numProcessors; ++i) {
@@ -900,7 +901,7 @@ public class InstrumentationTest {
         assert (numRead == -1);
         fci.close();
         fis.close();
-*/
+
         file.delete();
     }
 
