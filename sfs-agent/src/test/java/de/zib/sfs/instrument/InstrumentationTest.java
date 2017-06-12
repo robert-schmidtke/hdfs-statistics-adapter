@@ -814,7 +814,7 @@ public class InstrumentationTest {
         expected = 14L * BUFFER_SIZE + 4L * numProcessors * BUFFER_SIZE;
         assert (numRead == expected) : numRead + " : " + expected;
         assert (fci.position() == expected) : fci.position() + " : " + expected;
-/*
+
         // use transfer to file
         numsRead.clear();
         currentFciPosition = fci.position();
@@ -846,7 +846,7 @@ public class InstrumentationTest {
         assert (fci.position() == expected) : fci.position() + " : " + expected;
 
         dummyRaf.close();
-
+/*
         numsRead.clear();
         currentFciPosition = fci.position();
         for (int i = 0; i < numProcessors; ++i) {
