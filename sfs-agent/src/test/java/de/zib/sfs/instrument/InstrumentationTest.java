@@ -723,7 +723,7 @@ public class InstrumentationTest {
         assert (numRead == expected) : numRead + " : " + expected;
         assert (fci.position() == expected) : fci.position() + " : " + expected;
         // fci is now 9 MB (for numProcessors == 1)
-/*
+
         // read all 3 buffers using an array of them
         wrappedReadBuffer.position(0);
         allocatedReadBuffer.position(0);
@@ -779,7 +779,7 @@ public class InstrumentationTest {
         assert (numRead == expected) : numRead + " : " + expected;
         assert (fci.position() == expected) : fci.position() + " : " + expected;
         // fci is now at 14 MB
-
+/*
         // use read with offset
         numsRead.clear();
         currentFciPosition = fci.position();
