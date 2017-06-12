@@ -779,7 +779,7 @@ public class InstrumentationTest {
         assert (numRead == expected) : numRead + " : " + expected;
         assert (fci.position() == expected) : fci.position() + " : " + expected;
         // fci is now at 14 MB
-/*
+
         // use read with offset
         numsRead.clear();
         currentFciPosition = fci.position();
@@ -814,7 +814,7 @@ public class InstrumentationTest {
         expected = 14L * BUFFER_SIZE + 4L * numProcessors * BUFFER_SIZE;
         assert (numRead == expected) : numRead + " : " + expected;
         assert (fci.position() == expected) : fci.position() + " : " + expected;
-
+/*
         // use transfer to file
         numsRead.clear();
         currentFciPosition = fci.position();
