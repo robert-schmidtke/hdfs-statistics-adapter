@@ -126,7 +126,7 @@ public class LiveOperationStatisticsAggregator {
     }
 
     public int getFileDescriptor(String filename) {
-        if (!initialized) {
+        if (!initialized || filename == null) {
             return -1;
         }
 
