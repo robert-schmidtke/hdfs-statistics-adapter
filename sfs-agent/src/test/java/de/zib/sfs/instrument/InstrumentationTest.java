@@ -90,6 +90,7 @@ public class InstrumentationTest {
         int numProcessors = useThreading
                 ? Runtime.getRuntime().availableProcessors() : 1;
         ExecutorService executor = Executors.newFixedThreadPool(numProcessors);
+        System.err.println("Running on " + numProcessors + " cores");
 
         traceMmap = Boolean
                 .parseBoolean(System.getProperty("de.zib.sfs.traceMmap"));
@@ -841,6 +842,10 @@ public class InstrumentationTest {
         assert (fci.position() == expected) : fci.position() + " : " + expected;
 
         // use transfer to file
+        // Sometimes, this results in an mmap call, sometimes it's sendfile, and
+        // sometimes a regular read/write copy from the channel, depending on
+        // the OS. On my Mac this is an mmap, on Travis' Ubuntu it seems to be a
+        // sendfile, so we hardcode this in the check afterwards.
         numsRead.clear();
         currentFciPosition = fci.position();
         for (int i = 0; i < numProcessors; ++i) {
@@ -863,7 +868,17 @@ public class InstrumentationTest {
         }
         fci.position(fci.position() + 1L * numProcessors * BUFFER_SIZE);
         writeBytes += 1L * numProcessors * BUFFER_SIZE;
-        readBytes += traceMmap ? 1L * numProcessors * BUFFER_SIZE : 0L;
+        if (System.getProperty("os.name").toLowerCase().startsWith("mac")) {
+            readBytes += traceMmap ? 1L * numProcessors * BUFFER_SIZE : 0L;
+        } else if (System.getProperty("os.name").toLowerCase()
+                .startsWith("linux")) {
+            readBytes += 1L * numProcessors * BUFFER_SIZE;
+        } else {
+            dummyRaf.close();
+            fis.close();
+            throw new RuntimeException(
+                    "Unsupported OS: " + System.getProperty("os.name"));
+        }
 
         // fci is now 19 MB
         expected = 14L * BUFFER_SIZE + 5L * numProcessors * BUFFER_SIZE;

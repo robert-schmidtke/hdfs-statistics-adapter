@@ -7,13 +7,17 @@
  */
 package de.zib.sfs.instrument;
 
+import java.io.FileDescriptor;
+
+import de.zib.sfs.instrument.statistics.LiveOperationStatisticsAggregator;
 import de.zib.sfs.instrument.statistics.OperationCategory;
 import de.zib.sfs.instrument.statistics.OperationSource;
-import de.zib.sfs.instrument.statistics.LiveOperationStatisticsAggregator;
 
 public class RandomAccessFileCallback {
-
-    public void openCallback(long startTime, long endTime) {
+    public void openCallback(long startTime, long endTime, String filename,
+            FileDescriptor fd) {
+        LiveOperationStatisticsAggregator.instance.addFileDescriptor(fd,
+                filename);
         LiveOperationStatisticsAggregator.instance.aggregateOperationStatistics(
                 OperationSource.JVM, OperationCategory.OTHER, startTime,
                 endTime);
