@@ -7,7 +7,6 @@
  */
 package de.zib.sfs.instrument;
 
-import java.io.FileDescriptor;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -43,11 +42,8 @@ public class FileInputStreamAdapter extends AbstractSfsAdapter {
                 new Type[] { Type.getType(String.class) }, null,
                 new String[] {
                         Type.getInternalName(FileNotFoundException.class) },
-                "openCallback",
-                new Type[] { Type.getType(String.class),
-                        Type.getType(FileDescriptor.class) },
-                new ResultPasser[] { new ParameterResultPasser(1),
-                        new FieldResultPasser("fd") });
+                "openCallback", Type.getType(String.class),
+                new ParameterResultPasser(1));
 
         // for all read methods pass the read result to the callback
         ReturnResultPasser resultPasser = new ReturnResultPasser();
