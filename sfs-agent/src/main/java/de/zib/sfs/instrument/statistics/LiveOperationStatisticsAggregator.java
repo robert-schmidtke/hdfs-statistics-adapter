@@ -41,8 +41,8 @@ public class LiveOperationStatisticsAggregator {
     private String logFilePrefix;
 
     // for each source/category combination, map a time bin to an aggregate
-    // operation statistics
-    private final List<NavigableMap<Long, OperationStatistics>> aggregates;
+    // operation statistics for each file
+    private final List<NavigableMap<Long, NavigableMap<Integer, OperationStatistics>>> aggregates;
 
     // FIXME Not ideal data structure, there are supposedly faster concurrent
     // queues out there. Plus it may grow quite large in face of high
@@ -66,7 +66,7 @@ public class LiveOperationStatisticsAggregator {
 
     private LiveOperationStatisticsAggregator() {
         // map each source/category combination, map a time bin to an aggregate
-        aggregates = new ArrayList<NavigableMap<Long, OperationStatistics>>();
+        aggregates = new ArrayList<NavigableMap<Long, NavigableMap<Integer, OperationStatistics>>>();
         for (int i = 0; i < OperationSource.values().length
                 * OperationCategory.values().length; ++i) {
             aggregates.add(new ConcurrentSkipListMap<>());
@@ -137,22 +137,22 @@ public class LiveOperationStatisticsAggregator {
     }
 
     public void aggregateOperationStatistics(OperationSource source,
-            OperationCategory category, long startTime, long endTime) {
+            OperationCategory category, long startTime, long endTime, int fd) {
         if (!initialized) {
             return;
         }
 
         try {
-            threadPool.execute(
-                    new AggregationTask(source, category, startTime, endTime));
+            threadPool.execute(new AggregationTask(source, category, startTime,
+                    endTime, fd));
         } catch (RejectedExecutionException e) {
             overflowQueue.add(new OperationStatistics(timeBinDuration, source,
-                    category, startTime, endTime));
+                    category, startTime, endTime, fd));
         }
     }
 
     public void aggregateDataOperationStatistics(OperationSource source,
-            OperationCategory category, long startTime, long endTime,
+            OperationCategory category, long startTime, long endTime, int fd,
             long data) {
         if (!initialized) {
             return;
@@ -160,35 +160,38 @@ public class LiveOperationStatisticsAggregator {
 
         try {
             threadPool.execute(new AggregationTask(source, category, startTime,
-                    endTime, data));
+                    endTime, fd, data));
         } catch (RejectedExecutionException e) {
             overflowQueue.add(new DataOperationStatistics(timeBinDuration,
-                    source, category, startTime, endTime, data));
+                    source, category, startTime, endTime, fd, data));
         }
     }
 
     public void aggregateReadDataOperationStatistics(OperationSource source,
-            OperationCategory category, long startTime, long endTime, long data,
-            boolean isRemote) {
+            OperationCategory category, long startTime, long endTime, int fd,
+            long data, boolean isRemote) {
         if (!initialized) {
             return;
         }
 
         try {
             threadPool.execute(new AggregationTask(source, category, startTime,
-                    endTime, data, isRemote));
+                    endTime, fd, data, isRemote));
         } catch (RejectedExecutionException e) {
             overflowQueue.add(new ReadDataOperationStatistics(timeBinDuration,
-                    source, category, startTime, endTime, data, isRemote));
+                    source, category, startTime, endTime, fd, data, isRemote));
         }
     }
 
     public synchronized void flush() {
         aggregates.forEach(v -> {
-            Map.Entry<Long, OperationStatistics> entry = v.pollFirstEntry();
+            Map.Entry<Long, NavigableMap<Integer, OperationStatistics>> entry = v
+                    .pollFirstEntry();
             while (entry != null) {
                 try {
-                    write(entry.getValue());
+                    for (OperationStatistics os : entry.getValue().values()) {
+                        write(os);
+                    }
                     entry = v.pollFirstEntry();
                 } catch (IOException e) {
                     e.printStackTrace();
@@ -363,22 +366,23 @@ public class LiveOperationStatisticsAggregator {
 
         public AggregationTask(OperationSource source,
                 OperationCategory category, long startTime, long endTime,
-                long data, boolean isRemote) {
+                int fd, long data, boolean isRemote) {
             aggregate = new ReadDataOperationStatistics(timeBinDuration, source,
-                    category, startTime, endTime, data, isRemote);
+                    category, startTime, endTime, fd, data, isRemote);
         }
 
         public AggregationTask(OperationSource source,
                 OperationCategory category, long startTime, long endTime,
-                long data) {
+                int fd, long data) {
             aggregate = new DataOperationStatistics(timeBinDuration, source,
-                    category, startTime, endTime, data);
+                    category, startTime, endTime, fd, data);
         }
 
         public AggregationTask(OperationSource source,
-                OperationCategory category, long startTime, long endTime) {
+                OperationCategory category, long startTime, long endTime,
+                int fd) {
             aggregate = new OperationStatistics(timeBinDuration, source,
-                    category, startTime, endTime);
+                    category, startTime, endTime, fd);
         }
 
         @Override
@@ -394,16 +398,24 @@ public class LiveOperationStatisticsAggregator {
         protected boolean exec() {
             while (aggregate != null) {
                 // get the time bin applicable for this operation
-                NavigableMap<Long, OperationStatistics> timeBins = aggregates
+                NavigableMap<Long, NavigableMap<Integer, OperationStatistics>> timeBins = aggregates
                         .get(getUniqueIndex(aggregate.getSource(),
                                 aggregate.getCategory()));
-                timeBins.merge(aggregate.getTimeBin(), aggregate, (v1, v2) -> {
-                    try {
-                        return v1.aggregate(v2);
-                    } catch (OperationStatistics.NotAggregatableException e) {
-                        throw new IllegalArgumentException(e);
-                    }
-                });
+
+                // get the file descriptor applicable for this operation
+                NavigableMap<Integer, OperationStatistics> fileDescriptors = timeBins
+                        .computeIfAbsent(aggregate.getTimeBin(),
+                                l -> new ConcurrentSkipListMap<>());
+
+                fileDescriptors.merge(aggregate.getFileDescriptor(), aggregate,
+                        (v1, v2) -> {
+                            try {
+                                return v1.aggregate(v2);
+                            } catch (OperationStatistics.NotAggregatableException e) {
+                                e.printStackTrace();
+                                throw new IllegalArgumentException(e);
+                            }
+                        });
 
                 // make sure to emit aggregates when the cache is full until
                 // it's half full again to avoid writing every time bin size
@@ -412,10 +424,13 @@ public class LiveOperationStatisticsAggregator {
                 if (size > timeBinCacheSize) {
                     for (int i = size / 2; i > 0; --i) {
                         try {
-                            Map.Entry<Long, OperationStatistics> entry = timeBins
+                            Map.Entry<Long, NavigableMap<Integer, OperationStatistics>> entry = timeBins
                                     .pollFirstEntry();
                             if (entry != null) {
-                                write(entry.getValue());
+                                for (OperationStatistics os : entry.getValue()
+                                        .values()) {
+                                    write(os);
+                                }
                             } else {
                                 break;
                             }

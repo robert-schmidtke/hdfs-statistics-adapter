@@ -550,6 +550,7 @@ public class InstrumentationTest {
         for (int i = 0; i < numProcessors; ++i) {
             final long offset = currentFcoPosition + 1L * i * BUFFER_SIZE;
             numsWritten.add(executor.submit(new Callable<Long>() {
+
                 @Override
                 public Long call() throws Exception {
                     return (long) fco.write(readMappedByteBuffer.duplicate(),
@@ -557,7 +558,9 @@ public class InstrumentationTest {
                 }
             }));
         }
-        for (Future<Long> nw : numsWritten) {
+        for (
+
+        Future<Long> nw : numsWritten) {
             numWritten += nw.get();
         }
         fco.position(fco.position() + 1L * numProcessors * BUFFER_SIZE);
@@ -1494,12 +1497,24 @@ public class InstrumentationTest {
                     assert (OperationSource.JVM
                             .equals(operationStatistics.getSource()));
 
+                    // reset file descriptors because we don't care about
+                    // individual file I/O here
+                    operationStatistics.setFileDescriptor(0);
+
                     // put the aggregates into the appropriate list/bin
                     aggregates.get(LiveOperationStatisticsAggregator
                             .getUniqueIndex(operationStatistics.getSource(),
                                     operationStatistics.getCategory()))
-                            .put(operationStatistics.getTimeBin(),
-                                    operationStatistics);
+                            .merge(operationStatistics.getTimeBin(),
+                                    operationStatistics, (v1, v2) -> {
+                                        try {
+                                            return v1.aggregate(v2);
+                                        } catch (OperationStatistics.NotAggregatableException e) {
+                                            e.printStackTrace();
+                                            throw new IllegalArgumentException(
+                                                    e);
+                                        }
+                                    });
                 }
                 reader.close();
 
