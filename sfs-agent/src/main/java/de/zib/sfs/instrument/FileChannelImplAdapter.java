@@ -41,6 +41,25 @@ public class FileChannelImplAdapter extends AbstractSfsAdapter {
     }
 
     @Override
+    protected void initializeFields(MethodVisitor constructorMV,
+            String constructorDesc) {
+        // callback.openCallback(path);
+        constructorMV.visitVarInsn(Opcodes.ALOAD, 0);
+        constructorMV.visitFieldInsn(Opcodes.GETFIELD,
+                instrumentedTypeInternalName, "callback",
+                callbackTypeDescriptor);
+        constructorMV.visitVarInsn(Opcodes.ALOAD, 0);
+        constructorMV.visitFieldInsn(Opcodes.GETFIELD,
+                instrumentedTypeInternalName, "path",
+                Type.getDescriptor(String.class));
+        constructorMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+                callbackTypeInternalName, "openCallback",
+                Type.getMethodDescriptor(Type.VOID_TYPE,
+                        Type.getType(String.class)),
+                false);
+    }
+
+    @Override
     protected boolean wrapMethod(int access, String name, String desc,
             String signature, String[] exceptions) {
         return isReadMethod(access, name, desc, signature, exceptions)
@@ -134,6 +153,17 @@ public class FileChannelImplAdapter extends AbstractSfsAdapter {
                 Type.getInternalName(MappedByteBuffer.class),
                 "setFromFileChannel",
                 Type.getMethodDescriptor(Type.VOID_TYPE, Type.BOOLEAN_TYPE),
+                false);
+
+        // mbb.setFilename(path);
+        mapMV.visitVarInsn(Opcodes.ALOAD, 6);
+        mapMV.visitVarInsn(Opcodes.ALOAD, 0);
+        mapMV.visitFieldInsn(Opcodes.GETFIELD, instrumentedTypeInternalName,
+                "path", Type.getDescriptor(String.class));
+        mapMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+                Type.getInternalName(MappedByteBuffer.class), "setFilename",
+                Type.getMethodDescriptor(Type.VOID_TYPE,
+                        Type.getType(String.class)),
                 false);
 
         // if we don't want to trace mmap calls, then map needs to reset the
