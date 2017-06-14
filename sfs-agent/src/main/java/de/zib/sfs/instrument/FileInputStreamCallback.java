@@ -20,13 +20,13 @@ public class FileInputStreamCallback {
                 .getFileDescriptor(filename);
         LiveOperationStatisticsAggregator.instance.aggregateOperationStatistics(
                 OperationSource.JVM, OperationCategory.OTHER, startTime,
-                endTime);
+                endTime, fd);
     }
 
     public void readCallback(long startTime, long endTime, int readResult) {
         LiveOperationStatisticsAggregator.instance
                 .aggregateReadDataOperationStatistics(OperationSource.JVM,
-                        OperationCategory.READ, startTime, endTime,
+                        OperationCategory.READ, startTime, endTime, fd,
                         readResult == -1 ? 0 : 1, false);
     }
 
@@ -34,7 +34,7 @@ public class FileInputStreamCallback {
             int readResult) {
         LiveOperationStatisticsAggregator.instance
                 .aggregateReadDataOperationStatistics(OperationSource.JVM,
-                        OperationCategory.READ, startTime, endTime,
+                        OperationCategory.READ, startTime, endTime, fd,
                         readResult == -1 ? 0 : readResult, false);
     }
 
