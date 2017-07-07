@@ -27,8 +27,8 @@ public class ZipFileCallback {
 
             LiveOperationStatisticsAggregator.instance
                     .aggregateReadDataOperationStatistics(OperationSource.JVM,
-                            OperationCategory.ZIP, startTime, endTime, fd,
-                            length, false);
+                            OperationCategory.ZIP, startTime, endTime, length,
+                            false);
 
             // For testing purposes, keep track of how much data was read using
             // ZipFiles. Automatically disabled in non-assertion-enabled

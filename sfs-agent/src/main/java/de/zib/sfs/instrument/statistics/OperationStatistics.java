@@ -29,22 +29,19 @@ public class OperationStatistics {
 
     private OperationCategory category;
 
-    private int fd;
-
     public OperationStatistics(long timeBinDuration, OperationSource source,
-            OperationCategory category, long startTime, long endTime, int fd) {
+            OperationCategory category, long startTime, long endTime) {
         this(1, startTime - startTime % timeBinDuration, endTime - startTime,
-                source, category, fd);
+                source, category);
     }
 
     public OperationStatistics(long count, long timeBin, long cpuTime,
-            OperationSource source, OperationCategory category, int fd) {
+            OperationSource source, OperationCategory category) {
         this.count = count;
         this.timeBin = timeBin;
         this.cpuTime = cpuTime;
         this.source = source;
         this.category = category;
-        this.fd = fd;
     }
 
     public long getCount() {
@@ -87,14 +84,6 @@ public class OperationStatistics {
         this.category = category;
     }
 
-    public int getFileDescriptor() {
-        return fd;
-    }
-
-    public void setFileDescriptor(int fd) {
-        this.fd = fd;
-    }
-
     public OperationStatistics aggregate(OperationStatistics other)
             throws NotAggregatableException {
         if (this == other) {
@@ -116,13 +105,8 @@ public class OperationStatistics {
                     + category + ", " + other.getCategory());
         }
 
-        if (other.getFileDescriptor() != fd) {
-            throw new NotAggregatableException("File descriptors do not match: "
-                    + fd + ", " + other.getFileDescriptor());
-        }
-
         return new OperationStatistics(count + other.getCount(), timeBin,
-                cpuTime + other.getCpuTime(), source, category, fd);
+                cpuTime + other.getCpuTime(), source, category);
     }
 
     public String getCsvHeaders(String separator) {
@@ -132,7 +116,6 @@ public class OperationStatistics {
         sb.append(separator).append("cpuTime");
         sb.append(separator).append("source");
         sb.append(separator).append("category");
-        sb.append(separator).append("fileDescriptor");
         return sb.toString();
     }
 
@@ -143,7 +126,6 @@ public class OperationStatistics {
         sb.append(separator).append(cpuTime);
         sb.append(separator).append(source.name().toLowerCase());
         sb.append(separator).append(category.name().toLowerCase());
-        sb.append(separator).append(fd);
         return sb.toString();
     }
 
@@ -154,8 +136,7 @@ public class OperationStatistics {
                 Long.parseLong(values[off + 1]),
                 Long.parseLong(values[off + 2]),
                 OperationSource.valueOf(values[off + 3].toUpperCase()),
-                OperationCategory.valueOf(values[off + 4].toUpperCase()),
-                Integer.parseInt(values[off + 5]));
+                OperationCategory.valueOf(values[off + 4].toUpperCase()));
     }
 
     @Override

@@ -12,16 +12,15 @@ public class DataOperationStatistics extends OperationStatistics {
     private long data;
 
     public DataOperationStatistics(long timeBinDuration, OperationSource source,
-            OperationCategory category, long startTime, long endTime, int fd,
+            OperationCategory category, long startTime, long endTime,
             long data) {
         this(1, startTime - startTime % timeBinDuration, endTime - startTime,
-                source, category, fd, data);
+                source, category, data);
     }
 
     public DataOperationStatistics(long count, long timeBin, long cpuTime,
-            OperationSource source, OperationCategory category, int fd,
-            long data) {
-        super(count, timeBin, cpuTime, source, category, fd);
+            OperationSource source, OperationCategory category, long data) {
+        super(count, timeBin, cpuTime, source, category);
         this.data = data;
     }
 
@@ -44,7 +43,6 @@ public class DataOperationStatistics extends OperationStatistics {
         return new DataOperationStatistics(aggregate.getCount(),
                 aggregate.getTimeBin(), aggregate.getCpuTime(),
                 aggregate.getSource(), aggregate.getCategory(),
-                aggregate.getFileDescriptor(),
                 data + ((DataOperationStatistics) other).getData());
     }
 
@@ -72,7 +70,6 @@ public class DataOperationStatistics extends OperationStatistics {
                 Long.parseLong(values[off + 2]),
                 OperationSource.valueOf(values[off + 3].toUpperCase()),
                 OperationCategory.valueOf(values[off + 4].toUpperCase()),
-                Integer.parseInt(values[off + 5]),
-                Long.parseLong(values[off + 6]));
+                Long.parseLong(values[off + 5]));
     }
 }

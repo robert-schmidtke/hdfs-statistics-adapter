@@ -39,7 +39,7 @@ public class FileOutputStreamCallback {
                     .getFileDescriptor(filename);
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.JVM,
-                            OperationCategory.OTHER, startTime, endTime, fd);
+                            OperationCategory.OTHER, startTime, endTime);
         }
     }
 
@@ -47,7 +47,7 @@ public class FileOutputStreamCallback {
         if (!discard) {
             LiveOperationStatisticsAggregator.instance
                     .aggregateDataOperationStatistics(OperationSource.JVM,
-                            OperationCategory.WRITE, startTime, endTime, fd, 1);
+                            OperationCategory.WRITE, startTime, endTime, 1);
         }
     }
 
@@ -55,8 +55,7 @@ public class FileOutputStreamCallback {
         if (!discard) {
             LiveOperationStatisticsAggregator.instance
                     .aggregateDataOperationStatistics(OperationSource.JVM,
-                            OperationCategory.WRITE, startTime, endTime, fd,
-                            len);
+                            OperationCategory.WRITE, startTime, endTime, len);
         }
     }
 

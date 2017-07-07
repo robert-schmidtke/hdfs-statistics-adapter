@@ -13,16 +13,16 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
 
     public ReadDataOperationStatistics(long timeBinDuration,
             OperationSource source, OperationCategory category, long startTime,
-            long endTime, int fd, long data, boolean isRemote) {
+            long endTime, long data, boolean isRemote) {
         this(1, startTime - startTime % timeBinDuration, endTime - startTime,
-                source, category, fd, data, isRemote ? 1 : 0,
+                source, category, data, isRemote ? 1 : 0,
                 isRemote ? endTime - startTime : 0, isRemote ? data : 0);
     }
 
     public ReadDataOperationStatistics(long count, long timeBin, long cpuTime,
-            OperationSource source, OperationCategory category, int fd,
-            long data, long remoteCount, long remoteDuration, long remoteData) {
-        super(count, timeBin, cpuTime, source, category, fd, data);
+            OperationSource source, OperationCategory category, long data,
+            long remoteCount, long remoteDuration, long remoteData) {
+        super(count, timeBin, cpuTime, source, category, data);
         this.remoteCount = remoteCount;
         this.remoteDuration = remoteDuration;
         this.remoteData = remoteData;
@@ -63,7 +63,7 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
         return new ReadDataOperationStatistics(aggregate.getCount(),
                 aggregate.getTimeBin(), aggregate.getCpuTime(),
                 aggregate.getSource(), aggregate.getCategory(),
-                aggregate.getFileDescriptor(), aggregate.getData(),
+                aggregate.getData(),
                 remoteCount + ((ReadDataOperationStatistics) other)
                         .getRemoteCount(),
                 remoteDuration + ((ReadDataOperationStatistics) other)
@@ -100,10 +100,9 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
                 Long.parseLong(values[off + 2]),
                 OperationSource.valueOf(values[off + 3].toUpperCase()),
                 OperationCategory.valueOf(values[off + 4].toUpperCase()),
-                Integer.parseInt(values[off + 5]),
+                Long.parseLong(values[off + 5]),
                 Long.parseLong(values[off + 6]),
                 Long.parseLong(values[off + 7]),
-                Long.parseLong(values[off + 8]),
-                Long.parseLong(values[off + 9]));
+                Long.parseLong(values[off + 8]));
     }
 }
