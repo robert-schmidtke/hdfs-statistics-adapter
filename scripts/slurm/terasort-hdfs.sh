@@ -90,11 +90,13 @@ echo "$(date): Cleaning Java processes done"
 
 echo "$(date): Cleaning local directories"
 srun -N$SLURM_JOB_NUM_NODES rm -rf /local/$USER
+srun -N$SLURM_JOB_NUM_NODES rm -rf /local_ssd/$USER
 srun -N$SLURM_JOB_NUM_NODES rm -rf /tmp/$USER
 echo "$(date): Cleaning local directories done"
 
 echo "$(date): Creating local folders"
 srun -N$SLURM_JOB_NUM_NODES mkdir -p /local/$USER/hdfs
+srun -N$SLURM_JOB_NUM_NODES mkdir -p /local_ssd/$USER/sfs
 srun -N$SLURM_JOB_NUM_NODES mkdir -p /tmp/$USER/sfs
 srun -N$SLURM_JOB_NUM_NODES mkdir -p /local/$USER/flink
 #srun -N$SLURM_JOB_NUM_NODES mkdir -p /local/$USER/collectl
@@ -117,8 +119,8 @@ if [ -z "$NO_SFS" ]; then
   start_transformer_jvm_script="${SLURM_JOB_ID}-start-transformer-jvm.sh"
   cat >> $start_transformer_jvm_script << EOF
 #!/bin/bash
-nohup java -cp $SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar de.zib.sfs.instrument.ClassTransformationService --port 4242 --timeout -1 --verbose n > /tmp/$USER/sfs/transformer.log 2>&1 &
-echo \$! > /tmp/$USER/sfs/transformer.pid
+nohup java -cp $SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar de.zib.sfs.instrument.ClassTransformationService --port 4242 --timeout -1 --trace-mmap n --verbose n > /local_ssd/$USER/sfs/transformer.log 2>&1 &
+echo \$! > /local_ssd/$USER/sfs/transformer.pid
 EOF
   chmod +x $start_transformer_jvm_script
   srun -N$SLURM_JOB_NUM_NODES $start_transformer_jvm_script
@@ -146,7 +148,7 @@ LD_LIBRARY_PATH_EXT="$GRPC_HOME/libs/opt:$GRPC_HOME/third_party/protobuf/src/.li
 if [ -z "$NO_SFS" ]; then
   # configure some additional options for SFS
   OPTS="-agentpath:$SFS_DIRECTORY/sfs-agent/target/libsfs.so=trans_jar=$SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar,trans_address=0.0.0.0:4242"
-  OPTS="$OPTS,bin_duration=1000,cache_size=60,out_dir=/tmp/$USER/sfs,verbose=n"
+  OPTS="$OPTS,bin_duration=1000,cache_size=60,out_dir=/local_ssd/$USER/sfs,trace_mmap=n,verbose=n"
   HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --hadoop-opts $OPTS,key=hdfs"
   HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --map-opts $OPTS,key=map"
   HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --reduce-opts $OPTS,key=reduce"
@@ -314,11 +316,11 @@ if [ -z "$NO_SFS" ]; then
   stop_transformer_jvm_script="${SLURM_JOB_ID}-stop-transformer-jvm.sh"
   cat >> $stop_transformer_jvm_script << EOF
 #!/bin/bash
-kill \$(</tmp/$USER/sfs/transformer.pid)
-rm /tmp/$USER/sfs/transformer.pid
+kill \$(</local_ssd/$USER/sfs/transformer.pid)
+rm /local_ssd/$USER/sfs/transformer.pid
 echo "Transformer log on \$(hostname):"
-cat /tmp/$USER/sfs/transformer.log
-rm /tmp/$USER/sfs/transformer.log
+cat /local_ssd/$USER/sfs/transformer.log
+rm /local_ssd/$USER/sfs/transformer.log
 EOF
   chmod +x $stop_transformer_jvm_script
   srun -N$SLURM_JOB_NUM_NODES $stop_transformer_jvm_script
@@ -349,10 +351,13 @@ if [ -z "$NO_SFS" ]; then
   cat > copy-logs.sh << EOF
 #!/bin/bash
 
-# execute postrun aggregation
-java -cp $SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar de.zib.sfs.instrument.statistics.PostRunOperationStatisticsAggregator --path /tmp/$USER/sfs --prefix "\$(hostname)-" --suffix "-concat"
+echo "Size of files in /local_ssd/$USER/sfs on \$(hostname):"
+du -c -h /local_ssd/$USER/sfs
 
-cd /tmp/$USER/sfs
+# execute postrun aggregation
+java -cp $SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar de.zib.sfs.instrument.statistics.PostRunOperationStatisticsAggregator --path /local_ssd/$USER/sfs --prefix "\$(hostname)-" --suffix "-concat"
+
+cd /local_ssd/$USER/sfs
 for file in \$(ls *-concat.csv); do
   cp \$file $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$file
 done
@@ -369,6 +374,7 @@ tar czf $SFS_DIRECTORY/$SLURM_JOB_ID-$ENGINE-terasort-results.tar.gz $SFS_TARGET
 if [ "$RET_CODE" -eq "0" ]; then
   echo "$(date): Cleaning local directories"
   srun -N$SLURM_JOB_NUM_NODES rm -rf /local/$USER
+  srun -N$SLURM_JOB_NUM_NODES rm -rf /local_ssd/$USER
   srun -N$SLURM_JOB_NUM_NODES rm -rf /tmp/$USER
 #  srun -N$SLURM_JOB_NUM_NODES rm -rf /local/$USER/collectl
   echo "$(date): Cleaning local directories done"
