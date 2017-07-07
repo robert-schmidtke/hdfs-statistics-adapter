@@ -221,10 +221,6 @@ if [ -z "$NO_SFS" ]; then
   SCHEME="sfs"
 fi
 
-echo "$(date): Resetting XFS file system counters"
-srun sudo /sbin/sysctl -w fs.xfs.stats_clear=1
-echo "$(date): Resetting XFS file system counters done"
-
 # total amount of data to generate, in bytes
 # conveniently as multiple of gigabytes
 # (well, almost a gigabyte, to ensure divisibility by 100)
@@ -235,6 +231,22 @@ TOTAL_DATA=$(($DATA_GB * 1073741800))
 DATA_PER_MAPPER=$((512 * 1048576))
 TERAGEN_MAPPERS=$((($TOTAL_DATA + $DATA_PER_MAPPER - 1) / $DATA_PER_MAPPER))
 
+echo "$(date): Dumping file system counters"
+ssh cumulus cat /sys/fs/xfs/sda1/stats/stats > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-cumulus.xfs.root.pre
+ssh cumulus cat /sys/fs/xfs/sda2/stats/stats > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-cumulus.xfs.local.pre
+ssh cumulus cat /sys/fs/xfs/sdb1/stats/stats > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-cumulus.xfs.scratch.pre
+dump_xfs_stats_script="${SLURM_JOB_ID}-dump_xfs_stats.sh"
+cat > $dump_xfs_stats_script << EOF
+#!/bin/bash
+cat /sys/fs/xfs/sda1/stats/stats > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname).xfs.root.pre
+cat /sys/fs/xfs/sda2/stats/stats > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname).xfs.local.pre
+cat /sys/fs/ext4/sdb1/session_write_kbytes > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname).ext4.local_ssd.pre
+EOF
+chmod +x $dump_xfs_stats_script
+srun -N$SLURM_JOB_NUM_NODES $dump_xfs_stats_script
+rm $dump_xfs_stats_script
+echo "$(date): Dumping file system counters done"
+
 echo "$(date): Generating TeraSort data on HDFS"
 $HADOOP_HOME/bin/hadoop jar \
   $HADOOP_HOME/share/hadoop/mapreduce/hadoop-mapreduce-examples-${HADOOP_VERSION}.jar teragen \
@@ -242,20 +254,21 @@ $HADOOP_HOME/bin/hadoop jar \
   $(($TOTAL_DATA / 100)) $SCHEME://$MASTER:8020/user/$USER/input
 echo "$(date): Generating TeraSort data on HDFS done"
 
-echo "$(date): Dumping XFS file system counters"
+echo "$(date): Dumping file system counters"
+ssh cumulus cat /sys/fs/xfs/sda1/stats/stats > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-cumulus.xfs.root.mid
+ssh cumulus cat /sys/fs/xfs/sda2/stats/stats > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-cumulus.xfs.local.mid
+ssh cumulus cat /sys/fs/xfs/sdb1/stats/stats > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-cumulus.xfs.scratch.mid
 dump_xfs_stats_script="${SLURM_JOB_ID}-dump_xfs_stats.sh"
-cat >> $dump_xfs_stats_script << EOF
+cat > $dump_xfs_stats_script << EOF
 #!/bin/bash
-cat /proc/fs/xfs/stat >> $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname)-xfs.stats
+cat /sys/fs/xfs/sda1/stats/stats > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname).xfs.root.mid
+cat /sys/fs/xfs/sda2/stats/stats > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname).xfs.local.mid
+cat /sys/fs/ext4/sdb1/session_write_kbytes > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname).ext4.local_ssd.mid
 EOF
 chmod +x $dump_xfs_stats_script
 srun -N$SLURM_JOB_NUM_NODES $dump_xfs_stats_script
 rm $dump_xfs_stats_script
-echo "$(date): Dumping XFS file system counters done"
-
-echo "$(date): Resetting XFS file system counters"
-srun sudo /sbin/sysctl -w fs.xfs.stats_clear=1
-echo "$(date): Resetting XFS file system counters done"
+echo "$(date): Dumping file system counters done"
 
 $HADOOP_HOME/bin/hadoop fs -mkdir -p hdfs://$MASTER:8020/user/$USER/output
 
@@ -295,16 +308,21 @@ esac
 RET_CODE=$?
 echo "$(date): Running TeraSort done: $RET_CODE"
 
-echo "$(date): Dumping XFS file system counters"
+echo "$(date): Dumping file system counters"
+ssh cumulus cat /sys/fs/xfs/sda1/stats/stats > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-cumulus.xfs.root.post
+ssh cumulus cat /sys/fs/xfs/sda2/stats/stats > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-cumulus.xfs.local.post
+ssh cumulus cat /sys/fs/xfs/sdb1/stats/stats > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-cumulus.xfs.scratch.post
 dump_xfs_stats_script="${SLURM_JOB_ID}-dump_xfs_stats.sh"
-cat >> $dump_xfs_stats_script << EOF
+cat > $dump_xfs_stats_script << EOF
 #!/bin/bash
-cat /proc/fs/xfs/stat >> $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname)-xfs.stats
+cat /sys/fs/xfs/sda1/stats/stats > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname).xfs.root.post
+cat /sys/fs/xfs/sda2/stats/stats > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname).xfs.local.post
+cat /sys/fs/ext4/sdb1/session_write_kbytes > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname).ext4.local_ssd.post
 EOF
 chmod +x $dump_xfs_stats_script
 srun -N$SLURM_JOB_NUM_NODES $dump_xfs_stats_script
 rm $dump_xfs_stats_script
-echo "$(date): Dumping XFS file system counters done"
+echo "$(date): Dumping file system counters done"
 
 echo "$(date): Stopping HDFS"
 cp ./stop-hdfs-slurm.sh $HADOOP_HOME/sbin
