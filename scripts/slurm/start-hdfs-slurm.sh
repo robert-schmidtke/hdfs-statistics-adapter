@@ -140,7 +140,8 @@ cat > $HADOOP_CONF_DIR/core-site.xml << EOF
   </property>
   <property>
     <name>hadoop.tmp.dir</name>
-    <value>/local/${HDFS_LOCAL_DIR}/tmp</value>
+    <!-- <value>/local/${HDFS_LOCAL_DIR}/tmp</value> -->
+    <value>/local_ssd/${HDFS_LOCAL_DIR}/tmp</value>
   </property>
 EOF
 
@@ -348,6 +349,7 @@ done
 # start name node
 mkdir -p /local/$HDFS_LOCAL_DIR
 mkdir -p /local/${HDFS_LOCAL_DIR}/tmp
+mkdir -p /local_ssd/${HDFS_LOCAL_DIR}/tmp
 mkdir -p /local/$HDFS_LOCAL_LOG_DIR
 
 export HADOOP_USER_CLASSPATH_FIRST="YES"
@@ -376,6 +378,7 @@ for datanode in ${HADOOP_DATANODES[@]}; do
 # same as for namenode
 mkdir -p /local/$HDFS_LOCAL_DIR
 mkdir -p /local/${HDFS_LOCAL_DIR}/tmp
+mkdir -p /local_ssd/${HDFS_LOCAL_DIR}/tmp
 mkdir -p /local/$HDFS_LOCAL_LOG_DIR
 
 export HADOOP_OPTS=$HADOOP_OPTS

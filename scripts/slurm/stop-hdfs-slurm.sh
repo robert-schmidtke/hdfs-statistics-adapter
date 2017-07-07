@@ -216,6 +216,7 @@ if [ -f \$pidfile ]; then
   cp /local/$HDFS_LOCAL_LOG_DIR/nodemanager-$datanode.log $HADOOP_PREFIX/log-$SLURM_JOB_ID/nodemanager-$datanode.log
   rm -rf /local/$HDFS_LOCAL_LOG_DIR
   rm -rf /local/$HDFS_LOCAL_DIR
+  rm -rf /local_ssd/$HDFS_LOCAL_DIR
 else
   echo "PID file \$pidfile does not exist."
 fi
@@ -250,5 +251,6 @@ done
 
 rm -rf /local/$HDFS_LOCAL_LOG_DIR
 rm -rf /local/$HDFS_LOCAL_DIR
+rm -rf /local_ssd/$HDFS_LOCAL_DIR
 
 echo "Stopping Hadoop done."
