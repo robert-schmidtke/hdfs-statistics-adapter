@@ -7,18 +7,13 @@
  */
 package de.zib.sfs.instrument;
 
-import java.io.FileDescriptor;
-
 import de.zib.sfs.instrument.statistics.LiveOperationStatisticsAggregator;
 import de.zib.sfs.instrument.statistics.OperationCategory;
 import de.zib.sfs.instrument.statistics.OperationSource;
 
 public class FileInputStreamCallback {
 
-    public void openCallback(long startTime, long endTime, String filename,
-            FileDescriptor fd) {
-        LiveOperationStatisticsAggregator.instance.addFileDescriptor(fd,
-                filename);
+    public void openCallback(long startTime, long endTime) {
         LiveOperationStatisticsAggregator.instance.aggregateOperationStatistics(
                 OperationSource.JVM, OperationCategory.OTHER, startTime,
                 endTime);

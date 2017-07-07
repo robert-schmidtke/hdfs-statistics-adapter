@@ -9,10 +9,8 @@ package de.zib.sfs.instrument.statistics;
 
 import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileDescriptor;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -54,22 +52,6 @@ public class LiveOperationStatisticsAggregator {
 
     private final ForkJoinPool threadPool;
 
-    // mapping of file descriptors to file names
-    private final NavigableMap<Integer, String> fileDescriptors;
-    private final Field fileDescriptorFdField;
-
-    private static class FileDescriptorMapping {
-        public final FileDescriptor fd;
-        public final String filename;
-
-        public FileDescriptorMapping(FileDescriptor fd, String filename) {
-            this.fd = fd;
-            this.filename = filename;
-        }
-    }
-
-    private final Queue<FileDescriptorMapping> fdOverflowQueue;
-
     public static final LiveOperationStatisticsAggregator instance = new LiveOperationStatisticsAggregator();
 
     private LiveOperationStatisticsAggregator() {
@@ -97,15 +79,6 @@ public class LiveOperationStatisticsAggregator {
         threadPool = new ForkJoinPool(
                 Runtime.getRuntime().availableProcessors(),
                 ForkJoinPool.defaultForkJoinWorkerThreadFactory, null, true);
-
-        fileDescriptors = new ConcurrentSkipListMap<>();
-        fdOverflowQueue = new ConcurrentLinkedQueue<>();
-        try {
-            fileDescriptorFdField = FileDescriptor.class.getDeclaredField("fd");
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-        fileDescriptorFdField.setAccessible(true);
 
         initialized = false;
     }
@@ -138,17 +111,6 @@ public class LiveOperationStatisticsAggregator {
                 + (outputDirectory.endsWith(File.separator) ? ""
                         : File.separator)
                 + systemHostname + "." + systemPid + "." + systemKey;
-    }
-
-    public void addFileDescriptor(FileDescriptor fileDescriptor,
-            String filename) {
-        try {
-            threadPool.execute(
-                    new AddFileDescriptorTask(fileDescriptor, filename));
-        } catch (RejectedExecutionException e) {
-            fdOverflowQueue
-                    .add(new FileDescriptorMapping(fileDescriptor, filename));
-        }
     }
 
     public void aggregateOperationStatistics(OperationSource source,
@@ -234,18 +196,6 @@ public class LiveOperationStatisticsAggregator {
             }
         }
 
-        if (!fdOverflowQueue.isEmpty()) {
-            for (int i = 0; i < Runtime.getRuntime()
-                    .availableProcessors(); ++i) {
-                threadPool.execute(
-                        new AddFileDescriptorTask(fdOverflowQueue.poll()));
-            }
-
-            if (!threadPool.awaitQuiescence(30, TimeUnit.SECONDS)) {
-                System.err.println("Thread pool did not quiesce");
-            }
-        }
-
         // stop accepting new tasks
         synchronized (this) {
             if (!initialized) {
@@ -276,23 +226,6 @@ public class LiveOperationStatisticsAggregator {
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
-        }
-
-        // write out the descriptor mappings
-        try {
-            BufferedWriter fileDescriptorMappingsWriter = new BufferedWriter(
-                    new FileWriter(new File(getLogFilePrefix()
-                            + ".filedescriptormappings.csv")));
-            fileDescriptorMappingsWriter.write("filedescriptor,filename");
-            fileDescriptorMappingsWriter.newLine();
-            for (Map.Entry<Integer, String> fd : fileDescriptors.entrySet()) {
-                fileDescriptorMappingsWriter
-                        .write(fd.getKey() + "," + fd.getValue());
-                fileDescriptorMappingsWriter.newLine();
-            }
-            fileDescriptorMappingsWriter.close();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
         }
     }
 
@@ -453,65 +386,6 @@ public class LiveOperationStatisticsAggregator {
                 }
 
                 aggregate = overflowQueue.poll();
-            }
-
-            return true;
-        }
-    }
-
-    private class AddFileDescriptorTask extends ForkJoinTask<Void> {
-
-        private static final long serialVersionUID = -4655526053406546325L;
-
-        private FileDescriptorMapping fdMapping;
-
-        public AddFileDescriptorTask(FileDescriptorMapping fdMapping) {
-            this.fdMapping = fdMapping;
-        }
-
-        public AddFileDescriptorTask(FileDescriptor fd, String filename) {
-            this(new FileDescriptorMapping(fd, filename));
-        }
-
-        @Override
-        public Void getRawResult() {
-            return null;
-        }
-
-        @Override
-        protected void setRawResult(Void value) {
-        }
-
-        @Override
-        protected boolean exec() {
-            while (fdMapping != null) {
-                int fd;
-                try {
-                    fd = (int) fileDescriptorFdField.get(fdMapping.fd);
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-
-                // file descriptors can be reused, so in case there is a
-                // collision,
-                // compute an artificial file descriptor
-                String previousFilename = fileDescriptors.putIfAbsent(fd,
-                        fdMapping.filename);
-                if (previousFilename == null
-                        || previousFilename.equals(fdMapping.filename)) {
-                    // either the file descriptor has not been used before, or
-                    // it is still the same file, so there's nothing to do here
-                } else {
-                    // file descriptor was reused, use the current largest one
-                    // plus one
-                    while ((previousFilename = fileDescriptors.putIfAbsent(fd,
-                            fdMapping.filename)) != null
-                            && !previousFilename.equals(fdMapping.filename)) {
-                        fd = fileDescriptors.lastKey() + 1;
-                    }
-                }
-
-                fdMapping = fdOverflowQueue.poll();
             }
 
             return true;

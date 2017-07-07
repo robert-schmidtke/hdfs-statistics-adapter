@@ -7,13 +7,12 @@
  */
 package de.zib.sfs.instrument;
 
-import java.io.FileDescriptor;
-
-import de.zib.sfs.instrument.statistics.LiveOperationStatisticsAggregator;
 import de.zib.sfs.instrument.statistics.OperationCategory;
 import de.zib.sfs.instrument.statistics.OperationSource;
+import de.zib.sfs.instrument.statistics.LiveOperationStatisticsAggregator;
 
 public class FileOutputStreamCallback {
+
     // the LiveOperationStatisticsAggregator uses FileOutputStream to write its
     // logs
     private static String LOG_FILE_PREFIX = null;
@@ -21,8 +20,7 @@ public class FileOutputStreamCallback {
     // set to true if all calls made to this callback should be discarded
     private boolean discard = false;
 
-    public void openCallback(long startTime, long endTime, String filename,
-            FileDescriptor fd) {
+    public void openCallback(long startTime, long endTime, String filename) {
         // null as long as the LiveOperationStatisticsAggregator is not
         // initialized
         if (LOG_FILE_PREFIX == null) {
@@ -35,8 +33,6 @@ public class FileOutputStreamCallback {
         discard = LOG_FILE_PREFIX != null && filename != null
                 && filename.startsWith(LOG_FILE_PREFIX);
         if (!discard) {
-            LiveOperationStatisticsAggregator.instance.addFileDescriptor(fd,
-                    filename);
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.JVM,
                             OperationCategory.OTHER, startTime, endTime);

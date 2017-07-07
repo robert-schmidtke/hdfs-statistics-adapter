@@ -140,19 +140,6 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
             Type[] argumentTypes, String signature, String[] exceptions,
             String callbackName, Type additionalCallbackArgumentType,
             ResultPasser resultPasser) {
-        wrapMethod(access, name, returnType, argumentTypes, signature,
-                exceptions, callbackName,
-                additionalCallbackArgumentType != null
-                        ? new Type[] { additionalCallbackArgumentType }
-                        : new Type[] {},
-                resultPasser != null ? new ResultPasser[] { resultPasser }
-                        : new ResultPasser[] {});
-    }
-
-    protected void wrapMethod(int access, String name, Type returnType,
-            Type[] argumentTypes, String signature, String[] exceptions,
-            String callbackName, Type[] additionalCallbackArgumentTypes,
-            ResultPasser[] resultPassers) {
         argumentTypes = argumentTypes == null ? new Type[] {} : argumentTypes;
         String methodDescriptor = Type.getMethodDescriptor(returnType,
                 argumentTypes);
@@ -229,45 +216,29 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
         mv.visitVarInsn(Opcodes.LLOAD, endTimeIndex);
 
         // -1 indicates no result should be passed
-        for (int i = 0; i < resultPassers.length; ++i) {
-            ResultPasser resultPasser = resultPassers[i];
-            int resultIndex = resultPasser.getResultIndex();
-            String fieldName = resultPasser.getFieldName();
-            if (resultIndex != -1) {
-                // result of the actual operation requested
-                if (resultIndex == 0) {
-                    mv.visitVarInsn(returnType.getOpcode(Opcodes.ILOAD),
-                            startTimeIndex + 2);
-                    resultPasser.passResult(mv);
-                } else {
-                    // some parameter requested
-                    mv.visitVarInsn(argumentTypes[resultIndex - 1]
-                            .getOpcode(Opcodes.ILOAD), resultIndex);
-                    resultPasser.passResult(mv);
-                }
-            } else if (fieldName != null) {
-                // some field is requested
-                mv.visitVarInsn(Opcodes.ALOAD, 0);
-                mv.visitFieldInsn(Opcodes.GETFIELD,
-                        instrumentedTypeInternalName, fieldName,
-                        additionalCallbackArgumentTypes[i].getDescriptor());
+        int resultIndex = resultPasser.getResultIndex();
+        if (resultIndex != -1) {
+            // result of the actual operation requested
+            if (resultIndex == 0) {
+                mv.visitVarInsn(returnType.getOpcode(Opcodes.ILOAD),
+                        startTimeIndex + 2);
+                resultPasser.passResult(mv);
+            } else {
+                // some parameter requested
+                mv.visitVarInsn(
+                        argumentTypes[resultIndex - 1].getOpcode(Opcodes.ILOAD),
+                        resultIndex);
                 resultPasser.passResult(mv);
             }
         }
 
         Type[] callbackArgumentTypes;
-        if (additionalCallbackArgumentTypes == null
-                || additionalCallbackArgumentTypes.length == 0) {
+        if (additionalCallbackArgumentType == null) {
             callbackArgumentTypes = new Type[] { Type.LONG_TYPE,
                     Type.LONG_TYPE };
         } else {
-            callbackArgumentTypes = new Type[2
-                    + additionalCallbackArgumentTypes.length];
-            callbackArgumentTypes[0] = Type.LONG_TYPE;
-            callbackArgumentTypes[1] = Type.LONG_TYPE;
-            System.arraycopy(additionalCallbackArgumentTypes, 0,
-                    callbackArgumentTypes, 2,
-                    additionalCallbackArgumentTypes.length);
+            callbackArgumentTypes = new Type[] { Type.LONG_TYPE, Type.LONG_TYPE,
+                    additionalCallbackArgumentType };
         }
         mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, callbackTypeInternalName,
                 callbackName,
@@ -459,8 +430,6 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
         public int getResultIndex();
 
         public void passResult(MethodVisitor mv);
-
-        public String getFieldName();
     }
 
     protected static class DiscardResultPasser implements ResultPasser {
@@ -472,11 +441,6 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
         @Override
         public void passResult(MethodVisitor mv) {
         }
-
-        @Override
-        public String getFieldName() {
-            return null;
-        }
     }
 
     protected static class ReturnResultPasser implements ResultPasser {
@@ -487,11 +451,6 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
 
         @Override
         public void passResult(MethodVisitor mv) {
-        }
-
-        @Override
-        public String getFieldName() {
-            return null;
         }
     }
 
@@ -509,33 +468,6 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
 
         @Override
         public void passResult(MethodVisitor mv) {
-        }
-
-        @Override
-        public String getFieldName() {
-            return null;
-        }
-    }
-
-    protected static class FieldResultPasser implements ResultPasser {
-        protected final String fieldName;
-
-        protected FieldResultPasser(String fieldName) {
-            this.fieldName = fieldName;
-        }
-
-        @Override
-        public int getResultIndex() {
-            return -1;
-        }
-
-        @Override
-        public void passResult(MethodVisitor mv) {
-        }
-
-        @Override
-        public String getFieldName() {
-            return fieldName;
         }
     }
 
