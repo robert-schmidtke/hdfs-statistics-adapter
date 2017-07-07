@@ -431,9 +431,7 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
 
         @Override
         protected void onMethodExit(int opcode) {
-            if (opcode == Opcodes.RETURN) {
-                initializeFields(mv, methodDesc);
-            }
+            initializeFields(mv, methodDesc);
         }
 
     }
