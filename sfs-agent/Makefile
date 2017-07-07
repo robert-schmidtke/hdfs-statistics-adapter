@@ -3,7 +3,7 @@ SYSTEM ?= $(HOST_SYSTEM)
 CXX = g++
 CPPFLAGS += -I/usr/local/include -I${GRPC_INCLUDE_DIR} -I${JDK_HOME}/include -I${PROTOBUF_INCLUDE_DIR} \
             -Isrc/main/native/agent -Itarget/generated-sources/protobuf/native                         \
-            -pthread -c -fPIC -fpermissive
+            -pthread -c -fPIC -fpermissive -Wall
 CXXFLAGS += -std=c++11
 ifeq ($(SYSTEM),Darwin)
 CPPFLAGS += -I${JDK_HOME}/include/darwin
