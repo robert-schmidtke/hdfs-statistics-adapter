@@ -12,7 +12,9 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URI;
+import java.util.HashSet;
 import java.util.Random;
+import java.util.Set;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -52,6 +54,12 @@ public class StatisticsFileSystem extends FileSystem {
     public static final String SFS_WRAPPED_FS_SCHEME_KEY = "sfs.wrappedFS.scheme";
 
     /**
+     * r|w|o or any combination of them, indicates which operation categories
+     * not to log.
+     */
+    public static final String SFS_INSTRUMENTATION_SKIP = "sfs.instrumentation.skip";
+
+    /**
      * The URI of this file system, as sfs:// plus the authority of the wrapped
      * file system.
      */
@@ -76,6 +84,11 @@ public class StatisticsFileSystem extends FileSystem {
      * Flag to track whether this file system is initialized already.
      */
     private boolean initialized = false;
+
+    /**
+     * Set of operation categories to skip.
+     */
+    private final Set<OperationCategory> skip = new HashSet<>();
 
     // Shadow super class' LOG
     public static final Log LOG = LogFactory.getLog(StatisticsFileSystem.class);
@@ -243,6 +256,19 @@ public class StatisticsFileSystem extends FileSystem {
             }
         });
 
+        String instrumentationSkip = getConf().get(SFS_INSTRUMENTATION_SKIP);
+        if (instrumentationSkip != null) {
+            if (instrumentationSkip.contains("r")) {
+                skip.add(OperationCategory.READ);
+            }
+            if (instrumentationSkip.contains("w")) {
+                skip.add(OperationCategory.WRITE);
+            }
+            if (instrumentationSkip.contains("o")) {
+                skip.add(OperationCategory.OTHER);
+            }
+        }
+
         initialized = true;
     }
 
@@ -251,9 +277,14 @@ public class StatisticsFileSystem extends FileSystem {
             Progressable progress) throws IOException {
         long startTime = System.currentTimeMillis();
         Path unwrappedPath = unwrapPath(f);
-        FSDataOutputStream stream = new WrappedFSDataOutputStream(
-                wrappedFS.append(unwrappedPath, bufferSize, progress),
-                LiveOperationStatisticsAggregator.instance);
+        FSDataOutputStream stream;
+        if (!skip.contains(OperationCategory.WRITE)) {
+            stream = new WrappedFSDataOutputStream(
+                    wrappedFS.append(unwrappedPath, bufferSize, progress),
+                    LiveOperationStatisticsAggregator.instance);
+        } else {
+            stream = wrappedFS.append(unwrappedPath, bufferSize, progress);
+        }
         LiveOperationStatisticsAggregator.instance.aggregateOperationStatistics(
                 OperationSource.SFS, OperationCategory.OTHER, startTime,
                 System.currentTimeMillis());
@@ -317,10 +348,16 @@ public class StatisticsFileSystem extends FileSystem {
             long blockSize, Progressable progress) throws IOException {
         long startTime = System.currentTimeMillis();
         Path unwrappedPath = unwrapPath(f);
-        FSDataOutputStream stream = new WrappedFSDataOutputStream(
-                wrappedFS.create(unwrappedPath, permission, overwrite,
-                        bufferSize, replication, blockSize, progress),
-                LiveOperationStatisticsAggregator.instance);
+        FSDataOutputStream stream;
+        if (!skip.contains(OperationCategory.WRITE)) {
+            stream = new WrappedFSDataOutputStream(
+                    wrappedFS.create(unwrappedPath, permission, overwrite,
+                            bufferSize, replication, blockSize, progress),
+                    LiveOperationStatisticsAggregator.instance);
+        } else {
+            stream = wrappedFS.create(unwrappedPath, permission, overwrite,
+                    bufferSize, replication, blockSize, progress);
+        }
         LiveOperationStatisticsAggregator.instance.aggregateOperationStatistics(
                 OperationSource.SFS, OperationCategory.OTHER, startTime,
                 System.currentTimeMillis());
@@ -418,13 +455,18 @@ public class StatisticsFileSystem extends FileSystem {
     public FSDataInputStream open(Path f, int bufferSize) throws IOException {
         long startTime = System.currentTimeMillis();
         Path unwrappedPath = unwrapPath(f);
-        WrappedFSDataInputStream stream = new WrappedFSDataInputStream(
-                wrappedFS.open(unwrappedPath, bufferSize),
-                LiveOperationStatisticsAggregator.instance);
+        FSDataInputStream stream;
+        if (!skip.contains(OperationCategory.READ)) {
+            stream = new FSDataInputStream(new WrappedFSDataInputStream(
+                    wrappedFS.open(unwrappedPath, bufferSize),
+                    LiveOperationStatisticsAggregator.instance));
+        } else {
+            stream = wrappedFS.open(unwrappedPath, bufferSize);
+        }
         LiveOperationStatisticsAggregator.instance.aggregateOperationStatistics(
                 OperationSource.SFS, OperationCategory.OTHER, startTime,
                 System.currentTimeMillis());
-        return new FSDataInputStream(stream);
+        return stream;
     }
 
     @Override
