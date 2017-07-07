@@ -250,15 +250,13 @@ public class StatisticsFileSystem extends FileSystem {
     public FSDataOutputStream append(Path f, int bufferSize,
             Progressable progress) throws IOException {
         long startTime = System.currentTimeMillis();
-        int fd = LiveOperationStatisticsAggregator.instance
-                .getFileDescriptor(f.toString());
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream = new WrappedFSDataOutputStream(
-                wrappedFS.append(unwrappedPath, bufferSize, progress), f,
+                wrappedFS.append(unwrappedPath, bufferSize, progress),
                 LiveOperationStatisticsAggregator.instance);
         LiveOperationStatisticsAggregator.instance.aggregateOperationStatistics(
                 OperationSource.SFS, OperationCategory.OTHER, startTime,
-                System.currentTimeMillis(), fd);
+                System.currentTimeMillis());
         return stream;
     }
 
@@ -318,29 +316,25 @@ public class StatisticsFileSystem extends FileSystem {
             boolean overwrite, int bufferSize, short replication,
             long blockSize, Progressable progress) throws IOException {
         long startTime = System.currentTimeMillis();
-        int fd = LiveOperationStatisticsAggregator.instance
-                .getFileDescriptor(f.toString());
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream = new WrappedFSDataOutputStream(
                 wrappedFS.create(unwrappedPath, permission, overwrite,
                         bufferSize, replication, blockSize, progress),
-                f, LiveOperationStatisticsAggregator.instance);
+                LiveOperationStatisticsAggregator.instance);
         LiveOperationStatisticsAggregator.instance.aggregateOperationStatistics(
                 OperationSource.SFS, OperationCategory.OTHER, startTime,
-                System.currentTimeMillis(), fd);
+                System.currentTimeMillis());
         return stream;
     }
 
     @Override
     public boolean delete(Path f, boolean recursive) throws IOException {
         long startTime = System.currentTimeMillis();
-        int fd = LiveOperationStatisticsAggregator.instance
-                .getFileDescriptor(f.toString());
         Path unwrappedPath = unwrapPath(f);
         boolean result = wrappedFS.delete(unwrappedPath, recursive);
         LiveOperationStatisticsAggregator.instance.aggregateOperationStatistics(
                 OperationSource.SFS, OperationCategory.OTHER, startTime,
-                System.currentTimeMillis(), fd);
+                System.currentTimeMillis());
         return result;
     }
 
@@ -348,8 +342,6 @@ public class StatisticsFileSystem extends FileSystem {
     public BlockLocation[] getFileBlockLocations(FileStatus file, long start,
             long len) throws IOException {
         long startTime = System.currentTimeMillis();
-        int fd = LiveOperationStatisticsAggregator.instance
-                .getFileDescriptor(file.getPath().toString());
         FileStatus unwrappedFile = new FileStatus(file.getLen(),
                 file.isDirectory(), file.getReplication(), file.getBlockSize(),
                 file.getModificationTime(), file.getAccessTime(),
@@ -360,22 +352,20 @@ public class StatisticsFileSystem extends FileSystem {
                 .getFileBlockLocations(unwrappedFile, start, len);
         LiveOperationStatisticsAggregator.instance.aggregateOperationStatistics(
                 OperationSource.SFS, OperationCategory.OTHER, startTime,
-                System.currentTimeMillis(), fd);
+                System.currentTimeMillis());
         return blockLocations;
     }
 
     @Override
     public FileStatus getFileStatus(Path f) throws IOException {
         long startTime = System.currentTimeMillis();
-        int fd = LiveOperationStatisticsAggregator.instance
-                .getFileDescriptor(f.toString());
         Path unwrappedPath = unwrapPath(f);
         FileStatus fileStatus = wrappedFS.getFileStatus(unwrappedPath);
         fileStatus.setPath(setAuthority(wrapPath(fileStatus.getPath()),
                 f.toUri().getAuthority()));
         LiveOperationStatisticsAggregator.instance.aggregateOperationStatistics(
                 OperationSource.SFS, OperationCategory.OTHER, startTime,
-                System.currentTimeMillis(), fd);
+                System.currentTimeMillis());
         return fileStatus;
     }
 
@@ -401,8 +391,6 @@ public class StatisticsFileSystem extends FileSystem {
     public FileStatus[] listStatus(Path f)
             throws FileNotFoundException, IOException {
         long startTime = System.currentTimeMillis();
-        int fd = LiveOperationStatisticsAggregator.instance
-                .getFileDescriptor(f.toString());
         Path unwrappedPath = unwrapPath(f);
         FileStatus[] fileStatuses = wrappedFS.listStatus(unwrappedPath);
         for (FileStatus fileStatus : fileStatuses) {
@@ -411,49 +399,43 @@ public class StatisticsFileSystem extends FileSystem {
         }
         LiveOperationStatisticsAggregator.instance.aggregateOperationStatistics(
                 OperationSource.SFS, OperationCategory.OTHER, startTime,
-                System.currentTimeMillis(), fd);
+                System.currentTimeMillis());
         return fileStatuses;
     }
 
     @Override
     public boolean mkdirs(Path f, FsPermission permission) throws IOException {
         long startTime = System.currentTimeMillis();
-        int fd = LiveOperationStatisticsAggregator.instance
-                .getFileDescriptor(f.toString());
         Path unwrappedPath = unwrapPath(f);
         boolean result = wrappedFS.mkdirs(unwrappedPath, permission);
         LiveOperationStatisticsAggregator.instance.aggregateOperationStatistics(
                 OperationSource.SFS, OperationCategory.OTHER, startTime,
-                System.currentTimeMillis(), fd);
+                System.currentTimeMillis());
         return result;
     }
 
     @Override
     public FSDataInputStream open(Path f, int bufferSize) throws IOException {
         long startTime = System.currentTimeMillis();
-        int fd = LiveOperationStatisticsAggregator.instance
-                .getFileDescriptor(f.toString());
         Path unwrappedPath = unwrapPath(f);
         WrappedFSDataInputStream stream = new WrappedFSDataInputStream(
-                wrappedFS.open(unwrappedPath, bufferSize), f,
+                wrappedFS.open(unwrappedPath, bufferSize),
                 LiveOperationStatisticsAggregator.instance);
         LiveOperationStatisticsAggregator.instance.aggregateOperationStatistics(
                 OperationSource.SFS, OperationCategory.OTHER, startTime,
-                System.currentTimeMillis(), fd);
+                System.currentTimeMillis());
         return new FSDataInputStream(stream);
     }
 
     @Override
     public boolean rename(Path src, Path dst) throws IOException {
         long startTime = System.currentTimeMillis();
-        int fd = LiveOperationStatisticsAggregator.instance
-                .getFileDescriptor(src.toString());
         Path unwrappedSrc = unwrapPath(src);
         Path unwrappedDst = unwrapPath(dst);
         boolean result = wrappedFS.rename(unwrappedSrc, unwrappedDst);
         LiveOperationStatisticsAggregator.instance.aggregateOperationStatistics(
                 OperationSource.SFS, OperationCategory.OTHER, startTime,
-                System.currentTimeMillis(), fd);
+                System.currentTimeMillis());
         return result;
     }
 
