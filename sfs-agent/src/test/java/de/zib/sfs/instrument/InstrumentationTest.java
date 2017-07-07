@@ -96,19 +96,6 @@ public class InstrumentationTest {
                 .parseBoolean(System.getProperty("de.zib.sfs.traceMmap"));
         System.err.println("Using " + numProcessors + " cores");
 
-        BufferedReader reader = new BufferedReader(new FileReader("/sys/fs/xfs/sda2/stats/stats"));
-        String line = null;
-        long preReads = 0, preWrites = 0;
-        while ((line = reader.readLine()) != null) {
-          if (line.startsWith("xpc")) {
-            String[] split = line.split(" ");
-            preWrites = Long.parseLong(split[2]);
-            preReads = Long.parseLong(split[3]);
-            break;
-          }
-        }
-        reader.close();
-
         switch (test) {
         case "stream":
             runStreamTest(executor, numProcessors);
@@ -137,17 +124,6 @@ public class InstrumentationTest {
         default:
             assert (false) : test;
         }
-
-        reader = new BufferedReader(new FileReader("/sys/fs/xfs/sda2/stats/stats"));
-        line = null;
-        while ((line = reader.readLine()) != null) {
-          if (line.startsWith("xpc")) {
-            String[] split = line.split(" ");
-            System.err.println("xfs: " + (Long.parseLong(split[2]) - preWrites) + ", " + (Long.parseLong(split[3]) - preReads));
-            break;
-          }
-        }
-        reader.close();
 
         executor.shutdown();
 
@@ -1537,16 +1513,12 @@ public class InstrumentationTest {
         // as some internal lock file writing.
         assertOperationData(aggregates, OperationSource.JVM,
                 OperationCategory.WRITE, writeBytes, writeBytes + 64 * 1024);
-        // System.err.println("Wrote " + writeBytes + " bytes");
         assertOperationData(aggregates, OperationSource.JVM,
                 OperationCategory.READ, readBytes, readBytes + 176 * 1024);
-        // System.err.println("sfs: " + readBytes + " bytes");
         if (jvmZipReadBytes != -1 && zipReadBytes != -1) {
             assertOperationData(aggregates, OperationSource.JVM,
                     OperationCategory.ZIP, jvmZipReadBytes + zipReadBytes,
                     jvmZipReadBytes + zipReadBytes);
-  //          System.err.println("Read " + zipReadBytes + " zip bytes");
-    //        System.err.println("Read " + jvmZipReadBytes + " jvm zip bytes");
         }
     }
 
@@ -1560,12 +1532,9 @@ public class InstrumentationTest {
         for (OperationStatistics os : operations.values()) {
             operationCount += os.getCount();
         }
-/*         assert (operationCount >= atLeast) : ("actual " + operationCount
+        assert (operationCount >= atLeast) : ("actual " + operationCount
                 + " vs. " + atLeast + " at least expected " + source + "/"
-                + category + " operation count"); */
-/*        System.err.println("actual " + operationCount
-                + " vs. " + atLeast + " at least expected " + source + "/"
-                + category + " operation count"); */
+                + category + " operation count");
     }
 
     private static void assertOperationData(
@@ -1580,13 +1549,10 @@ public class InstrumentationTest {
             assert (os instanceof DataOperationStatistics);
             operationData += ((DataOperationStatistics) os).getData();
         }
-/*        assert (operationData >= atLeast
+        assert (operationData >= atLeast
                 && operationData <= atMost) : ("actual " + operationData
                         + " vs. " + atLeast + " at least / " + atMost
                         + " at most expected " + source + "/" + category
-                        + " operation data"); */
-                System.err.println("sfs: " + operationData
-                        + ", " + atLeast + ", " + atMost
-                        + ", " + source + "-" + category);
+                        + " operation data");
     }
 }
