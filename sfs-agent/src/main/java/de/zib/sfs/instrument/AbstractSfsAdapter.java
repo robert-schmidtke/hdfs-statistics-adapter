@@ -427,10 +427,7 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
             mv.visitFieldInsn(Opcodes.PUTFIELD, instrumentedTypeInternalName,
                     "instrumentationActive",
                     Type.getDescriptor(InstrumentationActive.class));
-        }
 
-        @Override
-        protected void onMethodExit(int opcode) {
             initializeFields(mv, methodDesc);
         }
 
