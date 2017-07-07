@@ -291,6 +291,7 @@
             <configuration>
               <executable>java</executable>
               <arguments>
+                <argument>-Djava.io.tmpdir=${java.io.tmpdir}</argument>
                 <argument>-ea</argument>
                 <argument>-esa</argument>
                 <argument>-cp</argument>
