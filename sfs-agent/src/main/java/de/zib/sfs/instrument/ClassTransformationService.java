@@ -9,10 +9,13 @@ package de.zib.sfs.instrument;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Random;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import de.zib.sfs.instrument.statistics.OperationCategory;
 import de.zib.sfs.instrument.util.LogUtil;
 
 public class ClassTransformationService {
@@ -20,6 +23,7 @@ public class ClassTransformationService {
     public static void main(String args[]) {
         int i = 0;
         int serverPort = -1, agentPort = -1;
+        Set<OperationCategory> skip = new HashSet<>();
         int timeoutSeconds = 30;
         boolean traceMmap = false;
         boolean verbose = false;
@@ -27,6 +31,21 @@ public class ClassTransformationService {
             switch (args[i]) {
             case "--port":
                 serverPort = Integer.parseInt(args[++i]);
+                break;
+            case "--instrumentation-skip":
+                String instrumentationSkip = args[++i];
+                if (instrumentationSkip.contains("r")) {
+                    skip.add(OperationCategory.READ);
+                }
+                if (instrumentationSkip.contains("w")) {
+                    skip.add(OperationCategory.WRITE);
+                }
+                if (instrumentationSkip.contains("o")) {
+                    skip.add(OperationCategory.OTHER);
+                }
+                if (instrumentationSkip.contains("z")) {
+                    skip.add(OperationCategory.ZIP);
+                }
                 break;
             case "--communication-port-agent":
                 agentPort = Integer.parseInt(args[++i]);
@@ -52,6 +71,8 @@ public class ClassTransformationService {
             System.err.println("Required options for slave mode:");
             System.err.println("  --communication-port-agent port");
             System.err.println("Optional options:");
+            System.err.println(
+                    "  --instrumentation-skip r|w|o|z (default: empty)");
             System.err.println("  --timeout seconds (default: 30)");
             System.err.println("  --trace-mmap y|n (default: n)");
             System.err.println("  --verbose y|n (default: n)");
@@ -82,7 +103,7 @@ public class ClassTransformationService {
                             "Trying to start transformation server on port '%d'.\n",
                             port);
                     classTransformationServer = new ClassTransformationServer(
-                            port, traceMmap);
+                            port, traceMmap, skip);
                     classTransformationServer.start();
                     started = true;
                 } catch (IOException e) {
@@ -124,7 +145,7 @@ public class ClassTransformationService {
             // we have a dedicated port to run on
             LogUtil.stderr("Starting on dedicated port '%d'.\n", serverPort);
             classTransformationServer = new ClassTransformationServer(
-                    serverPort, traceMmap);
+                    serverPort, traceMmap, skip);
             try {
                 classTransformationServer.start();
             } catch (IOException e) {

@@ -83,18 +83,20 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
   // parse command line options
   CliOptions cli_options;
   if (!parse_options(options, &cli_options)) {
-    std::cerr << "Could not parse options: "
-              << (options != NULL ? options : "-") << std::endl
-              << "Required options:" << std::endl
-              << "  trans_jar=/path/to/trans.jar" << std::endl
-              << "  key=key" << std::endl
-              << "  bin_duration=milliseconds" << std::endl
-              << "  cache_size=number" << std::endl
-              << "  out_dir=/path/to/out/dir" << std::endl
-              << "Optional options:" << std::endl
-              << "  trans_address=trans-host:port (default: empty)"
-              << "  trace_mmap=y|n (default: n)"
-              << "  verbose=y|n (default: n)" << std::endl;
+    std::cerr
+        << "Could not parse options: " << (options != NULL ? options : "-")
+        << std::endl
+        << "Required options:" << std::endl
+        << "  trans_jar=/path/to/trans.jar" << std::endl
+        << "  key=key" << std::endl
+        << "  bin_duration=milliseconds" << std::endl
+        << "  cache_size=number" << std::endl
+        << "  out_dir=/path/to/out/dir" << std::endl
+        << "Optional options:" << std::endl
+        << "  instr_skip=r|w|o|z or any combination of them (default: empty)"
+        << "  trans_address=trans-host:port (default: empty)"
+        << "  trace_mmap=y|n (default: n)"
+        << "  verbose=y|n (default: n)" << std::endl;
     return JNI_EINVAL;
   }
 
@@ -217,26 +219,29 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
     LOG_VERBOSE("Started agent transformation server on port '%d'.\n", port);
 
     // build the transformer JVM start command
-    g_transformer_jvm_cmd = new char *[11];
+    g_transformer_jvm_cmd = new char *[13];
     g_transformer_jvm_cmd[0] = strdup((java_home + "/bin/java").c_str());
     g_transformer_jvm_cmd[1] = strdup("-cp");
     g_transformer_jvm_cmd[2] = strdup(cli_options.transformer_jar_path.c_str());
     g_transformer_jvm_cmd[3] =
         strdup("de.zib.sfs.instrument.ClassTransformationService");
-    g_transformer_jvm_cmd[4] = strdup("--communication-port-agent");
-    g_transformer_jvm_cmd[5] = strdup(std::to_string(port).c_str());
-    g_transformer_jvm_cmd[6] = strdup("--trace-mmap");
-    g_transformer_jvm_cmd[7] = strdup(g_trace_mmap ? "y" : "n");
-    g_transformer_jvm_cmd[8] = strdup("--verbose");
-    g_transformer_jvm_cmd[9] = strdup(g_verbose ? "y" : "n");
-    g_transformer_jvm_cmd[10] = NULL;
+    g_transformer_jvm_cmd[4] = strdup("--instrumentation-skip");
+    g_transformer_jvm_cmd[5] = strdup(cli_options.instrumentation_skip.c_str());
+    g_transformer_jvm_cmd[6] = strdup("--communication-port-agent");
+    g_transformer_jvm_cmd[7] = strdup(std::to_string(port).c_str());
+    g_transformer_jvm_cmd[8] = strdup("--trace-mmap");
+    g_transformer_jvm_cmd[9] = strdup(g_trace_mmap ? "y" : "n");
+    g_transformer_jvm_cmd[10] = strdup("--verbose");
+    g_transformer_jvm_cmd[11] = strdup(g_verbose ? "y" : "n");
+    g_transformer_jvm_cmd[12] = NULL;
     LOG_VERBOSE("Starting transformer JVM using command '%s %s %s %s %s %s %s "
-                "%s %s %s'.\n",
+                "%s %s %s %s %s'.\n",
                 g_transformer_jvm_cmd[0], g_transformer_jvm_cmd[1],
                 g_transformer_jvm_cmd[2], g_transformer_jvm_cmd[3],
                 g_transformer_jvm_cmd[4], g_transformer_jvm_cmd[5],
                 g_transformer_jvm_cmd[6], g_transformer_jvm_cmd[7],
-                g_transformer_jvm_cmd[8], g_transformer_jvm_cmd[9]);
+                g_transformer_jvm_cmd[8], g_transformer_jvm_cmd[9],
+                g_transformer_jvm_cmd[10], g_transformer_jvm_cmd[11]);
 
     char *envp[] = {NULL};
 
@@ -571,7 +576,7 @@ static void cleanup() {
   // clean the startup command for the transformer JVM
   if (g_transformer_jvm_cmd != NULL) {
     LOG_VERBOSE("Freeing transformer JVM command.\n");
-    for (size_t i = 0; i < 10; ++i) {
+    for (size_t i = 0; i < 12; ++i) {
       free(g_transformer_jvm_cmd[i]);
     }
     delete[] g_transformer_jvm_cmd;

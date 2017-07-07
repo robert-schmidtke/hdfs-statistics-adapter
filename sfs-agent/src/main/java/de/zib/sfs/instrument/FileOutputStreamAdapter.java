@@ -10,11 +10,14 @@ package de.zib.sfs.instrument;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.Set;
 
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
+
+import de.zib.sfs.instrument.statistics.OperationCategory;
 
 /**
  * Class adapter that instruments {@link java.io.FileOutputStream}.
@@ -24,10 +27,11 @@ import org.objectweb.asm.Type;
  */
 public class FileOutputStreamAdapter extends AbstractSfsAdapter {
 
-    public FileOutputStreamAdapter(ClassVisitor cv, String methodPrefix)
+    public FileOutputStreamAdapter(ClassVisitor cv, String methodPrefix,
+            Set<OperationCategory> skip)
             throws NoSuchMethodException, SecurityException {
         super(cv, FileOutputStream.class, FileOutputStreamCallback.class,
-                methodPrefix);
+                methodPrefix, skip);
     }
 
     @Override
@@ -49,32 +53,36 @@ public class FileOutputStreamAdapter extends AbstractSfsAdapter {
                 "openCallback", Type.getType(String.class),
                 new ParameterResultPasser(1));
 
-        // 1 byte write, no result needed
-        wrapMethod(Opcodes.ACC_PUBLIC, "write", Type.VOID_TYPE,
-                new Type[] { Type.INT_TYPE }, null,
-                new String[] { Type.getInternalName(IOException.class) },
-                "writeCallback", null, resultDiscarder);
+        if (!skipWrites()) {
+            // 1 byte write, no result needed
+            wrapMethod(Opcodes.ACC_PUBLIC, "write", Type.VOID_TYPE,
+                    new Type[] { Type.INT_TYPE }, null,
+                    new String[] { Type.getInternalName(IOException.class) },
+                    "writeCallback", null, resultDiscarder);
 
-        // have the byte array put on top of the stack, then pass its length to
-        // the callback
-        wrapMethod(Opcodes.ACC_PUBLIC, "write", Type.VOID_TYPE,
-                new Type[] { Type.getType(byte[].class) }, null,
-                new String[] { Type.getInternalName(IOException.class) },
-                "writeBytesCallback", Type.INT_TYPE,
-                new ParameterResultPasser(1) {
-                    @Override
-                    public void passResult(MethodVisitor mv) {
-                        mv.visitInsn(Opcodes.ARRAYLENGTH);
-                    }
-                });
+            // have the byte array put on top of the stack, then pass its length
+            // to
+            // the callback
+            wrapMethod(Opcodes.ACC_PUBLIC, "write", Type.VOID_TYPE,
+                    new Type[] { Type.getType(byte[].class) }, null,
+                    new String[] { Type.getInternalName(IOException.class) },
+                    "writeBytesCallback", Type.INT_TYPE,
+                    new ParameterResultPasser(1) {
+                        @Override
+                        public void passResult(MethodVisitor mv) {
+                            mv.visitInsn(Opcodes.ARRAYLENGTH);
+                        }
+                    });
 
-        // have the len parameter put on top of the stack
-        wrapMethod(Opcodes.ACC_PUBLIC, "write", Type.VOID_TYPE,
-                new Type[] { Type.getType(byte[].class), Type.INT_TYPE,
-                        Type.INT_TYPE },
-                null, new String[] { Type.getInternalName(IOException.class) },
-                "writeBytesCallback", Type.INT_TYPE,
-                new ParameterResultPasser(3));
+            // have the len parameter put on top of the stack
+            wrapMethod(Opcodes.ACC_PUBLIC, "write", Type.VOID_TYPE,
+                    new Type[] { Type.getType(byte[].class), Type.INT_TYPE,
+                            Type.INT_TYPE },
+                    null,
+                    new String[] { Type.getInternalName(IOException.class) },
+                    "writeBytesCallback", Type.INT_TYPE,
+                    new ParameterResultPasser(3));
+        }
     }
 
     private boolean isOpenMethod(int access, String name, String desc,
@@ -101,7 +109,7 @@ public class FileOutputStreamAdapter extends AbstractSfsAdapter {
                                 Type.INT_TYPE).equals(desc))
                 && null == signature && exceptions != null
                 && exceptions.length == 1
-                && Type.getInternalName(IOException.class)
-                        .equals(exceptions[0]);
+                && Type.getInternalName(IOException.class).equals(exceptions[0])
+                && !skipWrites();
     }
 }

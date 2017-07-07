@@ -9,6 +9,7 @@ package de.zib.sfs.instrument;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
@@ -25,6 +26,7 @@ import de.zib.sfs.instrument.rpc.Sfs.ClassTransformationRequest;
 import de.zib.sfs.instrument.rpc.Sfs.ClassTransformationResponse;
 import de.zib.sfs.instrument.rpc.Sfs.EndClassTransformationsRequest;
 import de.zib.sfs.instrument.rpc.Sfs.EndClassTransformationsResponse;
+import de.zib.sfs.instrument.statistics.OperationCategory;
 import de.zib.sfs.instrument.util.LogUtil;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
@@ -43,7 +45,10 @@ public class ClassTransformationServer extends
 
     private final boolean traceMmap;
 
-    public ClassTransformationServer(int port, boolean traceMmap) {
+    private final Set<OperationCategory> skip;
+
+    public ClassTransformationServer(int port, boolean traceMmap,
+            Set<OperationCategory> skip) {
         server = ServerBuilder.forPort(port).addService(this).build();
 
         isEndClassTransformations = false;
@@ -54,6 +59,8 @@ public class ClassTransformationServer extends
         transformedClassesCache = new ConcurrentHashMap<>();
 
         this.traceMmap = traceMmap;
+
+        this.skip = skip;
     }
 
     @Override
@@ -75,19 +82,19 @@ public class ClassTransformationServer extends
                 case "java/io/FileInputStream":
                     cr.accept(
                             new FileInputStreamAdapter(cw,
-                                    request.getNativeMethodPrefix()),
+                                    request.getNativeMethodPrefix(), skip),
                             ClassReader.EXPAND_FRAMES);
                     break;
                 case "java/io/FileOutputStream":
                     cr.accept(
                             new FileOutputStreamAdapter(cw,
-                                    request.getNativeMethodPrefix()),
+                                    request.getNativeMethodPrefix(), skip),
                             ClassReader.EXPAND_FRAMES);
                     break;
                 case "java/io/RandomAccessFile":
                     cr.accept(
                             new RandomAccessFileAdapter(cw,
-                                    request.getNativeMethodPrefix()),
+                                    request.getNativeMethodPrefix(), skip),
                             ClassReader.EXPAND_FRAMES);
                     break;
                 case "java/lang/Shutdown":
@@ -97,23 +104,22 @@ public class ClassTransformationServer extends
                 case "java/nio/DirectByteBuffer":
                     cr.accept(
                             new DirectByteBufferAdapter(cw,
-                                    request.getNativeMethodPrefix()),
+                                    request.getNativeMethodPrefix(), skip),
                             ClassReader.EXPAND_FRAMES);
                     break;
                 case "java/nio/MappedByteBuffer":
-                    cr.accept(new MappedByteBufferAdapter(cw),
+                    cr.accept(new MappedByteBufferAdapter(cw, skip),
                             ClassReader.EXPAND_FRAMES);
                     break;
                 case "java/util/zip/ZipFile":
                     cr.accept(
                             new ZipFileAdapter(cw,
-                                    request.getNativeMethodPrefix()),
+                                    request.getNativeMethodPrefix(), skip),
                             ClassReader.EXPAND_FRAMES);
                     break;
                 case "sun/nio/ch/FileChannelImpl":
-                    cr.accept(
-                            new FileChannelImplAdapter(cw,
-                                    request.getNativeMethodPrefix(), traceMmap),
+                    cr.accept(new FileChannelImplAdapter(cw,
+                            request.getNativeMethodPrefix(), traceMmap, skip),
                             ClassReader.EXPAND_FRAMES);
                     break;
                 default:

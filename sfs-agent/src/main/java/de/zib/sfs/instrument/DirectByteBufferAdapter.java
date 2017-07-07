@@ -12,12 +12,15 @@ import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
+
+import de.zib.sfs.instrument.statistics.OperationCategory;
 
 public class DirectByteBufferAdapter extends AbstractSfsAdapter {
 
@@ -32,9 +35,10 @@ public class DirectByteBufferAdapter extends AbstractSfsAdapter {
         TYPES.put("Short", Type.SHORT_TYPE);
     }
 
-    public DirectByteBufferAdapter(ClassVisitor cv, String methodPrefix) {
+    public DirectByteBufferAdapter(ClassVisitor cv, String methodPrefix,
+            Set<OperationCategory> skip) {
         super(cv, "java/nio/DirectByteBuffer", DirectByteBufferCallback.class,
-                methodPrefix);
+                methodPrefix, skip);
     }
 
     @Override
@@ -76,19 +80,25 @@ public class DirectByteBufferAdapter extends AbstractSfsAdapter {
 
     @Override
     protected void appendWrappedMethods(ClassVisitor cv) {
-        wrapMethod(Opcodes.ACC_PUBLIC, "get", Type.getType(ByteBuffer.class),
-                new Type[] { Type.getType(byte[].class), Type.INT_TYPE,
-                        Type.INT_TYPE },
-                null, null, "getCallback", Type.INT_TYPE,
-                new ParameterResultPasser(3));
+        if (!skipReads()) {
+            wrapMethod(Opcodes.ACC_PUBLIC, "get",
+                    Type.getType(ByteBuffer.class),
+                    new Type[] { Type.getType(byte[].class), Type.INT_TYPE,
+                            Type.INT_TYPE },
+                    null, null, "getCallback", Type.INT_TYPE,
+                    new ParameterResultPasser(3));
+        }
 
-        wrapMethod(Opcodes.ACC_PUBLIC, "put", Type.getType(ByteBuffer.class),
-                new Type[] { Type.getType(byte[].class), Type.INT_TYPE,
-                        Type.INT_TYPE },
-                null, null, "putCallback", Type.INT_TYPE,
-                new ParameterResultPasser(3));
+        if (!skipWrites()) {
+            wrapMethod(Opcodes.ACC_PUBLIC, "put",
+                    Type.getType(ByteBuffer.class),
+                    new Type[] { Type.getType(byte[].class), Type.INT_TYPE,
+                            Type.INT_TYPE },
+                    null, null, "putCallback", Type.INT_TYPE,
+                    new ParameterResultPasser(3));
+        }
 
-        {
+        if (!skipWrites()) {
             // public ByteBuffer put(ByteBuffer src) {
             MethodVisitor bulkPutMV = cv.visitMethod(Opcodes.ACC_PUBLIC, "put",
                     Type.getMethodDescriptor(Type.getType(ByteBuffer.class),
@@ -254,27 +264,35 @@ public class DirectByteBufferAdapter extends AbstractSfsAdapter {
 
         // regular gets and puts
         for (Map.Entry<String, Type> type : TYPES.entrySet()) {
-            // public TYPE getTYPE() { ... }
-            wrapMethod(Opcodes.ACC_PUBLIC, "get" + type.getKey(),
-                    type.getValue(), null, null, null,
-                    "get" + type.getKey() + "Callback", null, resultDiscarder);
+            if (!skipReads()) {
+                // public TYPE getTYPE() { ... }
+                wrapMethod(Opcodes.ACC_PUBLIC, "get" + type.getKey(),
+                        type.getValue(), null, null, null,
+                        "get" + type.getKey() + "Callback", null,
+                        resultDiscarder);
 
-            // public TYPE getTYPE(int index) { ... }
-            wrapMethod(Opcodes.ACC_PUBLIC, "get" + type.getKey(),
-                    type.getValue(), new Type[] { Type.INT_TYPE }, null, null,
-                    "get" + type.getKey() + "Callback", null, resultDiscarder);
+                // public TYPE getTYPE(int index) { ... }
+                wrapMethod(Opcodes.ACC_PUBLIC, "get" + type.getKey(),
+                        type.getValue(), new Type[] { Type.INT_TYPE }, null,
+                        null, "get" + type.getKey() + "Callback", null,
+                        resultDiscarder);
+            }
 
-            // public ByteBuffer putTYPE(TYPE value) { ... }
-            wrapMethod(Opcodes.ACC_PUBLIC, "put" + type.getKey(),
-                    Type.getType(ByteBuffer.class),
-                    new Type[] { type.getValue() }, null, null,
-                    "put" + type.getKey() + "Callback", null, resultDiscarder);
+            if (!skipWrites()) {
+                // public ByteBuffer putTYPE(TYPE value) { ... }
+                wrapMethod(Opcodes.ACC_PUBLIC, "put" + type.getKey(),
+                        Type.getType(ByteBuffer.class),
+                        new Type[] { type.getValue() }, null, null,
+                        "put" + type.getKey() + "Callback", null,
+                        resultDiscarder);
 
-            // public ByteBuffer putTYPE(int index, TYPE value) { ... }
-            wrapMethod(Opcodes.ACC_PUBLIC, "put" + type.getKey(),
-                    Type.getType(ByteBuffer.class),
-                    new Type[] { Type.INT_TYPE, type.getValue() }, null, null,
-                    "put" + type.getKey() + "Callback", null, resultDiscarder);
+                // public ByteBuffer putTYPE(int index, TYPE value) { ... }
+                wrapMethod(Opcodes.ACC_PUBLIC, "put" + type.getKey(),
+                        Type.getType(ByteBuffer.class),
+                        new Type[] { Type.INT_TYPE, type.getValue() }, null,
+                        null, "put" + type.getKey() + "Callback", null,
+                        resultDiscarder);
+            }
         }
 
         cv.visitEnd();
@@ -420,7 +438,7 @@ public class DirectByteBufferAdapter extends AbstractSfsAdapter {
             if (Type.getMethodDescriptor(Type.getType(ByteBuffer.class),
                     Type.getType(byte[].class), Type.INT_TYPE, Type.INT_TYPE)
                     .equals(desc)) {
-                return true;
+                return !skipReads();
             }
         }
 
@@ -430,7 +448,7 @@ public class DirectByteBufferAdapter extends AbstractSfsAdapter {
                 if (Type.getMethodDescriptor(type.getValue()).equals(desc)
                         || Type.getMethodDescriptor(type.getValue(),
                                 Type.INT_TYPE).equals(desc)) {
-                    return true;
+                    return !skipReads();
                 }
             }
         }
@@ -453,7 +471,7 @@ public class DirectByteBufferAdapter extends AbstractSfsAdapter {
                             .getMethodDescriptor(Type.getType(ByteBuffer.class),
                                     Type.getType(ByteBuffer.class))
                             .equals(desc)) {
-                return true;
+                return !skipWrites();
             }
         }
 
@@ -465,7 +483,7 @@ public class DirectByteBufferAdapter extends AbstractSfsAdapter {
                         || Type.getMethodDescriptor(
                                 Type.getType(ByteBuffer.class), Type.INT_TYPE,
                                 type.getValue()).equals(desc)) {
-                    return true;
+                    return !skipWrites();
                 }
             }
         }

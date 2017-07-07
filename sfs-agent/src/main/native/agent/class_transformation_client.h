@@ -48,9 +48,10 @@ public:
     if (status.ok()) {
       *new_class_data = allocator(response.bytecode().size());
       if (*new_class_data != NULL) {
-        std::memcpy(*new_class_data, reinterpret_cast<const unsigned char *>(
-                                         response.bytecode().data()),
-                    response.bytecode().size());
+        std::memcpy(
+            *new_class_data,
+            reinterpret_cast<const unsigned char *>(response.bytecode().data()),
+            response.bytecode().size());
         *new_class_data_len = response.bytecode().size();
       }
     } else {

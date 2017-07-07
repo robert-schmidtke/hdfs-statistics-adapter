@@ -10,10 +10,13 @@ package de.zib.sfs.instrument;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.Set;
 
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
+
+import de.zib.sfs.instrument.statistics.OperationCategory;
 
 /**
  * Class adapter that instruments {@link java.io.FileInputStream}.
@@ -23,10 +26,11 @@ import org.objectweb.asm.Type;
  */
 public class FileInputStreamAdapter extends AbstractSfsAdapter {
 
-    public FileInputStreamAdapter(ClassVisitor cv, String methodPrefix)
+    public FileInputStreamAdapter(ClassVisitor cv, String methodPrefix,
+            Set<OperationCategory> skip)
             throws NoSuchMethodException, SecurityException {
         super(cv, FileInputStream.class, FileInputStreamCallback.class,
-                methodPrefix);
+                methodPrefix, skip);
     }
 
     @Override
@@ -47,20 +51,23 @@ public class FileInputStreamAdapter extends AbstractSfsAdapter {
         // for all read methods pass the read result to the callback
         ReturnResultPasser resultPasser = new ReturnResultPasser();
 
-        wrapMethod(Opcodes.ACC_PUBLIC, "read", Type.INT_TYPE, null, null,
-                new String[] { Type.getInternalName(IOException.class) },
-                "readCallback", Type.INT_TYPE, resultPasser);
+        if (!skipReads()) {
+            wrapMethod(Opcodes.ACC_PUBLIC, "read", Type.INT_TYPE, null, null,
+                    new String[] { Type.getInternalName(IOException.class) },
+                    "readCallback", Type.INT_TYPE, resultPasser);
 
-        wrapMethod(Opcodes.ACC_PUBLIC, "read", Type.INT_TYPE,
-                new Type[] { Type.getType(byte[].class) }, null,
-                new String[] { Type.getInternalName(IOException.class) },
-                "readBytesCallback", Type.INT_TYPE, resultPasser);
+            wrapMethod(Opcodes.ACC_PUBLIC, "read", Type.INT_TYPE,
+                    new Type[] { Type.getType(byte[].class) }, null,
+                    new String[] { Type.getInternalName(IOException.class) },
+                    "readBytesCallback", Type.INT_TYPE, resultPasser);
 
-        wrapMethod(Opcodes.ACC_PUBLIC, "read", Type.INT_TYPE,
-                new Type[] { Type.getType(byte[].class), Type.INT_TYPE,
-                        Type.INT_TYPE },
-                null, new String[] { Type.getInternalName(IOException.class) },
-                "readBytesCallback", Type.INT_TYPE, resultPasser);
+            wrapMethod(Opcodes.ACC_PUBLIC, "read", Type.INT_TYPE,
+                    new Type[] { Type.getType(byte[].class), Type.INT_TYPE,
+                            Type.INT_TYPE },
+                    null,
+                    new String[] { Type.getInternalName(IOException.class) },
+                    "readBytesCallback", Type.INT_TYPE, resultPasser);
+        }
     }
 
     private boolean isOpenMethod(int access, String name, String desc,
@@ -85,7 +92,7 @@ public class FileInputStreamAdapter extends AbstractSfsAdapter {
                                 Type.INT_TYPE).equals(desc))
                 && null == signature && exceptions != null
                 && exceptions.length == 1
-                && Type.getInternalName(IOException.class)
-                        .equals(exceptions[0]);
+                && Type.getInternalName(IOException.class).equals(exceptions[0])
+                && !skipReads();
     }
 }

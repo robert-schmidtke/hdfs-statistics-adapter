@@ -9,6 +9,7 @@ package de.zib.sfs.instrument;
 
 import java.io.PrintStream;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.objectweb.asm.ClassVisitor;
@@ -18,6 +19,8 @@ import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.AdviceAdapter;
+
+import de.zib.sfs.instrument.statistics.OperationCategory;
 
 public abstract class AbstractSfsAdapter extends ClassVisitor {
 
@@ -29,9 +32,12 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
 
     protected final String systemInternalName, currentTimeMillisDescriptor;
 
+    private final Set<OperationCategory> skip;
+
     protected <InstrumentedType, CallbackType> AbstractSfsAdapter(
             ClassVisitor cv, Class<InstrumentedType> instrumentedTypeClass,
-            Class<CallbackType> callbackTypeClass, String methodPrefix) {
+            Class<CallbackType> callbackTypeClass, String methodPrefix,
+            Set<OperationCategory> skip) {
         super(Opcodes.ASM5, cv);
 
         this.methodPrefix = methodPrefix;
@@ -50,10 +56,13 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
 
         systemInternalName = Type.getInternalName(System.class);
         currentTimeMillisDescriptor = Type.getMethodDescriptor(Type.LONG_TYPE);
+
+        this.skip = skip;
     }
 
     protected <InstrumentedType> AbstractSfsAdapter(ClassVisitor cv,
-            Class<InstrumentedType> instrumentedTypeClass) {
+            Class<InstrumentedType> instrumentedTypeClass,
+            Set<OperationCategory> skip) {
         super(Opcodes.ASM5, cv);
 
         this.methodPrefix = null;
@@ -66,11 +75,14 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
 
         systemInternalName = Type.getInternalName(System.class);
         currentTimeMillisDescriptor = Type.getMethodDescriptor(Type.LONG_TYPE);
+
+        this.skip = skip;
     }
 
     protected <CallbackType> AbstractSfsAdapter(ClassVisitor cv,
             String instrumentedTypeInternalName,
-            Class<CallbackType> callbackTypeClass, String methodPrefix) {
+            Class<CallbackType> callbackTypeClass, String methodPrefix,
+            Set<OperationCategory> skip) {
         super(Opcodes.ASM5, cv);
 
         this.methodPrefix = methodPrefix;
@@ -88,6 +100,8 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
 
         systemInternalName = Type.getInternalName(System.class);
         currentTimeMillisDescriptor = Type.getMethodDescriptor(Type.LONG_TYPE);
+
+        this.skip = skip;
     }
 
     protected void appendFields(ClassVisitor cv) {
@@ -356,6 +370,22 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
 
     protected void initializeFields(MethodVisitor constructorMV,
             String constructorDesc) {
+    }
+
+    protected boolean skipReads() {
+        return skip.contains(OperationCategory.READ);
+    }
+
+    protected boolean skipWrites() {
+        return skip.contains(OperationCategory.WRITE);
+    }
+
+    protected boolean skipOther() {
+        return skip.contains(OperationCategory.OTHER);
+    }
+
+    protected boolean skipZip() {
+        return skip.contains(OperationCategory.ZIP);
     }
 
     protected class ConstructorAdapter extends AdviceAdapter {

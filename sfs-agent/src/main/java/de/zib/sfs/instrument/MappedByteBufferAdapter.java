@@ -8,6 +8,7 @@
 package de.zib.sfs.instrument;
 
 import java.nio.MappedByteBuffer;
+import java.util.Set;
 
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.FieldVisitor;
@@ -15,10 +16,13 @@ import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 
+import de.zib.sfs.instrument.statistics.OperationCategory;
+
 public class MappedByteBufferAdapter extends AbstractSfsAdapter {
 
-    public MappedByteBufferAdapter(ClassVisitor cv) {
-        super(cv, MappedByteBuffer.class);
+    public MappedByteBufferAdapter(ClassVisitor cv,
+            Set<OperationCategory> skip) {
+        super(cv, MappedByteBuffer.class, skip);
     }
 
     @Override

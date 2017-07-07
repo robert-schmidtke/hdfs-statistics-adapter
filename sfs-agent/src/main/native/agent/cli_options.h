@@ -48,6 +48,7 @@ struct CliOptions {
   std::string time_bin_duration;
   std::string time_bin_cache_size;
   std::string output_directory;
+  std::string instrumentation_skip;
   bool trace_mmap;
   bool verbose;
 };
@@ -86,6 +87,7 @@ static bool parse_options(char *command_line_options, CliOptions *cli_options) {
   cli_options->time_bin_duration = -1;
   cli_options->time_bin_cache_size = -1;
   cli_options->output_directory = std::string("");
+  cli_options->instrumentation_skip = std::string("");
   cli_options->trace_mmap = false;
   cli_options->verbose = false;
 
@@ -98,7 +100,6 @@ static bool parse_options(char *command_line_options, CliOptions *cli_options) {
   while (*options) {
     char option[16];
     char suboption[FILENAME_MAX + 1];
-    char *endptr;
 
     if (get_tok(&options, option, (int)sizeof(option), '=')) {
       if (strcmp(option, "trans_address") == 0) {
@@ -129,6 +130,10 @@ static bool parse_options(char *command_line_options, CliOptions *cli_options) {
         if (get_tok(&options, suboption, (int)sizeof(suboption), ',')) {
           cli_options->output_directory = std::string(suboption);
           output_directory_set = true;
+        }
+      } else if (strcmp(option, "instr_skip") == 0) {
+        if (get_tok(&options, suboption, (int)sizeof(suboption), ',')) {
+          cli_options->instrumentation_skip = std::string(suboption);
         }
       } else if (strcmp(option, "trace_mmap") == 0) {
         if (get_tok(&options, suboption, (int)sizeof(suboption), ',')) {
