@@ -7,11 +7,13 @@
  */
 package de.zib.sfs.instrument;
 
+import de.zib.sfs.instrument.statistics.LiveOperationStatisticsAggregator;
 import de.zib.sfs.instrument.statistics.OperationCategory;
 import de.zib.sfs.instrument.statistics.OperationSource;
-import de.zib.sfs.instrument.statistics.LiveOperationStatisticsAggregator;
 
 public class FileOutputStreamCallback {
+
+    private int fd = -1;
 
     // the LiveOperationStatisticsAggregator uses FileOutputStream to write its
     // logs
@@ -33,9 +35,11 @@ public class FileOutputStreamCallback {
         discard = LOG_FILE_PREFIX != null && filename != null
                 && filename.startsWith(LOG_FILE_PREFIX);
         if (!discard) {
+            fd = LiveOperationStatisticsAggregator.instance
+                    .getFileDescriptor(filename);
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.JVM,
-                            OperationCategory.OTHER, startTime, endTime);
+                            OperationCategory.OTHER, startTime, endTime, fd);
         }
     }
 
@@ -43,7 +47,7 @@ public class FileOutputStreamCallback {
         if (!discard) {
             LiveOperationStatisticsAggregator.instance
                     .aggregateDataOperationStatistics(OperationSource.JVM,
-                            OperationCategory.WRITE, startTime, endTime, 1);
+                            OperationCategory.WRITE, startTime, endTime, fd, 1);
         }
     }
 
@@ -51,7 +55,8 @@ public class FileOutputStreamCallback {
         if (!discard) {
             LiveOperationStatisticsAggregator.instance
                     .aggregateDataOperationStatistics(OperationSource.JVM,
-                            OperationCategory.WRITE, startTime, endTime, len);
+                            OperationCategory.WRITE, startTime, endTime, fd,
+                            len);
         }
     }
 

@@ -7,22 +7,26 @@
  */
 package de.zib.sfs.instrument;
 
+import de.zib.sfs.instrument.statistics.LiveOperationStatisticsAggregator;
 import de.zib.sfs.instrument.statistics.OperationCategory;
 import de.zib.sfs.instrument.statistics.OperationSource;
-import de.zib.sfs.instrument.statistics.LiveOperationStatisticsAggregator;
 
 public class RandomAccessFileCallback {
 
-    public void openCallback(long startTime, long endTime) {
+    private int fd = -1;
+
+    public void openCallback(long startTime, long endTime, String filename) {
+        fd = LiveOperationStatisticsAggregator.instance
+                .getFileDescriptor(filename);
         LiveOperationStatisticsAggregator.instance.aggregateOperationStatistics(
                 OperationSource.JVM, OperationCategory.OTHER, startTime,
-                endTime);
+                endTime, fd);
     }
 
     public void readCallback(long startTime, long endTime, int readResult) {
         LiveOperationStatisticsAggregator.instance
                 .aggregateReadDataOperationStatistics(OperationSource.JVM,
-                        OperationCategory.READ, startTime, endTime,
+                        OperationCategory.READ, startTime, endTime, fd,
                         readResult == -1 ? 0 : 1, false);
     }
 
@@ -30,20 +34,20 @@ public class RandomAccessFileCallback {
             int readBytesResult) {
         LiveOperationStatisticsAggregator.instance
                 .aggregateReadDataOperationStatistics(OperationSource.JVM,
-                        OperationCategory.READ, startTime, endTime,
+                        OperationCategory.READ, startTime, endTime, fd,
                         readBytesResult == -1 ? 0 : readBytesResult, false);
     }
 
     public void writeCallback(long startTime, long endTime) {
         LiveOperationStatisticsAggregator.instance
                 .aggregateDataOperationStatistics(OperationSource.JVM,
-                        OperationCategory.WRITE, startTime, endTime, 1);
+                        OperationCategory.WRITE, startTime, endTime, fd, 1);
     }
 
     public void writeBytesCallback(long startTime, long endTime, int len) {
         LiveOperationStatisticsAggregator.instance
                 .aggregateDataOperationStatistics(OperationSource.JVM,
-                        OperationCategory.WRITE, startTime, endTime, len);
+                        OperationCategory.WRITE, startTime, endTime, fd, len);
     }
 
 }

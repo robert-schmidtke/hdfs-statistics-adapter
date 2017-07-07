@@ -50,7 +50,8 @@ public class RandomAccessFileAdapter extends AbstractSfsAdapter {
                 new Type[] { Type.getType(String.class), Type.INT_TYPE }, null,
                 new String[] {
                         Type.getInternalName(FileNotFoundException.class) },
-                "openCallback", null, resultDiscarder);
+                "openCallback", Type.getType(String.class),
+                new ParameterResultPasser(1));
 
         // for all read methods pass the read result to the callback
         ReturnResultPasser resultPasser = new ReturnResultPasser();
