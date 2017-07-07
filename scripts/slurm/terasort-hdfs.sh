@@ -383,6 +383,9 @@ cd /local_ssd/$USER/sfs
 for file in \$(ls *-concat.csv); do
   cp \$file $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$file
 done
+for file in \$(ls *.filedescriptormappings.csv); do
+  cp \$file $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$file
+done
 EOF
   chmod +x copy-logs.sh
   srun ./copy-logs.sh
