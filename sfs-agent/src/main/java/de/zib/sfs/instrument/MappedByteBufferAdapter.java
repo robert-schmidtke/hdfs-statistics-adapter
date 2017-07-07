@@ -31,11 +31,6 @@ public class MappedByteBufferAdapter extends AbstractSfsAdapter {
                 "fromFileChannel", Type.getDescriptor(Boolean.TYPE), null,
                 null);
         fromFileChannelFV.visitEnd();
-
-        // protected String filename;
-        FieldVisitor filenameFV = cv.visitField(Opcodes.ACC_PROTECTED,
-                "filename", Type.getDescriptor(String.class), null, null);
-        filenameFV.visitEnd();
     }
 
     @Override
@@ -91,25 +86,6 @@ public class MappedByteBufferAdapter extends AbstractSfsAdapter {
         isFromFileChannelMV.visitInsn(Opcodes.IRETURN);
         isFromFileChannelMV.visitMaxs(0, 0);
         isFromFileChannelMV.visitEnd();
-
-        // public void setFilename(String filename) {
-        MethodVisitor setFilenameMV = cv.visitMethod(Opcodes.ACC_PUBLIC,
-                "setFilename", Type.getMethodDescriptor(Type.VOID_TYPE,
-                        Type.getType(String.class)),
-                null, null);
-        setFilenameMV.visitCode();
-
-        // this.filename = filename;
-        setFilenameMV.visitVarInsn(Opcodes.ALOAD, 0);
-        setFilenameMV.visitVarInsn(Opcodes.ALOAD, 1);
-        setFilenameMV.visitFieldInsn(Opcodes.PUTFIELD,
-                Type.getInternalName(MappedByteBuffer.class), "filename",
-                Type.getDescriptor(String.class));
-
-        // }
-        setFilenameMV.visitInsn(Opcodes.RETURN);
-        setFilenameMV.visitMaxs(0, 0);
-        setFilenameMV.visitEnd();
 
         cv.visitEnd();
     }

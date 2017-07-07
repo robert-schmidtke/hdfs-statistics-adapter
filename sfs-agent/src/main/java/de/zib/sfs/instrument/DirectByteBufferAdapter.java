@@ -69,21 +69,6 @@ public class DirectByteBufferAdapter extends AbstractSfsAdapter {
                     Type.getMethodDescriptor(Type.VOID_TYPE, Type.BOOLEAN_TYPE),
                     false);
 
-            // callback.openCallback(db.filename);
-            constructorMV.visitVarInsn(Opcodes.ALOAD, 0);
-            constructorMV.visitFieldInsn(Opcodes.GETFIELD,
-                    instrumentedTypeInternalName, "callback",
-                    callbackTypeDescriptor);
-            constructorMV.visitVarInsn(Opcodes.ALOAD, 1);
-            constructorMV.visitFieldInsn(Opcodes.GETFIELD,
-                    Type.getInternalName(MappedByteBuffer.class), "filename",
-                    Type.getDescriptor(String.class));
-            constructorMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
-                    callbackTypeInternalName, "openCallback",
-                    Type.getMethodDescriptor(Type.VOID_TYPE,
-                            Type.getType(String.class)),
-                    false);
-
             // }
             constructorMV.visitLabel(memoryMappedBufferLabel);
         }

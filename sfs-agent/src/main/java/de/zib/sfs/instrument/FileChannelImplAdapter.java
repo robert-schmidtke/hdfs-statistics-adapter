@@ -155,17 +155,6 @@ public class FileChannelImplAdapter extends AbstractSfsAdapter {
                 Type.getMethodDescriptor(Type.VOID_TYPE, Type.BOOLEAN_TYPE),
                 false);
 
-        // mbb.setFilename(path);
-        mapMV.visitVarInsn(Opcodes.ALOAD, 6);
-        mapMV.visitVarInsn(Opcodes.ALOAD, 0);
-        mapMV.visitFieldInsn(Opcodes.GETFIELD, instrumentedTypeInternalName,
-                "path", Type.getDescriptor(String.class));
-        mapMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
-                Type.getInternalName(MappedByteBuffer.class), "setFilename",
-                Type.getMethodDescriptor(Type.VOID_TYPE,
-                        Type.getType(String.class)),
-                false);
-
         // if we don't want to trace mmap calls, then map needs to reset the
         // instrumentationActive flag
         if (!traceMmap) {

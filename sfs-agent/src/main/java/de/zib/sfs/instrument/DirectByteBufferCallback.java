@@ -13,13 +13,6 @@ import de.zib.sfs.instrument.statistics.OperationSource;
 
 public class DirectByteBufferCallback {
 
-    int fd = -1;
-
-    public void openCallback(String filename) {
-        fd = LiveOperationStatisticsAggregator.instance
-                .getFileDescriptor(filename);
-    }
-
     public void getCallback(long startTime, long endTime) {
         LiveOperationStatisticsAggregator.instance
                 .aggregateReadDataOperationStatistics(OperationSource.JVM,
