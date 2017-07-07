@@ -16,7 +16,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Queue;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ForkJoinPool;
@@ -60,7 +59,7 @@ public class LiveOperationStatisticsAggregator {
     private final AtomicInteger currentFileDescriptor;
 
     // mapping of file names to their first file descriptors
-    private final Map<String, Integer> fileDescriptors;
+    private final NavigableMap<String, Integer> fileDescriptors;
 
     public static final LiveOperationStatisticsAggregator instance = new LiveOperationStatisticsAggregator();
 
@@ -90,7 +89,7 @@ public class LiveOperationStatisticsAggregator {
                 Runtime.getRuntime().availableProcessors(),
                 ForkJoinPool.defaultForkJoinWorkerThreadFactory, null, true);
 
-        fileDescriptors = new ConcurrentHashMap<>();
+        fileDescriptors = new ConcurrentSkipListMap<>();
         currentFileDescriptor = new AtomicInteger(0);
 
         initialized = false;
