@@ -476,9 +476,12 @@ public class StatisticsFileSystem extends FileSystem {
         } else {
             stream = wrappedFS.open(unwrappedPath, bufferSize);
         }
-        LiveOperationStatisticsAggregator.instance.aggregateOperationStatistics(
-                OperationSource.SFS, OperationCategory.OTHER, startTime,
-                System.currentTimeMillis());
+        if (!skipOther) {
+            LiveOperationStatisticsAggregator.instance
+                    .aggregateOperationStatistics(OperationSource.SFS,
+                            OperationCategory.OTHER, startTime,
+                            System.currentTimeMillis());
+        }
         return stream;
     }
 
