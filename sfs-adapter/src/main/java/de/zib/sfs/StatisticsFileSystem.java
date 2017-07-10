@@ -350,14 +350,9 @@ public class StatisticsFileSystem extends FileSystem {
         long startTime = System.currentTimeMillis();
         int fd = LiveOperationStatisticsAggregator.instance
                 .getFileDescriptor(file.getPath().toString());
-        FileStatus unwrappedFile = new FileStatus(file.getLen(),
-                file.isDirectory(), file.getReplication(), file.getBlockSize(),
-                file.getModificationTime(), file.getAccessTime(),
-                file.getPermission(), file.getOwner(), file.getGroup(),
-                (file.isSymlink() ? file.getSymlink() : null),
-                unwrapPath(file.getPath()));
-        BlockLocation[] blockLocations = wrappedFS
-                .getFileBlockLocations(unwrappedFile, start, len);
+        file.setPath(unwrapPath(file.getPath()));
+        BlockLocation[] blockLocations = wrappedFS.getFileBlockLocations(file,
+                start, len);
         LiveOperationStatisticsAggregator.instance.aggregateOperationStatistics(
                 OperationSource.SFS, OperationCategory.OTHER, startTime,
                 System.currentTimeMillis(), fd);
