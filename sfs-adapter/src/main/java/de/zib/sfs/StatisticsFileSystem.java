@@ -380,9 +380,11 @@ public class StatisticsFileSystem extends FileSystem {
     public BlockLocation[] getFileBlockLocations(FileStatus file, long start,
             long len) throws IOException {
         long startTime = System.currentTimeMillis();
-        file.setPath(unwrapPath(file.getPath()));
+        Path path = file.getPath();
+        file.setPath(unwrapPath(path));
         BlockLocation[] blockLocations = wrappedFS.getFileBlockLocations(file,
                 start, len);
+        file.setPath(path);
         if (!skipOther) {
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
