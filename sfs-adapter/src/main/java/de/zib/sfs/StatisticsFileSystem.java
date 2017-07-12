@@ -1134,7 +1134,22 @@ public class StatisticsFileSystem extends FileSystem {
     @Override
     public RemoteIterator<LocatedFileStatus> listFiles(Path f,
             boolean recursive) throws FileNotFoundException, IOException {
-        return wrappedFS.listFiles(unwrapPath(f), recursive);
+        final RemoteIterator<LocatedFileStatus> it = wrappedFS
+                .listFiles(unwrapPath(f), recursive);
+        return new RemoteIterator<LocatedFileStatus>() {
+            @Override
+            public boolean hasNext() throws IOException {
+                return it.hasNext();
+            }
+
+            @Override
+            public LocatedFileStatus next() throws IOException {
+                LocatedFileStatus fileStatus = it.next();
+                fileStatus.setPath(setAuthority(wrapPath(fileStatus.getPath()),
+                        f.toUri().getAuthority()));
+                return fileStatus;
+            }
+        };
     }
 
     @Override
@@ -1211,7 +1226,14 @@ public class StatisticsFileSystem extends FileSystem {
         for (int i = 0; i < files.length; ++i) {
             unwrappedFiles[i] = unwrapPath(files[i]);
         }
-        return wrappedFS.listStatus(unwrappedFiles);
+
+        FileStatus[] fileStatuses = wrappedFS.listStatus(unwrappedFiles);
+        for (int i = 0; i < fileStatuses.length; ++i) {
+            fileStatuses[i]
+                    .setPath(setAuthority(wrapPath(fileStatuses[i].getPath()),
+                            files[i].toUri().getAuthority()));
+        }
+        return fileStatuses;
     }
 
     @Override
@@ -1288,9 +1310,9 @@ public class StatisticsFileSystem extends FileSystem {
         Path unwrappedPath = unwrapPath(f);
         FSDataInputStream stream;
         if (!skipRead) {
-            stream = new FSDataInputStream(new WrappedFSDataInputStream(
-                    wrappedFS.open(unwrappedPath),
-                    LiveOperationStatisticsAggregator.instance));
+            stream = new FSDataInputStream(
+                    new WrappedFSDataInputStream(wrappedFS.open(unwrappedPath),
+                            LiveOperationStatisticsAggregator.instance));
         } else {
             stream = wrappedFS.open(unwrappedPath);
         }
@@ -1342,7 +1364,8 @@ public class StatisticsFileSystem extends FileSystem {
     @Override
     public void renameSnapshot(Path path, String snapshotOldName,
             String snapshotNewName) throws IOException {
-        wrappedFS.renameSnapshot(unwrapPath(path), snapshotOldName, snapshotNewName);
+        wrappedFS.renameSnapshot(unwrapPath(path), snapshotOldName,
+                snapshotNewName);
     }
 
     @Override
@@ -1392,7 +1415,8 @@ public class StatisticsFileSystem extends FileSystem {
     @Override
     public Path startLocalOutput(Path fsOutputFile, Path tmpLocalFile)
             throws IOException {
-        return wrapPath(wrappedFS.startLocalOutput(unwrapPath(fsOutputFile), unwrapPath(tmpLocalFile)));
+        return wrapPath(wrappedFS.startLocalOutput(unwrapPath(fsOutputFile),
+                unwrapPath(tmpLocalFile)));
     }
 
     @Override
