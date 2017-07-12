@@ -840,8 +840,9 @@ public class StatisticsFileSystem extends FileSystem {
     @Override
     public Path createSnapshot(Path path, String snapshotName)
             throws IOException {
-        return wrapPath(
-                wrappedFS.createSnapshot(unwrapPath(path), snapshotName));
+        UnwrappedPath unwrappedPath = unwrapPath(path);
+        Path result = wrappedFS.createSnapshot(unwrappedPath, snapshotName);
+        return unwrappedPath.isUnwrapped() ? wrapPath(result) : result;
     }
 
     @Override
@@ -979,19 +980,24 @@ public class StatisticsFileSystem extends FileSystem {
     @Override
     public FileStatus getFileLinkStatus(Path f) throws AccessControlException,
             FileNotFoundException, UnsupportedFileSystemException, IOException {
-        FileStatus fileStatus = wrappedFS.getFileLinkStatus(unwrapPath(f));
-        fileStatus.setPath(setAuthority(wrapPath(fileStatus.getPath()),
-                f.toUri().getAuthority()));
+        UnwrappedPath unwrappedPath = unwrapPath(f);
+        FileStatus fileStatus = wrappedFS.getFileLinkStatus(unwrappedPath);
+        if (unwrappedPath.isUnwrapped()) {
+            fileStatus.setPath(setAuthority(wrapPath(fileStatus.getPath()),
+                    f.toUri().getAuthority()));
+        }
         return fileStatus;
     }
 
     @Override
     public FileStatus getFileStatus(Path f) throws IOException {
         long startTime = System.currentTimeMillis();
-        Path unwrappedPath = unwrapPath(f);
+        UnwrappedPath unwrappedPath = unwrapPath(f);
         FileStatus fileStatus = wrappedFS.getFileStatus(unwrappedPath);
-        fileStatus.setPath(setAuthority(wrapPath(fileStatus.getPath()),
-                f.toUri().getAuthority()));
+        if (unwrappedPath.isUnwrapped()) {
+            fileStatus.setPath(setAuthority(wrapPath(fileStatus.getPath()),
+                    f.toUri().getAuthority()));
+        }
         if (!skipOther) {
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
@@ -1014,7 +1020,10 @@ public class StatisticsFileSystem extends FileSystem {
 
     @Override
     public Path getLinkTarget(Path f) throws IOException {
-        return wrapPath(wrappedFS.getLinkTarget(unwrapPath(f)));
+        UnwrappedPath unwrappedPath = unwrapPath(f);
+        return unwrappedPath.isUnwrapped()
+                ? wrapPath(wrappedFS.getLinkTarget(unwrapPath(f)))
+                : wrappedFS.getLinkTarget(unwrapPath(f));
     }
 
     @Override
@@ -1075,11 +1084,13 @@ public class StatisticsFileSystem extends FileSystem {
 
     @Override
     public FileStatus[] globStatus(Path pathPattern) throws IOException {
-        FileStatus[] fileStatuses = wrappedFS
-                .globStatus(unwrapPath(pathPattern));
-        for (FileStatus fileStatus : fileStatuses) {
-            fileStatus.setPath(setAuthority(wrapPath(fileStatus.getPath()),
-                    pathPattern.toUri().getAuthority()));
+        UnwrappedPath unwrappedPathPattern = unwrapPath(pathPattern);
+        FileStatus[] fileStatuses = wrappedFS.globStatus(unwrappedPathPattern);
+        if (unwrappedPathPattern.isUnwrapped()) {
+            for (FileStatus fileStatus : fileStatuses) {
+                fileStatus.setPath(setAuthority(wrapPath(fileStatus.getPath()),
+                        pathPattern.toUri().getAuthority()));
+            }
         }
         return fileStatuses;
     }
@@ -1094,11 +1105,14 @@ public class StatisticsFileSystem extends FileSystem {
             }
         };
 
-        FileStatus[] fileStatuses = wrappedFS
-                .globStatus(unwrapPath(pathPattern), wrappedFilter);
-        for (FileStatus fileStatus : fileStatuses) {
-            fileStatus.setPath(setAuthority(wrapPath(fileStatus.getPath()),
-                    pathPattern.toUri().getAuthority()));
+        UnwrappedPath unwrappedPathPattern = unwrapPath(pathPattern);
+        FileStatus[] fileStatuses = wrappedFS.globStatus(unwrappedPathPattern,
+                wrappedFilter);
+        if (unwrappedPathPattern.isUnwrapped()) {
+            for (FileStatus fileStatus : fileStatuses) {
+                fileStatus.setPath(setAuthority(wrapPath(fileStatus.getPath()),
+                        pathPattern.toUri().getAuthority()));
+            }
         }
         return fileStatuses;
     }
@@ -1116,8 +1130,9 @@ public class StatisticsFileSystem extends FileSystem {
     @Override
     public RemoteIterator<Path> listCorruptFileBlocks(Path path)
             throws IOException {
+        final UnwrappedPath unwrappedPath = unwrapPath(path);
         final RemoteIterator<Path> it = wrappedFS
-                .listCorruptFileBlocks(unwrapPath(path));
+                .listCorruptFileBlocks(unwrappedPath);
         return new RemoteIterator<Path>() {
             @Override
             public boolean hasNext() throws IOException {
@@ -1126,7 +1141,8 @@ public class StatisticsFileSystem extends FileSystem {
 
             @Override
             public Path next() throws IOException {
-                return wrapPath(it.next());
+                return unwrappedPath.isUnwrapped() ? wrapPath(it.next())
+                        : it.next();
             }
         };
     }
@@ -1134,8 +1150,9 @@ public class StatisticsFileSystem extends FileSystem {
     @Override
     public RemoteIterator<LocatedFileStatus> listFiles(Path f,
             boolean recursive) throws FileNotFoundException, IOException {
+        final UnwrappedPath unwrappedPath = unwrapPath(f);
         final RemoteIterator<LocatedFileStatus> it = wrappedFS
-                .listFiles(unwrapPath(f), recursive);
+                .listFiles(unwrappedPath, recursive);
         return new RemoteIterator<LocatedFileStatus>() {
             @Override
             public boolean hasNext() throws IOException {
@@ -1145,8 +1162,11 @@ public class StatisticsFileSystem extends FileSystem {
             @Override
             public LocatedFileStatus next() throws IOException {
                 LocatedFileStatus fileStatus = it.next();
-                fileStatus.setPath(setAuthority(wrapPath(fileStatus.getPath()),
-                        f.toUri().getAuthority()));
+                if (unwrappedPath.isUnwrapped()) {
+                    fileStatus.setPath(
+                            setAuthority(wrapPath(fileStatus.getPath()),
+                                    f.toUri().getAuthority()));
+                }
                 return fileStatus;
             }
         };
@@ -1155,8 +1175,9 @@ public class StatisticsFileSystem extends FileSystem {
     @Override
     public RemoteIterator<LocatedFileStatus> listLocatedStatus(Path f)
             throws FileNotFoundException, IOException {
+        final UnwrappedPath unwrappedPath = unwrapPath(f);
         final RemoteIterator<LocatedFileStatus> it = wrappedFS
-                .listLocatedStatus(f);
+                .listLocatedStatus(unwrappedPath);
         return new RemoteIterator<LocatedFileStatus>() {
             @Override
             public boolean hasNext() throws IOException {
@@ -1166,8 +1187,11 @@ public class StatisticsFileSystem extends FileSystem {
             @Override
             public LocatedFileStatus next() throws IOException {
                 LocatedFileStatus fileStatus = it.next();
-                fileStatus.setPath(setAuthority(wrapPath(fileStatus.getPath()),
-                        f.toUri().getAuthority()));
+                if (unwrappedPath.isUnwrapped()) {
+                    fileStatus.setPath(
+                            setAuthority(wrapPath(fileStatus.getPath()),
+                                    f.toUri().getAuthority()));
+                }
                 return fileStatus;
             }
         };
@@ -1177,11 +1201,13 @@ public class StatisticsFileSystem extends FileSystem {
     public FileStatus[] listStatus(Path f)
             throws FileNotFoundException, IOException {
         long startTime = System.currentTimeMillis();
-        Path unwrappedPath = unwrapPath(f);
+        UnwrappedPath unwrappedPath = unwrapPath(f);
         FileStatus[] fileStatuses = wrappedFS.listStatus(unwrappedPath);
-        for (FileStatus fileStatus : fileStatuses) {
-            fileStatus.setPath(setAuthority(wrapPath(fileStatus.getPath()),
-                    f.toUri().getAuthority()));
+        if (unwrappedPath.isUnwrapped()) {
+            for (FileStatus fileStatus : fileStatuses) {
+                fileStatus.setPath(setAuthority(wrapPath(fileStatus.getPath()),
+                        f.toUri().getAuthority()));
+            }
         }
         if (!skipOther) {
             LiveOperationStatisticsAggregator.instance
@@ -1196,7 +1222,7 @@ public class StatisticsFileSystem extends FileSystem {
     public FileStatus[] listStatus(Path f, PathFilter filter)
             throws FileNotFoundException, IOException {
         long startTime = System.currentTimeMillis();
-        Path unwrappedPath = unwrapPath(f);
+        UnwrappedPath unwrappedPath = unwrapPath(f);
         PathFilter wrappedFilter = new PathFilter() {
             @Override
             public boolean accept(Path path) {
@@ -1206,9 +1232,11 @@ public class StatisticsFileSystem extends FileSystem {
 
         FileStatus[] fileStatuses = wrappedFS.listStatus(unwrappedPath,
                 wrappedFilter);
-        for (FileStatus fileStatus : fileStatuses) {
-            fileStatus.setPath(setAuthority(wrapPath(fileStatus.getPath()),
-                    f.toUri().getAuthority()));
+        if (unwrappedPath.isUnwrapped()) {
+            for (FileStatus fileStatus : fileStatuses) {
+                fileStatus.setPath(setAuthority(wrapPath(fileStatus.getPath()),
+                        f.toUri().getAuthority()));
+            }
         }
         if (!skipOther) {
             LiveOperationStatisticsAggregator.instance
@@ -1222,16 +1250,18 @@ public class StatisticsFileSystem extends FileSystem {
     @Override
     public FileStatus[] listStatus(Path[] files)
             throws FileNotFoundException, IOException {
-        Path[] unwrappedFiles = new Path[files.length];
+        UnwrappedPath[] unwrappedFiles = new UnwrappedPath[files.length];
         for (int i = 0; i < files.length; ++i) {
             unwrappedFiles[i] = unwrapPath(files[i]);
         }
 
         FileStatus[] fileStatuses = wrappedFS.listStatus(unwrappedFiles);
         for (int i = 0; i < fileStatuses.length; ++i) {
-            fileStatuses[i]
-                    .setPath(setAuthority(wrapPath(fileStatuses[i].getPath()),
-                            files[i].toUri().getAuthority()));
+            if (unwrappedFiles[i].isUnwrapped()) {
+                fileStatuses[i].setPath(
+                        setAuthority(wrapPath(fileStatuses[i].getPath()),
+                                files[i].toUri().getAuthority()));
+            }
         }
         return fileStatuses;
     }
@@ -1239,9 +1269,9 @@ public class StatisticsFileSystem extends FileSystem {
     @Override
     public FileStatus[] listStatus(Path[] path, PathFilter filter)
             throws FileNotFoundException, IOException {
-        Path[] unwrappedPath = new Path[path.length];
+        UnwrappedPath[] unwrappedPaths = new UnwrappedPath[path.length];
         for (int i = 0; i < path.length; ++i) {
-            unwrappedPath[i] = unwrapPath(path[i]);
+            unwrappedPaths[i] = unwrapPath(path[i]);
         }
 
         PathFilter wrappedFilter = new PathFilter() {
@@ -1251,19 +1281,24 @@ public class StatisticsFileSystem extends FileSystem {
             }
         };
 
-        FileStatus[] fileStatuses = wrappedFS.listStatus(unwrappedPath,
+        FileStatus[] fileStatuses = wrappedFS.listStatus(unwrappedPaths,
                 wrappedFilter);
         for (int i = 0; i < fileStatuses.length; ++i) {
-            fileStatuses[i]
-                    .setPath(setAuthority(wrapPath(fileStatuses[i].getPath()),
-                            path[i].toUri().getAuthority()));
+            if (unwrappedPaths[i].isUnwrapped()) {
+                fileStatuses[i].setPath(
+                        setAuthority(wrapPath(fileStatuses[i].getPath()),
+                                path[i].toUri().getAuthority()));
+            }
         }
         return fileStatuses;
     }
 
     @Override
     public Path makeQualified(Path path) {
-        return wrapPath(wrappedFS.makeQualified(unwrapPath(path)));
+        UnwrappedPath unwrappedPath = unwrapPath(path);
+        return unwrappedPath.isUnwrapped()
+                ? wrapPath(wrappedFS.makeQualified(unwrappedPath))
+                : wrappedFS.makeQualified(unwrappedPath);
     }
 
     @Override
@@ -1370,7 +1405,10 @@ public class StatisticsFileSystem extends FileSystem {
 
     @Override
     public Path resolvePath(Path p) throws IOException {
-        return wrapPath(wrappedFS.resolvePath(unwrapPath(p)));
+        UnwrappedPath unwrappedPath = unwrapPath(p);
+        return unwrappedPath.isUnwrapped()
+                ? wrapPath(wrappedFS.resolvePath(unwrappedPath))
+                : wrappedFS.resolvePath(unwrappedPath);
     }
 
     @Override
@@ -1415,8 +1453,12 @@ public class StatisticsFileSystem extends FileSystem {
     @Override
     public Path startLocalOutput(Path fsOutputFile, Path tmpLocalFile)
             throws IOException {
-        return wrapPath(wrappedFS.startLocalOutput(unwrapPath(fsOutputFile),
-                unwrapPath(tmpLocalFile)));
+        UnwrappedPath unwrappedFsOutputFile = unwrapPath(fsOutputFile);
+        return unwrappedFsOutputFile.isUnwrapped()
+                ? wrapPath(wrappedFS.startLocalOutput(unwrappedFsOutputFile,
+                        tmpLocalFile))
+                : wrappedFS.startLocalOutput(unwrappedFsOutputFile,
+                        tmpLocalFile);
     }
 
     @Override
@@ -1463,14 +1505,14 @@ public class StatisticsFileSystem extends FileSystem {
                     LOG.debug("URI '" + uri
                             + "' already has the correct scheme '" + to + "'.");
                 }
-                return uri;
+                return null;
             } else {
-                // uri has wrong scheme, just return it
-                return uri;
+                // uri has wrong scheme
+                return null;
             }
         } else {
-            // uri has no scheme, just return it
-            return uri;
+            // uri has no scheme
+            return null;
         }
     }
 
@@ -1489,13 +1531,38 @@ public class StatisticsFileSystem extends FileSystem {
         }
     }
 
-    private Path unwrapPath(Path path) {
-        return new Path(
-                replaceUriScheme(path.toUri(), getScheme(), wrappedFSScheme));
+    private UnwrappedPath unwrapPath(Path path) {
+        URI unwrappedUri = replaceUriScheme(path.toUri(), getScheme(),
+                wrappedFSScheme);
+
+        // if the returned URI is null, then the path has not been unwrapped,
+        // either because it has no scheme, it has the wrong scheme, or it
+        // already has the correct scheme
+        return unwrappedUri != null ? new UnwrappedPath(unwrappedUri, true)
+                : new UnwrappedPath(path.toUri(), false);
     }
 
     private Path wrapPath(Path path) {
+        // only wrap the path if it has been unwrapped before
         return new Path(
                 replaceUriScheme(path.toUri(), wrappedFSScheme, getScheme()));
+    }
+
+    private static class UnwrappedPath extends Path {
+        private final boolean unwrapped;
+
+        public UnwrappedPath(URI aUri) {
+            super(aUri);
+            unwrapped = false;
+        }
+
+        public UnwrappedPath(URI aUri, boolean unwrapped) {
+            super(aUri);
+            this.unwrapped = unwrapped;
+        }
+
+        public boolean isUnwrapped() {
+            return unwrapped;
+        }
     }
 }
