@@ -19,9 +19,11 @@ public class ZipFileCallback {
     private static final Map<Long, Long> ZIP_CACHE = new ConcurrentHashMap<>();
 
     public static void constructorCallback(long startTime, long endTime,
-            long jzfile, long length) {
+            String filename, long jzfile, long length) {
         // ZipFile caches ZIP files, so we need to count them only once as well
         if (ZIP_CACHE.merge(jzfile, 1L, (v1, v2) -> v1 + v2) == 1L) {
+            int fd = LiveOperationStatisticsAggregator.instance
+                    .getFileDescriptor(filename);
             LiveOperationStatisticsAggregator.instance
                     .aggregateReadDataOperationStatistics(OperationSource.JVM,
                             OperationCategory.ZIP, startTime, endTime, fd,
