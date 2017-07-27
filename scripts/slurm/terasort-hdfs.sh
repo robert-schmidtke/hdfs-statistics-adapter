@@ -9,6 +9,7 @@ usage() {
   echo "  -e|--engine <flink|spark|hadoop> (default: not specified)"
   echo "  -n|--no-sfs (default: disabled)"
   echo "  -d|--data <gigabytes> (default: 1024)"
+  echo "     --hadoop-tasks <tasks> (default: automatic)"
 }
 
 while [[ $# -gt 0 ]]; do
@@ -23,6 +24,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     -d|--data)
       DATA_GB="$2"
+      shift
+      ;;
+    --hadoop-tasks)
+      TERAGEN_MAPPERS="$2"
       shift
       ;;
     *)
@@ -229,7 +234,9 @@ TOTAL_DATA=$(($DATA_GB * 1073741800))
 # figure out the number of mappers to use for generation of data
 # rounding up one just in case
 DATA_PER_MAPPER=$((512 * 1048576))
-TERAGEN_MAPPERS=$((($TOTAL_DATA + $DATA_PER_MAPPER - 1) / $DATA_PER_MAPPER))
+if [ -z "$TERAGEN_MAPPERS" ]; then
+  TERAGEN_MAPPERS=$((($TOTAL_DATA + $DATA_PER_MAPPER - 1) / $DATA_PER_MAPPER))
+fi
 
 echo "$(date): Dumping file system counters"
 ssh cumulus cat /sys/fs/xfs/sda1/stats/stats > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-cumulus.xfs.root.pre
