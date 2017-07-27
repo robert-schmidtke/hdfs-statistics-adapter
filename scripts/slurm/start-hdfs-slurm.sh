@@ -16,6 +16,7 @@ usage() {
   echo "SFS specific options (default: not specified/do not use SFS):"
   echo "     --sfs-wrapped-fs <wrapped file system class name> (default: not specified; enables SFS if specified)"
   echo "     --sfs-wrapped-scheme <scheme of the wrapped file system> (default: not specified)"
+  echo "     --sfs-instrumentation-skip <r|w|o> or any combination of them (default: not specified)"
 }
 
 if [ -z $SLURM_JOB_ID ]; then
@@ -76,6 +77,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --sfs-wrapped-scheme)
       SFS_WRAPPED_SCHEME="$2"
+      shift
+      ;;
+    --sfs-instrumentation-skip)
+      SFS_INSTRUMENTATION_SKIP="$2"
       shift
       ;;
     *)
@@ -164,6 +169,10 @@ if [ -n "$SFS_WRAPPED_FS" ]; then
     <name>sfs.wrappedFS.scheme</name>
     <value>${SFS_WRAPPED_SCHEME}</value>
   </property>
+  <property>
+    <name>sfs.instrumentation.skip</name>
+    <value>${SFS_INSTRUMENTATION_SKIP}</value>
+  </property>
 EOF
 fi
 
@@ -227,6 +236,10 @@ for datanode in ${HADOOP_DATANODES[@]}; do
     <name>dfs.datanode.data.dir</name>
     <value>file:///local/${HDFS_LOCAL_DIR}/data</value>
   </property>
+  <property>
+    <name>dfs.datanode.transferTo.allowed</name>
+    <value>false</value>
+  </property>
 </configuration>
 EOF
 done
@@ -254,7 +267,7 @@ cat > $HADOOP_CONF_DIR/mapred-site.xml << EOF
   </property>
   <property>
     <name>mapreduce.map.memory.mb</name>
-    <value>3072</value>
+    <value>2048</value>
   </property>
   <property>
     <name>mapreduce.map.java.opts</name>
@@ -266,11 +279,11 @@ cat > $HADOOP_CONF_DIR/mapred-site.xml << EOF
   </property>
   <property>
     <name>mapreduce.reduce.memory.mb</name>
-    <value>4096</value>
+    <value>2048</value>
   </property>
   <property>
     <name>mapreduce.reduce.java.opts</name>
-    <value>-Xmx3072M $REDUCE_OPTS</value>
+    <value>-Xmx2048M $REDUCE_OPTS</value>
   </property>
   <property>
     <name>mapreduce.reduce.env</name>
@@ -283,6 +296,22 @@ cat > $HADOOP_CONF_DIR/mapred-site.xml << EOF
   <property>
     <name>mapreduce.task.io.sort.factor</name>
     <value>32</value>
+  </property>
+  <property>
+    <name>mapreduce.shuffle.transferTo.allowed</name>
+    <value>false</value>
+  </property>
+  <property>
+    <name>mapreduce.reduce.merge.inmem.threshold</name>
+    <value>0</value>
+  </property>
+  <property>
+    <name>mapreduce.map.speculative</name>
+    <value>false</value>
+  </property>
+  <property>
+    <name>mapreduce.reduce.speculative</name>
+    <value>false</value>
   </property>
 </configuration>
 EOF
