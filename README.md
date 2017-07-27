@@ -6,6 +6,8 @@ It consists of two parts, [sfs-agent](sfs-agent) which takes care of instrumenti
 For details on how to use with Hadoop and Flink, see [.travis.yml](.travis.yml), [scripts/travis/hadoop_grep.sh](scripts/travis/hadoop_grep.sh), [scripts/slurm/start-hdfs-slurm.sh](scripts/slurm/start-hdfs-slurm.sh) and [scripts/slurm/terasort-hdfs.sh](scripts/slurm/terasort-hdfs.sh)
 
 ## Building
+Please also check [.travis.yml](.travis.yml) for how to obtain the appropriate gRPC and Protobuf versions.
+
 ```bash
 PROTOBUF_VERSION=3.0.0
 GRPC_VERSION=1.0.1
