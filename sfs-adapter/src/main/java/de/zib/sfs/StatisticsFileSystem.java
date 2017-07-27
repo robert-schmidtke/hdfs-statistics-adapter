@@ -293,16 +293,18 @@ public class StatisticsFileSystem extends FileSystem {
         FSDataOutputStream stream;
         if (!skipWrite) {
             stream = new WrappedFSDataOutputStream(
-                    wrappedFS.append(unwrappedPath),
+                    wrappedFS.append(unwrappedPath), f,
                     LiveOperationStatisticsAggregator.instance);
         } else {
             stream = wrappedFS.append(unwrappedPath);
         }
         if (!skipOther) {
+            int fd = LiveOperationStatisticsAggregator.instance
+                    .getFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis());
+                            System.currentTimeMillis(), fd);
         }
         return stream;
     }
@@ -315,16 +317,18 @@ public class StatisticsFileSystem extends FileSystem {
         FSDataOutputStream stream;
         if (!skipWrite) {
             stream = new WrappedFSDataOutputStream(
-                    wrappedFS.append(unwrappedPath, bufferSize),
+                    wrappedFS.append(unwrappedPath, bufferSize), f,
                     LiveOperationStatisticsAggregator.instance);
         } else {
             stream = wrappedFS.append(unwrappedPath, bufferSize);
         }
         if (!skipOther) {
+            int fd = LiveOperationStatisticsAggregator.instance
+                    .getFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis());
+                            System.currentTimeMillis(), fd);
         }
         return stream;
     }
@@ -333,22 +337,22 @@ public class StatisticsFileSystem extends FileSystem {
     public FSDataOutputStream append(Path f, int bufferSize,
             Progressable progress) throws IOException {
         long startTime = System.currentTimeMillis();
-        int fd = LiveOperationStatisticsAggregator.instance
-                .getFileDescriptor(f.toString());
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream;
         if (!skipWrite) {
             stream = new WrappedFSDataOutputStream(
-                    wrappedFS.append(unwrappedPath, bufferSize, progress),
+                    wrappedFS.append(unwrappedPath, bufferSize, progress), f,
                     LiveOperationStatisticsAggregator.instance);
         } else {
             stream = wrappedFS.append(unwrappedPath, bufferSize, progress);
         }
         if (!skipOther) {
+            int fd = LiveOperationStatisticsAggregator.instance
+                    .getFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis());
+                            System.currentTimeMillis(), fd);
         }
         return stream;
     }
@@ -474,22 +478,22 @@ public class StatisticsFileSystem extends FileSystem {
     @Override
     public FSDataOutputStream create(Path f) throws IOException {
         long startTime = System.currentTimeMillis();
-        int fd = LiveOperationStatisticsAggregator.instance
-                .getFileDescriptor(f.toString());
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream;
         if (!skipWrite) {
             stream = new WrappedFSDataOutputStream(
-                    wrappedFS.create(unwrappedPath),
+                    wrappedFS.create(unwrappedPath), f,
                     LiveOperationStatisticsAggregator.instance);
         } else {
             stream = wrappedFS.create(unwrappedPath);
         }
         if (!skipOther) {
+            int fd = LiveOperationStatisticsAggregator.instance
+                    .getFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis());
+                            System.currentTimeMillis(), fd);
         }
         return stream;
     }
@@ -498,22 +502,22 @@ public class StatisticsFileSystem extends FileSystem {
     public FSDataOutputStream create(Path f, boolean overwrite)
             throws IOException {
         long startTime = System.currentTimeMillis();
-        int fd = LiveOperationStatisticsAggregator.instance
-                .getFileDescriptor(f.toString());
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream;
         if (!skipWrite) {
             stream = new WrappedFSDataOutputStream(
-                    wrappedFS.create(unwrappedPath, overwrite),
+                    wrappedFS.create(unwrappedPath, overwrite), f,
                     LiveOperationStatisticsAggregator.instance);
         } else {
             stream = wrappedFS.create(unwrappedPath, overwrite);
         }
         if (!skipOther) {
+            int fd = LiveOperationStatisticsAggregator.instance
+                    .getFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis());
+                            System.currentTimeMillis(), fd);
         }
         return stream;
     }
@@ -526,16 +530,18 @@ public class StatisticsFileSystem extends FileSystem {
         FSDataOutputStream stream;
         if (!skipWrite) {
             stream = new WrappedFSDataOutputStream(
-                    wrappedFS.create(unwrappedPath, overwrite, bufferSize),
+                    wrappedFS.create(unwrappedPath, overwrite, bufferSize), f,
                     LiveOperationStatisticsAggregator.instance);
         } else {
             stream = wrappedFS.create(unwrappedPath, overwrite, bufferSize);
         }
         if (!skipOther) {
+            int fd = LiveOperationStatisticsAggregator.instance
+                    .getFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis());
+                            System.currentTimeMillis(), fd);
         }
         return stream;
     }
@@ -544,24 +550,24 @@ public class StatisticsFileSystem extends FileSystem {
     public FSDataOutputStream create(Path f, boolean overwrite, int bufferSize,
             Progressable progress) throws IOException {
         long startTime = System.currentTimeMillis();
-        int fd = LiveOperationStatisticsAggregator.instance
-                .getFileDescriptor(f.toString());
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream;
         if (!skipWrite) {
             stream = new WrappedFSDataOutputStream(
                     wrappedFS.create(unwrappedPath, overwrite, bufferSize,
                             progress),
-                    LiveOperationStatisticsAggregator.instance);
+                    f, LiveOperationStatisticsAggregator.instance);
         } else {
             stream = wrappedFS.create(unwrappedPath, overwrite, bufferSize,
                     progress);
         }
         if (!skipOther) {
+            int fd = LiveOperationStatisticsAggregator.instance
+                    .getFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis());
+                            System.currentTimeMillis(), fd);
         }
         return stream;
     }
@@ -576,16 +582,18 @@ public class StatisticsFileSystem extends FileSystem {
             stream = new WrappedFSDataOutputStream(
                     wrappedFS.create(unwrappedPath, overwrite, bufferSize,
                             replication, blockSize),
-                    LiveOperationStatisticsAggregator.instance);
+                    f, LiveOperationStatisticsAggregator.instance);
         } else {
             stream = wrappedFS.create(unwrappedPath, overwrite, bufferSize,
                     replication, blockSize);
         }
         if (!skipOther) {
+            int fd = LiveOperationStatisticsAggregator.instance
+                    .getFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis());
+                            System.currentTimeMillis(), fd);
         }
         return stream;
     }
@@ -601,16 +609,18 @@ public class StatisticsFileSystem extends FileSystem {
             stream = new WrappedFSDataOutputStream(
                     wrappedFS.create(unwrappedPath, overwrite, bufferSize,
                             replication, blockSize, progress),
-                    LiveOperationStatisticsAggregator.instance);
+                    f, LiveOperationStatisticsAggregator.instance);
         } else {
             stream = wrappedFS.create(unwrappedPath, overwrite, bufferSize,
                     replication, blockSize, progress);
         }
         if (!skipOther) {
+            int fd = LiveOperationStatisticsAggregator.instance
+                    .getFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis());
+                            System.currentTimeMillis(), fd);
         }
         return stream;
     }
@@ -626,16 +636,18 @@ public class StatisticsFileSystem extends FileSystem {
             stream = new WrappedFSDataOutputStream(
                     wrappedFS.create(unwrappedPath, permission, overwrite,
                             bufferSize, replication, blockSize, progress),
-                    LiveOperationStatisticsAggregator.instance);
+                    f, LiveOperationStatisticsAggregator.instance);
         } else {
             stream = wrappedFS.create(unwrappedPath, permission, overwrite,
                     bufferSize, replication, blockSize, progress);
         }
         if (!skipOther) {
+            int fd = LiveOperationStatisticsAggregator.instance
+                    .getFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis());
+                            System.currentTimeMillis(), fd);
         }
         return stream;
     }
@@ -645,24 +657,24 @@ public class StatisticsFileSystem extends FileSystem {
             EnumSet<CreateFlag> flags, int bufferSize, short replication,
             long blockSize, Progressable progress) throws IOException {
         long startTime = System.currentTimeMillis();
-        int fd = LiveOperationStatisticsAggregator.instance
-                .getFileDescriptor(f.toString());
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream;
         if (!skipWrite) {
             stream = new WrappedFSDataOutputStream(
                     wrappedFS.create(unwrappedPath, permission, flags,
                             bufferSize, replication, blockSize, progress),
-                    LiveOperationStatisticsAggregator.instance);
+                    f, LiveOperationStatisticsAggregator.instance);
         } else {
             stream = wrappedFS.create(unwrappedPath, permission, flags,
                     bufferSize, replication, blockSize, progress);
         }
         if (!skipOther) {
+            int fd = LiveOperationStatisticsAggregator.instance
+                    .getFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis());
+                            System.currentTimeMillis(), fd);
         }
         return stream;
     }
@@ -673,8 +685,6 @@ public class StatisticsFileSystem extends FileSystem {
             long blockSize, Progressable progress, ChecksumOpt checksumOpt)
             throws IOException {
         long startTime = System.currentTimeMillis();
-        int fd = LiveOperationStatisticsAggregator.instance
-                .getFileDescriptor(f.toString());
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream;
         if (!skipWrite) {
@@ -682,16 +692,18 @@ public class StatisticsFileSystem extends FileSystem {
                     wrappedFS.create(unwrappedPath, permission, flags,
                             bufferSize, replication, blockSize, progress,
                             checksumOpt),
-                    LiveOperationStatisticsAggregator.instance);
+                    f, LiveOperationStatisticsAggregator.instance);
         } else {
             stream = wrappedFS.create(unwrappedPath, permission, flags,
                     bufferSize, replication, blockSize, progress, checksumOpt);
         }
         if (!skipOther) {
+            int fd = LiveOperationStatisticsAggregator.instance
+                    .getFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis());
+                            System.currentTimeMillis(), fd);
         }
         return stream;
     }
@@ -700,22 +712,22 @@ public class StatisticsFileSystem extends FileSystem {
     public FSDataOutputStream create(Path f, Progressable progress)
             throws IOException {
         long startTime = System.currentTimeMillis();
-        int fd = LiveOperationStatisticsAggregator.instance
-                .getFileDescriptor(f.toString());
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream;
         if (!skipWrite) {
             stream = new WrappedFSDataOutputStream(
-                    wrappedFS.create(unwrappedPath, progress),
+                    wrappedFS.create(unwrappedPath, progress), f,
                     LiveOperationStatisticsAggregator.instance);
         } else {
             stream = wrappedFS.create(unwrappedPath, progress);
         }
         if (!skipOther) {
+            int fd = LiveOperationStatisticsAggregator.instance
+                    .getFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis());
+                            System.currentTimeMillis(), fd);
         }
         return stream;
     }
@@ -728,16 +740,18 @@ public class StatisticsFileSystem extends FileSystem {
         FSDataOutputStream stream;
         if (!skipWrite) {
             stream = new WrappedFSDataOutputStream(
-                    wrappedFS.create(unwrappedPath, replication),
+                    wrappedFS.create(unwrappedPath, replication), f,
                     LiveOperationStatisticsAggregator.instance);
         } else {
             stream = wrappedFS.create(unwrappedPath, replication);
         }
         if (!skipOther) {
+            int fd = LiveOperationStatisticsAggregator.instance
+                    .getFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis());
+                            System.currentTimeMillis(), fd);
         }
         return stream;
     }
@@ -750,16 +764,18 @@ public class StatisticsFileSystem extends FileSystem {
         FSDataOutputStream stream;
         if (!skipWrite) {
             stream = new WrappedFSDataOutputStream(
-                    wrappedFS.create(unwrappedPath, replication, progress),
+                    wrappedFS.create(unwrappedPath, replication, progress), f,
                     LiveOperationStatisticsAggregator.instance);
         } else {
             stream = wrappedFS.create(unwrappedPath, replication, progress);
         }
         if (!skipOther) {
+            int fd = LiveOperationStatisticsAggregator.instance
+                    .getFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis());
+                            System.currentTimeMillis(), fd);
         }
         return stream;
     }
@@ -781,16 +797,18 @@ public class StatisticsFileSystem extends FileSystem {
             stream = new WrappedFSDataOutputStream(
                     wrappedFS.createNonRecursive(unwrappedPath, overwrite,
                             bufferSize, replication, blockSize, progress),
-                    LiveOperationStatisticsAggregator.instance);
+                    f, LiveOperationStatisticsAggregator.instance);
         } else {
             stream = wrappedFS.createNonRecursive(unwrappedPath, overwrite,
                     bufferSize, replication, blockSize, progress);
         }
         if (!skipOther) {
+            int fd = LiveOperationStatisticsAggregator.instance
+                    .getFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis());
+                            System.currentTimeMillis(), fd);
         }
         return stream;
     }
@@ -809,16 +827,18 @@ public class StatisticsFileSystem extends FileSystem {
                     wrappedFS.createNonRecursive(unwrappedPath, permission,
                             overwrite, bufferSize, replication, blockSize,
                             progress),
-                    LiveOperationStatisticsAggregator.instance);
+                    f, LiveOperationStatisticsAggregator.instance);
         } else {
             stream = wrappedFS.createNonRecursive(unwrappedPath, permission,
                     overwrite, bufferSize, replication, blockSize, progress);
         }
         if (!skipOther) {
+            int fd = LiveOperationStatisticsAggregator.instance
+                    .getFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis());
+                            System.currentTimeMillis(), fd);
         }
         return stream;
     }
@@ -837,16 +857,18 @@ public class StatisticsFileSystem extends FileSystem {
                     wrappedFS.createNonRecursive(unwrappedPath, permission,
                             flags, bufferSize, replication, blockSize,
                             progress),
-                    LiveOperationStatisticsAggregator.instance);
+                    f, LiveOperationStatisticsAggregator.instance);
         } else {
             stream = wrappedFS.createNonRecursive(unwrappedPath, permission,
                     flags, bufferSize, replication, blockSize, progress);
         }
         if (!skipOther) {
+            int fd = LiveOperationStatisticsAggregator.instance
+                    .getFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis());
+                            System.currentTimeMillis(), fd);
         }
         return stream;
     }
@@ -880,10 +902,12 @@ public class StatisticsFileSystem extends FileSystem {
         Path unwrappedPath = unwrapPath(f);
         boolean result = wrappedFS.delete(unwrappedPath, recursive);
         if (!skipOther) {
+            int fd = LiveOperationStatisticsAggregator.instance
+                    .getFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis());
+                            System.currentTimeMillis(), fd);
         }
         return result;
     }
@@ -963,7 +987,7 @@ public class StatisticsFileSystem extends FileSystem {
         file.setPath(path);
         if (!skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
-                .getFileDescriptor(file.getPath().toString());
+                    .getFileDescriptor(file.getPath().toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
@@ -980,10 +1004,12 @@ public class StatisticsFileSystem extends FileSystem {
         BlockLocation[] blockLocations = wrappedFS.getFileBlockLocations(path,
                 start, len);
         if (!skipOther) {
+            int fd = LiveOperationStatisticsAggregator.instance
+                    .getFileDescriptor(p.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis());
+                            System.currentTimeMillis(), fd);
         }
         return blockLocations;
     }
@@ -1015,10 +1041,12 @@ public class StatisticsFileSystem extends FileSystem {
                     f.toUri().getAuthority()));
         }
         if (!skipOther) {
+            int fd = LiveOperationStatisticsAggregator.instance
+                    .getFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis());
+                            System.currentTimeMillis(), fd);
         }
         return fileStatus;
     }
@@ -1226,10 +1254,12 @@ public class StatisticsFileSystem extends FileSystem {
             }
         }
         if (!skipOther) {
+            int fd = LiveOperationStatisticsAggregator.instance
+                    .getFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis());
+                            System.currentTimeMillis(), fd);
         }
         return fileStatuses;
     }
@@ -1255,10 +1285,12 @@ public class StatisticsFileSystem extends FileSystem {
             }
         }
         if (!skipOther) {
+            int fd = LiveOperationStatisticsAggregator.instance
+                    .getFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis());
+                            System.currentTimeMillis(), fd);
         }
         return fileStatuses;
     }
@@ -1328,10 +1360,12 @@ public class StatisticsFileSystem extends FileSystem {
         Path unwrappedPath = unwrapPath(f);
         boolean result = wrappedFS.mkdirs(unwrappedPath, permission);
         if (!skipOther) {
+            int fd = LiveOperationStatisticsAggregator.instance
+                    .getFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis());
+                            System.currentTimeMillis(), fd);
         }
         return result;
     }
@@ -1363,15 +1397,17 @@ public class StatisticsFileSystem extends FileSystem {
         if (!skipRead) {
             stream = new FSDataInputStream(
                     new WrappedFSDataInputStream(wrappedFS.open(unwrappedPath),
-                            LiveOperationStatisticsAggregator.instance));
+                            f, LiveOperationStatisticsAggregator.instance));
         } else {
             stream = wrappedFS.open(unwrappedPath);
         }
         if (!skipOther) {
+            int fd = LiveOperationStatisticsAggregator.instance
+                    .getFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis());
+                            System.currentTimeMillis(), fd);
         }
         return stream;
     }
@@ -1383,16 +1419,18 @@ public class StatisticsFileSystem extends FileSystem {
         FSDataInputStream stream;
         if (!skipRead) {
             stream = new FSDataInputStream(new WrappedFSDataInputStream(
-                    wrappedFS.open(unwrappedPath, bufferSize),
+                    wrappedFS.open(unwrappedPath, bufferSize), f,
                     LiveOperationStatisticsAggregator.instance));
         } else {
             stream = wrappedFS.open(unwrappedPath, bufferSize);
         }
         if (!skipOther) {
+            int fd = LiveOperationStatisticsAggregator.instance
+                    .getFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis());
+                            System.currentTimeMillis(), fd);
         }
         return stream;
     }
@@ -1404,10 +1442,12 @@ public class StatisticsFileSystem extends FileSystem {
         Path unwrappedDst = unwrapPath(dst);
         boolean result = wrappedFS.rename(unwrappedSrc, unwrappedDst);
         if (!skipOther) {
+            int fd = LiveOperationStatisticsAggregator.instance
+                    .getFileDescriptor(src.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis());
+                            System.currentTimeMillis(), fd);
         }
         return result;
     }
