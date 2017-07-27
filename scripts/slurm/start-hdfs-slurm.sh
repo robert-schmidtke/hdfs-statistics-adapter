@@ -236,6 +236,10 @@ for datanode in ${HADOOP_DATANODES[@]}; do
     <name>dfs.datanode.data.dir</name>
     <value>file:///local/${HDFS_LOCAL_DIR}/data</value>
   </property>
+  <property>
+    <name>dfs.datanode.transferTo.allowed</name>
+    <value>false</value>
+  </property>
 </configuration>
 EOF
 done
@@ -292,6 +296,22 @@ cat > $HADOOP_CONF_DIR/mapred-site.xml << EOF
   <property>
     <name>mapreduce.task.io.sort.factor</name>
     <value>32</value>
+  </property>
+  <property>
+    <name>mapreduce.shuffle.transferTo.allowed</name>
+    <value>false</value>
+  </property>
+  <property>
+    <name>mapreduce.reduce.merge.inmem.threshold</name>
+    <value>0</value>
+  </property>
+  <property>
+    <name>mapreduce.map.speculative</name>
+    <value>false</value>
+  </property>
+  <property>
+    <name>mapreduce.reduce.speculative</name>
+    <value>false</value>
   </property>
 </configuration>
 EOF
