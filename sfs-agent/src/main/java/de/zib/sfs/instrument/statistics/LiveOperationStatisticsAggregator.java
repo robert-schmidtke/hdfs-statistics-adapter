@@ -114,22 +114,22 @@ public class LiveOperationStatisticsAggregator {
     }
 
     public void aggregateOperationStatistics(OperationSource source,
-            OperationCategory category, long startTime, long endTime) {
+            OperationCategory category, long startTime, long endTime, int fd) {
         if (!initialized) {
             return;
         }
 
         try {
-            threadPool.execute(
-                    new AggregationTask(source, category, startTime, endTime));
+            threadPool.execute(new AggregationTask(source, category, startTime,
+                    endTime, fd));
         } catch (RejectedExecutionException e) {
             overflowQueue.add(new OperationStatistics(timeBinDuration, source,
-                    category, startTime, endTime));
+                    category, startTime, endTime, fd));
         }
     }
 
     public void aggregateDataOperationStatistics(OperationSource source,
-            OperationCategory category, long startTime, long endTime,
+            OperationCategory category, long startTime, long endTime, int fd,
             long data) {
         if (!initialized) {
             return;
@@ -137,26 +137,26 @@ public class LiveOperationStatisticsAggregator {
 
         try {
             threadPool.execute(new AggregationTask(source, category, startTime,
-                    endTime, data));
+                    endTime, fd, data));
         } catch (RejectedExecutionException e) {
             overflowQueue.add(new DataOperationStatistics(timeBinDuration,
-                    source, category, startTime, endTime, data));
+                    source, category, startTime, endTime, fd, data));
         }
     }
 
     public void aggregateReadDataOperationStatistics(OperationSource source,
-            OperationCategory category, long startTime, long endTime, long data,
-            boolean isRemote) {
+            OperationCategory category, long startTime, long endTime, int fd,
+            long data, boolean isRemote) {
         if (!initialized) {
             return;
         }
 
         try {
             threadPool.execute(new AggregationTask(source, category, startTime,
-                    endTime, data, isRemote));
+                    endTime, fd, data, isRemote));
         } catch (RejectedExecutionException e) {
             overflowQueue.add(new ReadDataOperationStatistics(timeBinDuration,
-                    source, category, startTime, endTime, data, isRemote));
+                    source, category, startTime, endTime, fd, data, isRemote));
         }
     }
 
@@ -326,22 +326,23 @@ public class LiveOperationStatisticsAggregator {
 
         public AggregationTask(OperationSource source,
                 OperationCategory category, long startTime, long endTime,
-                long data, boolean isRemote) {
+                int fd, long data, boolean isRemote) {
             aggregate = new ReadDataOperationStatistics(timeBinDuration, source,
-                    category, startTime, endTime, data, isRemote);
+                    category, startTime, endTime, fd, data, isRemote);
         }
 
         public AggregationTask(OperationSource source,
                 OperationCategory category, long startTime, long endTime,
-                long data) {
+                int fd, long data) {
             aggregate = new DataOperationStatistics(timeBinDuration, source,
-                    category, startTime, endTime, data);
+                    category, startTime, endTime, fd, data);
         }
 
         public AggregationTask(OperationSource source,
-                OperationCategory category, long startTime, long endTime) {
+                OperationCategory category, long startTime, long endTime,
+                int fd) {
             aggregate = new OperationStatistics(timeBinDuration, source,
-                    category, startTime, endTime);
+                    category, startTime, endTime, fd);
         }
 
         @Override

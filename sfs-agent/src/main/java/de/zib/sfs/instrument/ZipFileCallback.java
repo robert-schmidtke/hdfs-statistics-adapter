@@ -24,7 +24,7 @@ public class ZipFileCallback {
         if (ZIP_CACHE.merge(jzfile, 1L, (v1, v2) -> v1 + v2) == 1L) {
             LiveOperationStatisticsAggregator.instance
                     .aggregateReadDataOperationStatistics(OperationSource.JVM,
-                            OperationCategory.ZIP, startTime, endTime,
+                            OperationCategory.ZIP, startTime, endTime, fd,
                             length, false);
 
             // For testing purposes, keep track of how much data was read using

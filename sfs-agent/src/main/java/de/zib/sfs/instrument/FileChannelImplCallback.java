@@ -16,28 +16,28 @@ public class FileChannelImplCallback {
     public void readCallback(long startTime, long endTime, int readResult) {
         LiveOperationStatisticsAggregator.instance
                 .aggregateReadDataOperationStatistics(OperationSource.JVM,
-                        OperationCategory.READ, startTime, endTime,
+                        OperationCategory.READ, startTime, endTime, fd,
                         readResult == -1 ? 0 : readResult, false);
     }
 
     public void readCallback(long startTime, long endTime, long readResult) {
         LiveOperationStatisticsAggregator.instance
                 .aggregateReadDataOperationStatistics(OperationSource.JVM,
-                        OperationCategory.READ, startTime, endTime,
+                        OperationCategory.READ, startTime, endTime, fd,
                         readResult == -1 ? 0 : readResult, false);
     }
 
     public void writeCallback(long startTime, long endTime, int writeResult) {
         LiveOperationStatisticsAggregator.instance
                 .aggregateDataOperationStatistics(OperationSource.JVM,
-                        OperationCategory.WRITE, startTime, endTime,
+                        OperationCategory.WRITE, startTime, endTime, fd,
                         writeResult);
     }
 
     public void writeCallback(long startTime, long endTime, long writeResult) {
         LiveOperationStatisticsAggregator.instance
                 .aggregateDataOperationStatistics(OperationSource.JVM,
-                        OperationCategory.WRITE, startTime, endTime,
+                        OperationCategory.WRITE, startTime, endTime, fd,
                         writeResult);
     }
 
