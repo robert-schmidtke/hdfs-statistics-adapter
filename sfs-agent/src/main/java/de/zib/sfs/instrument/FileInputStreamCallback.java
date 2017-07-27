@@ -13,7 +13,11 @@ import de.zib.sfs.instrument.statistics.OperationSource;
 
 public class FileInputStreamCallback {
 
-    public void openCallback(long startTime, long endTime) {
+    private int fd = -1;
+
+    public void openCallback(long startTime, long endTime, String filename) {
+        fd = LiveOperationStatisticsAggregator.instance
+                .getFileDescriptor(filename);
         LiveOperationStatisticsAggregator.instance.aggregateOperationStatistics(
                 OperationSource.JVM, OperationCategory.OTHER, startTime,
                 endTime, fd);

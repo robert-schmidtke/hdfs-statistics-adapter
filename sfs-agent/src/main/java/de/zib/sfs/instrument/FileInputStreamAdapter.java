@@ -46,7 +46,8 @@ public class FileInputStreamAdapter extends AbstractSfsAdapter {
                 new Type[] { Type.getType(String.class) }, null,
                 new String[] {
                         Type.getInternalName(FileNotFoundException.class) },
-                "openCallback", null, new DiscardResultPasser());
+                "openCallback", Type.getType(String.class),
+                new ParameterResultPasser(1));
 
         // for all read methods pass the read result to the callback
         ReturnResultPasser resultPasser = new ReturnResultPasser();

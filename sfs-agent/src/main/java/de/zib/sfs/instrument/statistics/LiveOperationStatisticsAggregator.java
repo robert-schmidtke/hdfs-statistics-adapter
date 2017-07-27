@@ -253,6 +253,23 @@ public class LiveOperationStatisticsAggregator {
                 throw new RuntimeException(e);
             }
         }
+
+        // write out the descriptor mappings
+        try {
+            BufferedWriter fileDescriptorMappingsWriter = new BufferedWriter(
+                    new FileWriter(new File(getLogFilePrefix()
+                            + ".filedescriptormappings.csv")));
+            fileDescriptorMappingsWriter.write("filedescriptor,filename");
+            fileDescriptorMappingsWriter.newLine();
+            for (Map.Entry<String, Integer> fd : fileDescriptors.entrySet()) {
+                fileDescriptorMappingsWriter
+                        .write(fd.getValue() + "," + fd.getKey());
+                fileDescriptorMappingsWriter.newLine();
+            }
+            fileDescriptorMappingsWriter.close();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public String getLogFilePrefix() {
