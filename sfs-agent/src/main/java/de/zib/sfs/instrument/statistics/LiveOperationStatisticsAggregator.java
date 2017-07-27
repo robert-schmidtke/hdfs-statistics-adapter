@@ -62,6 +62,8 @@ public class LiveOperationStatisticsAggregator {
     // mapping of file names to their first file descriptors
     private final Map<String, Integer> fileDescriptors;
 
+    private long initializationTime;
+
     public static final LiveOperationStatisticsAggregator instance = new LiveOperationStatisticsAggregator();
 
     private LiveOperationStatisticsAggregator() {
@@ -124,6 +126,8 @@ public class LiveOperationStatisticsAggregator {
                 + (outputDirectory.endsWith(File.separator) ? ""
                         : File.separator)
                 + systemHostname + "." + systemPid + "." + systemKey;
+
+        initializationTime = System.currentTimeMillis();
     }
 
     public int getFileDescriptor(String filename) {
@@ -257,15 +261,34 @@ public class LiveOperationStatisticsAggregator {
         // write out the descriptor mappings
         try {
             BufferedWriter fileDescriptorMappingsWriter = new BufferedWriter(
-                    new FileWriter(new File(getLogFilePrefix()
-                            + ".filedescriptormappings.csv")));
-            fileDescriptorMappingsWriter.write("filedescriptor,filename");
+                    new FileWriter(new File(
+                            getLogFilePrefix() + ".filedescriptormappings."
+                                    + initializationTime + ".csv")));
+
+            fileDescriptorMappingsWriter.write("hostname");
+            fileDescriptorMappingsWriter.write(outputSeparator);
+            fileDescriptorMappingsWriter.write("pid");
+            fileDescriptorMappingsWriter.write(outputSeparator);
+            fileDescriptorMappingsWriter.write("key");
+            fileDescriptorMappingsWriter.write(outputSeparator);
+            fileDescriptorMappingsWriter.write("filedescriptor");
+            fileDescriptorMappingsWriter.write(outputSeparator);
+            fileDescriptorMappingsWriter.write("filename");
             fileDescriptorMappingsWriter.newLine();
+
             for (Map.Entry<String, Integer> fd : fileDescriptors.entrySet()) {
-                fileDescriptorMappingsWriter
-                        .write(fd.getValue() + "," + fd.getKey());
+                fileDescriptorMappingsWriter.write(systemHostname);
+                fileDescriptorMappingsWriter.write(outputSeparator);
+                fileDescriptorMappingsWriter.write(systemPid);
+                fileDescriptorMappingsWriter.write(outputSeparator);
+                fileDescriptorMappingsWriter.write(systemKey);
+                fileDescriptorMappingsWriter.write(outputSeparator);
+                fileDescriptorMappingsWriter.write(fd.getValue());
+                fileDescriptorMappingsWriter.write(outputSeparator);
+                fileDescriptorMappingsWriter.write(fd.getKey());
                 fileDescriptorMappingsWriter.newLine();
             }
+
             fileDescriptorMappingsWriter.close();
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -292,7 +315,7 @@ public class LiveOperationStatisticsAggregator {
                 String filename = getLogFilePrefix() + "."
                         + aggregate.getSource().name().toLowerCase() + "."
                         + aggregate.getCategory().name().toLowerCase() + "."
-                        + System.currentTimeMillis() + ".csv";
+                        + initializationTime + ".csv";
 
                 File file = new File(filename);
                 if (!file.exists()) {

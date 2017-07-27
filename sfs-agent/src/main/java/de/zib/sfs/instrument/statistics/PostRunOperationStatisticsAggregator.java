@@ -114,6 +114,14 @@ public class PostRunOperationStatisticsAggregator {
                                 while ((numRead = reader.read(readBuf)) != -1) {
                                     writer.write(readBuf, 0, numRead);
                                 }
+
+                                // New line to account for not fully written
+                                // CSVs. This way, the next file gets appended
+                                // to the new line, rather than the current one.
+                                // This simplifies later parsing, as not fully
+                                // written lines are easier to deal with than
+                                // overfull ones.
+                                writer.newLine();
                                 writer.flush();
 
                                 reader.close();
