@@ -126,6 +126,16 @@ public class LiveOperationStatisticsAggregator {
                 + systemHostname + "." + systemPid + "." + systemKey;
     }
 
+    public int getFileDescriptor(String filename) {
+        if (!initialized || filename == null) {
+            return -1;
+        }
+
+        // reuses file descriptors for the same file
+        return fileDescriptors.computeIfAbsent(filename,
+                s -> currentFileDescriptor.incrementAndGet());
+    }
+
     public void aggregateOperationStatistics(OperationSource source,
             OperationCategory category, long startTime, long endTime, int fd) {
         if (!initialized) {
