@@ -948,10 +948,12 @@ public class StatisticsFileSystem extends FileSystem {
                 start, len);
         file.setPath(path);
         if (!skipOther) {
+            int fd = LiveOperationStatisticsAggregator.instance
+                .getFileDescriptor(file.getPath().toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis());
+                            System.currentTimeMillis(), fd);
         }
         return blockLocations;
     }

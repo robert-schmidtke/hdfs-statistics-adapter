@@ -94,6 +94,7 @@ public class InstrumentationTest {
 
         traceMmap = Boolean
                 .parseBoolean(System.getProperty("de.zib.sfs.traceMmap"));
+        System.err.println("Using " + numProcessors + " cores");
 
         switch (test) {
         case "stream":
@@ -1497,16 +1498,12 @@ public class InstrumentationTest {
         // as some internal lock file writing.
         assertOperationData(aggregates, OperationSource.JVM,
                 OperationCategory.WRITE, writeBytes, writeBytes + 64 * 1024);
-        System.err.println("Wrote " + writeBytes + " bytes");
         assertOperationData(aggregates, OperationSource.JVM,
                 OperationCategory.READ, readBytes, readBytes + 176 * 1024);
-        System.err.println("Read " + readBytes + " bytes");
         if (jvmZipReadBytes != -1 && zipReadBytes != -1) {
             assertOperationData(aggregates, OperationSource.JVM,
                     OperationCategory.ZIP, jvmZipReadBytes + zipReadBytes,
                     jvmZipReadBytes + zipReadBytes);
-            System.err.println("Read " + zipReadBytes + " zip bytes");
-            System.err.println("Read " + jvmZipReadBytes + " jvm zip bytes");
         }
     }
 
