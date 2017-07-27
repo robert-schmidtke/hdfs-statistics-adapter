@@ -63,14 +63,8 @@ install:
   - mvn install
   - cd $TRAVIS_BUILD_DIR
 
-  # build the agent
-  - cd sfs-agent
-  - mvn install --define protobuf.version=$PROTOBUF_VERSION --define protoc.bin=$GRPC_HOME/third_party/protobuf/src/protoc --define protobuf.include.dir=$GRPC_HOME/third_party/protobuf/src --define protobuf.lib.dir=$GRPC_HOME/third_party/protobuf/src/.libs --define grpc.version=$GRPC_VERSION --define grpc.plugin=$GRPC_HOME/bins/opt/grpc_cpp_plugin --define grpc.include.dir=$GRPC_HOME/include --define grpc.lib.dir=$GRPC_HOME/libs/opt
-  - cd $TRAVIS_BUILD_DIR
-
-  # build the adapter
-  - cd sfs-adapter
-  - mvn install --define hadoop.version=$HADOOP_VERSION
+  # finally build the thing
+  - mvn clean install --define protobuf.version=$PROTOBUF_VERSION --define protoc.bin=$GRPC_HOME/third_party/protobuf/src/protoc --define protobuf.include.dir=$GRPC_HOME/third_party/protobuf/src --define protobuf.lib.dir=$GRPC_HOME/third_party/protobuf/src/.libs --define grpc.version=$GRPC_VERSION --define grpc.plugin=$GRPC_HOME/bins/opt/grpc_cpp_plugin --define grpc.include.dir=$GRPC_HOME/include --define grpc.lib.dir=$GRPC_HOME/libs/opt --define hadoop.version=$HADOOP_VERSION
   - cd $TRAVIS_BUILD_DIR
 
 script:
