@@ -44,6 +44,25 @@ public class FileChannelImplAdapter extends AbstractSfsAdapter {
     }
 
     @Override
+    protected void initializeFields(MethodVisitor constructorMV,
+            String constructorDesc) {
+        // callback.openCallback(path);
+        constructorMV.visitVarInsn(Opcodes.ALOAD, 0);
+        constructorMV.visitFieldInsn(Opcodes.GETFIELD,
+                instrumentedTypeInternalName, "callback",
+                callbackTypeDescriptor);
+        constructorMV.visitVarInsn(Opcodes.ALOAD, 0);
+        constructorMV.visitFieldInsn(Opcodes.GETFIELD,
+                instrumentedTypeInternalName, "path",
+                Type.getDescriptor(String.class));
+        constructorMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+                callbackTypeInternalName, "openCallback",
+                Type.getMethodDescriptor(Type.VOID_TYPE,
+                        Type.getType(String.class)),
+                false);
+    }
+
+    @Override
     protected boolean wrapMethod(int access, String name, String desc,
             String signature, String[] exceptions) {
         return isReadMethod(access, name, desc, signature, exceptions)

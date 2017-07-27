@@ -13,6 +13,13 @@ import de.zib.sfs.instrument.statistics.LiveOperationStatisticsAggregator;
 
 public class FileChannelImplCallback {
 
+    private int fd = -1;
+
+    public void openCallback(String filename) {
+        fd = LiveOperationStatisticsAggregator.instance
+                .getFileDescriptor(filename);
+    }
+
     public void readCallback(long startTime, long endTime, int readResult) {
         LiveOperationStatisticsAggregator.instance
                 .aggregateReadDataOperationStatistics(OperationSource.JVM,
