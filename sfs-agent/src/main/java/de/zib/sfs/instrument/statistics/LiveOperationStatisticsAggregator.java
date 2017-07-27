@@ -16,12 +16,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Queue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinTask;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class LiveOperationStatisticsAggregator {
 
@@ -52,6 +54,14 @@ public class LiveOperationStatisticsAggregator {
 
     private final ForkJoinPool threadPool;
 
+    // we roll our own file descriptors because the ones issued by the OS can be
+    // reused, but won't be if the file is not closed, so we just try and give a
+    // small integer to each file
+    private final AtomicInteger currentFileDescriptor;
+
+    // mapping of file names to their first file descriptors
+    private final Map<String, Integer> fileDescriptors;
+
     public static final LiveOperationStatisticsAggregator instance = new LiveOperationStatisticsAggregator();
 
     private LiveOperationStatisticsAggregator() {
@@ -79,6 +89,9 @@ public class LiveOperationStatisticsAggregator {
         threadPool = new ForkJoinPool(
                 Runtime.getRuntime().availableProcessors(),
                 ForkJoinPool.defaultForkJoinWorkerThreadFactory, null, true);
+
+        fileDescriptors = new ConcurrentHashMap<>();
+        currentFileDescriptor = new AtomicInteger(0);
 
         initialized = false;
     }
