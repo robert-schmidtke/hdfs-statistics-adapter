@@ -333,6 +333,8 @@ public class StatisticsFileSystem extends FileSystem {
     public FSDataOutputStream append(Path f, int bufferSize,
             Progressable progress) throws IOException {
         long startTime = System.currentTimeMillis();
+        int fd = LiveOperationStatisticsAggregator.instance
+                .getFileDescriptor(f.toString());
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream;
         if (!skipWrite) {
@@ -472,6 +474,8 @@ public class StatisticsFileSystem extends FileSystem {
     @Override
     public FSDataOutputStream create(Path f) throws IOException {
         long startTime = System.currentTimeMillis();
+        int fd = LiveOperationStatisticsAggregator.instance
+                .getFileDescriptor(f.toString());
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream;
         if (!skipWrite) {
@@ -494,6 +498,8 @@ public class StatisticsFileSystem extends FileSystem {
     public FSDataOutputStream create(Path f, boolean overwrite)
             throws IOException {
         long startTime = System.currentTimeMillis();
+        int fd = LiveOperationStatisticsAggregator.instance
+                .getFileDescriptor(f.toString());
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream;
         if (!skipWrite) {
@@ -538,6 +544,8 @@ public class StatisticsFileSystem extends FileSystem {
     public FSDataOutputStream create(Path f, boolean overwrite, int bufferSize,
             Progressable progress) throws IOException {
         long startTime = System.currentTimeMillis();
+        int fd = LiveOperationStatisticsAggregator.instance
+                .getFileDescriptor(f.toString());
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream;
         if (!skipWrite) {
@@ -637,6 +645,8 @@ public class StatisticsFileSystem extends FileSystem {
             EnumSet<CreateFlag> flags, int bufferSize, short replication,
             long blockSize, Progressable progress) throws IOException {
         long startTime = System.currentTimeMillis();
+        int fd = LiveOperationStatisticsAggregator.instance
+                .getFileDescriptor(f.toString());
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream;
         if (!skipWrite) {
@@ -663,6 +673,8 @@ public class StatisticsFileSystem extends FileSystem {
             long blockSize, Progressable progress, ChecksumOpt checksumOpt)
             throws IOException {
         long startTime = System.currentTimeMillis();
+        int fd = LiveOperationStatisticsAggregator.instance
+                .getFileDescriptor(f.toString());
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream;
         if (!skipWrite) {
@@ -688,6 +700,8 @@ public class StatisticsFileSystem extends FileSystem {
     public FSDataOutputStream create(Path f, Progressable progress)
             throws IOException {
         long startTime = System.currentTimeMillis();
+        int fd = LiveOperationStatisticsAggregator.instance
+                .getFileDescriptor(f.toString());
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream;
         if (!skipWrite) {
