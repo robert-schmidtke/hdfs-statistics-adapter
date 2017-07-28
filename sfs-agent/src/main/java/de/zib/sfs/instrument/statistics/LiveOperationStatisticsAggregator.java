@@ -49,6 +49,7 @@ public class LiveOperationStatisticsAggregator {
     // concurrency.
     private final Queue<OperationStatistics> overflowQueue;
 
+    private final StringBuilder[] stringBuilders;
     private final BufferedWriter[] writers;
     private final Object[] writerLocks;
 
@@ -77,6 +78,8 @@ public class LiveOperationStatisticsAggregator {
         overflowQueue = new ConcurrentLinkedQueue<>();
 
         // similar for the writers
+        stringBuilders = new StringBuilder[OperationSource.values().length
+                * OperationCategory.values().length];
         writers = new BufferedWriter[OperationSource.values().length
                 * OperationCategory.values().length];
         writerLocks = new Object[OperationSource.values().length
@@ -276,17 +279,16 @@ public class LiveOperationStatisticsAggregator {
             fileDescriptorMappingsWriter.write("filename");
             fileDescriptorMappingsWriter.newLine();
 
+            StringBuilder sb = new StringBuilder();
             for (Map.Entry<String, Integer> fd : fileDescriptors.entrySet()) {
-                fileDescriptorMappingsWriter.write(systemHostname);
-                fileDescriptorMappingsWriter.write(outputSeparator);
-                fileDescriptorMappingsWriter.write(systemPid);
-                fileDescriptorMappingsWriter.write(outputSeparator);
-                fileDescriptorMappingsWriter.write(systemKey);
-                fileDescriptorMappingsWriter.write(outputSeparator);
-                fileDescriptorMappingsWriter.write(fd.getValue());
-                fileDescriptorMappingsWriter.write(outputSeparator);
-                fileDescriptorMappingsWriter.write(fd.getKey());
+                sb.append(systemHostname).append(outputSeparator);
+                sb.append(systemPid).append(outputSeparator);
+                sb.append(systemKey).append(outputSeparator);
+                sb.append(fd.getValue()).append(outputSeparator);
+                sb.append(fd.getKey());
+                fileDescriptorMappingsWriter.write(sb.toString());
                 fileDescriptorMappingsWriter.newLine();
+                sb.setLength(0);
             }
 
             fileDescriptorMappingsWriter.close();
@@ -311,6 +313,12 @@ public class LiveOperationStatisticsAggregator {
         int index = getUniqueIndex(aggregate.getSource(),
                 aggregate.getCategory());
         synchronized (writerLocks[index]) {
+            if (stringBuilders[index] == null) {
+                stringBuilders[index] = new StringBuilder();
+            } else {
+                stringBuilders[index].setLength(0);
+            }
+
             if (writers[index] == null) {
                 String filename = getLogFilePrefix() + "."
                         + aggregate.getSource().name().toLowerCase() + "."
@@ -319,29 +327,30 @@ public class LiveOperationStatisticsAggregator {
 
                 File file = new File(filename);
                 if (!file.exists()) {
-                    StringBuilder sb = new StringBuilder();
-                    sb.append("hostname");
-                    sb.append(outputSeparator).append("pid");
-                    sb.append(outputSeparator).append("key");
-                    sb.append(outputSeparator)
+                    stringBuilders[index].append("hostname");
+                    stringBuilders[index].append(outputSeparator).append("pid");
+                    stringBuilders[index].append(outputSeparator).append("key");
+                    stringBuilders[index].append(outputSeparator)
                             .append(aggregate.getCsvHeaders(outputSeparator));
 
                     // we will receive writes to this file as well
                     writers[index] = new BufferedWriter(new FileWriter(file));
-                    writers[index].write(sb.toString());
+                    writers[index].write(stringBuilders[index].toString());
                     writers[index].newLine();
+
+                    stringBuilders[index].setLength(0);
                 } else {
                     throw new IOException(filename + " already exists");
                 }
             }
 
-            StringBuilder sb = new StringBuilder();
-            sb.append(systemHostname);
-            sb.append(outputSeparator).append(systemPid);
-            sb.append(outputSeparator).append(systemKey);
-            sb.append(outputSeparator).append(aggregate.toCsv(outputSeparator));
+            stringBuilders[index].append(systemHostname);
+            stringBuilders[index].append(outputSeparator).append(systemPid);
+            stringBuilders[index].append(outputSeparator).append(systemKey);
+            stringBuilders[index].append(outputSeparator)
+                    .append(aggregate.toCsv(outputSeparator));
 
-            writers[index].write(sb.toString());
+            writers[index].write(stringBuilders[index].toString());
             writers[index].newLine();
             writers[index].flush();
         }
