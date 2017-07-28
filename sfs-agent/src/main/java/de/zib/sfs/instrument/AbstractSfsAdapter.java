@@ -408,6 +408,17 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
                 mv.visitFieldInsn(Opcodes.PUTFIELD,
                         instrumentedTypeInternalName, "callback",
                         callbackTypeDescriptor);
+
+                if (skipOther()) {
+                    // callback.skipOther();
+                    mv.visitVarInsn(Opcodes.ALOAD, 0);
+                    mv.visitFieldInsn(Opcodes.GETFIELD,
+                            instrumentedTypeInternalName, "callback",
+                            callbackTypeDescriptor);
+                    mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+                            callbackTypeInternalName, "skipOther",
+                            Type.getMethodDescriptor(Type.VOID_TYPE), false);
+                }
             }
 
             // instrumentationActive = new InstrumentationActive();

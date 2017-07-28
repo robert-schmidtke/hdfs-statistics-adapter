@@ -1395,9 +1395,9 @@ public class StatisticsFileSystem extends FileSystem {
         Path unwrappedPath = unwrapPath(f);
         FSDataInputStream stream;
         if (!skipRead) {
-            stream = new FSDataInputStream(
-                    new WrappedFSDataInputStream(wrappedFS.open(unwrappedPath),
-                            f, LiveOperationStatisticsAggregator.instance));
+            stream = new FSDataInputStream(new WrappedFSDataInputStream(
+                    wrappedFS.open(unwrappedPath), f,
+                    LiveOperationStatisticsAggregator.instance, skipOther));
         } else {
             stream = wrappedFS.open(unwrappedPath);
         }
@@ -1420,7 +1420,7 @@ public class StatisticsFileSystem extends FileSystem {
         if (!skipRead) {
             stream = new FSDataInputStream(new WrappedFSDataInputStream(
                     wrappedFS.open(unwrappedPath, bufferSize), f,
-                    LiveOperationStatisticsAggregator.instance));
+                    LiveOperationStatisticsAggregator.instance, skipOther));
         } else {
             stream = wrappedFS.open(unwrappedPath, bufferSize);
         }

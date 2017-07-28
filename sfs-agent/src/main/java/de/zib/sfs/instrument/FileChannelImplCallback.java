@@ -11,9 +11,7 @@ import de.zib.sfs.instrument.statistics.LiveOperationStatisticsAggregator;
 import de.zib.sfs.instrument.statistics.OperationCategory;
 import de.zib.sfs.instrument.statistics.OperationSource;
 
-public class FileChannelImplCallback {
-
-    private int fd = -1;
+public class FileChannelImplCallback extends AbstractSfsCallback {
 
     public void openCallback(String filename) {
         fd = LiveOperationStatisticsAggregator.instance

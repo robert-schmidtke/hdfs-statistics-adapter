@@ -11,9 +11,7 @@ import de.zib.sfs.instrument.statistics.LiveOperationStatisticsAggregator;
 import de.zib.sfs.instrument.statistics.OperationCategory;
 import de.zib.sfs.instrument.statistics.OperationSource;
 
-public class DirectByteBufferCallback {
-
-    int fd = -1;
+public class DirectByteBufferCallback extends AbstractSfsCallback {
 
     public void openCallback(String filename) {
         fd = LiveOperationStatisticsAggregator.instance

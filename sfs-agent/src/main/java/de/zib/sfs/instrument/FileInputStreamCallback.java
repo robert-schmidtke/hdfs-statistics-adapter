@@ -11,16 +11,16 @@ import de.zib.sfs.instrument.statistics.LiveOperationStatisticsAggregator;
 import de.zib.sfs.instrument.statistics.OperationCategory;
 import de.zib.sfs.instrument.statistics.OperationSource;
 
-public class FileInputStreamCallback {
-
-    private int fd = -1;
+public class FileInputStreamCallback extends AbstractSfsCallback {
 
     public void openCallback(long startTime, long endTime, String filename) {
         fd = LiveOperationStatisticsAggregator.instance
                 .getFileDescriptor(filename);
-        LiveOperationStatisticsAggregator.instance.aggregateOperationStatistics(
-                OperationSource.JVM, OperationCategory.OTHER, startTime,
-                endTime, fd);
+        if (!skipOther) {
+            LiveOperationStatisticsAggregator.instance
+                    .aggregateOperationStatistics(OperationSource.JVM,
+                            OperationCategory.OTHER, startTime, endTime, fd);
+        }
     }
 
     public void readCallback(long startTime, long endTime, int readResult) {

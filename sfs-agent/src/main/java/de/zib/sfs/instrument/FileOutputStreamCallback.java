@@ -11,9 +11,7 @@ import de.zib.sfs.instrument.statistics.LiveOperationStatisticsAggregator;
 import de.zib.sfs.instrument.statistics.OperationCategory;
 import de.zib.sfs.instrument.statistics.OperationSource;
 
-public class FileOutputStreamCallback {
-
-    private int fd = -1;
+public class FileOutputStreamCallback extends AbstractSfsCallback {
 
     // the LiveOperationStatisticsAggregator uses FileOutputStream to write its
     // logs
@@ -37,9 +35,12 @@ public class FileOutputStreamCallback {
         if (!discard) {
             fd = LiveOperationStatisticsAggregator.instance
                     .getFileDescriptor(filename);
-            LiveOperationStatisticsAggregator.instance
-                    .aggregateOperationStatistics(OperationSource.JVM,
-                            OperationCategory.OTHER, startTime, endTime, fd);
+            if (!skipOther) {
+                LiveOperationStatisticsAggregator.instance
+                        .aggregateOperationStatistics(OperationSource.JVM,
+                                OperationCategory.OTHER, startTime, endTime,
+                                fd);
+            }
         }
     }
 

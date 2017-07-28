@@ -41,6 +41,8 @@ public class WrappedFSDataInputStream extends InputStream
     private final String hostname;
     private Supplier<String> datanodeHostnameSupplier;
 
+    private final boolean skipOther;
+
     private final LiveOperationStatisticsAggregator aggregator;
 
     // Shadow super class' LOG
@@ -50,11 +52,13 @@ public class WrappedFSDataInputStream extends InputStream
     private static Map<String, String> HOSTNAME_CACHE = new HashMap<String, String>();
 
     public WrappedFSDataInputStream(FSDataInputStream in, Path f,
-            LiveOperationStatisticsAggregator aggregator) throws IOException {
+            LiveOperationStatisticsAggregator aggregator, boolean skipOther)
+            throws IOException {
         this.in = in;
         this.aggregator = aggregator;
         this.fd = this.aggregator.getFileDescriptor(f.toString());
         hostname = System.getProperty("de.zib.sfs.hostname");
+        this.skipOther = skipOther;
     }
 
     @Override
@@ -102,18 +106,22 @@ public class WrappedFSDataInputStream extends InputStream
     public void seek(long desired) throws IOException {
         long startTime = System.currentTimeMillis();
         in.seek(desired);
-        aggregator.aggregateOperationStatistics(OperationSource.SFS,
-                OperationCategory.OTHER, startTime, System.currentTimeMillis(),
-                fd);
+        if (!skipOther) {
+            aggregator.aggregateOperationStatistics(OperationSource.SFS,
+                    OperationCategory.OTHER, startTime,
+                    System.currentTimeMillis(), fd);
+        }
     }
 
     @Override
     public boolean seekToNewSource(long targetPos) throws IOException {
         long startTime = System.currentTimeMillis();
         boolean result = in.seekToNewSource(targetPos);
-        aggregator.aggregateOperationStatistics(OperationSource.SFS,
-                OperationCategory.OTHER, startTime, System.currentTimeMillis(),
-                fd);
+        if (!skipOther) {
+            aggregator.aggregateOperationStatistics(OperationSource.SFS,
+                    OperationCategory.OTHER, startTime,
+                    System.currentTimeMillis(), fd);
+        }
         return result;
     }
 
