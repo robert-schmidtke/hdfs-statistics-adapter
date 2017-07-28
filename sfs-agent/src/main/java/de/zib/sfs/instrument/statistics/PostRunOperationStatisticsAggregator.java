@@ -53,9 +53,10 @@ public class PostRunOperationStatisticsAggregator {
         final String suffix = suffixIndex == -1 ? "" : args[suffixIndex];
 
         // for each source/category combination, create a thread that will
-        // aggregate the relevant files
+        // aggregate the relevant files, additional thread for file descriptor
+        // mappings
         Thread[] aggregatorThreads = new Thread[OperationSource.values().length
-                * OperationCategory.values().length];
+                * OperationCategory.values().length + 1];
         int threadId = 0;
         for (final OperationSource source : OperationSource.values()) {
             for (final OperationCategory category : OperationCategory
@@ -144,6 +145,69 @@ public class PostRunOperationStatisticsAggregator {
                 });
             }
         }
+
+        // copy pasta for the file descriptor mappings
+        aggregatorThreads[threadId] = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                String[] fileDescriptorMappingFileNames = path
+                        .list(new FilenameFilter() {
+                            @Override
+                            public boolean accept(File dir, String name) {
+                                return name.contains("filedescriptormappings");
+                            }
+                        });
+
+                char[] readBuf = new char[1024 * 1024];
+                BufferedWriter writer = null;
+                for (String fileDescriptorMappingFileName : fileDescriptorMappingFileNames) {
+                    BufferedReader reader = null;
+                    try {
+                        reader = new BufferedReader(new FileReader(
+                                new File(path, fileDescriptorMappingFileName)));
+                    } catch (FileNotFoundException e) {
+                        e.printStackTrace();
+                        continue;
+                    }
+
+                    try {
+                        String header = reader.readLine();
+                        if (header == null) {
+                            continue;
+                        }
+
+                        if (writer == null) {
+                            writer = new BufferedWriter(new FileWriter(new File(
+                                    path, prefix + "filedescriptormappings"
+                                            + suffix + ".csv")));
+                            writer.write(header);
+                            writer.newLine();
+                        }
+
+                        int numRead = -1;
+                        while ((numRead = reader.read(readBuf)) != -1) {
+                            writer.write(readBuf, 0, numRead);
+                        }
+                        writer.newLine();
+                        writer.flush();
+                        reader.close();
+                        reader = null;
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                        continue;
+                    }
+                }
+
+                if (writer != null) {
+                    try {
+                        writer.close();
+                        writer = null;
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+        });
 
         for (Thread t : aggregatorThreads) {
             t.start();
