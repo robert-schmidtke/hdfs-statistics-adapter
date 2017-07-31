@@ -274,7 +274,7 @@ public class LiveOperationStatisticsAggregator {
             fileDescriptorMappingsWriter.write(outputSeparator);
             fileDescriptorMappingsWriter.write("key");
             fileDescriptorMappingsWriter.write(outputSeparator);
-            fileDescriptorMappingsWriter.write("filedescriptor");
+            fileDescriptorMappingsWriter.write("fileDescriptor");
             fileDescriptorMappingsWriter.write(outputSeparator);
             fileDescriptorMappingsWriter.write("filename");
             fileDescriptorMappingsWriter.newLine();
