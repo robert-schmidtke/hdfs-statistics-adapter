@@ -54,6 +54,9 @@ static std::string g_output_directory;
 // whether to trace mmap calls as well
 static bool g_trace_mmap = false;
 
+// whether to trace calls on a per file basis or globally
+static bool g_trace_fds = false;
+
 // indicates whether we should do verbose logging
 static bool g_verbose = false;
 #define LOG_VERBOSE(...)                                                       \
@@ -96,6 +99,7 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
         << "  instr_skip=r|w|o|z or any combination of them (default: empty)"
         << "  trans_address=trans-host:port (default: empty)"
         << "  trace_mmap=y|n (default: n)"
+        << "  trace_fds=y|n (default: n)"
         << "  verbose=y|n (default: n)" << std::endl;
     return JNI_EINVAL;
   }
@@ -169,6 +173,7 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
   g_time_bin_cache_size = cli_options.time_bin_cache_size;
   g_output_directory = cli_options.output_directory;
   g_trace_mmap = cli_options.trace_mmap;
+  g_trace_fds = cli_options.trace_fds;
 
   // set the prefix to use when wrapping native methods
   LOG_VERBOSE("Setting native method prefix.\n");
@@ -502,6 +507,15 @@ static void JNICALL VMInitCallback(jvmtiEnv *jvmti_env, JNIEnv *jni_env,
       system_class, set_property_method_id,
       jni_env->NewStringUTF("de.zib.sfs.traceMmap"),
       jni_env->NewStringUTF(g_trace_mmap ? "true" : "false"));
+
+  // repeat for the tracing of file descriptors
+  LOG_VERBOSE("Setting system property '%s'='%s'.\n",
+              std::string("de.zib.sfs.traceFds").c_str(),
+              g_trace_fds ? "true" : "false");
+  jni_env->CallStaticVoidMethod(
+      system_class, set_property_method_id,
+      jni_env->NewStringUTF("de.zib.sfs.traceFds"),
+      jni_env->NewStringUTF(g_trace_fds ? "true" : "false"));
 
   // repeat for the verbosity
   LOG_VERBOSE("Setting system property '%s'='%s'.\n",

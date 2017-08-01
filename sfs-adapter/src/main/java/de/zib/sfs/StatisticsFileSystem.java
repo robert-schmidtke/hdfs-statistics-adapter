@@ -71,7 +71,13 @@ public class StatisticsFileSystem extends FileSystem {
      * r|w|o or any combination of them, indicates which operation categories
      * not to log.
      */
-    public static final String SFS_INSTRUMENTATION_SKIP = "sfs.instrumentation.skip";
+    public static final String SFS_INSTRUMENTATION_SKIP_KEY = "sfs.instrumentation.skip";
+
+    /**
+     * Set to true if instrumentation should be done on per-file basis instead
+     * of globally.
+     */
+    public static final String SFS_TRACE_FDS_KEY = "sfs.traceFds";
 
     // Shadow super class' LOG
     public static final Log LOG = LogFactory.getLog(StatisticsFileSystem.class);
@@ -188,6 +194,14 @@ public class StatisticsFileSystem extends FileSystem {
             System.setProperty("de.zib.sfs.output.directory", "/tmp");
         }
 
+        if (System.getProperty("de.zib.sfs.traceFds") == null) {
+            LOG.warn(
+                    "'de.zib.sfs.traceFds' not set, did the agent start properly?");
+            System.setProperty("de.zib.sfs.traceFds",
+                    Boolean.parseBoolean(getConf().get(SFS_TRACE_FDS_KEY))
+                            ? "true" : "false");
+        }
+
         LiveOperationStatisticsAggregator.instance.initialize();
         if (LOG.isDebugEnabled()) {
             LOG.debug("Initialized file system statistics aggregator.");
@@ -270,7 +284,8 @@ public class StatisticsFileSystem extends FileSystem {
             }
         });
 
-        String instrumentationSkip = getConf().get(SFS_INSTRUMENTATION_SKIP);
+        String instrumentationSkip = getConf()
+                .get(SFS_INSTRUMENTATION_SKIP_KEY);
         if (instrumentationSkip != null) {
             skipRead = instrumentationSkip.contains("r");
             skipWrite = instrumentationSkip.contains("w");

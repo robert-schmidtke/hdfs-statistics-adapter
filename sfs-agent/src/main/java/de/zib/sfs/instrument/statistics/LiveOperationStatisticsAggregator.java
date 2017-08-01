@@ -62,6 +62,7 @@ public class LiveOperationStatisticsAggregator {
 
     // mapping of file names to their first file descriptors
     private final Map<String, Integer> fileDescriptors;
+    private boolean traceFileDescriptors;
 
     private long initializationTime;
 
@@ -125,6 +126,9 @@ public class LiveOperationStatisticsAggregator {
         String outputDirectory = System
                 .getProperty("de.zib.sfs.output.directory");
 
+        traceFileDescriptors = Boolean
+                .parseBoolean(System.getProperty("de.zib.sfs.traceFds"));
+
         logFilePrefix = outputDirectory
                 + (outputDirectory.endsWith(File.separator) ? ""
                         : File.separator)
@@ -134,7 +138,7 @@ public class LiveOperationStatisticsAggregator {
     }
 
     public int getFileDescriptor(String filename) {
-        if (!initialized || filename == null) {
+        if (!initialized || filename == null || !traceFileDescriptors) {
             return -1;
         }
 
@@ -262,38 +266,41 @@ public class LiveOperationStatisticsAggregator {
         }
 
         // write out the descriptor mappings
-        try {
-            BufferedWriter fileDescriptorMappingsWriter = new BufferedWriter(
-                    new FileWriter(new File(
-                            getLogFilePrefix() + ".filedescriptormappings."
-                                    + initializationTime + ".csv")));
+        if (traceFileDescriptors) {
+            try {
+                BufferedWriter fileDescriptorMappingsWriter = new BufferedWriter(
+                        new FileWriter(new File(
+                                getLogFilePrefix() + ".filedescriptormappings."
+                                        + initializationTime + ".csv")));
 
-            fileDescriptorMappingsWriter.write("hostname");
-            fileDescriptorMappingsWriter.write(outputSeparator);
-            fileDescriptorMappingsWriter.write("pid");
-            fileDescriptorMappingsWriter.write(outputSeparator);
-            fileDescriptorMappingsWriter.write("key");
-            fileDescriptorMappingsWriter.write(outputSeparator);
-            fileDescriptorMappingsWriter.write("fileDescriptor");
-            fileDescriptorMappingsWriter.write(outputSeparator);
-            fileDescriptorMappingsWriter.write("filename");
-            fileDescriptorMappingsWriter.newLine();
-
-            StringBuilder sb = new StringBuilder();
-            for (Map.Entry<String, Integer> fd : fileDescriptors.entrySet()) {
-                sb.append(systemHostname).append(outputSeparator);
-                sb.append(systemPid).append(outputSeparator);
-                sb.append(systemKey).append(outputSeparator);
-                sb.append(fd.getValue()).append(outputSeparator);
-                sb.append(fd.getKey());
-                fileDescriptorMappingsWriter.write(sb.toString());
+                fileDescriptorMappingsWriter.write("hostname");
+                fileDescriptorMappingsWriter.write(outputSeparator);
+                fileDescriptorMappingsWriter.write("pid");
+                fileDescriptorMappingsWriter.write(outputSeparator);
+                fileDescriptorMappingsWriter.write("key");
+                fileDescriptorMappingsWriter.write(outputSeparator);
+                fileDescriptorMappingsWriter.write("fileDescriptor");
+                fileDescriptorMappingsWriter.write(outputSeparator);
+                fileDescriptorMappingsWriter.write("filename");
                 fileDescriptorMappingsWriter.newLine();
-                sb.setLength(0);
-            }
 
-            fileDescriptorMappingsWriter.close();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+                StringBuilder sb = new StringBuilder();
+                for (Map.Entry<String, Integer> fd : fileDescriptors
+                        .entrySet()) {
+                    sb.append(systemHostname).append(outputSeparator);
+                    sb.append(systemPid).append(outputSeparator);
+                    sb.append(systemKey).append(outputSeparator);
+                    sb.append(fd.getValue()).append(outputSeparator);
+                    sb.append(fd.getKey());
+                    fileDescriptorMappingsWriter.write(sb.toString());
+                    fileDescriptorMappingsWriter.newLine();
+                    sb.setLength(0);
+                }
+
+                fileDescriptorMappingsWriter.close();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 
