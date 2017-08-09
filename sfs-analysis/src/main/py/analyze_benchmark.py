@@ -54,34 +54,34 @@ with open(slurm_file) as f:
         elif line.startswith("HDFS: Number of bytes read="):
             # first encounter is TeraGen
             if stats.get('teragen.io.hdfs.read', None) == None:
-                stats['teragen.io.hdfs.read'] = int(round(int(line.split("=")[1]) / 1073741824.0))
+                stats['teragen.io.hdfs.read'] = int(line.split("=")[1])
             # second encounter is TeraSort
             elif stats.get('terasort.io.hdfs.read', None) == None:
-                stats['terasort.io.hdfs.read'] = int(round(int(line.split("=")[1]) / 1073741824.0))
+                stats['terasort.io.hdfs.read'] = int(line.split("=")[1])
         elif line.startswith("HDFS: Number of bytes written="):
             if stats.get('teragen.io.hdfs.write', None) == None:
-                stats['teragen.io.hdfs.write'] = int(round(int(line.split("=")[1]) / 1073741824.0))
+                stats['teragen.io.hdfs.write'] = int(line.split("=")[1])
             elif stats.get('terasort.io.hdfs.write', None) == None:
-                stats['terasort.io.hdfs.write'] = int(round(int(line.split("=")[1]) / 1073741824.0))
+                stats['terasort.io.hdfs.write'] = int(line.split("=")[1])
         elif line.startswith("FILE: Number of bytes read="):
             if stats.get('teragen.io.file.read', None) == None:
-                stats['teragen.io.file.read'] = int(round(int(line.split("=")[1]) / 1073741824.0))
+                stats['teragen.io.file.read'] = int(line.split("=")[1])
             elif stats.get('terasort.io.file.read', None) == None:
-                stats['terasort.io.file.read'] = int(round(int(line.split("=")[1]) / 1073741824.0))
+                stats['terasort.io.file.read'] = int(line.split("=")[1])
         elif line.startswith("FILE: Number of bytes written="):
             if stats.get('teragen.io.file.write', None) == None:
-                stats['teragen.io.file.write'] = int(round(int(line.split("=")[1]) / 1073741824.0))
+                stats['teragen.io.file.write'] = int(line.split("=")[1])
             elif stats.get('terasort.io.file.write', None) == None:
-                stats['terasort.io.file.write'] = int(round(int(line.split("=")[1]) / 1073741824.0))
+                stats['terasort.io.file.write'] = int(line.split("=")[1])
         elif line.startswith("Reduce shuffle bytes="):
-            stats['terasort.io.shuffle.read'] = int(round(int(line.split("=")[1]) / 1073741824.0))
+            stats['terasort.io.shuffle.read'] = int(line.split("=")[1])
         elif line.startswith("Map output materialized bytes="):
-            stats['terasort.io.shuffle.write'] = int(round(int(line.split("=")[1]) / 1073741824.0))
+            stats['terasort.io.shuffle.write'] = int(line.split("=")[1])
         elif line.startswith("Spilled Records="):
             if stats.get('teragen.io.spill', None) == None:
-                stats['teragen.io.spill'] = int(round(int(line.split("=")[1]) * 100 / 1073741824.0))
+                stats['teragen.io.spill'] = int(line.split("=")[1])
             elif stats.get('terasort.io.spill', None) == None:
-                stats['terasort.io.spill'] = int(round(int(line.split("=")[1]) * 100 / 1073741824.0))
+                stats['terasort.io.spill'] = int(line.split("=")[1])
 
 # use beginning of TeraGen as zero
 stats['terasort.time.end']   -= stats['teragen.time.start']
@@ -159,11 +159,11 @@ def rpad(s):
 print("TeraGen")
 print("=======")
 print(rpad("Duration:")   + "{} minutes".format(int(round((stats['teragen.time.end'] - stats['teragen.time.start']) / 60.0))))
-print(rpad("HDFS Read:")  + "{} GiB".format(stats['teragen.io.hdfs.read']))
-print(rpad("HDFS Write:") + "{} GiB".format(stats['teragen.io.hdfs.write']))
-print(rpad("FILE Read:")  + "{} GiB".format(stats['teragen.io.file.read']))
-print(rpad("FILE Write:") + "{} GiB".format(stats['teragen.io.file.write']))
-print(rpad("Spill:")      + "{} GiB".format(stats['teragen.io.spill']))
+print(rpad("HDFS Read:")  + "{} GiB".format(int(round(stats['teragen.io.hdfs.read']     / 1073741824.0))))
+print(rpad("HDFS Write:") + "{} GiB".format(int(round(stats['teragen.io.hdfs.write']    / 1073741824.0))))
+print(rpad("FILE Read:")  + "{} GiB".format(int(round(stats['teragen.io.file.read']     / 1073741824.0))))
+print(rpad("FILE Write:") + "{} GiB".format(int(round(stats['teragen.io.file.write']    / 1073741824.0))))
+print(rpad("Spill:")      + "{} GiB".format(int(round(stats['teragen.io.spill'] * 100.0 / 1073741824.0))))
 for mount in sorted(mounts['xfs']):
     print(rpad("XFS {} Read:".format(mount))   + "{} GiB".format(int(round(stats['teragen.io.xfs.'  + mount +  '.read'] / 1073741824.0))))
     print(rpad("XFS {} Write:".format(mount))  + "{} GiB".format(int(round(stats['teragen.io.xfs.'  + mount + '.write'] / 1073741824.0))))
@@ -175,13 +175,13 @@ print("")
 print("TeraSort")
 print("=======")
 print(rpad("Duration:")      + "{} minutes".format(int(round((stats['terasort.time.end'] - stats['terasort.time.start']) / 60.0))))
-print(rpad("HDFS Read:")     + "{} GiB".format(stats['terasort.io.hdfs.read']))
-print(rpad("HDFS Write:")    + "{} GiB".format(stats['terasort.io.hdfs.write']))
-print(rpad("FILE Read:")     + "{} GiB".format(stats['terasort.io.file.read']))
-print(rpad("FILE Write:")    + "{} GiB".format(stats['terasort.io.file.write']))
-print(rpad("Shuffle Read:")  + "{} GiB".format(stats['terasort.io.shuffle.read']))
-print(rpad("Shuffle Write:") + "{} GiB".format(stats['terasort.io.shuffle.write']))
-print(rpad("Spill:")         + "{} GiB".format(stats['terasort.io.spill']))
+print(rpad("HDFS Read:")     + "{} GiB".format(int(round(stats['terasort.io.hdfs.read']     / 1073741824.0))))
+print(rpad("HDFS Write:")    + "{} GiB".format(int(round(stats['terasort.io.hdfs.write']    / 1073741824.0))))
+print(rpad("FILE Read:")     + "{} GiB".format(int(round(stats['terasort.io.file.read']     / 1073741824.0))))
+print(rpad("FILE Write:")    + "{} GiB".format(int(round(stats['terasort.io.file.write']    / 1073741824.0))))
+print(rpad("Shuffle Read:")  + "{} GiB".format(int(round(stats['terasort.io.shuffle.read']  / 1073741824.0))))
+print(rpad("Shuffle Write:") + "{} GiB".format(int(round(stats['terasort.io.shuffle.write'] / 1073741824.0))))
+print(rpad("Spill:")         + "{} GiB".format(int(round(stats['terasort.io.spill'] * 100.0 / 1073741824.0))))
 for mount in sorted(mounts['xfs']):
     print(rpad("XFS {} Read:".format(mount))   + "{} GiB".format(int(round(stats['terasort.io.xfs.'  + mount +  '.read'] / 1073741824.0))))
     print(rpad("XFS {} Write:".format(mount))  + "{} GiB".format(int(round(stats['terasort.io.xfs.'  + mount + '.write'] / 1073741824.0))))
@@ -193,13 +193,13 @@ print("")
 print("Total")
 print("=====")
 print(rpad("Duration:")      + "{} minutes".format(int(round((stats['teragen.time.end'] - stats['teragen.time.start'] + stats['terasort.time.end'] - stats['terasort.time.start']) / 60.0))))
-print(rpad("HDFS Read:")     + "{} GiB".format(stats['teragen.io.hdfs.read'] + stats['terasort.io.hdfs.read']))
-print(rpad("HDFS Write:")    + "{} GiB".format(stats['teragen.io.hdfs.write'] + stats['terasort.io.hdfs.write']))
-print(rpad("FILE Read:")     + "{} GiB".format(stats['teragen.io.file.read'] + stats['terasort.io.file.read']))
-print(rpad("FILE Write:")    + "{} GiB".format(stats['teragen.io.file.write'] + stats['terasort.io.file.write']))
-print(rpad("Shuffle Read:")  + "{} GiB".format(stats['terasort.io.shuffle.read']))
-print(rpad("Shuffle Write:") + "{} GiB".format(stats['terasort.io.shuffle.write']))
-print(rpad("Spill:")         + "{} GiB".format(stats['teragen.io.spill'] + stats['terasort.io.spill']))
+print(rpad("HDFS Read:")     + "{} GiB".format(int(round((stats['teragen.io.hdfs.read']  + stats['terasort.io.hdfs.read'])     / 1073741824.0))))
+print(rpad("HDFS Write:")    + "{} GiB".format(int(round((stats['teragen.io.hdfs.write'] + stats['terasort.io.hdfs.write'])    / 1073741824.0))))
+print(rpad("FILE Read:")     + "{} GiB".format(int(round((stats['teragen.io.file.read']  + stats['terasort.io.file.read'])     / 1073741824.0))))
+print(rpad("FILE Write:")    + "{} GiB".format(int(round((stats['teragen.io.file.write'] + stats['terasort.io.file.write'])    / 1073741824.0))))
+print(rpad("Shuffle Read:")  + "{} GiB".format(int(round((stats['terasort.io.shuffle.read'])                                   / 1073741824.0))))
+print(rpad("Shuffle Write:") + "{} GiB".format(int(round((stats['terasort.io.shuffle.write'])                                  / 1073741824.0))))
+print(rpad("Spill:")         + "{} GiB".format(int(round((stats['teragen.io.spill']      + stats['terasort.io.spill']) * 100.0 / 1073741824.0))))
 for mount in sorted(mounts['xfs']):
     print(rpad("XFS {} Read:".format(mount))   + "{} GiB".format(int(round((stats['teragen.io.xfs.'  + mount +  '.read'] + stats['terasort.io.xfs.' + mount +  '.read']) / 1073741824.0))))
     print(rpad("XFS {} Write:".format(mount))  + "{} GiB".format(int(round((stats['teragen.io.xfs.'  + mount + '.write'] + stats['terasort.io.xfs.' + mount + '.write']) / 1073741824.0))))
