@@ -276,7 +276,20 @@ jvm_orders = {
     ('flink', 'jvm', 'read')   : 9
 }
 
-for orders in [jvm_orders, sfs_orders]:
+plt.style.use('ggplot')
+
+# all plots with same x and y axes
+figure, (ax1, ax2) = plt.subplots(2, sharex=True, sharey=True)
+
+# no space between plots
+figure.subplots_adjust(hspace=0)
+
+# hide all x ticks except in the bottom plot
+plt.setp([a.get_xticklabels() for a in figure.axes[:-1]], visible=False)
+
+# plot JVM first to scale out the y axis, since the I/O there is more than on SFS level
+# but plot JVM at the bottom
+for (orders, ax) in [(jvm_orders, ax2), (sfs_orders, ax1)]:
     # loop over all unique groups to build global index
     plot_index = None
     for group, group_data in current_data:
@@ -300,10 +313,8 @@ for orders in [jvm_orders, sfs_orders]:
     plot_data = plot_data.assign(Minutes=lambda x: (x.index - plot_index.values[0]) / 60000)
     plot_data = plot_data.fillna(method='pad')
 
-    plt.style.use('ggplot')
-    plt.clf()
-
-    ax = plot_data.plot.area(
+    plot_data.plot.area(
+        ax=ax,
         figsize=(32, 16),
         title="TeraSort I/O",
         legend=False,
@@ -311,8 +322,9 @@ for orders in [jvm_orders, sfs_orders]:
         x='Minutes',      # use computed minutes as x ticks
         linewidth=0       # to not show the line where the cumulative sum is still 0
     )
+
     patches, labels = ax.get_legend_handles_labels()
-    ax.legend(reversed(patches), reversed(labels), loc='best') # reverse because we have added the plots bottom-up
+    ax.legend(reversed(patches), reversed(labels), loc='upper left') # reverse because we have added the plots bottom-up
     ax.set_ylabel("Stacked Cumulative Data (GiB)")
     ax2 = ax.twinx()
     ax2.set_ylim(ax.get_ylim())
@@ -336,7 +348,7 @@ for orders in [jvm_orders, sfs_orders]:
             arrowprops=dict(arrowstyle="fancy", fc="w", ec="0.5")
         )
         i += 1
-        
+
     # indicate teragen and terasort
     teragen_terasort_border = stats['teragen.time.end'] + (stats['terasort.time.start'] - stats['teragen.time.end']) / 2.0
     ax.annotate("",
@@ -349,4 +361,4 @@ for orders in [jvm_orders, sfs_orders]:
     ax.text((teragen_terasort_border + 180.0) / 60.0, .75 * total_data, "TeraSort", ha="left", va="center", size=20,
             bbox=dict(boxstyle="rarrow", fc="w", ec="0.5", alpha=0.9))
         
-    plt.savefig(args.bd + "/terasort-io-{}.pdf".format(dt.datetime.now()))
+plt.savefig(args.bd + "/terasort-io.pdf")
