@@ -13,6 +13,7 @@ import sys
 # get the benchmark's directory containing all files
 parser = argparse.ArgumentParser()
 parser.add_argument("bd", help="path to the benchmark directory")
+parser.add_argument("-n", "--noplot", help="skip generating the plots", action="store_true")
 args = parser.parse_args()
 
 # read all CSV files into one DataFrame
@@ -20,7 +21,7 @@ raw_data = pd.DataFrame()
 files = os.listdir(args.bd)
 slurm_file = None
 for f in files:
-    if ('sfs' in f or 'jvm' in f) and f.endswith('csv'):
+    if not args.noplot and ('sfs' in f or 'jvm' in f) and f.endswith('csv'):
         print("Reading {} ...".format(f))
         raw_data = raw_data.append(pd.read_csv(args.bd + '/' + f)).fillna(0)
     elif 'slurm' in f and f.endswith('out'):
@@ -207,6 +208,56 @@ for mount in sorted(mounts['ext4']):
     print(rpad("ext4 {} Write:".format(mount)) + "{} GiB".format(int(round((stats['teragen.io.ext4.' + mount + '.write'] + stats['terasort.io.ext4.' + mount + '.write']) / 1048576.0))))
 
 print("")
+
+# write as LaTeX table as well
+with open(args.bd + "/terasort-io.tex", "w") as f:
+    f.write("\\multirow{2}{*}{} & \\multicolumn{2}{c|}{\\bfseries TeraGen} & \\multicolumn{2}{c||}{\\bfseries TeraSort} & \\multicolumn{2}{c}{\\bfseries Total}\\\\\n")
+    f.write("& Reads & Writes & Reads & Writes & Reads & Writes\\\\\n")
+    f.write("\\hline\n")
+    f.write("\\texttt{{hdfs://}} & {} & {} & {} & {} & {} & {}\\\\\n".format(
+        int(round(stats['teragen.io.hdfs.read']                                      / 1073741824.0)),
+        int(round(stats['teragen.io.hdfs.write']                                     / 1073741824.0)),
+        int(round(stats['terasort.io.hdfs.read']                                     / 1073741824.0)),
+        int(round(stats['terasort.io.hdfs.write']                                    / 1073741824.0)),
+        int(round((stats['teragen.io.hdfs.read']  +  stats['terasort.io.hdfs.read']) / 1073741824.0)),
+        int(round((stats['teragen.io.hdfs.write'] + stats['terasort.io.hdfs.write']) / 1073741824.0)))
+    )
+    f.write("\\texttt{{file://}} & {} & {} & {} & {} & {} & {}\\\\\n".format(
+        int(round(stats['teragen.io.file.read']                                      / 1073741824.0)),
+        int(round(stats['teragen.io.file.write']                                     / 1073741824.0)),
+        int(round(stats['terasort.io.file.read']                                     / 1073741824.0)),
+        int(round(stats['terasort.io.file.write']                                    / 1073741824.0)),
+        int(round((stats['teragen.io.file.read']  +  stats['terasort.io.file.read']) / 1073741824.0)),
+        int(round((stats['teragen.io.file.write'] + stats['terasort.io.file.write']) / 1073741824.0)))
+    )
+    f.write("Shuffle & -- & -- & {} & {} & {} & {}\\\\\n".format(
+        int(round(stats['terasort.io.shuffle.read']  / 1073741824.0)),
+        int(round(stats['terasort.io.file.write']    / 1073741824.0)),
+        int(round(stats['terasort.io.shuffle.read']  / 1073741824.0)),
+        int(round(stats['terasort.io.shuffle.write'] / 1073741824.0)))
+    )
+    f.write("Spill & {} & {} & {} & {} & {} & {}\\\\\n".format(
+        int(round(stats['teragen.io.spill']                                * 100.0 / 1073741824.0)),
+        int(round(stats['teragen.io.spill']                                * 100.0 / 1073741824.0)),
+        int(round(stats['terasort.io.spill']                               * 100.0 / 1073741824.0)),
+        int(round(stats['terasort.io.spill']                               * 100.0 / 1073741824.0)),
+        int(round((stats['teragen.io.spill'] + stats['terasort.io.spill']) * 100.0 / 1073741824.0)),
+        int(round((stats['teragen.io.spill'] + stats['terasort.io.spill']) * 100.0 / 1073741824.0)))
+    )
+    f.write("\\hline\n")
+    f.write("XFS & {} & {} & {} & {} & {} & {}\\\\\n".format(
+        int(round(stats['teragen.io.xfs.all.read']                                         / 1073741824.0)),
+        int(round(stats['teragen.io.xfs.all.write']                                        / 1073741824.0)),
+        int(round(stats['terasort.io.xfs.all.read']                                        / 1073741824.0)),
+        int(round(stats['terasort.io.xfs.all.write']                                       / 1073741824.0)),
+        int(round((stats['teragen.io.xfs.all.read']  +  stats['terasort.io.xfs.all.read']) / 1073741824.0)),
+        int(round((stats['teragen.io.xfs.all.write'] + stats['terasort.io.xfs.all.write']) / 1073741824.0)))
+    )
+    f.write("ext4 & -- & {} & -- & {} & -- & {}\n".format(
+        int(round(stats['teragen.io.ext4.all.write']                                         / 1073741824.0)),
+        int(round(stats['terasort.io.ext4.all.write']                                        / 1073741824.0)),
+        int(round((stats['teragen.io.ext4.all.write'] + stats['terasort.io.ext4.all.write']) / 1073741824.0)))
+    )
 
 if raw_data.empty:
     print("No CSV data imported, exiting.")
