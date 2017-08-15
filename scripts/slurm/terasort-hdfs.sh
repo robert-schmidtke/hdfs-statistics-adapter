@@ -208,10 +208,13 @@ EOF
   spark)
     echo "$(date): Configuring Spark for TeraSort"
     cp $SPARK_HOME/conf/spark-defaults.conf.template $SPARK_HOME/conf/spark-defaults.conf
-    if [ -z "$NO_SFS"]; then
-      sed -i "/^# spark\.executor\.extraJavaOptions/c\spark.executor.extraJavaOptions $OPTS,key=executor" $SPARK_HOME/conf/spark-defaults.conf
+    cat >> $SPARK_HOME/conf/spark-defaults.conf << EOF
+spark.network.timeout 600s
+EOF
+    if [ -z "$NO_SFS" ]; then
+      sed -i "/^# spark\.executor\.extraJavaOptions/c\spark.executor.extraJavaOptions $OPTS,key=spark" $SPARK_HOME/conf/spark-defaults.conf
       cat >> $SPARK_HOME/conf/spark-defaults.conf << EOF
-spark.driver.extraJavaOptions $OPTS,key=driver
+spark.driver.extraJavaOptions $OPTS,key=spark
 EOF
     fi
     echo "$(date): Configuring Spark for TeraSort done"
