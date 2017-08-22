@@ -177,7 +177,7 @@ while IFS= read -r datanode; do HADOOP_DATANODES=(${HADOOP_DATANODES[@]} $datano
 # wait until all datanodes are connected
 CONNECTED_DATANODES=0
 while [ $CONNECTED_DATANODES -lt ${#HADOOP_DATANODES[@]} ]; do
-  CONNECTED_DATANODES=$(srun --nodelist=$MASTER --nodes=1-1 grep -E "processReport: from storage [[:alnum:]\-]+ node DatanodeRegistration" /local/$HDFS_LOCAL_LOG_DIR/namenode-$MASTER.log | wc -l)
+  CONNECTED_DATANODES=$(srun --nodelist=$MASTER --nodes=1-1 grep -E "processReport( [[:alnum:]]+)?: from storage [[:alnum:]\-]+ node DatanodeRegistration" /local/$HDFS_LOCAL_LOG_DIR/namenode-$MASTER.log | wc -l)
   echo "$CONNECTED_DATANODES of ${#HADOOP_DATANODES[@]} DataNodes connected ..."
   sleep 1s
 done
