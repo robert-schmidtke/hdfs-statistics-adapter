@@ -74,7 +74,7 @@ export MASTER=${NODES[0]}
 
 echo "Nodes: ${NODES[@]}"
 
-export HADOOP_VERSION=2.7.3
+export HADOOP_VERSION=2.7.4
 export HADOOP_HOME=/scratch/$USER/hadoop-${HADOOP_VERSION}
 export HADOOP_CONF_DIR=$HADOOP_HOME/etc/hadoop
 export HDFS_LOCAL_DIR=$USER/hdfs
