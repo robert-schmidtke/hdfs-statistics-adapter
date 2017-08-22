@@ -64,9 +64,9 @@ DATA_GB=${DATA_GB:-1024}
 
 export HOSTNAME=$(hostname)
 
-export FLINK_HOME=/scratch/$USER/flink-1.3.2
+export FLINK_HOME=/scratch/$USER/flink-1.1.3
 
-export SPARK_HOME=/scratch/$USER/spark-2.2.0
+export SPARK_HOME=/scratch/$USER/spark-2.1.0
 
 NODES=(`scontrol show hostnames`)
 export NODES
@@ -74,7 +74,7 @@ export MASTER=${NODES[0]}
 
 echo "Nodes: ${NODES[@]}"
 
-export HADOOP_VERSION=2.8.1
+export HADOOP_VERSION=2.7.3
 export HADOOP_HOME=/scratch/$USER/hadoop-${HADOOP_VERSION}
 export HADOOP_CONF_DIR=$HADOOP_HOME/etc/hadoop
 export HDFS_LOCAL_DIR=$USER/hdfs
@@ -104,27 +104,27 @@ srun -N$SLURM_JOB_NUM_NODES mkdir -p /local/$USER/hdfs
 srun -N$SLURM_JOB_NUM_NODES mkdir -p /local_ssd/$USER/sfs
 srun -N$SLURM_JOB_NUM_NODES mkdir -p /tmp/$USER/sfs
 srun -N$SLURM_JOB_NUM_NODES mkdir -p /local/$USER/flink
-#srun -N$SLURM_JOB_NUM_NODES mkdir -p /local_ssd/$USER/collectl
+srun -N$SLURM_JOB_NUM_NODES mkdir -p /local_ssd/$USER/collectl
 echo "$(date): Creating local folders done"
 
-#echo "$(date): Starting collectl"
-#start_collectl_script="${SLURM_JOB_ID}-start-collectl.sh"
-#cat >> $start_collectl_script << EOF
-##!/bin/bash
-#nohup collectl -P -f /local_ssd/$USER/collectl -s cCdDmMnNZ > /local_ssd/$USER/collectl/collectl.log 2>&1 &
-#echo \$! > /local_ssd/$USER/collectl/collectl.pid
-#EOF
-#chmod +x $start_collectl_script
-#srun -N$SLURM_JOB_NUM_NODES $start_collectl_script
-#rm $start_collectl_script
-#echo "$(date): Starting collectl done"
+echo "$(date): Starting collectl"
+start_collectl_script="${SLURM_JOB_ID}-start-collectl.sh"
+cat >> $start_collectl_script << EOF
+#!/bin/bash
+nohup collectl -P -f /local_ssd/$USER/collectl -s cCdDmMnNZ > /local_ssd/$USER/collectl/collectl.log 2>&1 &
+echo \$! > /local_ssd/$USER/collectl/collectl.pid
+EOF
+chmod +x $start_collectl_script
+srun -N$SLURM_JOB_NUM_NODES $start_collectl_script
+rm $start_collectl_script
+echo "$(date): Starting collectl done"
 
 if [ -z "$NO_SFS" ]; then
   echo "$(date): Starting transformer JVMs"
   start_transformer_jvm_script="${SLURM_JOB_ID}-start-transformer-jvm.sh"
   cat >> $start_transformer_jvm_script << EOF
 #!/bin/bash
-nohup java -cp $SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar de.zib.sfs.instrument.ClassTransformationService --port 4242 --timeout -1 --trace-mmap n --verbose n --instrumentation-skip o > /local_ssd/$USER/sfs/transformer.log 2>&1 &
+nohup java -cp $SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar de.zib.sfs.instrument.ClassTransformationService --port 4242 --timeout -1 --trace-mmap n --verbose n > /local_ssd/$USER/sfs/transformer.log 2>&1 &
 echo \$! > /local_ssd/$USER/sfs/transformer.pid
 EOF
   chmod +x $start_transformer_jvm_script
@@ -153,7 +153,7 @@ LD_LIBRARY_PATH_EXT="$GRPC_HOME/libs/opt:$GRPC_HOME/third_party/protobuf/src/.li
 if [ -z "$NO_SFS" ]; then
   # configure some additional options for SFS
   OPTS="-agentpath:$SFS_DIRECTORY/sfs-agent/target/libsfs.so=trans_jar=$SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar,trans_address=0.0.0.0:4242"
-  OPTS="$OPTS,bin_duration=1000,cache_size=60,out_dir=/local_ssd/$USER/sfs,trace_mmap=n,verbose=n,instr_skip=o"
+  OPTS="$OPTS,bin_duration=1000,cache_size=60,out_dir=/local_ssd/$USER/sfs,trace_mmap=n,verbose=n"
   HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --hadoop-opts $OPTS,key=hdfs"
   HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --map-opts $OPTS,key=map"
   HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --reduce-opts $OPTS,key=reduce"
@@ -177,7 +177,7 @@ while IFS= read -r datanode; do HADOOP_DATANODES=(${HADOOP_DATANODES[@]} $datano
 # wait until all datanodes are connected
 CONNECTED_DATANODES=0
 while [ $CONNECTED_DATANODES -lt ${#HADOOP_DATANODES[@]} ]; do
-  CONNECTED_DATANODES=$(srun --nodelist=$MASTER --nodes=1-1 grep -E "processReport( [[:alnum:]]+)?: from storage [[:alnum:]\-]+ node DatanodeRegistration" /local/$HDFS_LOCAL_LOG_DIR/namenode-$MASTER.log | wc -l)
+  CONNECTED_DATANODES=$(srun --nodelist=$MASTER --nodes=1-1 grep -E "processReport: from storage [[:alnum:]\-]+ node DatanodeRegistration" /local/$HDFS_LOCAL_LOG_DIR/namenode-$MASTER.log | wc -l)
   echo "$CONNECTED_DATANODES of ${#HADOOP_DATANODES[@]} DataNodes connected ..."
   sleep 1s
 done
@@ -356,23 +356,23 @@ EOF
   echo "$(date): Stopping transformer JVMs done"
 fi
 
-#mkdir -p $SFS_DIRECTORY/$SLURM_JOB_ID-$ENGINE-terasort-collectl
-#echo "$(date): Stopping collectl"
-#stop_collectl_script="${SLURM_JOB_ID}-stop-collectl.sh"
-#cat >> $stop_collectl_script << EOF
-##!/bin/bash
-#pid=\$(</local_ssd/$USER/collectl/collectl.pid)
-#kill \$pid
-#while [ -e /proc/\$pid ]; do sleep 1s; done
-#
-#rm /local_ssd/$USER/collectl/collectl.pid
-#rm /local_ssd/$USER/collectl/collectl.log
-#cp /local_ssd/$USER/collectl/*.gz $SFS_DIRECTORY/$SLURM_JOB_ID-$ENGINE-terasort-collectl
-#EOF
-#chmod +x $stop_collectl_script
-#srun $stop_collectl_script
-#rm $stop_collectl_script
-#echo "$(date): Stopping collectl done"
+mkdir -p $SFS_DIRECTORY/$SLURM_JOB_ID-$ENGINE-terasort-collectl
+echo "$(date): Stopping collectl"
+stop_collectl_script="${SLURM_JOB_ID}-stop-collectl.sh"
+cat >> $stop_collectl_script << EOF
+#!/bin/bash
+pid=\$(</local_ssd/$USER/collectl/collectl.pid)
+kill \$pid
+while [ -e /proc/\$pid ]; do sleep 1s; done
+
+rm /local_ssd/$USER/collectl/collectl.pid
+rm /local_ssd/$USER/collectl/collectl.log
+cp /local_ssd/$USER/collectl/*.gz $SFS_DIRECTORY/$SLURM_JOB_ID-$ENGINE-terasort-collectl
+EOF
+chmod +x $stop_collectl_script
+srun $stop_collectl_script
+rm $stop_collectl_script
+echo "$(date): Stopping collectl done"
 
 echo "$(date): Cleaning Java processes"
 srun -N$SLURM_JOB_NUM_NODES killall -sSIGKILL java
@@ -393,9 +393,8 @@ cd /local_ssd/$USER/sfs
 for file in \$(ls *-concat.csv); do
   cp \$file $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$file
 done
-cd /local_ssd/$USER/
-for file in \$(ls *-metrics.out); do
-  cp \$file $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname)-\$file
+for file in \$(ls *.filedescriptormappings.csv); do
+  cp \$file $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$file
 done
 EOF
   chmod +x copy-logs.sh
