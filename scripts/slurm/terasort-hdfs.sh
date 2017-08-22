@@ -64,9 +64,9 @@ DATA_GB=${DATA_GB:-1024}
 
 export HOSTNAME=$(hostname)
 
-export FLINK_HOME=/scratch/$USER/flink-1.1.3
+export FLINK_HOME=/scratch/$USER/flink-1.3.2
 
-export SPARK_HOME=/scratch/$USER/spark-2.1.0
+export SPARK_HOME=/scratch/$USER/spark-2.2.0
 
 NODES=(`scontrol show hostnames`)
 export NODES
@@ -74,7 +74,7 @@ export MASTER=${NODES[0]}
 
 echo "Nodes: ${NODES[@]}"
 
-export HADOOP_VERSION=2.7.3
+export HADOOP_VERSION=2.8.1
 export HADOOP_HOME=/scratch/$USER/hadoop-${HADOOP_VERSION}
 export HADOOP_CONF_DIR=$HADOOP_HOME/etc/hadoop
 export HDFS_LOCAL_DIR=$USER/hdfs
@@ -177,7 +177,7 @@ while IFS= read -r datanode; do HADOOP_DATANODES=(${HADOOP_DATANODES[@]} $datano
 # wait until all datanodes are connected
 CONNECTED_DATANODES=0
 while [ $CONNECTED_DATANODES -lt ${#HADOOP_DATANODES[@]} ]; do
-  CONNECTED_DATANODES=$(srun --nodelist=$MASTER --nodes=1-1 grep -E "processReport: from storage [[:alnum:]\-]+ node DatanodeRegistration" /local/$HDFS_LOCAL_LOG_DIR/namenode-$MASTER.log | wc -l)
+  CONNECTED_DATANODES=$(srun --nodelist=$MASTER --nodes=1-1 grep -E "processReport( [[:alnum:]]+)?: from storage [[:alnum:]\-]+ node DatanodeRegistration" /local/$HDFS_LOCAL_LOG_DIR/namenode-$MASTER.log | wc -l)
   echo "$CONNECTED_DATANODES of ${#HADOOP_DATANODES[@]} DataNodes connected ..."
   sleep 1s
 done
