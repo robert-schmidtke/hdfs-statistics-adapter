@@ -391,6 +391,7 @@ java -cp $SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar de.zib.sfs.instrument.sta
 
 cd /local_ssd/$USER/sfs
 for file in \$(ls *-concat.csv); do
+  # this includes SFS and JVM logs, as well as the file descriptor mappings
   cp \$file $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$file
 done
 cd /local_ssd/$USER/
