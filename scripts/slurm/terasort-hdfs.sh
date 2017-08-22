@@ -64,9 +64,9 @@ DATA_GB=${DATA_GB:-1024}
 
 export HOSTNAME=$(hostname)
 
-export FLINK_HOME=/scratch/$USER/flink-1.1.3
+export FLINK_HOME=/scratch/$USER/flink-1.3.2
 
-export SPARK_HOME=/scratch/$USER/spark-2.1.0
+export SPARK_HOME=/scratch/$USER/spark-2.2.0
 
 NODES=(`scontrol show hostnames`)
 export NODES
