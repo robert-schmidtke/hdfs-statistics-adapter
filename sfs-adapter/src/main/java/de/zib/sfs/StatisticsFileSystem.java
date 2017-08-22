@@ -57,8 +57,7 @@ public class StatisticsFileSystem extends FileSystem {
 
     /**
      * The fully qualified class name of the file system implementation to wrap.
-     * Must be a subclass of {@link org.apache.hadoop.fs.FileSystem} or
-     * {@link org.apache.flink.core.fs.FileSystem}.
+     * Must be a subclass of {@link org.apache.hadoop.fs.FileSystem}.
      */
     public static final String SFS_WRAPPED_FS_CLASS_NAME_KEY = "sfs.wrappedFS.className";
 
