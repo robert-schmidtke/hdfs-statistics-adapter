@@ -124,7 +124,7 @@ if [ -z "$NO_SFS" ]; then
   start_transformer_jvm_script="${SLURM_JOB_ID}-start-transformer-jvm.sh"
   cat >> $start_transformer_jvm_script << EOF
 #!/bin/bash
-nohup java -cp $SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar de.zib.sfs.instrument.ClassTransformationService --port 4242 --timeout -1 --trace-mmap n --verbose n > /local_ssd/$USER/sfs/transformer.log 2>&1 &
+nohup java -cp $SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar de.zib.sfs.instrument.ClassTransformationService --port 4242 --timeout -1 --trace-mmap n --verbose n --instrumentation-skip o > /local_ssd/$USER/sfs/transformer.log 2>&1 &
 echo \$! > /local_ssd/$USER/sfs/transformer.pid
 EOF
   chmod +x $start_transformer_jvm_script
@@ -153,7 +153,7 @@ LD_LIBRARY_PATH_EXT="$GRPC_HOME/libs/opt:$GRPC_HOME/third_party/protobuf/src/.li
 if [ -z "$NO_SFS" ]; then
   # configure some additional options for SFS
   OPTS="-agentpath:$SFS_DIRECTORY/sfs-agent/target/libsfs.so=trans_jar=$SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar,trans_address=0.0.0.0:4242"
-  OPTS="$OPTS,bin_duration=1000,cache_size=60,out_dir=/local_ssd/$USER/sfs,trace_mmap=n,verbose=n"
+  OPTS="$OPTS,bin_duration=1000,cache_size=60,out_dir=/local_ssd/$USER/sfs,trace_mmap=n,verbose=n,instr_skip=o"
   HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --hadoop-opts $OPTS,key=hdfs"
   HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --map-opts $OPTS,key=map"
   HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --reduce-opts $OPTS,key=reduce"
@@ -394,9 +394,9 @@ for file in \$(ls *-concat.csv); do
   # this includes SFS and JVM logs, as well as the file descriptor mappings
   cp \$file $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$file
 done
-for file in \$(ls *.filedescriptormappings.csv); do
-  cp \$file $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$file
-done
+cd /local_ssd/$USER/
+for file in \$(ls *-metrics.out); do
+  cp \$file $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname)-\$file
 EOF
   chmod +x copy-logs.sh
   srun ./copy-logs.sh
