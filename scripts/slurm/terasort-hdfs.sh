@@ -104,20 +104,20 @@ srun -N$SLURM_JOB_NUM_NODES mkdir -p /local/$USER/hdfs
 srun -N$SLURM_JOB_NUM_NODES mkdir -p /local_ssd/$USER/sfs
 srun -N$SLURM_JOB_NUM_NODES mkdir -p /tmp/$USER/sfs
 srun -N$SLURM_JOB_NUM_NODES mkdir -p /local/$USER/flink
-srun -N$SLURM_JOB_NUM_NODES mkdir -p /local_ssd/$USER/collectl
+#srun -N$SLURM_JOB_NUM_NODES mkdir -p /local_ssd/$USER/collectl
 echo "$(date): Creating local folders done"
 
-echo "$(date): Starting collectl"
-start_collectl_script="${SLURM_JOB_ID}-start-collectl.sh"
-cat >> $start_collectl_script << EOF
-#!/bin/bash
-nohup collectl -P -f /local_ssd/$USER/collectl -s cCdDmMnNZ > /local_ssd/$USER/collectl/collectl.log 2>&1 &
-echo \$! > /local_ssd/$USER/collectl/collectl.pid
-EOF
-chmod +x $start_collectl_script
-srun -N$SLURM_JOB_NUM_NODES $start_collectl_script
-rm $start_collectl_script
-echo "$(date): Starting collectl done"
+#echo "$(date): Starting collectl"
+#start_collectl_script="${SLURM_JOB_ID}-start-collectl.sh"
+#cat >> $start_collectl_script << EOF
+##!/bin/bash
+#nohup collectl -P -f /local_ssd/$USER/collectl -s cCdDmMnNZ > /local_ssd/$USER/collectl/collectl.log 2>&1 &
+#echo \$! > /local_ssd/$USER/collectl/collectl.pid
+#EOF
+#chmod +x $start_collectl_script
+#srun -N$SLURM_JOB_NUM_NODES $start_collectl_script
+#rm $start_collectl_script
+#echo "$(date): Starting collectl done"
 
 if [ -z "$NO_SFS" ]; then
   echo "$(date): Starting transformer JVMs"
@@ -356,23 +356,23 @@ EOF
   echo "$(date): Stopping transformer JVMs done"
 fi
 
-mkdir -p $SFS_DIRECTORY/$SLURM_JOB_ID-$ENGINE-terasort-collectl
-echo "$(date): Stopping collectl"
-stop_collectl_script="${SLURM_JOB_ID}-stop-collectl.sh"
-cat >> $stop_collectl_script << EOF
-#!/bin/bash
-pid=\$(</local_ssd/$USER/collectl/collectl.pid)
-kill \$pid
-while [ -e /proc/\$pid ]; do sleep 1s; done
+#mkdir -p $SFS_DIRECTORY/$SLURM_JOB_ID-$ENGINE-terasort-collectl
+#echo "$(date): Stopping collectl"
+#stop_collectl_script="${SLURM_JOB_ID}-stop-collectl.sh"
+#cat >> $stop_collectl_script << EOF
+##!/bin/bash
+#pid=\$(</local_ssd/$USER/collectl/collectl.pid)
+#kill \$pid
+#while [ -e /proc/\$pid ]; do sleep 1s; done
 
-rm /local_ssd/$USER/collectl/collectl.pid
-rm /local_ssd/$USER/collectl/collectl.log
-cp /local_ssd/$USER/collectl/*.gz $SFS_DIRECTORY/$SLURM_JOB_ID-$ENGINE-terasort-collectl
-EOF
-chmod +x $stop_collectl_script
-srun $stop_collectl_script
-rm $stop_collectl_script
-echo "$(date): Stopping collectl done"
+#rm /local_ssd/$USER/collectl/collectl.pid
+#rm /local_ssd/$USER/collectl/collectl.log
+#cp /local_ssd/$USER/collectl/*.gz $SFS_DIRECTORY/$SLURM_JOB_ID-$ENGINE-terasort-collectl
+#EOF
+#chmod +x $stop_collectl_script
+#srun $stop_collectl_script
+#rm $stop_collectl_script
+#echo "$(date): Stopping collectl done"
 
 echo "$(date): Cleaning Java processes"
 srun -N$SLURM_JOB_NUM_NODES killall -sSIGKILL java
