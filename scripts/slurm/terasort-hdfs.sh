@@ -397,6 +397,7 @@ done
 cd /local_ssd/$USER/
 for file in \$(ls *-metrics.out); do
   cp \$file $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname)-\$file
+done
 EOF
   chmod +x copy-logs.sh
   srun ./copy-logs.sh
