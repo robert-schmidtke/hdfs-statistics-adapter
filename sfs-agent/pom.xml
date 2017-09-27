@@ -16,7 +16,7 @@
 
   <properties>
     <!-- Compile dependencies -->
-    <asm-all.version>5.1</asm-all.version>
+    <asm-all.version>5.2</asm-all.version>
     <grpc.version>1.0.1</grpc.version>
     <protobuf.version>3.0.0</protobuf.version>
 
@@ -24,15 +24,11 @@
     <junit.version>4.12</junit.version>
 
     <!-- Plugin configurations -->
-    <exec-maven-plugin.version>1.5.0</exec-maven-plugin.version>
-    <iterator-maven-plugin.version>0.5.0</iterator-maven-plugin.version>
-    <maven-compiler-plugin.version>3.5.1</maven-compiler-plugin.version>
-
-    <!-- https://github.com/apache/maven-plugins/commit/3964d2a2c3b5d2c3b73b8685755e772cfabeea40 -->
-    <!-- Fixes relocation of services which we need for gRPC (MSHADE-182), among other things. -->
-    <maven-shade-plugin.version>3.0.0-SNAPSHOT</maven-shade-plugin.version>
-
-    <maven-surefire-plugin.version>2.19.1</maven-surefire-plugin.version>
+    <exec-maven-plugin.version>1.6.0</exec-maven-plugin.version>
+    <iterator-maven-plugin.version>0.5.1</iterator-maven-plugin.version>
+    <maven-compiler-plugin.version>3.7.0</maven-compiler-plugin.version>
+    <maven-shade-plugin.version>3.1.0</maven-shade-plugin.version>
+    <maven-surefire-plugin.version>2.20.1</maven-surefire-plugin.version>
     <os-maven-plugin.version>1.5.0.Final</os-maven-plugin.version>
     <protobuf-maven-plugin.version>0.5.0</protobuf-maven-plugin.version>
 
@@ -223,7 +219,12 @@
             <configuration>
               <executable>mkdir</executable>
               <arguments>
-                <argument>-p</argument>
+                <!-- Get around some issue in v1.6.0 that misinterprets '-p' -->
+                <argument>${project.build.directory}</argument>
+                <argument>${project.build.directory}/generated-sources</argument>
+                <argument>${project.build.directory}/generated-sources/protobuf</argument>
+                <argument>${project.build.directory}/generated-sources/protobuf/native</argument>
+                <argument>${project.build.directory}/generated-sources/protobuf/native/agent</argument>
                 <argument>${project.build.directory}/generated-sources/protobuf/native/agent/rpc</argument>
               </arguments>
             </configuration>

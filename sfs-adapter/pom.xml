@@ -22,13 +22,9 @@
     <junit.version>4.12</junit.version>
 
     <!-- Plugin configurations -->
-    <maven-compiler-plugin.version>3.5.1</maven-compiler-plugin.version>
-
-    <!-- https://github.com/apache/maven-plugins/commit/3964d2a2c3b5d2c3b73b8685755e772cfabeea40 -->
-    <!-- Fixes relocation of services which we need for gRPC (MSHADE-182), among other things. -->
-    <maven-shade-plugin.version>3.0.0-SNAPSHOT</maven-shade-plugin.version>
-
-    <maven-surefire-plugin.version>2.19.1</maven-surefire-plugin.version>
+    <maven-compiler-plugin.version>3.7.0</maven-compiler-plugin.version>
+    <maven-shade-plugin.version>3.1.0</maven-shade-plugin.version>
+    <maven-surefire-plugin.version>2.20.1</maven-surefire-plugin.version>
 
     <!-- Misc. properties -->
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
