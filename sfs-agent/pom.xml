@@ -17,8 +17,8 @@
   <properties>
     <!-- Compile dependencies -->
     <asm-all.version>5.2</asm-all.version>
-    <grpc.version>1.0.1</grpc.version>
-    <protobuf.version>3.0.0</protobuf.version>
+    <grpc.version>1.6.1</grpc.version>
+    <protobuf.version>3.4.0</protobuf.version>
 
     <!-- Test dependencies -->
     <junit.version>4.12</junit.version>
@@ -153,9 +153,11 @@
               <artifactSet>
                 <includes>
                   <include>com.google.guava:guava</include>
+                  <include>com.google.instrumentation:instrumentation-api</include>
                   <include>com.google.protobuf:protobuf-java</include>
                   <include>io.grpc:*</include>
                   <include>io.netty:*</include>
+                  <include>io.opencensus:opencensus-api</include>
                   <include>org.ow2.asm:asm-all</include>
                 </includes>
               </artifactSet>

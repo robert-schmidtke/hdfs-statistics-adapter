@@ -31,26 +31,18 @@ install:
   - rm $HADOOP_ARCHIVE
 
   # build gRPC
-  - export GRPC_VERSION=1.0.1
-  - export PROTOBUF_VERSION=3.0.0
+  - export GRPC_VERSION=1.6.1
+  - export PROTOBUF_VERSION=3.4.0
   - cd $HOME
   - git clone -b v$GRPC_VERSION https://github.com/grpc/grpc
   - export GRPC_HOME=$HOME/grpc
   - cd $GRPC_HOME
   - git submodule update --init
-  # the protobuf branch specified in gRPC (at least in v1.0.1) is not available anymore
   - cd third_party/protobuf && git checkout tags/v$PROTOBUF_VERSION && cd ../../
   - make -j2
 
   # make the built libraries available transparently
   - export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$GRPC_HOME/libs/opt:$GRPC_HOME/third_party/protobuf/src/.libs"
-  - cd $TRAVIS_BUILD_DIR
-
-  # we need an unreleased version of the maven-shade-plugin because it fixes resource relocation
-  - git clone https://github.com/apache/maven-plugins.git
-  - cd maven-plugins/maven-shade-plugin
-  - git checkout 3964d2a2c3b5d2c3b73b8685755e772cfabeea40
-  - mvn install
   - cd $TRAVIS_BUILD_DIR
 
   # finally build the thing
