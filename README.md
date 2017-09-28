@@ -9,8 +9,8 @@ For details on how to use with Hadoop and Flink, see [.travis.yml](.travis.yml),
 Please also check [.travis.yml](.travis.yml) for how to obtain and build the appropriate gRPC and Protobuf versions. Back then there was also an unreleased maven shade plugin version that we needed because it fixed some resource relocation, not sure if we still need it though.
 
 ```bash
-PROTOBUF_VERSION=3.0.0
-GRPC_VERSION=1.0.1
+PROTOBUF_VERSION=3.4.0
+GRPC_VERSION=1.6.1
 GRPC_HOME=/path/to/grpc
 TMPDIR=/tmp
 
