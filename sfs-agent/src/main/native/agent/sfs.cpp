@@ -250,10 +250,24 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
 
     char *envp[] = {NULL};
 
+    // pipe for redirecting transformer JVM's output
+    int pipe_fds[2];
+    pipe(pipe_fds);
+
+    // write end of pipe to stderr of parent
+    dup2(2, pipe_fds[1]);
+
+    // no need for read end of pipe
+    close(pipe_fds[0]);
+
     // start new process to execute the transformer JVM
     pid_t transformer_pid = fork();
     if (transformer_pid == 0) {
       /* this block is executed by the child thread */
+
+      // stdout/stderr of child to write end of pipe
+      dup2(pipe_fds[1], 1);
+      dup2(pipe_fds[1], 2);
 
       // start the transformer JVM, execve does not return on success
       execve((java_home + "/bin/java").c_str(), g_transformer_jvm_cmd, envp);
@@ -263,6 +277,9 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
       return errnum;
     } else {
       /* this block is executed by the parent thread */
+
+      // close write end of pipe in parent
+      close(pipe_fds[1]);
 
       // wait until the transformer JVM has indicated that class transformations
       // can begin
