@@ -51,6 +51,7 @@ struct CliOptions {
   std::string instrumentation_skip;
   bool trace_mmap;
   bool trace_fds;
+  bool use_proxy;
   bool verbose;
 };
 
@@ -91,6 +92,7 @@ static bool parse_options(char *command_line_options, CliOptions *cli_options) {
   cli_options->instrumentation_skip = std::string("");
   cli_options->trace_mmap = false;
   cli_options->trace_fds = false;
+  cli_options->use_proxy = false;
   cli_options->verbose = false;
 
   bool tx_jar_path_set = false;
@@ -144,6 +146,10 @@ static bool parse_options(char *command_line_options, CliOptions *cli_options) {
       } else if (strcmp(option, "trace_fds") == 0) {
         if (get_tok(&options, suboption, (int)sizeof(suboption), ',')) {
           cli_options->trace_fds = strcmp(suboption, "y") == 0;
+        }
+      } else if (strcmp(option, "use_proxy") == 0) {
+        if (get_tok(&options, suboption, (int)sizeof(suboption), ',')) {
+          cli_options->use_proxy = strcmp(suboption, "y") == 0;
         }
       } else if (strcmp(option, "verbose") == 0) {
         if (get_tok(&options, suboption, (int)sizeof(suboption), ',')) {

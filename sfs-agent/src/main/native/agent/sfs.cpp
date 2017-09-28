@@ -100,6 +100,7 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
         << "  trans_address=trans-host:port (default: empty)"
         << "  trace_mmap=y|n (default: n)"
         << "  trace_fds=y|n (default: n)"
+        << "  use_proxy=y|n (default: n)"
         << "  verbose=y|n (default: n)" << std::endl;
     return JNI_EINVAL;
   }
@@ -188,6 +189,18 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
   jvmti_result = jvmti->AddToSystemClassLoaderSearch(
       cli_options.transformer_jar_path.c_str());
   CHECK_JVMTI_RESULT("AddToSystemClassLoaderSearch", jvmti_result);
+
+  // disable http_proxy environment variable if specified
+  if (!cli_options.use_proxy) {
+    LOG_VERBOSE("Disabling http_proxy.\n");
+    unsetenv("http_proxy");
+  }
+
+  // enable verbose logging for gRPC if requested
+  if (g_verbose) {
+    putenv("GRPC_VERBOSITY=DEBUG");
+    putenv("GRPC_TRACE=all");
+  }
 
   // figure out whether we should start our own transformer JVM or use an
   // already running one
