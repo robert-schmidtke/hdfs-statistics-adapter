@@ -12,6 +12,8 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Random;
 import java.util.Set;
+import java.util.logging.ConsoleHandler;
+import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -82,8 +84,10 @@ public class ClassTransformationService {
         LogUtil.enableStderrLogging(verbose);
         LogUtil.stderr("Starting class transformation service.\n");
 
-        // quieten gRPC
-        Logger.getLogger("io.grpc").setLevel(Level.SEVERE);
+        // quieten gRPC if necessary
+        Handler handler = new ConsoleHandler();
+        handler.setLevel(verbose ? Level.ALL : Level.SEVERE);
+        Logger.getLogger("io.grpc").addHandler(handler);
 
         // start the transformer server
         ClassTransformationServer classTransformationServer = null;

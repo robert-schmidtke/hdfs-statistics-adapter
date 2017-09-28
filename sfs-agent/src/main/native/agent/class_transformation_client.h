@@ -55,7 +55,9 @@ public:
         *new_class_data_len = response.bytecode().size();
       }
     } else {
-      // TODO
+      std::cerr << "Got status " << status.error_code() << ": "
+                << status.error_message() << " (" << status.error_details()
+                << ") for class '" << name << "'." << std::endl;
     }
   }
 
@@ -68,7 +70,9 @@ public:
     if (status.ok()) {
 
     } else {
-      // TODO
+      std::cerr << "Got status " << status.error_code() << ": "
+                << status.error_message() << " (" << status.error_details()
+                << ") for EndClassTransformations." << std::endl;
     }
   }
 
