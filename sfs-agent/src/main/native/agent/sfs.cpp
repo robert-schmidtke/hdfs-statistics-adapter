@@ -198,8 +198,8 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
 
   // enable verbose logging for gRPC if requested
   if (g_verbose) {
-    putenv("GRPC_VERBOSITY=DEBUG");
-    putenv("GRPC_TRACE=all");
+    char grpc_verbosity[] = {"GRPC_VERBOSITY=DEBUG,GRPC_TRACE=all"};
+    putenv(grpc_verbosity);
   }
 
   // figure out whether we should start our own transformer JVM or use an
