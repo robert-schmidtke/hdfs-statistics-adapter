@@ -1545,7 +1545,7 @@ public class StatisticsFileSystem extends FileSystem {
     // Helper methods.
 
     private URI replaceUriScheme(URI uri, String from, String to) {
-        // TODO add cache for replaced URIs? possibly useful for scenarions with
+        // TODO add cache for replaced URIs? possibly useful for scenarios with
         // many metadata operations.
 
         String scheme = uri.getScheme();
