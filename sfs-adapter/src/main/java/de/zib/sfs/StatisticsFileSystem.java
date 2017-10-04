@@ -1144,6 +1144,9 @@ public class StatisticsFileSystem extends FileSystem {
     public FileStatus[] globStatus(Path pathPattern) throws IOException {
         UnwrappedPath unwrappedPathPattern = unwrapPath(pathPattern);
         FileStatus[] fileStatuses = wrappedFS.globStatus(unwrappedPathPattern);
+        if (fileStatuses == null) {
+            return null;
+        }
         if (unwrappedPathPattern.isUnwrapped()) {
             for (FileStatus fileStatus : fileStatuses) {
                 fileStatus.setPath(setAuthority(wrapPath(fileStatus.getPath()),
@@ -1166,6 +1169,9 @@ public class StatisticsFileSystem extends FileSystem {
         UnwrappedPath unwrappedPathPattern = unwrapPath(pathPattern);
         FileStatus[] fileStatuses = wrappedFS.globStatus(unwrappedPathPattern,
                 wrappedFilter);
+        if (fileStatuses == null) {
+            return null;
+        }
         if (unwrappedPathPattern.isUnwrapped()) {
             for (FileStatus fileStatus : fileStatuses) {
                 fileStatus.setPath(setAuthority(wrapPath(fileStatus.getPath()),
