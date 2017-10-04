@@ -76,17 +76,17 @@ echo "$(date): Hadoop Output:"
 $HADOOP_HOME/bin/hdfs dfs -cat sfs:///tmp/user/$USER/output/*
 
 # run postrun aggregation
-echo "$(date): Running post-run aggregation"
-java -cp $TRAVIS_BUILD_DIR/sfs-agent/target/sfs-agent.jar de.zib.sfs.instrument.statistics.PostRunOperationStatisticsAggregator --path /tmp --prefix travis --suffix "-concat"
+# echo "$(date): Running post-run aggregation"
+# java -cp $TRAVIS_BUILD_DIR/sfs-agent/target/sfs-agent.jar de.zib.sfs.instrument.statistics.PostRunOperationStatisticsAggregator --path /tmp --prefix travis --suffix "-concat"
 
-echo "SFS Output:"
-for file in $(ls /tmp/*-concat.csv); do
-  echo "${file}:"
-  wc -l $file
-  head $file
-  echo "..."
-  tail $file
-done
+# echo "SFS Output:"
+# for file in $(ls /tmp/*-concat.csv); do
+#   echo "${file}:"
+#   wc -l $file
+#   head $file
+#   echo "..."
+#   tail $file
+# done
 
 # stop Hadoop
 echo "$(date): Stopping DFS"
