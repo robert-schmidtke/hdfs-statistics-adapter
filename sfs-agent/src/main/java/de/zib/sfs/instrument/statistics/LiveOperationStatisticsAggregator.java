@@ -12,6 +12,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.Writer;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,6 +26,7 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinTask;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class LiveOperationStatisticsAggregator {
@@ -47,6 +49,10 @@ public class LiveOperationStatisticsAggregator {
 
     private String csvOutputSeparator;
     private String logFilePrefix;
+
+    // only have one thread emit from the aggregates
+    private static final AtomicBoolean EMISSION_IN_PROGRESS = new AtomicBoolean(
+            false);
 
     // for each source/category combination, map a time bin to an aggregate
     // operation statistics for each file
@@ -121,6 +127,21 @@ public class LiveOperationStatisticsAggregator {
         }
 
         outputFormat = OutputFormat.FB;
+        switch (outputFormat) {
+        case CSV:
+            csvStringBuilders = new StringBuilder[OperationSource
+                    .values().length * OperationCategory.values().length];
+            csvWriters = new BufferedWriter[OperationSource.values().length
+                    * OperationCategory.values().length];
+            break;
+        case FB:
+            fbChannels = new FileChannel[OperationSource.values().length
+                    * OperationCategory.values().length];
+            break;
+        default:
+            throw new IllegalArgumentException(outputFormat.name());
+        }
+
         csvOutputSeparator = ",";
 
         // guard against weird hostnames
@@ -213,16 +234,12 @@ public class LiveOperationStatisticsAggregator {
                 try {
                     switch (outputFormat) {
                     case CSV:
-                        for (OperationStatistics os : entry.getValue()
-                                .values()) {
+                        for (OperationStatistics os : entry.getValue().values())
                             writeCsv(os);
-                        }
                         break;
                     case FB:
-                        for (OperationStatistics os : entry.getValue()
-                                .values()) {
+                        for (OperationStatistics os : entry.getValue().values())
                             writeFb(os);
-                        }
                         break;
                     default:
                         throw new IllegalArgumentException(outputFormat.name());
@@ -282,26 +299,25 @@ public class LiveOperationStatisticsAggregator {
         // finally close all writers
         switch (outputFormat) {
         case CSV:
-            for (BufferedWriter writer : csvWriters) {
-                if (writer != null) {
+            for (BufferedWriter writer : csvWriters)
+                if (writer != null)
                     try {
                         writer.close();
                     } catch (IOException e) {
                         throw new RuntimeException(e);
                     }
-                }
-            }
             break;
         case FB:
-            for (FileChannel channel : fbChannels) {
-                if (channel != null) {
+            for (FileChannel channel : fbChannels)
+                if (channel != null)
                     try {
                         channel.close();
                     } catch (IOException e) {
                         throw new RuntimeException(e);
                     }
-                }
-            }
+            break;
+        default:
+            throw new IllegalArgumentException(outputFormat.name());
         }
 
         // write out the descriptor mappings
@@ -360,15 +376,6 @@ public class LiveOperationStatisticsAggregator {
     }
 
     private void writeCsv(OperationStatistics aggregate) throws IOException {
-        if (csvStringBuilders == null) {
-            csvStringBuilders = new StringBuilder[OperationSource
-                    .values().length * OperationCategory.values().length];
-        }
-        if (csvWriters == null) {
-            csvWriters = new BufferedWriter[OperationSource.values().length
-                    * OperationCategory.values().length];
-        }
-
         int index = getUniqueIndex(aggregate.getSource(),
                 aggregate.getCategory());
         synchronized (writerLocks[index]) {
@@ -418,17 +425,11 @@ public class LiveOperationStatisticsAggregator {
 
             csvWriters[index].write(csvStringBuilders[index].toString());
             csvWriters[index].newLine();
-            csvWriters[index].flush();
         }
     }
 
     @SuppressWarnings("resource") // we close the channels on shutdown
     private void writeFb(OperationStatistics aggregate) throws IOException {
-        if (fbChannels == null) {
-            fbChannels = new FileChannel[OperationSource.values().length
-                    * OperationCategory.values().length];
-        }
-
         int index = getUniqueIndex(aggregate.getSource(),
                 aggregate.getCategory());
         synchronized (writerLocks[index]) {
@@ -438,11 +439,13 @@ public class LiveOperationStatisticsAggregator {
                         + aggregate.getCategory().name().toLowerCase() + "."
                         + initializationTime + "."
                         + outputFormat.name().toLowerCase();
+
                 File file = new File(filename);
-                if (file.exists()) {
+                if (!file.exists()) {
+                    fbChannels[index] = new FileOutputStream(file).getChannel();
+                } else {
                     throw new IOException(filename + " already exists");
                 }
-                fbChannels[index] = new FileOutputStream(file).getChannel();
             }
 
             fbChannels[index].write(aggregate.toByteBuffer());
@@ -544,39 +547,64 @@ public class LiveOperationStatisticsAggregator {
 
                 // make sure to emit aggregates when the cache is full until
                 // it's half full again to avoid writing every time bin size
-                // from now on
-                int size = timeBins.size();
-                if (size > timeBinCacheSize) {
-                    for (int i = size / 2; i > 0; --i) {
-                        try {
-                            Map.Entry<Long, NavigableMap<Integer, OperationStatistics>> entry = timeBins
-                                    .pollFirstEntry();
-                            if (entry != null) {
-                                switch (outputFormat) {
-                                case CSV:
-                                    for (OperationStatistics os : entry
-                                            .getValue().values()) {
-                                        writeCsv(os);
+                // from now on, only have one thread do the emission check
+                if (!EMISSION_IN_PROGRESS.getAndSet(true)) {
+                    // emission was not in progress, all other threads now see
+                    // it as in progress and skip this
+                    int size = timeBins.size();
+                    if (size > timeBinCacheSize) {
+                        for (int i = size / 2; i > 0; --i) {
+                            try {
+                                Map.Entry<Long, NavigableMap<Integer, OperationStatistics>> entry = timeBins
+                                        .pollFirstEntry();
+                                if (entry != null) {
+                                    switch (outputFormat) {
+                                    case CSV:
+                                        for (OperationStatistics os : entry
+                                                .getValue().values())
+                                            writeCsv(os);
+                                        break;
+                                    case FB:
+                                        for (OperationStatistics os : entry
+                                                .getValue().values())
+                                            writeFb(os);
+                                        break;
+                                    default:
+                                        throw new IllegalArgumentException(
+                                                outputFormat.name());
                                     }
-                                    break;
-                                case FB:
-                                    for (OperationStatistics os : entry
-                                            .getValue().values()) {
-                                        writeFb(os);
-                                    }
-                                    break;
-                                default:
-                                    throw new IllegalArgumentException(
-                                            outputFormat.name());
-                                }
 
-                            } else {
+                                } else {
+                                    break;
+                                }
+                            } catch (IOException e) {
+                                throw new RuntimeException(e);
+                            }
+                        }
+
+                        try {
+                            switch (outputFormat) {
+                            case CSV:
+                                for (Writer w : csvWriters)
+                                    if (w != null)
+                                        w.flush();
                                 break;
+                            case FB:
+                                for (FileChannel fc : fbChannels)
+                                    if (fc != null)
+                                        fc.force(false);
+                                break;
+                            default:
+                                throw new IllegalArgumentException(
+                                        outputFormat.name());
                             }
                         } catch (IOException e) {
                             throw new RuntimeException(e);
                         }
                     }
+
+                    // reset emission in progress state
+                    EMISSION_IN_PROGRESS.set(false);
                 }
 
                 aggregate = overflowQueue.poll();
