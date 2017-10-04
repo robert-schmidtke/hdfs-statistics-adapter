@@ -7,6 +7,13 @@
  */
 package de.zib.sfs.instrument.statistics;
 
+import java.nio.BufferUnderflowException;
+import java.nio.ByteBuffer;
+
+import com.google.flatbuffers.FlatBufferBuilder;
+
+import de.zib.sfs.instrument.statistics.fb.OperationStatisticsFB;
+
 public class OperationStatistics {
 
     public static class NotAggregatableException extends Exception {
@@ -156,6 +163,43 @@ public class OperationStatistics {
                 OperationSource.valueOf(values[off + 3].toUpperCase()),
                 OperationCategory.valueOf(values[off + 4].toUpperCase()),
                 Integer.parseInt(values[off + 5]));
+    }
+
+    public ByteBuffer toByteBuffer() {
+        FlatBufferBuilder builder = new FlatBufferBuilder(0);
+        OperationStatisticsFB.startOperationStatisticsFB(builder);
+        toByteBuffer(builder);
+        int os = OperationStatisticsFB.endOperationStatisticsFB(builder);
+        OperationStatisticsFB
+                .finishSizePrefixedOperationStatisticsFBBuffer(builder, os);
+        return builder.dataBuffer();
+    }
+
+    protected void toByteBuffer(FlatBufferBuilder builder) {
+        OperationStatisticsFB.addCount(builder, count);
+        OperationStatisticsFB.addTimeBin(builder, timeBin);
+        OperationStatisticsFB.addCpuTime(builder, cpuTime);
+        OperationStatisticsFB.addSource(builder, source.toFlatBuffer());
+        OperationStatisticsFB.addCategory(builder, category.toFlatBuffer());
+        OperationStatisticsFB.addFileDescriptor(builder, fd);
+    }
+
+    public static OperationStatistics fromByteBuffer(ByteBuffer buffer) {
+        int length;
+        if (buffer.remaining() < 4
+                || (length = OperationStatisticsFB.getSizePrefix(buffer)
+                        + 4) > buffer.remaining()) {
+            throw new BufferUnderflowException();
+        }
+        ByteBuffer osBuffer = buffer.slice();
+        buffer.position(buffer.position() + length);
+
+        OperationStatisticsFB os = OperationStatisticsFB
+                .getSizePrefixedRootAsOperationStatisticsFB(osBuffer);
+        return new OperationStatistics(os.count(), os.timeBin(), os.cpuTime(),
+                OperationSource.fromFlatBuffer(os.source()),
+                OperationCategory.fromFlatBuffer(os.category()),
+                os.fileDescriptor());
     }
 
     @Override

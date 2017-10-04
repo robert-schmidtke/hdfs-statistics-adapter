@@ -17,6 +17,7 @@
   <properties>
     <!-- Compile dependencies -->
     <asm-all.version>5.2</asm-all.version>
+    <flatbuffers.version>1.7.1-1-SNAPSHOT</flatbuffers.version>
     <grpc.version>1.6.1</grpc.version>
     <protobuf.version>3.4.0</protobuf.version>
 
@@ -24,7 +25,8 @@
     <junit.version>4.12</junit.version>
 
     <!-- Plugin configurations -->
-    <exec-maven-plugin.version>1.6.0</exec-maven-plugin.version>
+    <build-helper-maven-plugin.version>3.0.0</build-helper-maven-plugin.version>
+    <exec-maven-plugin.version>1.5.0</exec-maven-plugin.version>
     <iterator-maven-plugin.version>0.5.1</iterator-maven-plugin.version>
     <maven-compiler-plugin.version>3.7.0</maven-compiler-plugin.version>
     <maven-shade-plugin.version>3.1.0</maven-shade-plugin.version>
@@ -37,12 +39,13 @@
     <java.source.version>1.8</java.source.version>
     <java.target.version>1.8</java.target.version>
 
-    <protoc.bin>/usr/local/bin/protoc</protoc.bin>
-    <protobuf.include.dir>/usr/local/include</protobuf.include.dir>
-    <protobuf.lib.dir>/usr/local/lib</protobuf.lib.dir>
+    <flatc.bin>/usr/local/bin/flatc</flatc.bin>
     <grpc.plugin>/usr/local/bin/grpc_cpp_plugin</grpc.plugin>
     <grpc.include.dir>/usr/local/include</grpc.include.dir>
     <grpc.lib.dir>/usr/local/lib</grpc.lib.dir>
+    <protoc.bin>/usr/local/bin/protoc</protoc.bin>
+    <protobuf.include.dir>/usr/local/include</protobuf.include.dir>
+    <protobuf.lib.dir>/usr/local/lib</protobuf.lib.dir>
   </properties>
 
   <profiles>
@@ -72,6 +75,12 @@
   </profiles>
 
   <dependencies>
+    <dependency>
+      <groupId>com.google.flatbuffers</groupId>
+      <artifactId>flatbuffers-java</artifactId>
+      <version>${flatbuffers.version}</version>
+    </dependency>
+
     <dependency>
       <groupId>com.google.protobuf</groupId>
       <artifactId>protobuf-java</artifactId>
@@ -152,6 +161,7 @@
               <finalName>${project.artifactId}</finalName>
               <artifactSet>
                 <includes>
+                  <include>com.google.flatbuffers:flatbuffers-java</include>
                   <include>com.google.guava:guava</include>
                   <include>com.google.instrumentation:instrumentation-api</include>
                   <include>com.google.protobuf:protobuf-java</include>
@@ -162,6 +172,10 @@
                 </includes>
               </artifactSet>
               <relocations>
+                <relocation>
+                  <pattern>com.google.flatbuffers</pattern>
+                  <shadedPattern>de.zib.sfs.shaded.com.google.flatbuffers</shadedPattern>
+                </relocation>
                 <relocation>
                   <pattern>com.google.guava</pattern>
                   <shadedPattern>de.zib.sfs.shaded.com.google.guava</shadedPattern>
@@ -221,12 +235,7 @@
             <configuration>
               <executable>mkdir</executable>
               <arguments>
-                <!-- Get around some issue in v1.6.0 that misinterprets '-p' -->
-                <argument>${project.build.directory}</argument>
-                <argument>${project.build.directory}/generated-sources</argument>
-                <argument>${project.build.directory}/generated-sources/protobuf</argument>
-                <argument>${project.build.directory}/generated-sources/protobuf/native</argument>
-                <argument>${project.build.directory}/generated-sources/protobuf/native/agent</argument>
+                <argument>-p</argument>
                 <argument>${project.build.directory}/generated-sources/protobuf/native/agent/rpc</argument>
               </arguments>
             </configuration>
@@ -247,6 +256,24 @@
                 <argument>--grpc_out=${project.build.directory}/generated-sources/protobuf/native/agent/rpc</argument>
                 <argument>--plugin=protoc-gen-grpc=${grpc.plugin}</argument>
                 <argument>${project.build.sourceDirectory}/../proto/sfs.proto</argument>
+              </arguments>
+            </configuration>
+          </execution>
+
+          <!-- Generate Java Operation Statistics -->
+          <execution>
+            <id>generate-fbs</id>
+            <phase>generate-sources</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>${flatc.bin}</executable>
+              <arguments>
+                <argument>--java</argument>
+                <argument>-o</argument>
+                <argument>${project.build.directory}/generated-sources/flatbuffers/java</argument>
+                <argument>${project.build.sourceDirectory}/../fbs/operation_statistics.fbs</argument>
               </arguments>
             </configuration>
           </execution>
@@ -307,6 +334,27 @@
                 <argument>de.zib.sfs.instrument.InstrumentationTest</argument>
                 <argument>all,false</argument>
               </arguments>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- Add generated FlatBuffers sources to compilation -->
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>build-helper-maven-plugin</artifactId>
+        <version>${build-helper-maven-plugin.version}</version>
+        <executions>
+          <execution>
+            <id>add-fbs-sourcse</id>
+            <phase>generate-sources</phase>
+            <goals>
+              <goal>add-source</goal>
+            </goals>
+            <configuration>
+              <sources>
+                <source>${project.build.directory}/generated-sources/flatbuffers/java</source>
+              </sources>
             </configuration>
           </execution>
         </executions>

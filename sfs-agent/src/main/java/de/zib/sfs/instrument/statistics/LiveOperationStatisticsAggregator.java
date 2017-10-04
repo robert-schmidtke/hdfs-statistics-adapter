@@ -9,8 +9,10 @@ package de.zib.sfs.instrument.statistics;
 
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -27,6 +29,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class LiveOperationStatisticsAggregator {
 
+    public static enum OutputFormat {
+        CSV, FB;
+    }
+
     private boolean initialized;
 
     private String systemHostname, systemKey;
@@ -37,7 +43,9 @@ public class LiveOperationStatisticsAggregator {
     private long timeBinDuration = 1L;
     private int timeBinCacheSize;
 
-    private String outputSeparator;
+    private OutputFormat outputFormat;
+
+    private String csvOutputSeparator;
     private String logFilePrefix;
 
     // for each source/category combination, map a time bin to an aggregate
@@ -49,9 +57,15 @@ public class LiveOperationStatisticsAggregator {
     // concurrency.
     private final Queue<OperationStatistics> overflowQueue;
 
-    private final StringBuilder[] stringBuilders;
-    private final BufferedWriter[] writers;
+    // for coordinating writing of statistics
     private final Object[] writerLocks;
+
+    // for CSV output
+    private StringBuilder[] csvStringBuilders;
+    private BufferedWriter[] csvWriters;
+
+    // for FlatBuffer output
+    private FileChannel[] fbChannels;
 
     private final ForkJoinPool threadPool;
 
@@ -78,11 +92,7 @@ public class LiveOperationStatisticsAggregator {
 
         overflowQueue = new ConcurrentLinkedQueue<>();
 
-        // similar for the writers
-        stringBuilders = new StringBuilder[OperationSource.values().length
-                * OperationCategory.values().length];
-        writers = new BufferedWriter[OperationSource.values().length
-                * OperationCategory.values().length];
+        // similar for the writer locks
         writerLocks = new Object[OperationSource.values().length
                 * OperationCategory.values().length];
         for (OperationSource source : OperationSource.values()) {
@@ -110,11 +120,12 @@ public class LiveOperationStatisticsAggregator {
             initialized = true;
         }
 
-        outputSeparator = ",";
+        outputFormat = OutputFormat.FB;
+        csvOutputSeparator = ",";
 
         // guard against weird hostnames
         systemHostname = System.getProperty("de.zib.sfs.hostname")
-                .replaceAll(outputSeparator, "");
+                .replaceAll(csvOutputSeparator, "");
 
         systemPid = Integer.parseInt(System.getProperty("de.zib.sfs.pid"));
         systemKey = System.getProperty("de.zib.sfs.key");
@@ -200,9 +211,23 @@ public class LiveOperationStatisticsAggregator {
                     .pollFirstEntry();
             while (entry != null) {
                 try {
-                    for (OperationStatistics os : entry.getValue().values()) {
-                        write(os);
+                    switch (outputFormat) {
+                    case CSV:
+                        for (OperationStatistics os : entry.getValue()
+                                .values()) {
+                            writeCsv(os);
+                        }
+                        break;
+                    case FB:
+                        for (OperationStatistics os : entry.getValue()
+                                .values()) {
+                            writeFb(os);
+                        }
+                        break;
+                    default:
+                        throw new IllegalArgumentException(outputFormat.name());
                     }
+
                     entry = v.pollFirstEntry();
                 } catch (IOException e) {
                     e.printStackTrace();
@@ -255,13 +280,27 @@ public class LiveOperationStatisticsAggregator {
         flush();
 
         // finally close all writers
-        for (BufferedWriter writer : writers) {
-            try {
+        switch (outputFormat) {
+        case CSV:
+            for (BufferedWriter writer : csvWriters) {
                 if (writer != null) {
-                    writer.close();
+                    try {
+                        writer.close();
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
                 }
-            } catch (IOException e) {
-                throw new RuntimeException(e);
+            }
+            break;
+        case FB:
+            for (FileChannel channel : fbChannels) {
+                if (channel != null) {
+                    try {
+                        channel.close();
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
             }
         }
 
@@ -274,23 +313,23 @@ public class LiveOperationStatisticsAggregator {
                                         + initializationTime + ".csv")));
 
                 fileDescriptorMappingsWriter.write("hostname");
-                fileDescriptorMappingsWriter.write(outputSeparator);
+                fileDescriptorMappingsWriter.write(csvOutputSeparator);
                 fileDescriptorMappingsWriter.write("pid");
-                fileDescriptorMappingsWriter.write(outputSeparator);
+                fileDescriptorMappingsWriter.write(csvOutputSeparator);
                 fileDescriptorMappingsWriter.write("key");
-                fileDescriptorMappingsWriter.write(outputSeparator);
+                fileDescriptorMappingsWriter.write(csvOutputSeparator);
                 fileDescriptorMappingsWriter.write("fileDescriptor");
-                fileDescriptorMappingsWriter.write(outputSeparator);
+                fileDescriptorMappingsWriter.write(csvOutputSeparator);
                 fileDescriptorMappingsWriter.write("filename");
                 fileDescriptorMappingsWriter.newLine();
 
                 StringBuilder sb = new StringBuilder();
                 for (Map.Entry<String, Integer> fd : fileDescriptors
                         .entrySet()) {
-                    sb.append(systemHostname).append(outputSeparator);
-                    sb.append(systemPid).append(outputSeparator);
-                    sb.append(systemKey).append(outputSeparator);
-                    sb.append(fd.getValue()).append(outputSeparator);
+                    sb.append(systemHostname).append(csvOutputSeparator);
+                    sb.append(systemPid).append(csvOutputSeparator);
+                    sb.append(systemKey).append(csvOutputSeparator);
+                    sb.append(fd.getValue()).append(csvOutputSeparator);
                     sb.append(fd.getKey());
                     fileDescriptorMappingsWriter.write(sb.toString());
                     fileDescriptorMappingsWriter.newLine();
@@ -308,58 +347,105 @@ public class LiveOperationStatisticsAggregator {
         return logFilePrefix;
     }
 
+    public OutputFormat getOutputFormat() {
+        return outputFormat;
+    }
+
     public String getOutputSeparator() {
-        return outputSeparator;
+        return csvOutputSeparator;
     }
 
     public boolean isInitialized() {
         return initialized;
     }
 
-    private void write(OperationStatistics aggregate) throws IOException {
+    private void writeCsv(OperationStatistics aggregate) throws IOException {
+        if (csvStringBuilders == null) {
+            csvStringBuilders = new StringBuilder[OperationSource
+                    .values().length * OperationCategory.values().length];
+        }
+        if (csvWriters == null) {
+            csvWriters = new BufferedWriter[OperationSource.values().length
+                    * OperationCategory.values().length];
+        }
+
         int index = getUniqueIndex(aggregate.getSource(),
                 aggregate.getCategory());
         synchronized (writerLocks[index]) {
-            if (stringBuilders[index] == null) {
-                stringBuilders[index] = new StringBuilder();
+            if (csvStringBuilders[index] == null) {
+                csvStringBuilders[index] = new StringBuilder();
             } else {
-                stringBuilders[index].setLength(0);
+                csvStringBuilders[index].setLength(0);
             }
 
-            if (writers[index] == null) {
+            if (csvWriters[index] == null) {
                 String filename = getLogFilePrefix() + "."
                         + aggregate.getSource().name().toLowerCase() + "."
                         + aggregate.getCategory().name().toLowerCase() + "."
-                        + initializationTime + ".csv";
+                        + initializationTime + "."
+                        + outputFormat.name().toLowerCase();
 
                 File file = new File(filename);
                 if (!file.exists()) {
-                    stringBuilders[index].append("hostname");
-                    stringBuilders[index].append(outputSeparator).append("pid");
-                    stringBuilders[index].append(outputSeparator).append("key");
-                    stringBuilders[index].append(outputSeparator)
-                            .append(aggregate.getCsvHeaders(outputSeparator));
+                    csvStringBuilders[index].append("hostname");
+                    csvStringBuilders[index].append(csvOutputSeparator)
+                            .append("pid");
+                    csvStringBuilders[index].append(csvOutputSeparator)
+                            .append("key");
+                    csvStringBuilders[index].append(csvOutputSeparator).append(
+                            aggregate.getCsvHeaders(csvOutputSeparator));
 
                     // we will receive writes to this file as well
-                    writers[index] = new BufferedWriter(new FileWriter(file));
-                    writers[index].write(stringBuilders[index].toString());
-                    writers[index].newLine();
+                    csvWriters[index] = new BufferedWriter(
+                            new FileWriter(file));
+                    csvWriters[index]
+                            .write(csvStringBuilders[index].toString());
+                    csvWriters[index].newLine();
 
-                    stringBuilders[index].setLength(0);
+                    csvStringBuilders[index].setLength(0);
                 } else {
                     throw new IOException(filename + " already exists");
                 }
             }
 
-            stringBuilders[index].append(systemHostname);
-            stringBuilders[index].append(outputSeparator).append(systemPid);
-            stringBuilders[index].append(outputSeparator).append(systemKey);
-            stringBuilders[index].append(outputSeparator)
-                    .append(aggregate.toCsv(outputSeparator));
+            csvStringBuilders[index].append(systemHostname);
+            csvStringBuilders[index].append(csvOutputSeparator)
+                    .append(systemPid);
+            csvStringBuilders[index].append(csvOutputSeparator)
+                    .append(systemKey);
+            csvStringBuilders[index].append(csvOutputSeparator)
+                    .append(aggregate.toCsv(csvOutputSeparator));
 
-            writers[index].write(stringBuilders[index].toString());
-            writers[index].newLine();
-            writers[index].flush();
+            csvWriters[index].write(csvStringBuilders[index].toString());
+            csvWriters[index].newLine();
+            csvWriters[index].flush();
+        }
+    }
+
+    @SuppressWarnings("resource") // we close the channels on shutdown
+    private void writeFb(OperationStatistics aggregate) throws IOException {
+        if (fbChannels == null) {
+            fbChannels = new FileChannel[OperationSource.values().length
+                    * OperationCategory.values().length];
+        }
+
+        int index = getUniqueIndex(aggregate.getSource(),
+                aggregate.getCategory());
+        synchronized (writerLocks[index]) {
+            if (fbChannels[index] == null) {
+                String filename = getLogFilePrefix() + "."
+                        + aggregate.getSource().name().toLowerCase() + "."
+                        + aggregate.getCategory().name().toLowerCase() + "."
+                        + initializationTime + "."
+                        + outputFormat.name().toLowerCase();
+                File file = new File(filename);
+                if (file.exists()) {
+                    throw new IOException(filename + " already exists");
+                }
+                fbChannels[index] = new FileOutputStream(file).getChannel();
+            }
+
+            fbChannels[index].write(aggregate.toByteBuffer());
         }
     }
 
@@ -466,10 +552,24 @@ public class LiveOperationStatisticsAggregator {
                             Map.Entry<Long, NavigableMap<Integer, OperationStatistics>> entry = timeBins
                                     .pollFirstEntry();
                             if (entry != null) {
-                                for (OperationStatistics os : entry.getValue()
-                                        .values()) {
-                                    write(os);
+                                switch (outputFormat) {
+                                case CSV:
+                                    for (OperationStatistics os : entry
+                                            .getValue().values()) {
+                                        writeCsv(os);
+                                    }
+                                    break;
+                                case FB:
+                                    for (OperationStatistics os : entry
+                                            .getValue().values()) {
+                                        writeFb(os);
+                                    }
+                                    break;
+                                default:
+                                    throw new IllegalArgumentException(
+                                            outputFormat.name());
                                 }
+
                             } else {
                                 break;
                             }

@@ -7,9 +7,16 @@
  */
 package de.zib.sfs.instrument.statistics;
 
+import java.nio.BufferUnderflowException;
+import java.nio.ByteBuffer;
+
+import com.google.flatbuffers.FlatBufferBuilder;
+
+import de.zib.sfs.instrument.statistics.fb.OperationStatisticsFB;
+
 public class ReadDataOperationStatistics extends DataOperationStatistics {
 
-    private long remoteCount, remoteDuration, remoteData;
+    private long remoteCount, remoteCpuTime, remoteData;
 
     public ReadDataOperationStatistics(long timeBinDuration,
             OperationSource source, OperationCategory category, long startTime,
@@ -21,10 +28,10 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
 
     public ReadDataOperationStatistics(long count, long timeBin, long cpuTime,
             OperationSource source, OperationCategory category, int fd,
-            long data, long remoteCount, long remoteDuration, long remoteData) {
+            long data, long remoteCount, long remoteCpuTime, long remoteData) {
         super(count, timeBin, cpuTime, source, category, fd, data);
         this.remoteCount = remoteCount;
-        this.remoteDuration = remoteDuration;
+        this.remoteCpuTime = remoteCpuTime;
         this.remoteData = remoteData;
     }
 
@@ -37,11 +44,11 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
     }
 
     public long getRemoteDuration() {
-        return remoteDuration;
+        return remoteCpuTime;
     }
 
     public void setRemoteDuration(long remoteDuration) {
-        this.remoteDuration = remoteDuration;
+        this.remoteCpuTime = remoteDuration;
     }
 
     public long getRemoteData() {
@@ -66,7 +73,7 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
                 aggregate.getFileDescriptor(), aggregate.getData(),
                 remoteCount + ((ReadDataOperationStatistics) other)
                         .getRemoteCount(),
-                remoteDuration + ((ReadDataOperationStatistics) other)
+                remoteCpuTime + ((ReadDataOperationStatistics) other)
                         .getRemoteDuration(),
                 remoteData + ((ReadDataOperationStatistics) other)
                         .getRemoteData());
@@ -77,7 +84,7 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
         StringBuilder sb = new StringBuilder();
         sb.append(super.getCsvHeaders(separator));
         sb.append(separator).append("remoteCount");
-        sb.append(separator).append("remoteDuration");
+        sb.append(separator).append("remoteCpuTime");
         sb.append(separator).append("remoteData");
         return sb.toString();
     }
@@ -87,7 +94,7 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
         StringBuilder sb = new StringBuilder();
         sb.append(super.toCsv(separator));
         sb.append(separator).append(remoteCount);
-        sb.append(separator).append(remoteDuration);
+        sb.append(separator).append(remoteCpuTime);
         sb.append(separator).append(remoteData);
         return sb.toString();
     }
@@ -105,5 +112,33 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
                 Long.parseLong(values[off + 7]),
                 Long.parseLong(values[off + 8]),
                 Long.parseLong(values[off + 9]));
+    }
+
+    @Override
+    protected void toByteBuffer(FlatBufferBuilder builder) {
+        super.toByteBuffer(builder);
+        OperationStatisticsFB.addRemoteCount(builder, remoteCount);
+        OperationStatisticsFB.addRemoteCpuTime(builder, remoteCpuTime);
+        OperationStatisticsFB.addRemoteData(builder, remoteData);
+    }
+
+    public static ReadDataOperationStatistics fromByteBuffer(
+            ByteBuffer buffer) {
+        int length;
+        if (buffer.remaining() < 4
+                || (length = OperationStatisticsFB.getSizePrefix(buffer)
+                        + 4) > buffer.remaining()) {
+            throw new BufferUnderflowException();
+        }
+        ByteBuffer osBuffer = buffer.slice();
+        buffer.position(buffer.position() + length);
+
+        OperationStatisticsFB os = OperationStatisticsFB
+                .getSizePrefixedRootAsOperationStatisticsFB(osBuffer);
+        return new ReadDataOperationStatistics(os.count(), os.timeBin(),
+                os.cpuTime(), OperationSource.fromFlatBuffer(os.source()),
+                OperationCategory.fromFlatBuffer(os.category()),
+                os.fileDescriptor(), os.data(), os.remoteCount(),
+                os.remoteCpuTime(), os.remoteData());
     }
 }

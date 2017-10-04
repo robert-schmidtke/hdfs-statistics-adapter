@@ -7,6 +7,13 @@
  */
 package de.zib.sfs.instrument.statistics;
 
+import java.nio.BufferUnderflowException;
+import java.nio.ByteBuffer;
+
+import com.google.flatbuffers.FlatBufferBuilder;
+
+import de.zib.sfs.instrument.statistics.fb.OperationStatisticsFB;
+
 public class DataOperationStatistics extends OperationStatistics {
 
     private long data;
@@ -74,5 +81,29 @@ public class DataOperationStatistics extends OperationStatistics {
                 OperationCategory.valueOf(values[off + 4].toUpperCase()),
                 Integer.parseInt(values[off + 5]),
                 Long.parseLong(values[off + 6]));
+    }
+
+    @Override
+    protected void toByteBuffer(FlatBufferBuilder builder) {
+        super.toByteBuffer(builder);
+        OperationStatisticsFB.addData(builder, data);
+    }
+
+    public static DataOperationStatistics fromByteBuffer(ByteBuffer buffer) {
+        int length;
+        if (buffer.remaining() < 4
+                || (length = OperationStatisticsFB.getSizePrefix(buffer)
+                        + 4) > buffer.remaining()) {
+            throw new BufferUnderflowException();
+        }
+        ByteBuffer osBuffer = buffer.slice();
+        buffer.position(buffer.position() + length);
+
+        OperationStatisticsFB os = OperationStatisticsFB
+                .getSizePrefixedRootAsOperationStatisticsFB(osBuffer);
+        return new DataOperationStatistics(os.count(), os.timeBin(),
+                os.cpuTime(), OperationSource.fromFlatBuffer(os.source()),
+                OperationCategory.fromFlatBuffer(os.category()),
+                os.fileDescriptor(), os.data());
     }
 }

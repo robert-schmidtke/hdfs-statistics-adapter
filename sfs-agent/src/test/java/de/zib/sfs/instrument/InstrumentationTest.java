@@ -1437,66 +1437,45 @@ public class InstrumentationTest {
                                     OperationSource.JVM.name().toLowerCase())
                                     && name.contains(
                                             category.name().toLowerCase())
-                                    && name.endsWith("csv");
+                                    && name.endsWith(
+                                            aggregator.getOutputFormat().name()
+                                                    .toLowerCase());
                         }
                     });
 
             // parse all files into OperationStatistics
-            for (File file : categoryFiles) {
-                BufferedReader reader = new BufferedReader(
-                        new FileReader(file));
+            OperationStatisticsCallback callback = (operationStatistics) -> {
+                // JVM must be the only source, no SFS involved
+                assert (OperationSource.JVM
+                        .equals(operationStatistics.getSource()));
 
-                // skip header
-                String line = reader.readLine();
-                while ((line = reader.readLine()) != null) {
-                    // LiveOperationStatisticsAggregator prepends hostname, pid
-                    // and key for each line
-                    OperationStatistics operationStatistics = null;
-                    switch (category) {
-                    case OTHER:
-                        operationStatistics = OperationStatistics.fromCsv(line,
-                                aggregator.getOutputSeparator(), 3);
-                        break;
-                    case WRITE:
-                        operationStatistics = DataOperationStatistics.fromCsv(
-                                line, aggregator.getOutputSeparator(), 3);
-                        break;
-                    case READ:
-                    case ZIP:
-                        operationStatistics = ReadDataOperationStatistics
-                                .fromCsv(line, aggregator.getOutputSeparator(),
-                                        3);
-                        break;
-                    }
+                // reset file descriptors because we don't care about
+                // individual file I/O here
+                operationStatistics.setFileDescriptor(0);
 
-                    // JVM must be the only source, no SFS involved
-                    assert (OperationSource.JVM
-                            .equals(operationStatistics.getSource()));
+                // put the aggregates into the appropriate list/bin
+                aggregates
+                        .get(LiveOperationStatisticsAggregator.getUniqueIndex(
+                                operationStatistics.getSource(),
+                                operationStatistics.getCategory()))
+                        .merge(operationStatistics.getTimeBin(),
+                                operationStatistics, (v1, v2) -> {
+                                    try {
+                                        return v1.aggregate(v2);
+                                    } catch (OperationStatistics.NotAggregatableException e) {
+                                        e.printStackTrace();
+                                        throw new IllegalArgumentException(e);
+                                    }
+                                });
+            };
 
-                    // reset file descriptors because we don't care about
-                    // individual file I/O here
-                    operationStatistics.setFileDescriptor(0);
-
-                    // put the aggregates into the appropriate list/bin
-                    aggregates.get(LiveOperationStatisticsAggregator
-                            .getUniqueIndex(operationStatistics.getSource(),
-                                    operationStatistics.getCategory()))
-                            .merge(operationStatistics.getTimeBin(),
-                                    operationStatistics, (v1, v2) -> {
-                                        try {
-                                            return v1.aggregate(v2);
-                                        } catch (OperationStatistics.NotAggregatableException e) {
-                                            e.printStackTrace();
-                                            throw new IllegalArgumentException(
-                                                    e);
-                                        }
-                                    });
-                }
-                reader.close();
-
-                // remove statistics file at the end to avoid counting it twice
-                // in future test runs
-                file.delete();
+            switch (aggregator.getOutputFormat()) {
+            case CSV:
+                processCsvFiles(categoryFiles, category, callback);
+                break;
+            case FB:
+                processFbFiles(categoryFiles, category, callback);
+                break;
             }
         }
 
@@ -1519,6 +1498,109 @@ public class InstrumentationTest {
             assertOperationData(aggregates, OperationSource.JVM,
                     OperationCategory.ZIP, jvmZipReadBytes + zipReadBytes,
                     jvmZipReadBytes + zipReadBytes);
+        }
+    }
+
+    private static interface OperationStatisticsCallback {
+        public void call(OperationStatistics os);
+    }
+
+    private static void processCsvFiles(File[] files,
+            OperationCategory category, OperationStatisticsCallback callback)
+            throws IOException {
+        // parse all files into OperationStatistics
+        for (File file : files) {
+            BufferedReader reader = new BufferedReader(new FileReader(file));
+
+            // skip header
+            String line = reader.readLine();
+            while ((line = reader.readLine()) != null) {
+                // LiveOperationStatisticsAggregator prepends hostname, pid
+                // and key for each line
+                OperationStatistics operationStatistics = null;
+                switch (category) {
+                case OTHER:
+                    operationStatistics = OperationStatistics.fromCsv(line,
+                            LiveOperationStatisticsAggregator.instance
+                                    .getOutputSeparator(),
+                            3);
+                    break;
+                case WRITE:
+                    operationStatistics = DataOperationStatistics.fromCsv(line,
+                            LiveOperationStatisticsAggregator.instance
+                                    .getOutputSeparator(),
+                            3);
+                    break;
+                case READ:
+                case ZIP:
+                    operationStatistics = ReadDataOperationStatistics.fromCsv(
+                            line, LiveOperationStatisticsAggregator.instance
+                                    .getOutputSeparator(),
+                            3);
+                    break;
+                }
+
+                callback.call(operationStatistics);
+            }
+            reader.close();
+
+            // remove statistics file at the end to avoid counting it twice
+            // in future test runs
+            file.delete();
+        }
+    }
+
+    private static void processFbFiles(File[] files, OperationCategory category,
+            OperationStatisticsCallback callback) throws IOException {
+        // parse all files into OperationStatistics
+        for (File file : files) {
+            @SuppressWarnings("resource") // we close the channel
+            FileChannel fbChannel = new FileInputStream(file).getChannel();
+            long position = fbChannel.position();
+
+            ByteBuffer buffer = ByteBuffer.allocate(1048576);
+            while (fbChannel.read(buffer) != -1) {
+                buffer.flip();
+                while (true) {
+                    try {
+                        int length = buffer.position();
+                        OperationStatistics operationStatistics = null;
+                        switch (category) {
+                        case OTHER:
+                            operationStatistics = OperationStatistics
+                                    .fromByteBuffer(buffer);
+                            break;
+                        case WRITE:
+                            operationStatistics = DataOperationStatistics
+                                    .fromByteBuffer(buffer);
+                            break;
+                        case READ:
+                        case ZIP:
+                            operationStatistics = ReadDataOperationStatistics
+                                    .fromByteBuffer(buffer);
+                            break;
+                        }
+
+                        // keep track of where we are in the file channel
+                        length = buffer.position() - length;
+                        position += length;
+
+                        callback.call(operationStatistics);
+                    } catch (BufferUnderflowException e) {
+                        // buffer held incomplete object, reset file channel to
+                        // last good position before reading again
+                        fbChannel.position(position);
+                        buffer.clear();
+                        break;
+                    }
+                }
+            }
+
+            fbChannel.close();
+
+            // remove statistics file at the end to avoid counting it twice
+            // in future test runs
+            file.delete();
         }
     }
 

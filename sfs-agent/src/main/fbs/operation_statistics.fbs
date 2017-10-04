@@ -1,0 +1,29 @@
+/*
+ * Copyright (c) 2017 by Robert Schmidtke,
+ *               Zuse Institute Berlin
+ *
+ * Licensed under the BSD License, see LICENSE file for details.
+ *
+ */
+namespace de.zib.sfs.instrument.statistics.fb;
+
+enum OperationSourceFB : byte { JVM, SFS }
+enum OperationCategoryFB : byte { Read, Write, Other, Zip }
+
+table OperationStatisticsFB {
+  hostname:string;
+  pid:int;
+  key:string;
+  time_bin:ulong;
+  count:ulong;
+  cpu_time:ulong;
+  source:OperationSourceFB;
+  category:OperationCategoryFB;
+  file_descriptor:int;
+  data:ulong;
+  remote_count:ulong;
+  remote_cpu_time:ulong;
+  remote_data:ulong;
+}
+
+root_type OperationStatisticsFB;

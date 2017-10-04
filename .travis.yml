@@ -34,7 +34,7 @@ install:
   - export GRPC_VERSION=1.6.1
   - export PROTOBUF_VERSION=3.4.0
   - cd $HOME
-  - git clone -b v$GRPC_VERSION https://github.com/grpc/grpc
+  - git clone -b v$GRPC_VERSION https://github.com/grpc/grpc.git
   - export GRPC_HOME=$HOME/grpc
   - cd $GRPC_HOME
   - git submodule update --init
@@ -45,8 +45,20 @@ install:
   - export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$GRPC_HOME/libs/opt:$GRPC_HOME/third_party/protobuf/src/.libs"
   - cd $TRAVIS_BUILD_DIR
 
+  # build custom FlatBuffers
+  # - export FLATBUFFERS_VERSION=1.7.1
+  - export FLATBUFFERS_JAVA_VERSION=1.7.1-1-SNAPSHOT
+  - cd $HOME
+  # - git clone -b v$FLATBUFFERS_VERSION https://github.com/google/flatbuffers.git
+  - git clone https://github.com/robert-schmidtke/flatbuffers.git
+  - cd flatbuffers && mkdir build && cd build
+  - cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release .. && make -j2 && cd ..
+  - mvn clean install
+  - export FLATBUFFERS_HOME=$HOME/flatbuffers
+  - cd $TRAVIS_BUILD_DIR
+
   # finally build the thing
-  - mvn clean install --define protobuf.version=$PROTOBUF_VERSION --define protoc.bin=$GRPC_HOME/third_party/protobuf/src/protoc --define protobuf.include.dir=$GRPC_HOME/third_party/protobuf/src --define protobuf.lib.dir=$GRPC_HOME/third_party/protobuf/src/.libs --define grpc.version=$GRPC_VERSION --define grpc.plugin=$GRPC_HOME/bins/opt/grpc_cpp_plugin --define grpc.include.dir=$GRPC_HOME/include --define grpc.lib.dir=$GRPC_HOME/libs/opt --define hadoop.version=$HADOOP_VERSION
+  - mvn clean install --define protobuf.version=$PROTOBUF_VERSION --define protoc.bin=$GRPC_HOME/third_party/protobuf/src/protoc --define protobuf.include.dir=$GRPC_HOME/third_party/protobuf/src --define protobuf.lib.dir=$GRPC_HOME/third_party/protobuf/src/.libs --define grpc.version=$GRPC_VERSION --define grpc.plugin=$GRPC_HOME/bins/opt/grpc_cpp_plugin --define grpc.include.dir=$GRPC_HOME/include --define grpc.lib.dir=$GRPC_HOME/libs/opt --define hadoop.version=$HADOOP_VERSION --define flatc.bin=$FLATBUFFERS_HOME/build/flatc --define flatbuffers.version=$FLATBUFFERS_JAVA_VERSION
   - cd $TRAVIS_BUILD_DIR
 
 script:
