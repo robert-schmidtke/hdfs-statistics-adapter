@@ -12,6 +12,7 @@ import java.nio.ByteBuffer;
 
 import com.google.flatbuffers.FlatBufferBuilder;
 
+import de.zib.sfs.instrument.statistics.bb.OperationStatisticsBufferBuilder;
 import de.zib.sfs.instrument.statistics.fb.OperationStatisticsFB;
 
 public class DataOperationStatistics extends OperationStatistics {
@@ -84,12 +85,13 @@ public class DataOperationStatistics extends OperationStatistics {
     }
 
     @Override
-    protected void toByteBuffer(FlatBufferBuilder builder) {
-        super.toByteBuffer(builder);
-        OperationStatisticsFB.addData(builder, data);
+    protected void toFlatBuffer(FlatBufferBuilder builder) {
+        super.toFlatBuffer(builder);
+        if (data > 0)
+            OperationStatisticsFB.addData(builder, data);
     }
 
-    public static DataOperationStatistics fromByteBuffer(ByteBuffer buffer) {
+    public static DataOperationStatistics fromFlatBuffer(ByteBuffer buffer) {
         int length;
         if (buffer.remaining() < 4
                 || (length = OperationStatisticsFB.getSizePrefix(buffer)
@@ -105,5 +107,11 @@ public class DataOperationStatistics extends OperationStatistics {
                 os.cpuTime(), OperationSource.fromFlatBuffer(os.source()),
                 OperationCategory.fromFlatBuffer(os.category()),
                 os.fileDescriptor(), os.data());
+    }
+
+    @Override
+    public ByteBuffer toByteBuffer(String hostname, int pid, String key) {
+        return new OperationStatisticsBufferBuilder(this).serialize(hostname,
+                pid, key);
     }
 }

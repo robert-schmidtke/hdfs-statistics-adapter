@@ -32,7 +32,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class LiveOperationStatisticsAggregator {
 
     public static enum OutputFormat {
-        CSV, FB;
+        CSV, FB, BB;
     }
 
     private boolean initialized;
@@ -70,8 +70,8 @@ public class LiveOperationStatisticsAggregator {
     private StringBuilder[] csvStringBuilders;
     private BufferedWriter[] csvWriters;
 
-    // for FlatBuffer output
-    private FileChannel[] fbChannels;
+    // for FlatBuffer/ByteBuffer output
+    private FileChannel[] bbChannels;
 
     private final ForkJoinPool threadPool;
 
@@ -126,7 +126,7 @@ public class LiveOperationStatisticsAggregator {
             initialized = true;
         }
 
-        outputFormat = OutputFormat.FB;
+        outputFormat = OutputFormat.BB;
         switch (outputFormat) {
         case CSV:
             csvStringBuilders = new StringBuilder[OperationSource
@@ -135,7 +135,8 @@ public class LiveOperationStatisticsAggregator {
                     * OperationCategory.values().length];
             break;
         case FB:
-            fbChannels = new FileChannel[OperationSource.values().length
+        case BB:
+            bbChannels = new FileChannel[OperationSource.values().length
                     * OperationCategory.values().length];
             break;
         default:
@@ -171,7 +172,7 @@ public class LiveOperationStatisticsAggregator {
 
     public int getFileDescriptor(String filename) {
         if (!initialized || filename == null || !traceFileDescriptors) {
-            return -1;
+            return 0;
         }
 
         // reuses file descriptors for the same file
@@ -232,18 +233,8 @@ public class LiveOperationStatisticsAggregator {
                     .pollFirstEntry();
             while (entry != null) {
                 try {
-                    switch (outputFormat) {
-                    case CSV:
-                        for (OperationStatistics os : entry.getValue().values())
-                            writeCsv(os);
-                        break;
-                    case FB:
-                        for (OperationStatistics os : entry.getValue().values())
-                            writeFb(os);
-                        break;
-                    default:
-                        throw new IllegalArgumentException(outputFormat.name());
-                    }
+                    for (OperationStatistics os : entry.getValue().values())
+                        write(os);
 
                     entry = v.pollFirstEntry();
                 } catch (IOException e) {
@@ -251,6 +242,7 @@ public class LiveOperationStatisticsAggregator {
                 }
             }
         });
+
     }
 
     public void shutdown() {
@@ -308,7 +300,8 @@ public class LiveOperationStatisticsAggregator {
                     }
             break;
         case FB:
-            for (FileChannel channel : fbChannels)
+        case BB:
+            for (FileChannel channel : bbChannels)
                 if (channel != null)
                     try {
                         channel.close();
@@ -375,6 +368,20 @@ public class LiveOperationStatisticsAggregator {
         return initialized;
     }
 
+    private void write(OperationStatistics aggregate) throws IOException {
+        switch (outputFormat) {
+        case CSV:
+            writeCsv(aggregate);
+            break;
+        case FB:
+        case BB:
+            writeBinary(aggregate);
+            break;
+        default:
+            throw new IllegalArgumentException(outputFormat.name());
+        }
+    }
+
     private void writeCsv(OperationStatistics aggregate) throws IOException {
         int index = getUniqueIndex(aggregate.getSource(),
                 aggregate.getCategory());
@@ -429,11 +436,11 @@ public class LiveOperationStatisticsAggregator {
     }
 
     @SuppressWarnings("resource") // we close the channels on shutdown
-    private void writeFb(OperationStatistics aggregate) throws IOException {
+    private void writeBinary(OperationStatistics aggregate) throws IOException {
         int index = getUniqueIndex(aggregate.getSource(),
                 aggregate.getCategory());
         synchronized (writerLocks[index]) {
-            if (fbChannels[index] == null) {
+            if (bbChannels[index] == null) {
                 String filename = getLogFilePrefix() + "."
                         + aggregate.getSource().name().toLowerCase() + "."
                         + aggregate.getCategory().name().toLowerCase() + "."
@@ -442,13 +449,24 @@ public class LiveOperationStatisticsAggregator {
 
                 File file = new File(filename);
                 if (!file.exists()) {
-                    fbChannels[index] = new FileOutputStream(file).getChannel();
+                    bbChannels[index] = new FileOutputStream(file).getChannel();
                 } else {
                     throw new IOException(filename + " already exists");
                 }
             }
 
-            fbChannels[index].write(aggregate.toByteBuffer());
+            switch (outputFormat) {
+            case FB:
+                bbChannels[index].write(aggregate.toFlatBuffer(systemHostname,
+                        systemPid, systemKey));
+                break;
+            case BB:
+                bbChannels[index].write(aggregate.toByteBuffer(systemHostname,
+                        systemPid, systemKey));
+                break;
+            default:
+                throw new IllegalArgumentException(outputFormat.name());
+            }
         }
     }
 
@@ -558,22 +576,9 @@ public class LiveOperationStatisticsAggregator {
                                 Map.Entry<Long, NavigableMap<Integer, OperationStatistics>> entry = timeBins
                                         .pollFirstEntry();
                                 if (entry != null) {
-                                    switch (outputFormat) {
-                                    case CSV:
-                                        for (OperationStatistics os : entry
-                                                .getValue().values())
-                                            writeCsv(os);
-                                        break;
-                                    case FB:
-                                        for (OperationStatistics os : entry
-                                                .getValue().values())
-                                            writeFb(os);
-                                        break;
-                                    default:
-                                        throw new IllegalArgumentException(
-                                                outputFormat.name());
-                                    }
-
+                                    for (OperationStatistics os : entry
+                                            .getValue().values())
+                                        write(os);
                                 } else {
                                     break;
                                 }
@@ -590,7 +595,8 @@ public class LiveOperationStatisticsAggregator {
                                         w.flush();
                                 break;
                             case FB:
-                                for (FileChannel fc : fbChannels)
+                            case BB:
+                                for (FileChannel fc : bbChannels)
                                     if (fc != null)
                                         fc.force(false);
                                 break;

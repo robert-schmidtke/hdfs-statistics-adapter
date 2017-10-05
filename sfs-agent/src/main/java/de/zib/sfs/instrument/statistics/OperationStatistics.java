@@ -12,6 +12,7 @@ import java.nio.ByteBuffer;
 
 import com.google.flatbuffers.FlatBufferBuilder;
 
+import de.zib.sfs.instrument.statistics.bb.OperationStatisticsBufferBuilder;
 import de.zib.sfs.instrument.statistics.fb.OperationStatisticsFB;
 
 public class OperationStatistics {
@@ -165,26 +166,36 @@ public class OperationStatistics {
                 Integer.parseInt(values[off + 5]));
     }
 
-    public ByteBuffer toByteBuffer() {
+    public ByteBuffer toFlatBuffer(String hostname, int pid, String key) {
         FlatBufferBuilder builder = new FlatBufferBuilder(0);
+        int hostnameOffset = builder.createString(hostname);
+        int keyOffset = builder.createString(key);
         OperationStatisticsFB.startOperationStatisticsFB(builder);
-        toByteBuffer(builder);
+        OperationStatisticsFB.addHostname(builder, hostnameOffset);
+        if (pid > 0)
+            OperationStatisticsFB.addPid(builder, pid);
+        OperationStatisticsFB.addKey(builder, keyOffset);
+        toFlatBuffer(builder);
         int os = OperationStatisticsFB.endOperationStatisticsFB(builder);
         OperationStatisticsFB
                 .finishSizePrefixedOperationStatisticsFBBuffer(builder, os);
         return builder.dataBuffer();
     }
 
-    protected void toByteBuffer(FlatBufferBuilder builder) {
-        OperationStatisticsFB.addCount(builder, count);
-        OperationStatisticsFB.addTimeBin(builder, timeBin);
-        OperationStatisticsFB.addCpuTime(builder, cpuTime);
+    protected void toFlatBuffer(FlatBufferBuilder builder) {
+        if (count > 0)
+            OperationStatisticsFB.addCount(builder, count);
+        if (timeBin > 0)
+            OperationStatisticsFB.addTimeBin(builder, timeBin);
+        if (cpuTime > 0)
+            OperationStatisticsFB.addCpuTime(builder, cpuTime);
         OperationStatisticsFB.addSource(builder, source.toFlatBuffer());
         OperationStatisticsFB.addCategory(builder, category.toFlatBuffer());
-        OperationStatisticsFB.addFileDescriptor(builder, fd);
+        if (fd > 0)
+            OperationStatisticsFB.addFileDescriptor(builder, fd);
     }
 
-    public static OperationStatistics fromByteBuffer(ByteBuffer buffer) {
+    public static OperationStatistics fromFlatBuffer(ByteBuffer buffer) {
         int length;
         if (buffer.remaining() < 4
                 || (length = OperationStatisticsFB.getSizePrefix(buffer)
@@ -200,6 +211,15 @@ public class OperationStatistics {
                 OperationSource.fromFlatBuffer(os.source()),
                 OperationCategory.fromFlatBuffer(os.category()),
                 os.fileDescriptor());
+    }
+
+    public ByteBuffer toByteBuffer(String hostname, int pid, String key) {
+        return new OperationStatisticsBufferBuilder(this).serialize(hostname,
+                pid, key);
+    }
+
+    public static OperationStatistics fromByteBuffer(ByteBuffer bb) {
+        return new OperationStatisticsBufferBuilder(bb).deserialize();
     }
 
     @Override

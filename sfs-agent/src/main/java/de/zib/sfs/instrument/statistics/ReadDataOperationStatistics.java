@@ -12,6 +12,7 @@ import java.nio.ByteBuffer;
 
 import com.google.flatbuffers.FlatBufferBuilder;
 
+import de.zib.sfs.instrument.statistics.bb.OperationStatisticsBufferBuilder;
 import de.zib.sfs.instrument.statistics.fb.OperationStatisticsFB;
 
 public class ReadDataOperationStatistics extends DataOperationStatistics {
@@ -43,7 +44,7 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
         this.remoteCount = remoteCount;
     }
 
-    public long getRemoteDuration() {
+    public long getRemoteCpuTime() {
         return remoteCpuTime;
     }
 
@@ -74,7 +75,7 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
                 remoteCount + ((ReadDataOperationStatistics) other)
                         .getRemoteCount(),
                 remoteCpuTime + ((ReadDataOperationStatistics) other)
-                        .getRemoteDuration(),
+                        .getRemoteCpuTime(),
                 remoteData + ((ReadDataOperationStatistics) other)
                         .getRemoteData());
     }
@@ -115,14 +116,17 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
     }
 
     @Override
-    protected void toByteBuffer(FlatBufferBuilder builder) {
-        super.toByteBuffer(builder);
-        OperationStatisticsFB.addRemoteCount(builder, remoteCount);
-        OperationStatisticsFB.addRemoteCpuTime(builder, remoteCpuTime);
-        OperationStatisticsFB.addRemoteData(builder, remoteData);
+    protected void toFlatBuffer(FlatBufferBuilder builder) {
+        super.toFlatBuffer(builder);
+        if (remoteCount > 0)
+            OperationStatisticsFB.addRemoteCount(builder, remoteCount);
+        if (remoteCpuTime > 0)
+            OperationStatisticsFB.addRemoteCpuTime(builder, remoteCpuTime);
+        if (remoteData > 0)
+            OperationStatisticsFB.addRemoteData(builder, remoteData);
     }
 
-    public static ReadDataOperationStatistics fromByteBuffer(
+    public static ReadDataOperationStatistics fromFlatBuffer(
             ByteBuffer buffer) {
         int length;
         if (buffer.remaining() < 4
@@ -140,5 +144,11 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
                 OperationCategory.fromFlatBuffer(os.category()),
                 os.fileDescriptor(), os.data(), os.remoteCount(),
                 os.remoteCpuTime(), os.remoteData());
+    }
+
+    @Override
+    public ByteBuffer toByteBuffer(String hostname, int pid, String key) {
+        return new OperationStatisticsBufferBuilder(this).serialize(hostname,
+                pid, key);
     }
 }
