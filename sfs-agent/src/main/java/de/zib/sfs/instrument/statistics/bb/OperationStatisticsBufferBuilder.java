@@ -388,7 +388,6 @@ public class OperationStatisticsBufferBuilder {
         if (bb.remaining() < hostnameLength) {
             throw new BufferUnderflowException();
         }
-        System.out.println(hostnameLength);
         CharBuffer cb = CharBuffer.allocate(hostnameLength);
         decoder.reset();
         ByteBuffer _bb = bb.slice();
