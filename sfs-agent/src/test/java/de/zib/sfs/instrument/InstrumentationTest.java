@@ -1474,7 +1474,8 @@ public class InstrumentationTest {
                 processCsvFiles(categoryFiles, category, callback);
                 break;
             case FB:
-                processFbFiles(categoryFiles, category, callback);
+            case BB:
+                processBinaryFiles(categoryFiles, category, callback);
                 break;
             }
         }
@@ -1550,35 +1551,47 @@ public class InstrumentationTest {
         }
     }
 
-    private static void processFbFiles(File[] files, OperationCategory category,
-            OperationStatisticsCallback callback) throws IOException {
+    private static void processBinaryFiles(File[] files,
+            OperationCategory category, OperationStatisticsCallback callback)
+            throws IOException {
         // parse all files into OperationStatistics
         for (File file : files) {
             @SuppressWarnings("resource") // we close the channel
-            FileChannel fbChannel = new FileInputStream(file).getChannel();
-            long position = fbChannel.position();
+            FileChannel bbChannel = new FileInputStream(file).getChannel();
+            long position = bbChannel.position();
 
             ByteBuffer buffer = ByteBuffer.allocate(1048576);
-            while (fbChannel.read(buffer) != -1) {
+            while (bbChannel.read(buffer) != -1) {
                 buffer.flip();
                 while (true) {
                     try {
                         int length = buffer.position();
                         OperationStatistics operationStatistics = null;
-                        switch (category) {
-                        case OTHER:
+                        switch (LiveOperationStatisticsAggregator.instance
+                                .getOutputFormat()) {
+                        case FB:
+                            switch (category) {
+                            case OTHER:
+                                operationStatistics = OperationStatistics
+                                        .fromFlatBuffer(buffer);
+                                break;
+                            case WRITE:
+                                operationStatistics = DataOperationStatistics
+                                        .fromFlatBuffer(buffer);
+                                break;
+                            case READ:
+                            case ZIP:
+                                operationStatistics = ReadDataOperationStatistics
+                                        .fromFlatBuffer(buffer);
+                                break;
+                            }
+                            break;
+                        case BB:
                             operationStatistics = OperationStatistics
                                     .fromByteBuffer(buffer);
                             break;
-                        case WRITE:
-                            operationStatistics = DataOperationStatistics
-                                    .fromByteBuffer(buffer);
-                            break;
-                        case READ:
-                        case ZIP:
-                            operationStatistics = ReadDataOperationStatistics
-                                    .fromByteBuffer(buffer);
-                            break;
+                        default:
+                            throw new IllegalArgumentException();
                         }
 
                         // keep track of where we are in the file channel
@@ -1589,14 +1602,14 @@ public class InstrumentationTest {
                     } catch (BufferUnderflowException e) {
                         // buffer held incomplete object, reset file channel to
                         // last good position before reading again
-                        fbChannel.position(position);
+                        bbChannel.position(position);
                         buffer.clear();
                         break;
                     }
                 }
             }
 
-            fbChannel.close();
+            bbChannel.close();
 
             // remove statistics file at the end to avoid counting it twice
             // in future test runs
@@ -1628,7 +1641,8 @@ public class InstrumentationTest {
                         category));
         long operationData = 0;
         for (OperationStatistics os : operations.values()) {
-            assert (os instanceof DataOperationStatistics);
+            assert (os instanceof DataOperationStatistics) : os.getClass()
+                    .getSimpleName();
             operationData += ((DataOperationStatistics) os).getData();
         }
         assert (operationData >= atLeast
