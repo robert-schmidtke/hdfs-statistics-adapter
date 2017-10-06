@@ -33,6 +33,7 @@ import java.nio.charset.Charset;
 import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CoderResult;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
@@ -1423,7 +1424,7 @@ public class InstrumentationTest {
 
         aggregator.shutdown();
 
-        List<NavigableMap<Long, OperationStatistics>> aggregates = new ArrayList<NavigableMap<Long, OperationStatistics>>();
+        List<NavigableMap<Long, NavigableMap<Integer, OperationStatistics>>> aggregates = new ArrayList<NavigableMap<Long, NavigableMap<Integer, OperationStatistics>>>();
         for (int i = 0; i < OperationSource.values().length
                 * OperationCategory.values().length; ++i) {
             aggregates.add(new ConcurrentSkipListMap<>());
@@ -1455,24 +1456,26 @@ public class InstrumentationTest {
                 assert (OperationSource.JVM
                         .equals(operationStatistics.getSource()));
 
-                // reset file descriptors because we don't care about
-                // individual file I/O here
-                operationStatistics.setFileDescriptor(0);
-
-                // put the aggregates into the appropriate list/bin
-                aggregates
+                NavigableMap<Long, NavigableMap<Integer, OperationStatistics>> timeBins = aggregates
                         .get(LiveOperationStatisticsAggregator.getUniqueIndex(
                                 operationStatistics.getSource(),
-                                operationStatistics.getCategory()))
-                        .merge(operationStatistics.getTimeBin(),
-                                operationStatistics, (v1, v2) -> {
-                                    try {
-                                        return v1.aggregate(v2);
-                                    } catch (OperationStatistics.NotAggregatableException e) {
-                                        e.printStackTrace();
-                                        throw new IllegalArgumentException(e);
-                                    }
-                                });
+                                operationStatistics.getCategory()));
+
+                // get the file descriptor applicable for this operation
+                NavigableMap<Integer, OperationStatistics> fileDescriptors = timeBins
+                        .computeIfAbsent(operationStatistics.getTimeBin(),
+                                l -> new ConcurrentSkipListMap<>());
+
+                // put the aggregates into the appropriate list/bin
+                fileDescriptors.merge(operationStatistics.getFileDescriptor(),
+                        operationStatistics, (v1, v2) -> {
+                            try {
+                                return v1.aggregate(v2);
+                            } catch (OperationStatistics.NotAggregatableException e) {
+                                e.printStackTrace();
+                                throw new IllegalArgumentException(e);
+                            }
+                        });
             };
 
             switch (aggregator.getOutputFormat()) {
@@ -1494,13 +1497,15 @@ public class InstrumentationTest {
                         aggregator.getOutputFormat().name().toLowerCase());
             }
         });
+        Map<Integer, String> fileDescriptorMappings = new HashMap<>();
         switch (aggregator.getOutputFormat()) {
         case CSV:
         case FB:
             // TODO
             break;
         case BB:
-            processBinaryFileDescriptorMappingFiles(fdFiles);
+            processBinaryFileDescriptorMappingFiles(fdFiles,
+                    fileDescriptorMappings);
             break;
         }
 
@@ -1515,13 +1520,16 @@ public class InstrumentationTest {
         // truly miss some operations, these tests should still fail. The slack
         // is mainly for reading Java classes which we instrument too, as well
         // as some internal lock file writing.
-        assertOperationData(aggregates, OperationSource.JVM,
-                OperationCategory.WRITE, writeBytes, writeBytes + 64 * 1024);
-        assertOperationData(aggregates, OperationSource.JVM,
-                OperationCategory.READ, readBytes, readBytes + 176 * 1024);
+        assertOperationData(aggregates, fileDescriptorMappings,
+                OperationSource.JVM, OperationCategory.WRITE, writeBytes,
+                writeBytes + 64 * 1024);
+        assertOperationData(aggregates, fileDescriptorMappings,
+                OperationSource.JVM, OperationCategory.READ, readBytes,
+                readBytes + 176 * 1024);
         if (jvmZipReadBytes != -1 && zipReadBytes != -1) {
-            assertOperationData(aggregates, OperationSource.JVM,
-                    OperationCategory.ZIP, jvmZipReadBytes + zipReadBytes,
+            assertOperationData(aggregates, fileDescriptorMappings,
+                    OperationSource.JVM, OperationCategory.ZIP,
+                    jvmZipReadBytes + zipReadBytes,
                     jvmZipReadBytes + zipReadBytes);
         }
     }
@@ -1642,8 +1650,8 @@ public class InstrumentationTest {
     }
 
     @SuppressWarnings("resource") // we close the channel later on
-    private static void processBinaryFileDescriptorMappingFiles(File[] files)
-            throws IOException {
+    private static void processBinaryFileDescriptorMappingFiles(File[] files,
+            Map<Integer, String> out) throws IOException {
         CharsetDecoder decoder = Charset.forName("US-ASCII").newDecoder();
 
         for (File file : files) {
@@ -1750,6 +1758,8 @@ public class InstrumentationTest {
                 if (!path.endsWith("tmp")) {
                     assert (new File(path).exists()) : path;
                 }
+
+                out.put(fileDescriptor, path);
             }
 
             // 0 is not handed out
@@ -1768,14 +1778,16 @@ public class InstrumentationTest {
     }
 
     private static void assertOperationCount(
-            List<NavigableMap<Long, OperationStatistics>> aggregates,
+            List<NavigableMap<Long, NavigableMap<Integer, OperationStatistics>>> aggregates,
             OperationSource source, OperationCategory category, long atLeast) {
-        Map<Long, OperationStatistics> operations = aggregates
+        Map<Long, NavigableMap<Integer, OperationStatistics>> timeBins = aggregates
                 .get(LiveOperationStatisticsAggregator.getUniqueIndex(source,
                         category));
         long operationCount = 0;
-        for (OperationStatistics os : operations.values()) {
-            operationCount += os.getCount();
+        for (Map<Integer, OperationStatistics> fds : timeBins.values()) {
+            for (OperationStatistics os : fds.values()) {
+                operationCount += os.getCount();
+            }
         }
         assert (operationCount >= atLeast) : ("actual " + operationCount
                 + " vs. " + atLeast + " at least expected " + source + "/"
@@ -1783,22 +1795,34 @@ public class InstrumentationTest {
     }
 
     private static void assertOperationData(
-            List<NavigableMap<Long, OperationStatistics>> aggregates,
-            OperationSource source, OperationCategory category, long atLeast,
-            long atMost) {
-        Map<Long, OperationStatistics> operations = aggregates
+            List<NavigableMap<Long, NavigableMap<Integer, OperationStatistics>>> aggregates,
+            Map<Integer, String> fileDescriptorMappings, OperationSource source,
+            OperationCategory category, long atLeast, long atMost) {
+        Map<Long, NavigableMap<Integer, OperationStatistics>> timeBins = aggregates
                 .get(LiveOperationStatisticsAggregator.getUniqueIndex(source,
                         category));
+        Map<Integer, Long> operationDataPerFd = new HashMap<>();
         long operationData = 0;
-        for (OperationStatistics os : operations.values()) {
-            assert (os instanceof DataOperationStatistics) : os.getClass()
-                    .getSimpleName();
-            operationData += ((DataOperationStatistics) os).getData();
+        for (Map<Integer, OperationStatistics> fds : timeBins.values()) {
+            for (OperationStatistics os : fds.values()) {
+                assert (os instanceof DataOperationStatistics) : os.getClass()
+                        .getSimpleName();
+                long data = ((DataOperationStatistics) os).getData();
+                operationDataPerFd.merge(os.getFileDescriptor(), data,
+                        (v1, v2) -> v1 + v2);
+                operationData += data;
+            }
         }
-        assert (operationData >= atLeast
-                && operationData <= atMost) : ("actual " + operationData
-                        + " vs. " + atLeast + " at least / " + atMost
-                        + " at most expected " + source + "/" + category
-                        + " operation data");
+        if (operationData < atLeast || operationData > atMost) {
+            // for debugging purposes, display data collected per file
+            for (Map.Entry<Integer, Long> e : operationDataPerFd.entrySet()) {
+                System.err.println(
+                        fileDescriptorMappings.getOrDefault(e.getKey(), "n/a")
+                                + ": " + e.getValue());
+            }
+            assert (false) : ("actual " + operationData + " vs. " + atLeast
+                    + " at least / " + atMost + " at most expected " + source
+                    + "/" + category + " operation data");
+        }
     }
 }

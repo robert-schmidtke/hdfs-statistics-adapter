@@ -13,6 +13,10 @@ import de.zib.sfs.instrument.statistics.OperationSource;
 
 public class DirectByteBufferCallback extends AbstractSfsCallback {
 
+    public DirectByteBufferCallback() {
+        // only no-arg constructor allowed
+    }
+
     public void openCallback(String filename) {
         fd = LiveOperationStatisticsAggregator.instance
                 .getFileDescriptor(filename);

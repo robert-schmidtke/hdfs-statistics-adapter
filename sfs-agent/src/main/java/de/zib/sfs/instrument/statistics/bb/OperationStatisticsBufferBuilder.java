@@ -429,12 +429,12 @@ public class OperationStatisticsBufferBuilder {
     private NumberType getFieldInfo(int headerBitOffset) {
         // we have the header information, but the requested field is not set
         if (((header
-                & (0b100 << headerBitOffset)) >>> headerBitOffset) != 0b100) {
+                & (0b100 << headerBitOffset)) >> headerBitOffset) != 0b100) {
             return NumberType.EMPTY;
         }
 
         return NumberType.values()[(header
-                & (0b11 << headerBitOffset)) >>> headerBitOffset];
+                & (0b11 << headerBitOffset)) >> headerBitOffset];
     }
 
     private NumberType getFieldInfo(int headerOffset, int headerBitOffset) {
@@ -445,12 +445,12 @@ public class OperationStatisticsBufferBuilder {
 
         // we have the header information, but the requested field is not set
         if (((headerExt[headerOffset]
-                & (0b100 << headerBitOffset)) >>> headerBitOffset) != 0b100) {
+                & (0b100 << headerBitOffset)) >> headerBitOffset) != 0b100) {
             return NumberType.EMPTY;
         }
 
         return NumberType.values()[(headerExt[headerOffset]
-                & (0b11 << headerBitOffset)) >>> headerBitOffset];
+                & (0b11 << headerBitOffset)) >> headerBitOffset];
     }
 
 }

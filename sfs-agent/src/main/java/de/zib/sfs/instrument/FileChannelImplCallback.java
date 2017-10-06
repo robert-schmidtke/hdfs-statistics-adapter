@@ -10,8 +10,13 @@ package de.zib.sfs.instrument;
 import de.zib.sfs.instrument.statistics.LiveOperationStatisticsAggregator;
 import de.zib.sfs.instrument.statistics.OperationCategory;
 import de.zib.sfs.instrument.statistics.OperationSource;
+import sun.nio.ch.FileChannelImpl;
 
+@SuppressWarnings("restriction")
 public class FileChannelImplCallback extends AbstractSfsCallback {
+
+    public FileChannelImplCallback(FileChannelImpl fci) {
+    }
 
     public void openCallback(String filename) {
         fd = LiveOperationStatisticsAggregator.instance

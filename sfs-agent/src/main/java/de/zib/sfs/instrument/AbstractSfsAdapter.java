@@ -48,9 +48,9 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
         callbackTypeDescriptor = Type.getDescriptor(callbackTypeClass);
         try {
             callbackTypeConstructorDescriptor = Type.getConstructorDescriptor(
-                    callbackTypeClass.getConstructor());
+                    callbackTypeClass.getConstructor(instrumentedTypeClass));
         } catch (Exception e) {
-            throw new IllegalArgumentException("No-arg constructor of "
+            throw new IllegalArgumentException("Constructor of "
                     + callbackTypeInternalName + " is not accessible.");
         }
 
@@ -398,10 +398,13 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
         @Override
         protected void onMethodEnter() {
             if (callbackTypeInternalName != null) {
-                // callback = new <CallbackType>();
+                // callback = new <CallbackType>(this?);
                 mv.visitVarInsn(Opcodes.ALOAD, 0);
                 mv.visitTypeInsn(Opcodes.NEW, callbackTypeInternalName);
                 mv.visitInsn(Opcodes.DUP);
+                if (!"()V".equals(callbackTypeConstructorDescriptor)) {
+                    mv.visitVarInsn(Opcodes.ALOAD, 0);
+                }
                 mv.visitMethodInsn(Opcodes.INVOKESPECIAL,
                         callbackTypeInternalName, "<init>",
                         callbackTypeConstructorDescriptor, false);

@@ -7,15 +7,25 @@
  */
 package de.zib.sfs.instrument;
 
+import java.io.IOException;
+import java.io.RandomAccessFile;
+
 import de.zib.sfs.instrument.statistics.LiveOperationStatisticsAggregator;
 import de.zib.sfs.instrument.statistics.OperationCategory;
 import de.zib.sfs.instrument.statistics.OperationSource;
 
 public class RandomAccessFileCallback extends AbstractSfsCallback {
 
+    private final RandomAccessFile raf;
+
+    public RandomAccessFileCallback(RandomAccessFile raf) {
+        this.raf = raf;
+    }
+
     public void openCallback(long startTime, long endTime, String filename) {
         fd = LiveOperationStatisticsAggregator.instance
                 .getFileDescriptor(filename);
+        putFileDescriptor();
         if (!skipOther) {
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.JVM,
@@ -24,6 +34,7 @@ public class RandomAccessFileCallback extends AbstractSfsCallback {
     }
 
     public void readCallback(long startTime, long endTime, int readResult) {
+        getFileDescriptor();
         LiveOperationStatisticsAggregator.instance
                 .aggregateReadDataOperationStatistics(OperationSource.JVM,
                         OperationCategory.READ, startTime, endTime, fd,
@@ -32,6 +43,7 @@ public class RandomAccessFileCallback extends AbstractSfsCallback {
 
     public void readBytesCallback(long startTime, long endTime,
             int readBytesResult) {
+        getFileDescriptor();
         LiveOperationStatisticsAggregator.instance
                 .aggregateReadDataOperationStatistics(OperationSource.JVM,
                         OperationCategory.READ, startTime, endTime, fd,
@@ -39,15 +51,37 @@ public class RandomAccessFileCallback extends AbstractSfsCallback {
     }
 
     public void writeCallback(long startTime, long endTime) {
+        getFileDescriptor();
         LiveOperationStatisticsAggregator.instance
                 .aggregateDataOperationStatistics(OperationSource.JVM,
                         OperationCategory.WRITE, startTime, endTime, fd, 1);
     }
 
     public void writeBytesCallback(long startTime, long endTime, int len) {
+        getFileDescriptor();
         LiveOperationStatisticsAggregator.instance
                 .aggregateDataOperationStatistics(OperationSource.JVM,
                         OperationCategory.WRITE, startTime, endTime, fd, len);
+    }
+
+    private void putFileDescriptor() {
+        try {
+            putFileDescriptor(raf.getFD(), fd);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void getFileDescriptor() {
+        if (fd != -1) {
+            return;
+        }
+
+        try {
+            fd = getFileDescriptor(raf.getFD());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
 }
