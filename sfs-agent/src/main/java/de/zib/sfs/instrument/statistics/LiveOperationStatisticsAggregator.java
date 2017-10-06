@@ -13,7 +13,15 @@ import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Writer;
+import java.nio.BufferOverflowException;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.CharBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.Charset;
+import java.nio.charset.CharsetEncoder;
+import java.nio.charset.CoderResult;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -28,6 +36,9 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import de.zib.sfs.instrument.statistics.bb.ByteBufferUtil;
+import de.zib.sfs.instrument.statistics.bb.ByteBufferUtil.NumberType;
 
 public class LiveOperationStatisticsAggregator {
 
@@ -168,6 +179,18 @@ public class LiveOperationStatisticsAggregator {
                 + systemHostname + "." + systemPid + "." + systemKey;
 
         initializationTime = System.currentTimeMillis();
+    }
+
+    public String getHostname() {
+        return systemHostname;
+    }
+
+    public int getPid() {
+        return systemPid;
+    }
+
+    public String getKey() {
+        return systemKey;
     }
 
     public int getFileDescriptor(String filename) {
@@ -315,40 +338,7 @@ public class LiveOperationStatisticsAggregator {
 
         // write out the descriptor mappings
         if (traceFileDescriptors) {
-            try {
-                BufferedWriter fileDescriptorMappingsWriter = new BufferedWriter(
-                        new FileWriter(new File(
-                                getLogFilePrefix() + ".filedescriptormappings."
-                                        + initializationTime + ".csv")));
-
-                fileDescriptorMappingsWriter.write("hostname");
-                fileDescriptorMappingsWriter.write(csvOutputSeparator);
-                fileDescriptorMappingsWriter.write("pid");
-                fileDescriptorMappingsWriter.write(csvOutputSeparator);
-                fileDescriptorMappingsWriter.write("key");
-                fileDescriptorMappingsWriter.write(csvOutputSeparator);
-                fileDescriptorMappingsWriter.write("fileDescriptor");
-                fileDescriptorMappingsWriter.write(csvOutputSeparator);
-                fileDescriptorMappingsWriter.write("filename");
-                fileDescriptorMappingsWriter.newLine();
-
-                StringBuilder sb = new StringBuilder();
-                for (Map.Entry<String, Integer> fd : fileDescriptors
-                        .entrySet()) {
-                    sb.append(systemHostname).append(csvOutputSeparator);
-                    sb.append(systemPid).append(csvOutputSeparator);
-                    sb.append(systemKey).append(csvOutputSeparator);
-                    sb.append(fd.getValue()).append(csvOutputSeparator);
-                    sb.append(fd.getKey());
-                    fileDescriptorMappingsWriter.write(sb.toString());
-                    fileDescriptorMappingsWriter.newLine();
-                    sb.setLength(0);
-                }
-
-                fileDescriptorMappingsWriter.close();
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
+            writeFileDescriptorMappings();
         }
     }
 
@@ -467,6 +457,176 @@ public class LiveOperationStatisticsAggregator {
             default:
                 throw new IllegalArgumentException(outputFormat.name());
             }
+        }
+    }
+
+    private void writeFileDescriptorMappings() {
+        switch (outputFormat) {
+        case FB:
+            System.err.println(
+                    "FlatBuffer output for file descriptor mappings not yet supported, "
+                            + "falling back to CSV.");
+        case CSV:
+            writeFileDescriptorMappingsCsv();
+            break;
+        case BB:
+            writeFileDescriptorMappingsBinary();
+            break;
+        default:
+            throw new IllegalArgumentException(outputFormat.name());
+        }
+    }
+
+    private void writeFileDescriptorMappingsCsv() {
+        try {
+            BufferedWriter fileDescriptorMappingsWriter = new BufferedWriter(
+                    new FileWriter(new File(getLogFilePrefix()
+                            + ".filedescriptormappings." + initializationTime
+                            + outputFormat.name().toLowerCase())));
+
+            fileDescriptorMappingsWriter.write("hostname");
+            fileDescriptorMappingsWriter.write(csvOutputSeparator);
+            fileDescriptorMappingsWriter.write("pid");
+            fileDescriptorMappingsWriter.write(csvOutputSeparator);
+            fileDescriptorMappingsWriter.write("key");
+            fileDescriptorMappingsWriter.write(csvOutputSeparator);
+            fileDescriptorMappingsWriter.write("fileDescriptor");
+            fileDescriptorMappingsWriter.write(csvOutputSeparator);
+            fileDescriptorMappingsWriter.write("filename");
+            fileDescriptorMappingsWriter.newLine();
+
+            StringBuilder sb = new StringBuilder();
+            for (Map.Entry<String, Integer> fd : fileDescriptors.entrySet()) {
+                sb.append(systemHostname).append(csvOutputSeparator);
+                sb.append(systemPid).append(csvOutputSeparator);
+                sb.append(systemKey).append(csvOutputSeparator);
+                sb.append(fd.getValue()).append(csvOutputSeparator);
+                sb.append(fd.getKey());
+                fileDescriptorMappingsWriter.write(sb.toString());
+                fileDescriptorMappingsWriter.newLine();
+                sb.setLength(0);
+            }
+
+            fileDescriptorMappingsWriter.close();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void writeFileDescriptorMappingsBinary() {
+        CharsetEncoder encoder = Charset.forName("US-ASCII").newEncoder();
+
+        try {
+            @SuppressWarnings("resource") // we close the channel later on
+            FileChannel fileDescriptorMappingsChannel = new FileOutputStream(
+                    new File(getLogFilePrefix() + ".filedescriptormappings."
+                            + initializationTime + "."
+                            + outputFormat.name().toLowerCase())).getChannel();
+
+            // pre-encode hostname and key
+            String[] preEncodeStrings = new String[] { systemHostname,
+                    systemKey };
+            int[] preEncodeLengths = new int[] { systemHostname.length(),
+                    systemKey.length() };
+            ByteBuffer[] preEncodeBbs = new ByteBuffer[preEncodeStrings.length];
+            for (int i = 0; i < preEncodeStrings.length; ++i) {
+                String s = preEncodeStrings[i];
+                if (preEncodeLengths[i] - Byte.MAX_VALUE > Byte.MAX_VALUE) {
+                    throw new IllegalArgumentException(s);
+                }
+
+                preEncodeBbs[i] = ByteBuffer.allocate(preEncodeLengths[i]);
+                encoder.reset();
+                CoderResult cr = encoder.encode(CharBuffer.wrap(s),
+                        preEncodeBbs[i], true);
+                if (cr.isError()) {
+                    try {
+                        cr.throwException();
+                    } catch (CharacterCodingException e) {
+                        throw new IllegalArgumentException(s, e);
+                    }
+                }
+                preEncodeBbs[i].flip();
+                preEncodeBbs[i].mark();
+            }
+
+            ByteBuffer bb = ByteBuffer.allocate(1048576);
+            bb.order(ByteOrder.LITTLE_ENDIAN);
+            bb.mark();
+            for (Map.Entry<String, Integer> fd : fileDescriptors.entrySet()) {
+                try {
+                    int fileDescriptor = fd.getValue();
+                    String path = fd.getKey();
+
+                    // header byte:
+                    // 0-1: empty
+                    // 2-3: pidType
+                    // 4-5: fdType
+                    // 6-7: lengthType
+                    NumberType ntPid = ByteBufferUtil.getNumberType(systemPid);
+                    NumberType ntFd = ByteBufferUtil
+                            .getNumberType(fileDescriptor);
+                    NumberType ntLength = ByteBufferUtil
+                            .getNumberType(path.length());
+                    byte header = (byte) ((ntPid.ordinal() << 4)
+                            | (ntFd.ordinal() << 2) | ntLength.ordinal());
+                    bb.put(header);
+
+                    // hostname
+                    bb.put((byte) (preEncodeLengths[0] - Byte.MAX_VALUE))
+                            .put(preEncodeBbs[0]);
+                    preEncodeBbs[0].reset();
+
+                    // pid
+                    ntPid.putInt(bb, systemPid);
+
+                    // key
+                    bb.put((byte) (preEncodeLengths[1] - Byte.MAX_VALUE))
+                            .put(preEncodeBbs[1]);
+                    preEncodeBbs[1].reset();
+
+                    // file descriptor
+                    ntFd.putInt(bb, fileDescriptor);
+
+                    // path
+                    ntLength.putInt(bb, path.length());
+                    if (path.length() > bb.remaining()) {
+                        throw new BufferOverflowException();
+                    }
+                    encoder.reset();
+                    CoderResult cr = encoder.encode(CharBuffer.wrap(path), bb,
+                            true);
+                    if (cr.isError()) {
+                        try {
+                            cr.throwException();
+                        } catch (CharacterCodingException e) {
+                            throw new IllegalArgumentException(path, e);
+                        }
+                    }
+
+                    // remember last good position
+                    bb.mark();
+                } catch (BufferOverflowException e) {
+                    // reset to last good position
+                    bb.reset();
+
+                    // prepare for reading
+                    bb.flip();
+
+                    // flush buffer
+                    fileDescriptorMappingsChannel.write(bb);
+
+                    // empty and reset buffer
+                    bb.clear();
+                }
+            }
+
+            // write remains
+            bb.flip();
+            fileDescriptorMappingsChannel.write(bb);
+            fileDescriptorMappingsChannel.close();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
     }
 
