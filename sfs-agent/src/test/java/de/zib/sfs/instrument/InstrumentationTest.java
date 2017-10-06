@@ -21,11 +21,17 @@ import java.io.RandomAccessFile;
 import java.nio.BufferOverflowException;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.CharBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileChannel.MapMode;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.WritableByteChannel;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.Charset;
+import java.nio.charset.CharsetDecoder;
+import java.nio.charset.CoderResult;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -51,6 +57,7 @@ import de.zib.sfs.instrument.statistics.OperationCategory;
 import de.zib.sfs.instrument.statistics.OperationSource;
 import de.zib.sfs.instrument.statistics.OperationStatistics;
 import de.zib.sfs.instrument.statistics.ReadDataOperationStatistics;
+import de.zib.sfs.instrument.statistics.bb.ByteBufferUtil.NumberType;
 
 /**
  * Basic test cases that cover the wrapped methods of FileInputStream,
@@ -94,7 +101,6 @@ public class InstrumentationTest {
 
         traceMmap = Boolean
                 .parseBoolean(System.getProperty("de.zib.sfs.traceMmap"));
-        System.err.println("Using " + numProcessors + " cores");
 
         switch (test) {
         case "stream":
@@ -1480,6 +1486,24 @@ public class InstrumentationTest {
             }
         }
 
+        // process the file descriptor mappings as well
+        File[] fdFiles = outputDirectory.listFiles(new FilenameFilter() {
+            @Override
+            public boolean accept(File dir, String name) {
+                return name.contains("filedescriptormappings") && name.endsWith(
+                        aggregator.getOutputFormat().name().toLowerCase());
+            }
+        });
+        switch (aggregator.getOutputFormat()) {
+        case CSV:
+        case FB:
+            // TODO
+            break;
+        case BB:
+            processBinaryFileDescriptorMappingFiles(fdFiles);
+            break;
+        }
+
         // we opened the file a few times, however the JVM might open a lot
         // more files, especially during class loading, so no exact
         // estimation possible
@@ -1613,6 +1637,132 @@ public class InstrumentationTest {
 
             // remove statistics file at the end to avoid counting it twice
             // in future test runs
+            file.delete();
+        }
+    }
+
+    @SuppressWarnings("resource") // we close the channel later on
+    private static void processBinaryFileDescriptorMappingFiles(File[] files)
+            throws IOException {
+        CharsetDecoder decoder = Charset.forName("US-ASCII").newDecoder();
+
+        for (File file : files) {
+            ByteBuffer bb = ByteBuffer.allocate((int) file.length());
+            bb.order(ByteOrder.LITTLE_ENDIAN);
+
+            FileChannel channel = new FileInputStream(file).getChannel();
+            while (bb.remaining() > 0) {
+                channel.read(bb);
+            }
+            channel.close();
+            bb.flip();
+
+            // keep track of file descriptors
+            boolean[] fileDescriptors = new boolean[32];
+
+            while (bb.remaining() > 0) {
+                // header byte:
+                // 0-1: empty
+                // 2-3: pidType
+                // 4-5: fdType
+                // 6-7: lengthType
+                byte header = bb.get();
+                NumberType ntPid = NumberType
+                        .values()[(header & 0b00110000) >> 4];
+                NumberType ntFd = NumberType
+                        .values()[(header & 0b00001100) >> 2];
+                NumberType ntLength = NumberType.values()[header & 0b00000011];
+
+                // hostname
+                byte hostnameLength = (byte) (bb.get() + Byte.MAX_VALUE);
+                CharBuffer cb = CharBuffer.allocate(hostnameLength);
+                decoder.reset();
+                ByteBuffer _bb = bb.slice();
+                _bb.limit(hostnameLength);
+                CoderResult cr = decoder.decode(_bb, cb, true);
+                if (cr.isError()) {
+                    try {
+                        cr.throwException();
+                    } catch (CharacterCodingException e) {
+                        throw new IllegalArgumentException(e);
+                    }
+                }
+                String hostname = cb.flip().toString();
+                bb.position(bb.position() + hostnameLength);
+
+                // pid
+                int pid = ntPid.getInt(bb);
+
+                // key
+                byte keyLength = (byte) (bb.get() + Byte.MAX_VALUE);
+                if (bb.remaining() < keyLength) {
+                    throw new BufferUnderflowException();
+                }
+                cb = CharBuffer.allocate(keyLength);
+                decoder.reset();
+                _bb = bb.slice();
+                _bb.limit(keyLength);
+                cr = decoder.decode(_bb, cb, true);
+                if (cr.isError()) {
+                    try {
+                        cr.throwException();
+                    } catch (CharacterCodingException e) {
+                        throw new IllegalArgumentException(e);
+                    }
+                }
+                String key = cb.flip().toString();
+                bb.position(bb.position() + keyLength);
+
+                // file descriptor
+                int fileDescriptor = ntFd.getInt(bb);
+
+                // should not have been seen before
+                assert (!fileDescriptors[fileDescriptor]) : fileDescriptor;
+                fileDescriptors[fileDescriptor] = true;
+
+                // path
+                int pathLength = ntLength.getInt(bb);
+                if (bb.remaining() < pathLength) {
+                    throw new BufferUnderflowException();
+                }
+                cb = CharBuffer.allocate(pathLength);
+                decoder.reset();
+                _bb = bb.slice();
+                _bb.limit(pathLength);
+                cr = decoder.decode(_bb, cb, true);
+                if (cr.isError()) {
+                    try {
+                        cr.throwException();
+                    } catch (CharacterCodingException e) {
+                        throw new IllegalArgumentException(e);
+                    }
+                }
+                String path = cb.flip().toString();
+                bb.position(bb.position() + pathLength);
+
+                // check correctness of what we've parsed
+                LiveOperationStatisticsAggregator aggregator = LiveOperationStatisticsAggregator.instance;
+                assert (hostname.equals(aggregator.getHostname())) : hostname;
+                assert (pid == aggregator.getPid()) : pid;
+                assert (key.equals(aggregator.getKey())) : key;
+
+                // expect non-temporary files to still exist
+                if (!path.endsWith("tmp")) {
+                    assert (new File(path).exists()) : path;
+                }
+            }
+
+            // 0 is not handed out
+            assert (!fileDescriptors[0]);
+
+            // consecutive file descriptors
+            int lastFd = 1;
+            while (fileDescriptors[lastFd++])
+                ;
+            for (int i = lastFd; i < fileDescriptors.length; ++i) {
+                assert (!fileDescriptors[i]) : i;
+            }
+
             file.delete();
         }
     }
