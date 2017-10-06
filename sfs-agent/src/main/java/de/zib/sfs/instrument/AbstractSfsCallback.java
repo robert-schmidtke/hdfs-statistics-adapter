@@ -26,7 +26,7 @@ public abstract class AbstractSfsCallback {
     }
 
     protected void putFileDescriptor(FileDescriptor fd1, int fd2) {
-        FILE_DESCRIPTOR_MAPPINGS.put(fd1, fd2);
+        FILE_DESCRIPTOR_MAPPINGS.putIfAbsent(fd1, fd2);
     }
 
     protected int getFileDescriptor(FileDescriptor fd) {
