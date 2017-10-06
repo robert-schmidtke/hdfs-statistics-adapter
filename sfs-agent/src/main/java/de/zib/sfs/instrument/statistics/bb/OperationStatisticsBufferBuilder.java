@@ -22,145 +22,12 @@ import de.zib.sfs.instrument.statistics.OperationCategory;
 import de.zib.sfs.instrument.statistics.OperationSource;
 import de.zib.sfs.instrument.statistics.OperationStatistics;
 import de.zib.sfs.instrument.statistics.ReadDataOperationStatistics;
+import de.zib.sfs.instrument.statistics.bb.ByteBufferUtil.NumberType;
 
 public class OperationStatisticsBufferBuilder {
 
     public static enum OperationStatisticsType {
         OS, DOS, RDOS;
-    }
-
-    public static interface ByteBufferIO {
-        public void putInt(ByteBuffer bb, int value);
-
-        public void putLong(ByteBuffer bb, long value);
-
-        public int getInt(ByteBuffer bb);
-
-        public long getLong(ByteBuffer bb);
-    }
-
-    public static enum NumberType implements ByteBufferIO {
-        BYTE(new ByteBufferIO() {
-            @Override
-            public void putInt(ByteBuffer bb, int value) {
-                bb.put((byte) value);
-            }
-
-            @Override
-            public void putLong(ByteBuffer bb, long value) {
-                bb.put((byte) value);
-            }
-
-            @Override
-            public int getInt(ByteBuffer bb) {
-                return bb.get();
-            }
-
-            @Override
-            public long getLong(ByteBuffer bb) {
-                return bb.get();
-            }
-        }), SHORT(new ByteBufferIO() {
-            @Override
-            public void putInt(ByteBuffer bb, int value) {
-                bb.putShort((short) value);
-            }
-
-            @Override
-            public void putLong(ByteBuffer bb, long value) {
-                bb.putShort((short) value);
-            }
-
-            @Override
-            public int getInt(ByteBuffer bb) {
-                return bb.getShort();
-            }
-
-            @Override
-            public long getLong(ByteBuffer bb) {
-                return bb.getShort();
-            }
-        }), INT(new ByteBufferIO() {
-            @Override
-            public void putInt(ByteBuffer bb, int value) {
-                bb.putInt(value);
-            }
-
-            @Override
-            public void putLong(ByteBuffer bb, long value) {
-                bb.putInt((int) value);
-            }
-
-            @Override
-            public int getInt(ByteBuffer bb) {
-                return bb.getInt();
-            }
-
-            @Override
-            public long getLong(ByteBuffer bb) {
-                return bb.getInt();
-            }
-        }), LONG(new ByteBufferIO() {
-            @Override
-            public void putInt(ByteBuffer bb, int value) {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public void putLong(ByteBuffer bb, long value) {
-                bb.putLong(value);
-            }
-
-            @Override
-            public int getInt(ByteBuffer bb) {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public long getLong(ByteBuffer bb) {
-                return bb.getLong();
-            }
-        }), EMPTY(new ByteBufferIO() {
-            @Override
-            public void putInt(ByteBuffer bb, int value) {
-            }
-
-            @Override
-            public void putLong(ByteBuffer bb, long value) {
-            }
-
-            @Override
-            public int getInt(ByteBuffer bb) {
-                return 0;
-            }
-
-            @Override
-            public long getLong(ByteBuffer bb) {
-                return 0;
-            }
-        });
-
-        private final ByteBufferIO bbio;
-
-        NumberType(ByteBufferIO bbio) {
-            this.bbio = bbio;
-        }
-
-        public void putInt(ByteBuffer bb, int value) {
-            bbio.putInt(bb, value);
-        }
-
-        public void putLong(ByteBuffer bb, long value) {
-            bbio.putLong(bb, value);
-        }
-
-        public int getInt(ByteBuffer bb) {
-            return bbio.getInt(bb);
-        }
-
-        public long getLong(ByteBuffer bb) {
-            return bbio.getLong(bb);
-        }
     }
 
     private final OperationStatistics os;
@@ -173,13 +40,13 @@ public class OperationStatisticsBufferBuilder {
     public final static ThreadLocal<CharsetEncoder> ENCODER = new ThreadLocal<CharsetEncoder>() {
         @Override
         protected CharsetEncoder initialValue() {
-            return Charset.forName("UTF-8").newEncoder();
+            return Charset.forName("US-ASCII").newEncoder();
         }
     };
     private final static ThreadLocal<CharsetDecoder> DECODER = new ThreadLocal<CharsetDecoder>() {
         @Override
         protected CharsetDecoder initialValue() {
-            return Charset.forName("UTF-8").newDecoder();
+            return Charset.forName("US-ASCII").newDecoder();
         }
     };
 
@@ -510,24 +377,9 @@ public class OperationStatisticsBufferBuilder {
         header &= ~(0b111 << headerBitOffset);
         if (fieldValue != 0) {
             header |= 0b100 << headerBitOffset;
-            if (Byte.MIN_VALUE <= fieldValue && fieldValue <= Byte.MAX_VALUE) {
-                header |= NumberType.BYTE.ordinal() << headerBitOffset;
-                size += 1;
-            } else if (Short.MIN_VALUE <= fieldValue
-                    && fieldValue <= Short.MAX_VALUE) {
-                header |= NumberType.SHORT.ordinal() << headerBitOffset;
-                size += 2;
-            } else if (Integer.MIN_VALUE <= fieldValue
-                    && fieldValue <= Integer.MAX_VALUE) {
-                header |= NumberType.INT.ordinal() << headerBitOffset;
-                size += 4;
-            } else if (Long.MIN_VALUE <= fieldValue
-                    && fieldValue <= Long.MAX_VALUE) {
-                header |= NumberType.LONG.ordinal() << headerBitOffset;
-                size += 8;
-            } else {
-                throw new IllegalArgumentException(Long.toString(fieldValue));
-            }
+            NumberType nt = ByteBufferUtil.getNumberType(fieldValue);
+            header |= nt.ordinal() << headerBitOffset;
+            size += nt.getSize();
         }
     }
 
@@ -536,28 +388,9 @@ public class OperationStatisticsBufferBuilder {
         headerExt[headerOffset] &= ~(0b111 << headerBitOffset);
         if (fieldValue != 0) {
             headerExt[headerOffset] |= 0b100 << headerBitOffset;
-            if (Byte.MIN_VALUE <= fieldValue && fieldValue <= Byte.MAX_VALUE) {
-                headerExt[headerOffset] |= NumberType.BYTE
-                        .ordinal() << headerBitOffset;
-                size += 1;
-            } else if (Short.MIN_VALUE <= fieldValue
-                    && fieldValue <= Short.MAX_VALUE) {
-                headerExt[headerOffset] |= NumberType.SHORT
-                        .ordinal() << headerBitOffset;
-                size += 2;
-            } else if (Integer.MIN_VALUE <= fieldValue
-                    && fieldValue <= Integer.MAX_VALUE) {
-                headerExt[headerOffset] |= NumberType.INT
-                        .ordinal() << headerBitOffset;
-                size += 4;
-            } else if (Long.MIN_VALUE <= fieldValue
-                    && fieldValue <= Long.MAX_VALUE) {
-                headerExt[headerOffset] |= NumberType.LONG
-                        .ordinal() << headerBitOffset;
-                size += 8;
-            } else {
-                throw new IllegalArgumentException(Long.toString(fieldValue));
-            }
+            NumberType nt = ByteBufferUtil.getNumberType(fieldValue);
+            headerExt[headerOffset] |= nt.ordinal() << headerBitOffset;
+            size += nt.getSize();
         }
     }
 
