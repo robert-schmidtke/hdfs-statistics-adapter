@@ -7,6 +7,7 @@
  */
 package de.zib.sfs.instrument;
 
+import java.io.FileDescriptor;
 import java.nio.MappedByteBuffer;
 import java.util.Set;
 
@@ -36,10 +37,17 @@ public class MappedByteBufferAdapter extends AbstractSfsAdapter {
                 null);
         fromFileChannelFV.visitEnd();
 
-        // protected String filename;
+        // protected FileDescriptor fileDescriptor;
         FieldVisitor filenameFV = cv.visitField(Opcodes.ACC_PROTECTED,
-                "filename", Type.getDescriptor(String.class), null, null);
+                "fileDescriptor", Type.getDescriptor(FileDescriptor.class),
+                null, null);
         filenameFV.visitEnd();
+    }
+
+    @Override
+    public FieldVisitor visitField(int access, String name, String desc,
+            String signature, Object value) {
+        return super.visitField(access, name, desc, signature, value);
     }
 
     @Override
@@ -96,24 +104,60 @@ public class MappedByteBufferAdapter extends AbstractSfsAdapter {
         isFromFileChannelMV.visitMaxs(0, 0);
         isFromFileChannelMV.visitEnd();
 
-        // public void setFilename(String filename) {
-        MethodVisitor setFilenameMV = cv.visitMethod(Opcodes.ACC_PUBLIC,
-                "setFilename", Type.getMethodDescriptor(Type.VOID_TYPE,
-                        Type.getType(String.class)),
-                null, null);
-        setFilenameMV.visitCode();
+        // public void setFileDescriptor(FileDescriptor fileDescriptor) {
+        MethodVisitor settFileDescriptorMV = cv
+                .visitMethod(Opcodes.ACC_PUBLIC, "setFileDescriptor",
+                        Type.getMethodDescriptor(Type.VOID_TYPE,
+                                Type.getType(FileDescriptor.class)),
+                        null, null);
+        settFileDescriptorMV.visitCode();
 
-        // this.filename = filename;
-        setFilenameMV.visitVarInsn(Opcodes.ALOAD, 0);
-        setFilenameMV.visitVarInsn(Opcodes.ALOAD, 1);
-        setFilenameMV.visitFieldInsn(Opcodes.PUTFIELD,
-                Type.getInternalName(MappedByteBuffer.class), "filename",
-                Type.getDescriptor(String.class));
+        // this.fileDescriptor = fileDescriptor;
+        settFileDescriptorMV.visitVarInsn(Opcodes.ALOAD, 0);
+        settFileDescriptorMV.visitVarInsn(Opcodes.ALOAD, 1);
+        settFileDescriptorMV.visitFieldInsn(Opcodes.PUTFIELD,
+                Type.getInternalName(MappedByteBuffer.class), "fileDescriptor",
+                Type.getDescriptor(FileDescriptor.class));
 
         // }
-        setFilenameMV.visitInsn(Opcodes.RETURN);
-        setFilenameMV.visitMaxs(0, 0);
-        setFilenameMV.visitEnd();
+        settFileDescriptorMV.visitInsn(Opcodes.RETURN);
+        settFileDescriptorMV.visitMaxs(0, 0);
+        settFileDescriptorMV.visitEnd();
+
+        // public FileDescriptor getFileDescriptor() {
+        MethodVisitor getFileDescriptorMV = cv.visitMethod(Opcodes.ACC_PUBLIC,
+                "getFileDescriptor",
+                Type.getMethodDescriptor(Type.getType(FileDescriptor.class)),
+                null, null);
+        getFileDescriptorMV.visitCode();
+
+        // return getFileDescriptorImpl();
+        // }
+        getFileDescriptorMV.visitVarInsn(Opcodes.ALOAD, 0);
+        getFileDescriptorMV.visitMethodInsn(Opcodes.INVOKESPECIAL,
+                instrumentedTypeInternalName, "getFileDescriptorImpl",
+                Type.getMethodDescriptor(Type.getType(FileDescriptor.class)),
+                false);
+        getFileDescriptorMV.visitInsn(Opcodes.ARETURN);
+        getFileDescriptorMV.visitMaxs(0, 0);
+        getFileDescriptorMV.visitEnd();
+
+        // protected FileDescriptor getFileDescriptorImpl() {
+        MethodVisitor getFileDescriptorImplMV = cv.visitMethod(
+                Opcodes.ACC_PROTECTED, "getFileDescriptorImpl",
+                Type.getMethodDescriptor(Type.getType(FileDescriptor.class)),
+                null, null);
+        getFileDescriptorImplMV.visitCode();
+
+        // return fileDescriptor;
+        // }
+        getFileDescriptorImplMV.visitVarInsn(Opcodes.ALOAD, 0);
+        getFileDescriptorImplMV.visitFieldInsn(Opcodes.GETFIELD,
+                Type.getInternalName(MappedByteBuffer.class), "fileDescriptor",
+                Type.getDescriptor(FileDescriptor.class));
+        getFileDescriptorImplMV.visitInsn(Opcodes.ARETURN);
+        getFileDescriptorImplMV.visitMaxs(0, 0);
+        getFileDescriptorImplMV.visitEnd();
 
         cv.visitEnd();
     }

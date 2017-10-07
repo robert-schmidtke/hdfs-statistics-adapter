@@ -7,6 +7,8 @@
  */
 package de.zib.sfs.instrument;
 
+import java.io.FileDescriptor;
+
 import de.zib.sfs.instrument.statistics.LiveOperationStatisticsAggregator;
 import de.zib.sfs.instrument.statistics.OperationCategory;
 import de.zib.sfs.instrument.statistics.OperationSource;
@@ -18,9 +20,8 @@ public class FileChannelImplCallback extends AbstractSfsCallback {
     public FileChannelImplCallback(FileChannelImpl fci) {
     }
 
-    public void openCallback(String filename) {
-        fd = LiveOperationStatisticsAggregator.instance
-                .getFileDescriptor(filename);
+    public void openCallback(FileDescriptor fileDescriptor) {
+        fd = getFileDescriptor(fileDescriptor);
     }
 
     public void readCallback(long startTime, long endTime, int readResult) {

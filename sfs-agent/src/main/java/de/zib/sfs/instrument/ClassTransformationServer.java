@@ -102,9 +102,9 @@ public class ClassTransformationServer extends
                             ClassReader.EXPAND_FRAMES);
                     break;
                 case "java/nio/DirectByteBuffer":
-                    cr.accept(
-                            new DirectByteBufferAdapter(cw,
-                                    request.getNativeMethodPrefix(), skip),
+                case "java/nio/DirectByteBufferR":
+                    cr.accept(new DirectByteBufferAdapter(cw,
+                            request.getNativeMethodPrefix(), skip, className),
                             ClassReader.EXPAND_FRAMES);
                     break;
                 case "java/nio/MappedByteBuffer":

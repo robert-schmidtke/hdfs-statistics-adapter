@@ -7,6 +7,7 @@
  */
 package de.zib.sfs.instrument;
 
+import java.io.FileDescriptor;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
@@ -46,19 +47,19 @@ public class FileChannelImplAdapter extends AbstractSfsAdapter {
     @Override
     protected void initializeFields(MethodVisitor constructorMV,
             String constructorDesc) {
-        // callback.openCallback(path);
+        // callback.openCallback(fd);
         constructorMV.visitVarInsn(Opcodes.ALOAD, 0);
         constructorMV.visitFieldInsn(Opcodes.GETFIELD,
                 instrumentedTypeInternalName, "callback",
                 callbackTypeDescriptor);
         constructorMV.visitVarInsn(Opcodes.ALOAD, 0);
         constructorMV.visitFieldInsn(Opcodes.GETFIELD,
-                instrumentedTypeInternalName, "path",
-                Type.getDescriptor(String.class));
+                instrumentedTypeInternalName, "fd",
+                Type.getDescriptor(FileDescriptor.class));
         constructorMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
                 callbackTypeInternalName, "openCallback",
                 Type.getMethodDescriptor(Type.VOID_TYPE,
-                        Type.getType(String.class)),
+                        Type.getType(FileDescriptor.class)),
                 false);
     }
 
@@ -174,15 +175,15 @@ public class FileChannelImplAdapter extends AbstractSfsAdapter {
                 Type.getMethodDescriptor(Type.VOID_TYPE, Type.BOOLEAN_TYPE),
                 false);
 
-        // mbb.setFilename(path);
+        // mbb.setFileDescriptor(fd);
         mapMV.visitVarInsn(Opcodes.ALOAD, 6);
         mapMV.visitVarInsn(Opcodes.ALOAD, 0);
         mapMV.visitFieldInsn(Opcodes.GETFIELD, instrumentedTypeInternalName,
-                "path", Type.getDescriptor(String.class));
+                "fd", Type.getDescriptor(FileDescriptor.class));
         mapMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
-                Type.getInternalName(MappedByteBuffer.class), "setFilename",
-                Type.getMethodDescriptor(Type.VOID_TYPE,
-                        Type.getType(String.class)),
+                Type.getInternalName(MappedByteBuffer.class),
+                "setFileDescriptor", Type.getMethodDescriptor(Type.VOID_TYPE,
+                        Type.getType(FileDescriptor.class)),
                 false);
 
         // if we don't want to trace mmap calls, then map needs to reset the
