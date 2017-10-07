@@ -1528,8 +1528,7 @@ public class InstrumentationTest {
                 readBytes + 192 * 1024);
         if (jvmZipReadBytes != -1 && zipReadBytes != -1) {
             assertOperationData(aggregates, fileDescriptorMappings,
-                    OperationSource.JVM, OperationCategory.ZIP,
-                    jvmZipReadBytes + zipReadBytes,
+                    OperationSource.JVM, OperationCategory.ZIP, zipReadBytes,
                     jvmZipReadBytes + zipReadBytes);
         }
     }
@@ -1797,12 +1796,12 @@ public class InstrumentationTest {
     private static void assertOperationData(
             List<NavigableMap<Long, NavigableMap<Integer, OperationStatistics>>> aggregates,
             Map<Integer, String> fileDescriptorMappings, OperationSource source,
-            OperationCategory category, long atLeast, long atMost) {
+            OperationCategory category, long exact, long atMost) {
         Map<Long, NavigableMap<Integer, OperationStatistics>> timeBins = aggregates
                 .get(LiveOperationStatisticsAggregator.getUniqueIndex(source,
                         category));
         Map<Integer, Long> operationDataPerFd = new HashMap<>();
-        long operationData = 0;
+        long allData = 0;
         for (Map<Integer, OperationStatistics> fds : timeBins.values()) {
             for (OperationStatistics os : fds.values()) {
                 assert (os instanceof DataOperationStatistics) : os.getClass()
@@ -1810,17 +1809,37 @@ public class InstrumentationTest {
                 long data = ((DataOperationStatistics) os).getData();
                 operationDataPerFd.merge(os.getFileDescriptor(), data,
                         (v1, v2) -> v1 + v2);
-                operationData += data;
+                allData += data;
             }
         }
-        if (operationData < atLeast || operationData > atMost) {
+
+        // make sure the tmp files are exactly measured
+        long exactData = 0;
+        for (Map.Entry<Integer, Long> e : operationDataPerFd.entrySet()) {
+            String path = fileDescriptorMappings.get(e.getKey());
+            if (path != null && path.endsWith("tmp")) {
+                exactData += e.getValue();
+            }
+        }
+        if (exactData != exact) {
             // for debugging purposes, display data collected per file
             for (Map.Entry<Integer, Long> e : operationDataPerFd.entrySet()) {
                 System.err.println(
                         fileDescriptorMappings.getOrDefault(e.getKey(), "n/a")
                                 + ": " + e.getValue());
             }
-            assert (false) : ("actual " + operationData + " vs. " + atLeast
+            assert (exactData == exact) : ("actual " + exactData + " vs. "
+                    + exact + " expected");
+        }
+
+        if (allData < exact || allData > atMost) {
+            // for debugging purposes, display data collected per file
+            for (Map.Entry<Integer, Long> e : operationDataPerFd.entrySet()) {
+                System.err.println(
+                        fileDescriptorMappings.getOrDefault(e.getKey(), "n/a")
+                                + ": " + e.getValue());
+            }
+            assert (false) : ("actual " + allData + " vs. " + exact
                     + " at least / " + atMost + " at most expected " + source
                     + "/" + category + " operation data");
         }
