@@ -140,7 +140,7 @@ public class LiveOperationStatisticsAggregator {
             initialized = true;
         }
 
-        outputFormat = OutputFormat.CSV;
+        outputFormat = OutputFormat.BB;
         switch (outputFormat) {
         case CSV:
             csvStringBuilders = new StringBuilder[OperationSource
@@ -203,13 +203,15 @@ public class LiveOperationStatisticsAggregator {
         }
 
         // reuses file descriptors for the same file
-        return filenameToFd.computeIfAbsent(filename, s -> {
-            int fd = currentFileDescriptor.incrementAndGet();
-            if (fileDescriptor != null) {
-                fdToFd.put(fileDescriptor, fd);
-            }
-            return fd;
-        });
+        int fd = filenameToFd.computeIfAbsent(filename,
+                s -> currentFileDescriptor.incrementAndGet());
+
+        // there may be different file descriptor objects associated with each
+        // file, so add the descriptor, even if it maps to the same fd
+        if (fileDescriptor != null) {
+            fdToFd.putIfAbsent(fileDescriptor, fd);
+        }
+        return fd;
     }
 
     public int registerFileDescriptor(String filename) {
