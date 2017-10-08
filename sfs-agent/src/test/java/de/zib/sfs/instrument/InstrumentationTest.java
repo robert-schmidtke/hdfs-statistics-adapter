@@ -1813,23 +1813,27 @@ public class InstrumentationTest {
             }
         }
 
-        // make sure the tmp files are exactly measured
-        long exactData = 0;
-        for (Map.Entry<Integer, Long> e : operationDataPerFd.entrySet()) {
-            String path = fileDescriptorMappings.get(e.getKey());
-            if (path != null && path.endsWith("tmp")) {
-                exactData += e.getValue();
-            }
-        }
-        if (exactData != exact) {
-            // for debugging purposes, display data collected per file
+        // make sure the tmp files are exactly measured, if we have the file
+        // descriptor mappings
+        if (!fileDescriptorMappings.isEmpty()) {
+            long exactData = 0;
             for (Map.Entry<Integer, Long> e : operationDataPerFd.entrySet()) {
-                System.err.println(
-                        fileDescriptorMappings.getOrDefault(e.getKey(), "n/a")
-                                + ": " + e.getValue());
+                String path = fileDescriptorMappings.get(e.getKey());
+                if (path != null && path.endsWith("tmp")) {
+                    exactData += e.getValue();
+                }
             }
-            assert (exactData == exact) : ("actual " + exactData + " vs. "
-                    + exact + " expected");
+            if (exactData != exact) {
+                // for debugging purposes, display data collected per file
+                for (Map.Entry<Integer, Long> e : operationDataPerFd
+                        .entrySet()) {
+                    System.err.println(fileDescriptorMappings
+                            .getOrDefault(e.getKey(), "n/a") + " (" + e.getKey()
+                            + "): " + e.getValue());
+                }
+                assert (exactData == exact) : ("actual " + exactData + " vs. "
+                        + exact + " expected");
+            }
         }
 
         if (allData < exact || allData > atMost) {
