@@ -77,6 +77,23 @@ public class FileChannelImplAdapter extends AbstractSfsAdapter {
 
     @Override
     protected void appendWrappedMethods(ClassVisitor cv) {
+        // public FileDescriptor getFileDescriptor() {
+        MethodVisitor getFileDescriptorMV = cv.visitMethod(Opcodes.ACC_PUBLIC,
+                "getFileDescriptor",
+                Type.getMethodDescriptor(Type.getType(FileDescriptor.class)),
+                null, null);
+        getFileDescriptorMV.visitCode();
+
+        // return fileDescriptor;
+        // }
+        getFileDescriptorMV.visitVarInsn(Opcodes.ALOAD, 0);
+        getFileDescriptorMV.visitFieldInsn(Opcodes.GETFIELD,
+                Type.getInternalName(FileChannelImpl.class), "fd",
+                Type.getDescriptor(FileDescriptor.class));
+        getFileDescriptorMV.visitInsn(Opcodes.ARETURN);
+        getFileDescriptorMV.visitMaxs(0, 0);
+        getFileDescriptorMV.visitEnd();
+
         if (!skipReads()) {
             wrapFileChannelImplMethod(Opcodes.ACC_PUBLIC, "read", Type.INT_TYPE,
                     new Type[] { Type.getType(ByteBuffer.class) }, null,
@@ -492,16 +509,44 @@ public class FileChannelImplAdapter extends AbstractSfsAdapter {
         Label bufferInstrumentationActiveLabel = new Label();
         mv.visitJumpInsn(Opcodes.IFEQ, bufferInstrumentationActiveLabel);
 
-        // callback.<oppositeCallbackName>(startTime, endTime, result);
+        // callback.<oppositeCallbackName>(buffer.getFileDescriptor(),
+        // startTime, endTime, result);
         mv.visitVarInsn(Opcodes.ALOAD, 0);
         mv.visitFieldInsn(Opcodes.GETFIELD, instrumentedTypeInternalName,
                 "callback", callbackTypeDescriptor);
+        if (!isTransferMethod) {
+            if (argumentTypes[bufferArgumentTypeIndex]
+                    .getSort() == Type.ARRAY) {
+                // TODO this calls the opposite callback only on the first
+                // element in the buffer array, but there is not really a way to
+                // tell which buffer has received how many bytes, and thus which
+                // file
+                mv.visitVarInsn(Opcodes.ALOAD, bufferArgumentIndex);
+                mv.visitInsn(Opcodes.ICONST_0);
+                mv.visitInsn(Opcodes.AALOAD);
+            } else {
+                mv.visitVarInsn(Opcodes.ALOAD, bufferArgumentIndex);
+            }
+            mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+                    Type.getInternalName(MappedByteBuffer.class),
+                    "getFileDescriptor", Type.getMethodDescriptor(
+                            Type.getType(FileDescriptor.class)),
+                    false);
+        } else {
+            mv.visitVarInsn(Opcodes.ALOAD, bufferArgumentIndex);
+            mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+                    Type.getInternalName(FileChannelImpl.class),
+                    "getFileDescriptor", Type.getMethodDescriptor(
+                            Type.getType(FileDescriptor.class)),
+                    false);
+        }
         mv.visitVarInsn(Opcodes.LLOAD, startTimeIndex);
         mv.visitVarInsn(Opcodes.LLOAD, endTimeIndex);
         mv.visitVarInsn(returnType.getOpcode(Opcodes.ILOAD), resultIndex);
         mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, callbackTypeInternalName,
                 oppositeCallbackName,
-                Type.getMethodDescriptor(Type.VOID_TYPE, Type.LONG_TYPE,
+                Type.getMethodDescriptor(Type.VOID_TYPE,
+                        Type.getType(FileDescriptor.class), Type.LONG_TYPE,
                         Type.LONG_TYPE, additionalCallbackArgumentType),
                 false);
 
