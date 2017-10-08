@@ -21,7 +21,8 @@ public class FileChannelImplCallback extends AbstractSfsCallback {
     }
 
     public void openCallback(FileDescriptor fileDescriptor) {
-        fd = getFileDescriptor(fileDescriptor);
+        fd = LiveOperationStatisticsAggregator.instance
+                .getFileDescriptor(fileDescriptor);
     }
 
     public void readCallback(long startTime, long endTime, int readResult) {

@@ -9,6 +9,7 @@ package de.zib.sfs.instrument.statistics;
 
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileDescriptor;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -92,7 +93,8 @@ public class LiveOperationStatisticsAggregator {
     private final AtomicInteger currentFileDescriptor;
 
     // mapping of file names to their first file descriptors
-    private final Map<String, Integer> fileDescriptors;
+    private final Map<String, Integer> filenameToFd;
+    private final Map<FileDescriptor, Integer> fdToFd;
     private boolean traceFileDescriptors;
 
     private long initializationTime;
@@ -123,7 +125,8 @@ public class LiveOperationStatisticsAggregator {
                 Runtime.getRuntime().availableProcessors(),
                 ForkJoinPool.defaultForkJoinWorkerThreadFactory, null, true);
 
-        fileDescriptors = new ConcurrentHashMap<>();
+        filenameToFd = new ConcurrentHashMap<>();
+        fdToFd = new ConcurrentHashMap<>();
         currentFileDescriptor = new AtomicInteger(0);
 
         initialized = false;
@@ -137,7 +140,7 @@ public class LiveOperationStatisticsAggregator {
             initialized = true;
         }
 
-        outputFormat = OutputFormat.BB;
+        outputFormat = OutputFormat.CSV;
         switch (outputFormat) {
         case CSV:
             csvStringBuilders = new StringBuilder[OperationSource
@@ -193,14 +196,32 @@ public class LiveOperationStatisticsAggregator {
         return systemKey;
     }
 
-    public int getFileDescriptor(String filename) {
+    public int registerFileDescriptor(String filename,
+            FileDescriptor fileDescriptor) {
         if (!initialized || filename == null || !traceFileDescriptors) {
             return 0;
         }
 
         // reuses file descriptors for the same file
-        return fileDescriptors.computeIfAbsent(filename,
-                s -> currentFileDescriptor.incrementAndGet());
+        return filenameToFd.computeIfAbsent(filename, s -> {
+            int fd = currentFileDescriptor.incrementAndGet();
+            if (fileDescriptor != null) {
+                fdToFd.put(fileDescriptor, fd);
+            }
+            return fd;
+        });
+    }
+
+    public int registerFileDescriptor(String filename) {
+        return registerFileDescriptor(filename, null);
+    }
+
+    public int getFileDescriptor(FileDescriptor fileDescriptor) {
+        if (!initialized || fileDescriptor == null || !traceFileDescriptors) {
+            return 0;
+        }
+
+        return fdToFd.getOrDefault(fileDescriptor, 0);
     }
 
     public void aggregateOperationStatistics(OperationSource source,
@@ -496,7 +517,7 @@ public class LiveOperationStatisticsAggregator {
             fileDescriptorMappingsWriter.newLine();
 
             StringBuilder sb = new StringBuilder();
-            for (Map.Entry<String, Integer> fd : fileDescriptors.entrySet()) {
+            for (Map.Entry<String, Integer> fd : filenameToFd.entrySet()) {
                 sb.append(systemHostname).append(csvOutputSeparator);
                 sb.append(systemPid).append(csvOutputSeparator);
                 sb.append(systemKey).append(csvOutputSeparator);
@@ -553,7 +574,7 @@ public class LiveOperationStatisticsAggregator {
             ByteBuffer bb = ByteBuffer.allocate(1048576);
             bb.order(ByteOrder.LITTLE_ENDIAN);
             bb.mark();
-            for (Map.Entry<String, Integer> fd : fileDescriptors.entrySet()) {
+            for (Map.Entry<String, Integer> fd : filenameToFd.entrySet()) {
                 try {
                     int fileDescriptor = fd.getValue();
                     String path = fd.getKey();

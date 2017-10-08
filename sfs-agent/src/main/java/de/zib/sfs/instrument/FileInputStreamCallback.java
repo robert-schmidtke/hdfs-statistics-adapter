@@ -16,16 +16,21 @@ import de.zib.sfs.instrument.statistics.OperationSource;
 
 public class FileInputStreamCallback extends AbstractSfsCallback {
 
-    private final FileInputStream fis;
+    private FileInputStream fis;
 
     public FileInputStreamCallback(FileInputStream fis) {
         this.fis = fis;
     }
 
     public void openCallback(long startTime, long endTime, String filename) {
-        fd = LiveOperationStatisticsAggregator.instance
-                .getFileDescriptor(filename);
-        putFileDescriptor();
+        try {
+            fd = LiveOperationStatisticsAggregator.instance
+                    .registerFileDescriptor(filename, fis.getFD());
+            fis = null;
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
         if (!skipOther) {
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.JVM,
@@ -50,21 +55,20 @@ public class FileInputStreamCallback extends AbstractSfsCallback {
                         readResult == -1 ? 0 : readResult, false);
     }
 
-    private void putFileDescriptor() {
-        try {
-            putFileDescriptor(fis.getFD(), fd);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
     private void getFileDescriptor() {
         if (fd != -1) {
             return;
         }
-
         try {
-            fd = getFileDescriptor(fis.getFD());
+            synchronized (this) {
+                if (fis == null) {
+                    return;
+                }
+
+                fd = LiveOperationStatisticsAggregator.instance
+                        .getFileDescriptor(fis.getFD());
+                fis = null;
+            }
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

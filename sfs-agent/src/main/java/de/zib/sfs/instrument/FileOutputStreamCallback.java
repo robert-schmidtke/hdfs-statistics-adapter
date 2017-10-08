@@ -23,7 +23,7 @@ public class FileOutputStreamCallback extends AbstractSfsCallback {
     // set to true if all calls made to this callback should be discarded
     private boolean discard = false;
 
-    private final FileOutputStream fos;
+    private FileOutputStream fos;
 
     public FileOutputStreamCallback(FileOutputStream fos) {
         // fos.getFD() still throws at this point
@@ -43,17 +43,20 @@ public class FileOutputStreamCallback extends AbstractSfsCallback {
         discard = LOG_FILE_PREFIX != null && filename != null
                 && filename.startsWith(LOG_FILE_PREFIX);
         if (!discard) {
-            fd = LiveOperationStatisticsAggregator.instance
-                    .getFileDescriptor(filename);
+            try {
+                fd = LiveOperationStatisticsAggregator.instance
+                        .registerFileDescriptor(filename, fos.getFD());
+                fos = null;
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+
             if (!skipOther) {
                 LiveOperationStatisticsAggregator.instance
                         .aggregateOperationStatistics(OperationSource.JVM,
                                 OperationCategory.OTHER, startTime, endTime,
                                 fd);
             }
-
-            // fos.getFD() is now safe
-            putFileDescriptor();
         }
     }
 
@@ -76,21 +79,21 @@ public class FileOutputStreamCallback extends AbstractSfsCallback {
         }
     }
 
-    private void putFileDescriptor() {
-        try {
-            putFileDescriptor(fos.getFD(), fd);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
     private void getFileDescriptor() {
         if (fd != -1) {
             return;
         }
 
         try {
-            fd = getFileDescriptor(fos.getFD());
+            synchronized (this) {
+                if (fos == null) {
+                    return;
+                }
+
+                fd = LiveOperationStatisticsAggregator.instance
+                        .getFileDescriptor(fos.getFD());
+                fos = null;
+            }
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

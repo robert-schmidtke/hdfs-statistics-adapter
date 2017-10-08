@@ -16,16 +16,21 @@ import de.zib.sfs.instrument.statistics.OperationSource;
 
 public class RandomAccessFileCallback extends AbstractSfsCallback {
 
-    private final RandomAccessFile raf;
+    private RandomAccessFile raf;
 
     public RandomAccessFileCallback(RandomAccessFile raf) {
         this.raf = raf;
     }
 
     public void openCallback(long startTime, long endTime, String filename) {
-        fd = LiveOperationStatisticsAggregator.instance
-                .getFileDescriptor(filename);
-        putFileDescriptor();
+        try {
+            fd = LiveOperationStatisticsAggregator.instance
+                    .registerFileDescriptor(filename, raf.getFD());
+            raf = null;
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
         if (!skipOther) {
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.JVM,
@@ -64,21 +69,21 @@ public class RandomAccessFileCallback extends AbstractSfsCallback {
                         OperationCategory.WRITE, startTime, endTime, fd, len);
     }
 
-    private void putFileDescriptor() {
-        try {
-            putFileDescriptor(raf.getFD(), fd);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
     private void getFileDescriptor() {
         if (fd != -1) {
             return;
         }
 
         try {
-            fd = getFileDescriptor(raf.getFD());
+            synchronized (this) {
+                if (raf == null) {
+                    return;
+                }
+
+                fd = LiveOperationStatisticsAggregator.instance
+                        .getFileDescriptor(raf.getFD());
+                raf = null;
+            }
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

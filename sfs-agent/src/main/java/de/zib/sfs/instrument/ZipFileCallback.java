@@ -23,7 +23,7 @@ public class ZipFileCallback {
         // ZipFile caches ZIP files, so we need to count them only once as well
         if (ZIP_CACHE.merge(jzfile, 1L, (v1, v2) -> v1 + v2) == 1L) {
             int fd = LiveOperationStatisticsAggregator.instance
-                    .getFileDescriptor(filename);
+                    .registerFileDescriptor(filename, null);
             LiveOperationStatisticsAggregator.instance
                     .aggregateReadDataOperationStatistics(OperationSource.JVM,
                             OperationCategory.ZIP, startTime, endTime, fd,

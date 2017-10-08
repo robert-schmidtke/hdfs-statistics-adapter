@@ -45,7 +45,8 @@ public class DirectByteBufferCallback extends AbstractSfsCallback {
     // convenient in DirectByteBuffer
     public void getCallback(FileDescriptor fileDescriptor, long startTime,
             long endTime, int length) {
-        int fd = getFileDescriptor(fileDescriptor);
+        int fd = LiveOperationStatisticsAggregator.instance
+                .getFileDescriptor(fileDescriptor);
         LiveOperationStatisticsAggregator.instance
                 .aggregateReadDataOperationStatistics(OperationSource.JVM,
                         OperationCategory.READ, startTime, endTime, fd, length,
@@ -161,7 +162,16 @@ public class DirectByteBufferCallback extends AbstractSfsCallback {
         if (fd != -1) {
             return;
         }
-        fd = fileDescriptor == null ? 0 : getFileDescriptor(fileDescriptor);
+
+        synchronized (this) {
+            if (fd != -1) {
+                return;
+            }
+            fd = fileDescriptor == null ? 0
+                    : LiveOperationStatisticsAggregator.instance
+                            .getFileDescriptor(fileDescriptor);
+        }
+        fileDescriptor = null;
     }
 
 }
