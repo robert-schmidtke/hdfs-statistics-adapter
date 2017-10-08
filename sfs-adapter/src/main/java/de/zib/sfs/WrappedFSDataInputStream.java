@@ -56,7 +56,7 @@ public class WrappedFSDataInputStream extends InputStream
             throws IOException {
         this.in = in;
         this.aggregator = aggregator;
-        this.fd = this.aggregator.getFileDescriptor(f.toString());
+        this.fd = this.aggregator.registerFileDescriptor(f.toString());
         hostname = System.getProperty("de.zib.sfs.hostname");
         this.skipOther = skipOther;
     }

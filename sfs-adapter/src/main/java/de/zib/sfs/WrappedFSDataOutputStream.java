@@ -34,7 +34,7 @@ public class WrappedFSDataOutputStream extends FSDataOutputStream {
             throws IOException {
         super(out, stats, startPosition);
         this.aggregator = aggregator;
-        this.fd = this.aggregator.getFileDescriptor(f.toString());
+        this.fd = this.aggregator.registerFileDescriptor(f.toString());
     }
 
     @Override

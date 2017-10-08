@@ -314,7 +314,7 @@ public class StatisticsFileSystem extends FileSystem {
         }
         if (!skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
-                    .getFileDescriptor(f.toString());
+                    .registerFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
@@ -338,7 +338,7 @@ public class StatisticsFileSystem extends FileSystem {
         }
         if (!skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
-                    .getFileDescriptor(f.toString());
+                    .registerFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
@@ -362,7 +362,7 @@ public class StatisticsFileSystem extends FileSystem {
         }
         if (!skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
-                    .getFileDescriptor(f.toString());
+                    .registerFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
@@ -503,7 +503,7 @@ public class StatisticsFileSystem extends FileSystem {
         }
         if (!skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
-                    .getFileDescriptor(f.toString());
+                    .registerFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
@@ -527,7 +527,7 @@ public class StatisticsFileSystem extends FileSystem {
         }
         if (!skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
-                    .getFileDescriptor(f.toString());
+                    .registerFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
@@ -551,7 +551,7 @@ public class StatisticsFileSystem extends FileSystem {
         }
         if (!skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
-                    .getFileDescriptor(f.toString());
+                    .registerFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
@@ -577,7 +577,7 @@ public class StatisticsFileSystem extends FileSystem {
         }
         if (!skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
-                    .getFileDescriptor(f.toString());
+                    .registerFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
@@ -603,7 +603,7 @@ public class StatisticsFileSystem extends FileSystem {
         }
         if (!skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
-                    .getFileDescriptor(f.toString());
+                    .registerFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
@@ -630,7 +630,7 @@ public class StatisticsFileSystem extends FileSystem {
         }
         if (!skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
-                    .getFileDescriptor(f.toString());
+                    .registerFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
@@ -657,7 +657,7 @@ public class StatisticsFileSystem extends FileSystem {
         }
         if (!skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
-                    .getFileDescriptor(f.toString());
+                    .registerFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
@@ -684,7 +684,7 @@ public class StatisticsFileSystem extends FileSystem {
         }
         if (!skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
-                    .getFileDescriptor(f.toString());
+                    .registerFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
@@ -713,7 +713,7 @@ public class StatisticsFileSystem extends FileSystem {
         }
         if (!skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
-                    .getFileDescriptor(f.toString());
+                    .registerFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
@@ -737,7 +737,7 @@ public class StatisticsFileSystem extends FileSystem {
         }
         if (!skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
-                    .getFileDescriptor(f.toString());
+                    .registerFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
@@ -761,7 +761,7 @@ public class StatisticsFileSystem extends FileSystem {
         }
         if (!skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
-                    .getFileDescriptor(f.toString());
+                    .registerFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
@@ -785,7 +785,7 @@ public class StatisticsFileSystem extends FileSystem {
         }
         if (!skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
-                    .getFileDescriptor(f.toString());
+                    .registerFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
@@ -818,7 +818,7 @@ public class StatisticsFileSystem extends FileSystem {
         }
         if (!skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
-                    .getFileDescriptor(f.toString());
+                    .registerFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
@@ -848,7 +848,7 @@ public class StatisticsFileSystem extends FileSystem {
         }
         if (!skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
-                    .getFileDescriptor(f.toString());
+                    .registerFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
@@ -878,7 +878,7 @@ public class StatisticsFileSystem extends FileSystem {
         }
         if (!skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
-                    .getFileDescriptor(f.toString());
+                    .registerFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
@@ -917,7 +917,7 @@ public class StatisticsFileSystem extends FileSystem {
         boolean result = wrappedFS.delete(unwrappedPath, recursive);
         if (!skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
-                    .getFileDescriptor(f.toString());
+                    .registerFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
@@ -1001,7 +1001,7 @@ public class StatisticsFileSystem extends FileSystem {
         file.setPath(path);
         if (!skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
-                    .getFileDescriptor(file.getPath().toString());
+                    .registerFileDescriptor(file.getPath().toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
@@ -1019,7 +1019,7 @@ public class StatisticsFileSystem extends FileSystem {
                 start, len);
         if (!skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
-                    .getFileDescriptor(p.toString());
+                    .registerFileDescriptor(p.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
@@ -1056,7 +1056,7 @@ public class StatisticsFileSystem extends FileSystem {
         }
         if (!skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
-                    .getFileDescriptor(f.toString());
+                    .registerFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
@@ -1275,7 +1275,7 @@ public class StatisticsFileSystem extends FileSystem {
         }
         if (!skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
-                    .getFileDescriptor(f.toString());
+                    .registerFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
@@ -1306,7 +1306,7 @@ public class StatisticsFileSystem extends FileSystem {
         }
         if (!skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
-                    .getFileDescriptor(f.toString());
+                    .registerFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
@@ -1381,7 +1381,7 @@ public class StatisticsFileSystem extends FileSystem {
         boolean result = wrappedFS.mkdirs(unwrappedPath, permission);
         if (!skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
-                    .getFileDescriptor(f.toString());
+                    .registerFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
@@ -1423,7 +1423,7 @@ public class StatisticsFileSystem extends FileSystem {
         }
         if (!skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
-                    .getFileDescriptor(f.toString());
+                    .registerFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
@@ -1446,7 +1446,7 @@ public class StatisticsFileSystem extends FileSystem {
         }
         if (!skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
-                    .getFileDescriptor(f.toString());
+                    .registerFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
@@ -1463,7 +1463,7 @@ public class StatisticsFileSystem extends FileSystem {
         boolean result = wrappedFS.rename(unwrappedSrc, unwrappedDst);
         if (!skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
-                    .getFileDescriptor(src.toString());
+                    .registerFileDescriptor(src.toString());
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
