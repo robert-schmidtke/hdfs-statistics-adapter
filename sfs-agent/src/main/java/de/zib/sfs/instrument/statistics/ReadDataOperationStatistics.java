@@ -10,6 +10,8 @@ package de.zib.sfs.instrument.statistics;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 
+import com.google.flatbuffers.ByteBufferUtil;
+import com.google.flatbuffers.Constants;
 import com.google.flatbuffers.FlatBufferBuilder;
 
 import de.zib.sfs.instrument.statistics.bb.OperationStatisticsBufferBuilder;
@@ -129,16 +131,16 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
     public static ReadDataOperationStatistics fromFlatBuffer(
             ByteBuffer buffer) {
         int length;
-        if (buffer.remaining() < 4
-                || (length = OperationStatisticsFB.getSizePrefix(buffer)
-                        + 4) > buffer.remaining()) {
+        if (buffer.remaining() < Constants.SIZE_PREFIX_LENGTH
+                || (length = ByteBufferUtil.getSizePrefix(buffer)
+                        + Constants.SIZE_PREFIX_LENGTH) > buffer.remaining()) {
             throw new BufferUnderflowException();
         }
-        ByteBuffer osBuffer = buffer.slice();
+        ByteBuffer osBuffer = ByteBufferUtil.removeSizePrefix(buffer);
         buffer.position(buffer.position() + length);
 
         OperationStatisticsFB os = OperationStatisticsFB
-                .getSizePrefixedRootAsOperationStatisticsFB(osBuffer);
+                .getRootAsOperationStatisticsFB(osBuffer);
         return new ReadDataOperationStatistics(os.count(), os.timeBin(),
                 os.cpuTime(), OperationSource.fromFlatBuffer(os.source()),
                 OperationCategory.fromFlatBuffer(os.category()),
