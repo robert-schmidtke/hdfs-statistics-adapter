@@ -1832,7 +1832,8 @@ public class InstrumentationTest {
                             + "): " + e.getValue());
                 }
                 assert (exactData == exact) : ("actual " + exactData + " vs. "
-                        + exact + " expected");
+                        + exact + " expected " + source + "/" + category
+                        + " operation data");
             }
         }
 
