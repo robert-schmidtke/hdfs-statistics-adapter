@@ -59,19 +59,15 @@ public class DataOperationStatistics extends OperationStatistics {
     }
 
     @Override
-    public String getCsvHeaders(String separator) {
-        StringBuilder sb = new StringBuilder();
-        sb.append(super.getCsvHeaders(separator));
+    public void getCsvHeaders(String separator, StringBuilder sb) {
+        super.getCsvHeaders(separator, sb);
         sb.append(separator).append("data");
-        return sb.toString();
     }
 
     @Override
-    public String toCsv(String separator) {
-        StringBuilder sb = new StringBuilder();
-        sb.append(super.toCsv(separator));
+    public void toCsv(String separator, StringBuilder sb) {
+        super.toCsv(separator, sb);
         sb.append(separator).append(data);
-        return sb.toString();
     }
 
     public static DataOperationStatistics fromCsv(String line, String separator,

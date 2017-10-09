@@ -83,23 +83,19 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
     }
 
     @Override
-    public String getCsvHeaders(String separator) {
-        StringBuilder sb = new StringBuilder();
-        sb.append(super.getCsvHeaders(separator));
+    public void getCsvHeaders(String separator, StringBuilder sb) {
+        super.getCsvHeaders(separator, sb);
         sb.append(separator).append("remoteCount");
         sb.append(separator).append("remoteCpuTime");
         sb.append(separator).append("remoteData");
-        return sb.toString();
     }
 
     @Override
-    public String toCsv(String separator) {
-        StringBuilder sb = new StringBuilder();
-        sb.append(super.toCsv(separator));
+    public void toCsv(String separator, StringBuilder sb) {
+        super.toCsv(separator, sb);
         sb.append(separator).append(remoteCount);
         sb.append(separator).append(remoteCpuTime);
         sb.append(separator).append(remoteData);
-        return sb.toString();
     }
 
     public static ReadDataOperationStatistics fromCsv(String line,

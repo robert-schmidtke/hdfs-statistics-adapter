@@ -137,24 +137,32 @@ public class OperationStatistics {
 
     public String getCsvHeaders(String separator) {
         StringBuilder sb = new StringBuilder();
+        getCsvHeaders(separator, sb);
+        return sb.toString();
+    }
+
+    public void getCsvHeaders(String separator, StringBuilder sb) {
         sb.append("count");
         sb.append(separator).append("timeBin");
         sb.append(separator).append("cpuTime");
         sb.append(separator).append("source");
         sb.append(separator).append("category");
         sb.append(separator).append("fileDescriptor");
-        return sb.toString();
     }
 
     public String toCsv(String separator) {
         StringBuilder sb = new StringBuilder();
+        toCsv(separator, sb);
+        return sb.toString();
+    }
+
+    public void toCsv(String separator, StringBuilder sb) {
         sb.append(count);
         sb.append(separator).append(timeBin);
         sb.append(separator).append(cpuTime);
         sb.append(separator).append(source.name().toLowerCase());
         sb.append(separator).append(category.name().toLowerCase());
         sb.append(separator).append(fd);
-        return sb.toString();
     }
 
     public static OperationStatistics fromCsv(String line, String separator,

@@ -419,8 +419,9 @@ public class LiveOperationStatisticsAggregator {
                             .append("pid");
                     csvStringBuilders[index].append(csvOutputSeparator)
                             .append("key");
-                    csvStringBuilders[index].append(csvOutputSeparator).append(
-                            aggregate.getCsvHeaders(csvOutputSeparator));
+                    csvStringBuilders[index].append(csvOutputSeparator);
+                    aggregate.getCsvHeaders(csvOutputSeparator,
+                            csvStringBuilders[index]);
 
                     // we will receive writes to this file as well
                     csvWriters[index] = new BufferedWriter(
@@ -440,8 +441,8 @@ public class LiveOperationStatisticsAggregator {
                     .append(systemPid);
             csvStringBuilders[index].append(csvOutputSeparator)
                     .append(systemKey);
-            csvStringBuilders[index].append(csvOutputSeparator)
-                    .append(aggregate.toCsv(csvOutputSeparator));
+            csvStringBuilders[index].append(csvOutputSeparator);
+            aggregate.toCsv(csvOutputSeparator, csvStringBuilders[index]);
 
             csvWriters[index].write(csvStringBuilders[index].toString());
             csvWriters[index].newLine();
