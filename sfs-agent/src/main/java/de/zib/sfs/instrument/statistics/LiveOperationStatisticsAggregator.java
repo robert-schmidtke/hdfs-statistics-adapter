@@ -140,23 +140,6 @@ public class LiveOperationStatisticsAggregator {
             initialized = true;
         }
 
-        outputFormat = OutputFormat.BB;
-        switch (outputFormat) {
-        case CSV:
-            csvStringBuilders = new StringBuilder[OperationSource
-                    .values().length * OperationCategory.values().length];
-            csvWriters = new BufferedWriter[OperationSource.values().length
-                    * OperationCategory.values().length];
-            break;
-        case FB:
-        case BB:
-            bbChannels = new FileChannel[OperationSource.values().length
-                    * OperationCategory.values().length];
-            break;
-        default:
-            throw new IllegalArgumentException(outputFormat.name());
-        }
-
         csvOutputSeparator = ",";
 
         // guard against weird hostnames
@@ -172,6 +155,23 @@ public class LiveOperationStatisticsAggregator {
                 .parseInt(System.getProperty("de.zib.sfs.timeBin.cacheSize"));
         String outputDirectory = System
                 .getProperty("de.zib.sfs.output.directory");
+        outputFormat = OutputFormat.valueOf(
+                System.getProperty("de.zib.sfs.output.format").toUpperCase());
+        switch (outputFormat) {
+        case CSV:
+            csvStringBuilders = new StringBuilder[OperationSource
+                    .values().length * OperationCategory.values().length];
+            csvWriters = new BufferedWriter[OperationSource.values().length
+                    * OperationCategory.values().length];
+            break;
+        case FB:
+        case BB:
+            bbChannels = new FileChannel[OperationSource.values().length
+                    * OperationCategory.values().length];
+            break;
+        default:
+            throw new IllegalArgumentException(outputFormat.name());
+        }
 
         traceFileDescriptors = Boolean
                 .parseBoolean(System.getProperty("de.zib.sfs.traceFds"));

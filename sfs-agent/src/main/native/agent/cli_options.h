@@ -48,6 +48,7 @@ struct CliOptions {
   std::string time_bin_duration;
   std::string time_bin_cache_size;
   std::string output_directory;
+  std::string output_format;
   std::string instrumentation_skip;
   bool trace_mmap;
   bool trace_fds;
@@ -89,6 +90,7 @@ static bool parse_options(char *command_line_options, CliOptions *cli_options) {
   cli_options->time_bin_duration = -1;
   cli_options->time_bin_cache_size = -1;
   cli_options->output_directory = std::string("");
+  cli_options->output_format = std::string("");
   cli_options->instrumentation_skip = std::string("");
   cli_options->trace_mmap = false;
   cli_options->trace_fds = false;
@@ -100,6 +102,7 @@ static bool parse_options(char *command_line_options, CliOptions *cli_options) {
   bool time_bin_duration_set = false;
   bool time_bin_cache_size_set = false;
   bool output_directory_set = false;
+  bool output_format_set = false;
 
   while (*options) {
     char option[16];
@@ -135,6 +138,11 @@ static bool parse_options(char *command_line_options, CliOptions *cli_options) {
           cli_options->output_directory = std::string(suboption);
           output_directory_set = true;
         }
+      } else if (strcmp(option, "out_fmt") == 0) {
+        if (get_tok(&options, suboption, (int)sizeof(suboption), ',')) {
+          cli_options->output_format = std::string(suboption);
+          output_format_set = true;
+        }
       } else if (strcmp(option, "instr_skip") == 0) {
         if (get_tok(&options, suboption, (int)sizeof(suboption), ',')) {
           cli_options->instrumentation_skip = std::string(suboption);
@@ -168,7 +176,7 @@ static bool parse_options(char *command_line_options, CliOptions *cli_options) {
   delete[] all_options;
 
   return tx_jar_path_set && key_set && time_bin_duration_set &&
-         time_bin_cache_size_set && output_directory_set;
+         time_bin_cache_size_set && output_directory_set && output_format_set;
 }
 
 #endif // CLI_OPTIONS_H

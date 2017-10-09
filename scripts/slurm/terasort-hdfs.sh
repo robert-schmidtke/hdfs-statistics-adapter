@@ -80,7 +80,7 @@ export HADOOP_CONF_DIR=$HADOOP_HOME/etc/hadoop
 export HDFS_LOCAL_DIR=$USER/hdfs
 export HDFS_LOCAL_LOG_DIR=$HDFS_LOCAL_DIR/log
 
-export GRPC_HOME=/scratch/$USER/grpc
+export GRPC_HOME=/scratch/$USER/grpc-1.6.1
 
 export SFS_DIRECTORY=/scratch/$USER/hdfs-statistics-adapter
 export SFS_TARGET_DIRECTORY=/scratch/$USER/statistics-fs/logs
@@ -153,13 +153,13 @@ LD_LIBRARY_PATH_EXT="$GRPC_HOME/libs/opt:$GRPC_HOME/third_party/protobuf/src/.li
 if [ -z "$NO_SFS" ]; then
   # configure some additional options for SFS
   OPTS="-agentpath:$SFS_DIRECTORY/sfs-agent/target/libsfs.so=trans_jar=$SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar,trans_address=0.0.0.0:4242"
-  OPTS="$OPTS,bin_duration=1000,cache_size=60,out_dir=/local_ssd/$USER/sfs,trace_mmap=n,verbose=n,instr_skip=o"
+  OPTS="$OPTS,bin_duration=1000,cache_size=60,out_dir=/local_ssd/$USER/sfs,out_fmt=bb,trace_mmap=n,verbose=n,instr_skip=o,trace_fds=y"
   HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --hadoop-opts $OPTS,key=hdfs"
   HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --map-opts $OPTS,key=map"
   HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --reduce-opts $OPTS,key=reduce"
   HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --yarn-opts $OPTS,key=yarn"
   HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --ld-library-path $LD_LIBRARY_PATH_EXT"
-  SFS_STANDARD_OPTS="--sfs-wrapped-scheme hdfs"
+  SFS_STANDARD_OPTS="--sfs-wrapped-scheme hdfs --sfs-instrumentation-skip o --sfs-output-directory /local_ssd/$USER/sfs --sfs-output-format bb --sfs-trace-fds true"
   cp $SFS_DIRECTORY/sfs-adapter/target/sfs-adapter.jar $FLINK_HOME/lib/sfs-adapter.jar
   cp $SFS_DIRECTORY/sfs-adapter/target/sfs-adapter.jar $HADOOP_HOME/share/hadoop/common/sfs-adapter.jar
 
@@ -387,10 +387,14 @@ echo "Size of files in /local_ssd/$USER/sfs on \$(hostname):"
 du -c -h /local_ssd/$USER/sfs
 
 # execute postrun aggregation
-java -cp $SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar de.zib.sfs.instrument.statistics.PostRunOperationStatisticsAggregator --path /local_ssd/$USER/sfs --prefix "\$(hostname)-" --suffix "-concat"
+# java -cp $SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar de.zib.sfs.instrument.statistics.PostRunOperationStatisticsAggregator --path /local_ssd/$USER/sfs --prefix "\$(hostname)-" --suffix "-concat"
 
 cd /local_ssd/$USER/sfs
-for file in \$(ls *-concat.csv); do
+# for file in \$(ls *-concat.csv); do
+#   # this includes SFS and JVM logs, as well as the file descriptor mappings
+#   cp \$file $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$file
+# done
+for file in \$(ls *.bb); do
   # this includes SFS and JVM logs, as well as the file descriptor mappings
   cp \$file $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$file
 done

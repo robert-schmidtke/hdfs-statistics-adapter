@@ -43,6 +43,7 @@ import org.apache.hadoop.security.token.Token;
 import org.apache.hadoop.util.Progressable;
 
 import de.zib.sfs.instrument.statistics.LiveOperationStatisticsAggregator;
+import de.zib.sfs.instrument.statistics.LiveOperationStatisticsAggregator.OutputFormat;
 import de.zib.sfs.instrument.statistics.OperationCategory;
 import de.zib.sfs.instrument.statistics.OperationSource;
 
@@ -71,6 +72,16 @@ public class StatisticsFileSystem extends FileSystem {
      * not to log.
      */
     public static final String SFS_INSTRUMENTATION_SKIP_KEY = "sfs.instrumentation.skip";
+
+    /**
+     * Path to a directory.
+     */
+    public static final String SFS_OUTPUT_DIRECTORY_KEY = "sfs.output.directory";
+
+    /**
+     * CSV, FB, BB.
+     */
+    public static final String SFS_OUTPUT_FORMAT_KEY = "sfs.output.format";
 
     /**
      * Set to true if instrumentation should be done on per-file basis instead
@@ -190,15 +201,24 @@ public class StatisticsFileSystem extends FileSystem {
         if (System.getProperty("de.zib.sfs.output.directory") == null) {
             LOG.warn(
                     "'de.zib.sfs.output.directory' not set, did the agent start properly?");
-            System.setProperty("de.zib.sfs.output.directory", "/tmp");
+            System.setProperty("de.zib.sfs.output.directory",
+                    getConf().get(SFS_OUTPUT_DIRECTORY_KEY, "/tmp"));
+        }
+
+        if (System.getProperty("de.zib.sfs.output.format") == null) {
+            LOG.warn(
+                    "'de.zib.sfs.output.format' not set, did the agent start properly?");
+            OutputFormat outputFormat = OutputFormat.valueOf(getConf()
+                    .get(SFS_OUTPUT_FORMAT_KEY, OutputFormat.BB.name()));
+            System.setProperty("de.zib.sfs.output.format", outputFormat.name());
         }
 
         if (System.getProperty("de.zib.sfs.traceFds") == null) {
             LOG.warn(
                     "'de.zib.sfs.traceFds' not set, did the agent start properly?");
             System.setProperty("de.zib.sfs.traceFds",
-                    Boolean.parseBoolean(getConf().get(SFS_TRACE_FDS_KEY))
-                            ? "true" : "false");
+                    getConf().getBoolean(SFS_TRACE_FDS_KEY, false) ? "true"
+                            : "false");
         }
 
         LiveOperationStatisticsAggregator.instance.initialize();

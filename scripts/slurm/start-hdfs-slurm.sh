@@ -17,6 +17,9 @@ usage() {
   echo "     --sfs-wrapped-fs <wrapped file system class name> (default: not specified; enables SFS if specified)"
   echo "     --sfs-wrapped-scheme <scheme of the wrapped file system> (default: not specified)"
   echo "     --sfs-instrumentation-skip <r|w|o> or any combination of them (default: not specified)"
+  echo "     --sfs-output-directory </path/to/dir> (default: not specified)"
+  echo "     --sfs-output-format csv|fb|bb (default: not specified)"
+  echo "     --sfs-trace-fds true|false (default: not specified)"
 }
 
 if [ -z $SLURM_JOB_ID ]; then
@@ -83,6 +86,18 @@ while [[ $# -gt 0 ]]; do
       SFS_INSTRUMENTATION_SKIP="$2"
       shift
       ;;
+    --sfs-output-directory)
+      SFS_OUTPUT_DIRECTORY="$2"
+      shift
+      ;;
+    --sfs-output-format)
+      SFS_OUTPUT_FORMAT="$2"
+      shift
+      ;;
+    --sfs-trace-fds)
+      SFS_TRACE_FDS="$2"
+      shift
+      ;;
     *)
       echo "Invalid argument detected."
       usage
@@ -139,14 +154,18 @@ cat > $HADOOP_CONF_DIR/core-site.xml << EOF
     <name>fs.defaultFS</name>
     <value>hdfs://${HADOOP_NAMENODE}:8020</value>
   </property>
+<!--
   <property>
     <name>io.file.buffer.size</name>
     <value>${IO_BUFFER}</value>
   </property>
+-->
   <property>
     <name>hadoop.tmp.dir</name>
-    <!-- <value>/local/${HDFS_LOCAL_DIR}/tmp</value> -->
+    <value>/local/${HDFS_LOCAL_DIR}/tmp</value>
+<!--
     <value>/local_ssd/${HDFS_LOCAL_DIR}/tmp</value>
+-->
   </property>
 EOF
 
@@ -172,6 +191,18 @@ if [ -n "$SFS_WRAPPED_FS" ]; then
   <property>
     <name>sfs.instrumentation.skip</name>
     <value>${SFS_INSTRUMENTATION_SKIP}</value>
+  </property>
+  <property>
+    <name>sfs.output.directory</name>
+    <value>${SFS_OUTPUT_DIRECTORY}</value>
+  </property>
+  <property>
+    <name>sfs.output.format</name>
+    <value>${SFS_OUTPUT_FORMAT}</value>
+  </property>
+  <property>
+    <name>sfs.traceFds</name>
+    <value>${SFS_TRACE_FDS}</value>
   </property>
 EOF
 fi
@@ -238,7 +269,7 @@ for datanode in ${HADOOP_DATANODES[@]}; do
   </property>
   <property>
     <name>dfs.datanode.transferTo.allowed</name>
-    <value>false</value>
+    <value>true</value>
   </property>
 </configuration>
 EOF
@@ -293,26 +324,38 @@ cat > $HADOOP_CONF_DIR/mapred-site.xml << EOF
     <name>mapreduce.task.io.sort.mb</name>
     <value>1024</value>
   </property>
+<!--
   <property>
     <name>mapreduce.task.io.sort.factor</name>
     <value>32</value>
   </property>
   <property>
     <name>mapreduce.shuffle.transferTo.allowed</name>
-    <value>false</value>
+    <value>true</value>
   </property>
+  <property>
+    <name>mapreduce.shuffle.transfer.buffer.size</name>
+    <value>81920</value>
+  </property>
+-->
   <property>
     <name>mapreduce.reduce.merge.inmem.threshold</name>
     <value>0</value>
   </property>
   <property>
+    <name>mapreduce.reduce.input.buffer.percent</name>
+    <value>0.5</value>
+  </property>
+<!--
+  <property>
     <name>mapreduce.map.speculative</name>
-    <value>false</value>
+    <value>true</value>
   </property>
   <property>
     <name>mapreduce.reduce.speculative</name>
-    <value>false</value>
+    <value>true</value>
   </property>
+-->
 </configuration>
 EOF
 
@@ -378,7 +421,7 @@ done
 # start name node
 mkdir -p /local/$HDFS_LOCAL_DIR
 mkdir -p /local/${HDFS_LOCAL_DIR}/tmp
-mkdir -p /local_ssd/${HDFS_LOCAL_DIR}/tmp
+# mkdir -p /local_ssd/${HDFS_LOCAL_DIR}/tmp
 mkdir -p /local/$HDFS_LOCAL_LOG_DIR
 
 export HADOOP_USER_CLASSPATH_FIRST="YES"
@@ -407,7 +450,7 @@ for datanode in ${HADOOP_DATANODES[@]}; do
 # same as for namenode
 mkdir -p /local/$HDFS_LOCAL_DIR
 mkdir -p /local/${HDFS_LOCAL_DIR}/tmp
-mkdir -p /local_ssd/${HDFS_LOCAL_DIR}/tmp
+# mkdir -p /local_ssd/${HDFS_LOCAL_DIR}/tmp
 mkdir -p /local/$HDFS_LOCAL_LOG_DIR
 
 export HADOOP_OPTS=$HADOOP_OPTS
