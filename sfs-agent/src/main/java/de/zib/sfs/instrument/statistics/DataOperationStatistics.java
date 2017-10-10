@@ -50,12 +50,16 @@ public class DataOperationStatistics extends OperationStatistics {
             throw new OperationStatistics.NotAggregatableException(
                     "aggregator must be of type " + getClass().getName());
         }
-        OperationStatistics aggregate = super.aggregate(other);
-        return new DataOperationStatistics(aggregate.getCount(),
-                aggregate.getTimeBin(), aggregate.getCpuTime(),
-                aggregate.getSource(), aggregate.getCategory(),
-                aggregate.getFileDescriptor(),
-                this.data + ((DataOperationStatistics) other).getData());
+        super.aggregate(other);
+        return this;
+    }
+
+    @Override
+    public synchronized void doAggregation() {
+        if (this.aggregate != null) {
+            this.data += ((DataOperationStatistics) this.aggregate).getData();
+            super.doAggregation();
+        }
     }
 
     public static void getCsvHeaders(String separator, StringBuilder sb) {

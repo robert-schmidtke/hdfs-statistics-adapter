@@ -44,6 +44,8 @@ public class OperationStatistics {
 
     private int fd;
 
+    protected OperationStatistics aggregate;
+
     private static ByteBufferFactory overflowByteBufferFactory;
 
     public OperationStatistics() {
@@ -139,9 +141,24 @@ public class OperationStatistics {
                     + this.fd + ", " + other.getFileDescriptor());
         }
 
-        return new OperationStatistics(this.count + other.getCount(),
-                this.timeBin, this.cpuTime + other.getCpuTime(), this.source,
-                this.category, this.fd);
+        // allow the same aggregate to be set multiple times
+        synchronized (this) {
+            if (this.aggregate != null && this.aggregate != other) {
+                // finish previous aggregation
+                doAggregation();
+            }
+            this.aggregate = other;
+        }
+
+        return this;
+    }
+
+    public synchronized void doAggregation() {
+        if (this.aggregate != null) {
+            this.count += this.aggregate.getCount();
+            this.cpuTime += this.aggregate.getCpuTime();
+            this.aggregate = null;
+        }
     }
 
     public static void getCsvHeaders(String separator, StringBuilder sb) {

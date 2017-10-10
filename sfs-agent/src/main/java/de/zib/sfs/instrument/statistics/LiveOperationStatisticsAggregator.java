@@ -800,15 +800,17 @@ public class LiveOperationStatisticsAggregator {
                         .computeIfAbsent(this.aggregate.getTimeBin(),
                                 l -> new ConcurrentSkipListMap<>());
 
-                fileDescriptors.merge(this.aggregate.getFileDescriptor(),
-                        this.aggregate, (v1, v2) -> {
-                            try {
-                                return v1.aggregate(v2);
-                            } catch (OperationStatistics.NotAggregatableException e) {
-                                e.printStackTrace();
-                                throw new IllegalArgumentException(e);
-                            }
-                        });
+                OperationStatistics aggregatedOperationStatistics = fileDescriptors
+                        .merge(this.aggregate.getFileDescriptor(),
+                                this.aggregate, (v1, v2) -> {
+                                    try {
+                                        return v1.aggregate(v2);
+                                    } catch (OperationStatistics.NotAggregatableException e) {
+                                        e.printStackTrace();
+                                        throw new IllegalArgumentException(e);
+                                    }
+                                });
+                aggregatedOperationStatistics.doAggregation();
 
                 // make sure to emit aggregates when the cache is full until
                 // it's half full again to avoid writing every time bin size

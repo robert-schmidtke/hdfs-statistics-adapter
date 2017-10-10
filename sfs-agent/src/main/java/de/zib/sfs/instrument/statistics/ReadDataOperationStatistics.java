@@ -69,17 +69,19 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
             throw new OperationStatistics.NotAggregatableException(
                     "aggregator must be of type " + getClass().getName());
         }
-        DataOperationStatistics aggregate = super.aggregate(other);
-        return new ReadDataOperationStatistics(aggregate.getCount(),
-                aggregate.getTimeBin(), aggregate.getCpuTime(),
-                aggregate.getSource(), aggregate.getCategory(),
-                aggregate.getFileDescriptor(), aggregate.getData(),
-                this.remoteCount + ((ReadDataOperationStatistics) other)
-                        .getRemoteCount(),
-                this.remoteCpuTime + ((ReadDataOperationStatistics) other)
-                        .getRemoteCpuTime(),
-                this.remoteData + ((ReadDataOperationStatistics) other)
-                        .getRemoteData());
+        super.aggregate(other);
+        return this;
+    }
+
+    @Override
+    public synchronized void doAggregation() {
+        if (this.aggregate != null) {
+            ReadDataOperationStatistics rdos = (ReadDataOperationStatistics) this.aggregate;
+            this.remoteCount += rdos.getRemoteCount();
+            this.remoteCpuTime += rdos.getRemoteCpuTime();
+            this.remoteData += rdos.getRemoteData();
+            super.doAggregation();
+        }
     }
 
     public static void getCsvHeaders(String separator, StringBuilder sb) {
