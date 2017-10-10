@@ -143,6 +143,8 @@
         <configuration>
           <source>${java.source.version}</source>
           <target>${java.target.version}</target>
+          <showDeprecation>true</showDeprecation>
+          <showWarnings>true</showWarnings>
           <compilerArgs>
             <arg>-Xlint</arg>
           </compilerArgs>
