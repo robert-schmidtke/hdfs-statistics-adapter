@@ -144,12 +144,6 @@ public class OperationStatistics {
                 this.category, this.fd);
     }
 
-    public static String getCsvHeaders(String separator) {
-        StringBuilder sb = new StringBuilder();
-        getCsvHeaders(separator, sb);
-        return sb.toString();
-    }
-
     public static void getCsvHeaders(String separator, StringBuilder sb) {
         sb.append("count");
         sb.append(separator).append("timeBin");
@@ -157,12 +151,6 @@ public class OperationStatistics {
         sb.append(separator).append("source");
         sb.append(separator).append("category");
         sb.append(separator).append("fileDescriptor");
-    }
-
-    public String toCsv(String separator) {
-        StringBuilder sb = new StringBuilder();
-        toCsv(separator, sb);
-        return sb.toString();
     }
 
     public void toCsv(String separator, StringBuilder sb) {
@@ -174,15 +162,20 @@ public class OperationStatistics {
         sb.append(separator).append(this.fd);
     }
 
-    public static OperationStatistics fromCsv(String line, String separator,
-            int off) {
-        String[] values = line.split(separator);
-        return new OperationStatistics(Long.parseLong(values[off + 0]),
-                Long.parseLong(values[off + 1]),
-                Long.parseLong(values[off + 2]),
-                OperationSource.valueOf(values[off + 3].toUpperCase()),
-                OperationCategory.valueOf(values[off + 4].toUpperCase()),
-                Integer.parseInt(values[off + 5]));
+    public static void fromCsv(String line, String separator, int off,
+            OperationStatistics os) {
+        fromCsv(line.split(separator), off, os);
+    }
+
+    public static void fromCsv(String[] values, int off,
+            OperationStatistics os) {
+        os.setCount(Long.parseLong(values[off + 0]));
+        os.setTimeBin(Long.parseLong(values[off + 1]));
+        os.setCpuTime(Long.parseLong(values[off + 2]));
+        os.setSource(OperationSource.valueOf(values[off + 3].toUpperCase()));
+        os.setCategory(
+                OperationCategory.valueOf(values[off + 4].toUpperCase()));
+        os.setFileDescriptor(Integer.parseInt(values[off + 5]));
     }
 
     public void toFlatBuffer(String hostname, int pid, String key,
@@ -232,7 +225,7 @@ public class OperationStatistics {
             OperationStatisticsFB.addFileDescriptor(builder, this.fd);
     }
 
-    public static OperationStatistics fromFlatBuffer(ByteBuffer buffer) {
+    protected static OperationStatisticsFB fromFlatBuffer(ByteBuffer buffer) {
         buffer.order(ByteOrder.LITTLE_ENDIAN);
 
         int length = Constants.SIZE_PREFIX_LENGTH;
@@ -242,14 +235,25 @@ public class OperationStatistics {
         if (buffer.remaining() < length)
             throw new BufferUnderflowException();
         ByteBuffer osBuffer = ByteBufferUtil.removeSizePrefix(buffer);
-
-        OperationStatisticsFB os = OperationStatisticsFB
+        OperationStatisticsFB osfb = OperationStatisticsFB
                 .getRootAsOperationStatisticsFB(osBuffer);
         buffer.position(buffer.position() + length);
-        return new OperationStatistics(os.count(), os.timeBin(), os.cpuTime(),
-                OperationSource.fromFlatBuffer(os.source()),
-                OperationCategory.fromFlatBuffer(os.category()),
-                os.fileDescriptor());
+        return osfb;
+    }
+
+    public static void fromFlatBuffer(ByteBuffer buffer,
+            OperationStatistics os) {
+        fromFlatBuffer(fromFlatBuffer(buffer), os);
+    }
+
+    protected static void fromFlatBuffer(OperationStatisticsFB osfb,
+            OperationStatistics os) {
+        os.setCount(osfb.count());
+        os.setTimeBin(osfb.timeBin());
+        os.setCpuTime(osfb.cpuTime());
+        os.setSource(OperationSource.fromFlatBuffer(osfb.source()));
+        os.setCategory(OperationCategory.fromFlatBuffer(osfb.category()));
+        os.setFileDescriptor(osfb.fileDescriptor());
     }
 
     public void toByteBuffer(ByteBuffer hostname, int pid, ByteBuffer key,
@@ -266,7 +270,8 @@ public class OperationStatistics {
     public String toString() {
         StringBuilder sb = new StringBuilder();
         sb.append(getClass().getName()).append("{");
-        sb.append(toCsv(",")).append("}");
+        toCsv(",", sb);
+        sb.append("}");
         return sb.toString();
     }
 }

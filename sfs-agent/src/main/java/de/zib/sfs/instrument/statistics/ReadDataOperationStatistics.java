@@ -7,12 +7,8 @@
  */
 package de.zib.sfs.instrument.statistics;
 
-import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 
-import com.google.flatbuffers.ByteBufferUtil;
-import com.google.flatbuffers.Constants;
 import com.google.flatbuffers.FlatBufferBuilder;
 
 import de.zib.sfs.instrument.statistics.bb.OperationStatisticsBufferBuilder;
@@ -101,19 +97,17 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
         sb.append(separator).append(this.remoteData);
     }
 
-    public static ReadDataOperationStatistics fromCsv(String line,
-            String separator, int off) {
-        String[] values = line.split(separator);
-        return new ReadDataOperationStatistics(Long.parseLong(values[off + 0]),
-                Long.parseLong(values[off + 1]),
-                Long.parseLong(values[off + 2]),
-                OperationSource.valueOf(values[off + 3].toUpperCase()),
-                OperationCategory.valueOf(values[off + 4].toUpperCase()),
-                Integer.parseInt(values[off + 5]),
-                Long.parseLong(values[off + 6]),
-                Long.parseLong(values[off + 7]),
-                Long.parseLong(values[off + 8]),
-                Long.parseLong(values[off + 9]));
+    public static void fromCsv(String line, String separator, int off,
+            ReadDataOperationStatistics rdos) {
+        fromCsv(line.split(separator), off, rdos);
+    }
+
+    public static void fromCsv(String[] values, int off,
+            ReadDataOperationStatistics rdos) {
+        DataOperationStatistics.fromCsv(values, off, rdos);
+        rdos.setRemoteCount(Long.parseLong(values[off + 7]));
+        rdos.setRemoteCpuTime(Long.parseLong(values[off + 8]));
+        rdos.setRemoteData(Long.parseLong(values[off + 9]));
     }
 
     @Override
@@ -127,26 +121,17 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
             OperationStatisticsFB.addRemoteData(builder, this.remoteData);
     }
 
-    public static ReadDataOperationStatistics fromFlatBuffer(
-            ByteBuffer buffer) {
-        buffer.order(ByteOrder.LITTLE_ENDIAN);
+    public static void fromFlatBuffer(ByteBuffer buffer,
+            ReadDataOperationStatistics rdos) {
+        fromFlatBuffer(fromFlatBuffer(buffer), rdos);
+    }
 
-        int length = Constants.SIZE_PREFIX_LENGTH;
-        if (buffer.remaining() < length)
-            throw new BufferUnderflowException();
-        length += ByteBufferUtil.getSizePrefix(buffer);
-        if (buffer.remaining() < length)
-            throw new BufferUnderflowException();
-        ByteBuffer osBuffer = ByteBufferUtil.removeSizePrefix(buffer);
-
-        OperationStatisticsFB os = OperationStatisticsFB
-                .getRootAsOperationStatisticsFB(osBuffer);
-        buffer.position(buffer.position() + length);
-        return new ReadDataOperationStatistics(os.count(), os.timeBin(),
-                os.cpuTime(), OperationSource.fromFlatBuffer(os.source()),
-                OperationCategory.fromFlatBuffer(os.category()),
-                os.fileDescriptor(), os.data(), os.remoteCount(),
-                os.remoteCpuTime(), os.remoteData());
+    protected static void fromFlatBuffer(OperationStatisticsFB osfb,
+            ReadDataOperationStatistics rdos) {
+        DataOperationStatistics.fromFlatBuffer(osfb, rdos);
+        rdos.setRemoteCount(osfb.remoteCount());
+        rdos.setRemoteCpuTime(osfb.remoteCpuTime());
+        rdos.setRemoteData(osfb.remoteData());
     }
 
     @Override

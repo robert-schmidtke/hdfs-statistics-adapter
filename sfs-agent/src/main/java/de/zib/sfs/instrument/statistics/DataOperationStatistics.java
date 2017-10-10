@@ -7,12 +7,8 @@
  */
 package de.zib.sfs.instrument.statistics;
 
-import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 
-import com.google.flatbuffers.ByteBufferUtil;
-import com.google.flatbuffers.Constants;
 import com.google.flatbuffers.FlatBufferBuilder;
 
 import de.zib.sfs.instrument.statistics.bb.OperationStatisticsBufferBuilder;
@@ -73,16 +69,15 @@ public class DataOperationStatistics extends OperationStatistics {
         sb.append(separator).append(this.data);
     }
 
-    public static DataOperationStatistics fromCsv(String line, String separator,
-            int off) {
-        String[] values = line.split(separator);
-        return new DataOperationStatistics(Long.parseLong(values[off + 0]),
-                Long.parseLong(values[off + 1]),
-                Long.parseLong(values[off + 2]),
-                OperationSource.valueOf(values[off + 3].toUpperCase()),
-                OperationCategory.valueOf(values[off + 4].toUpperCase()),
-                Integer.parseInt(values[off + 5]),
-                Long.parseLong(values[off + 6]));
+    public static void fromCsv(String line, String separator, int off,
+            DataOperationStatistics dos) {
+        fromCsv(line.split(separator), off, dos);
+    }
+
+    public static void fromCsv(String[] values, int off,
+            DataOperationStatistics dos) {
+        OperationStatistics.fromCsv(values, off, dos);
+        dos.setData(Long.parseLong(values[off + 6]));
     }
 
     @Override
@@ -92,24 +87,15 @@ public class DataOperationStatistics extends OperationStatistics {
             OperationStatisticsFB.addData(builder, this.data);
     }
 
-    public static DataOperationStatistics fromFlatBuffer(ByteBuffer buffer) {
-        buffer.order(ByteOrder.LITTLE_ENDIAN);
+    public static void fromFlatBuffer(ByteBuffer buffer,
+            DataOperationStatistics dos) {
+        fromFlatBuffer(fromFlatBuffer(buffer), dos);
+    }
 
-        int length = Constants.SIZE_PREFIX_LENGTH;
-        if (buffer.remaining() < length)
-            throw new BufferUnderflowException();
-        length += ByteBufferUtil.getSizePrefix(buffer);
-        if (buffer.remaining() < length)
-            throw new BufferUnderflowException();
-        ByteBuffer osBuffer = ByteBufferUtil.removeSizePrefix(buffer);
-
-        OperationStatisticsFB os = OperationStatisticsFB
-                .getRootAsOperationStatisticsFB(osBuffer);
-        buffer.position(buffer.position() + length);
-        return new DataOperationStatistics(os.count(), os.timeBin(),
-                os.cpuTime(), OperationSource.fromFlatBuffer(os.source()),
-                OperationCategory.fromFlatBuffer(os.category()),
-                os.fileDescriptor(), os.data());
+    protected static void fromFlatBuffer(OperationStatisticsFB osfb,
+            DataOperationStatistics dos) {
+        OperationStatistics.fromFlatBuffer(osfb, dos);
+        dos.setData(osfb.data());
     }
 
     @Override

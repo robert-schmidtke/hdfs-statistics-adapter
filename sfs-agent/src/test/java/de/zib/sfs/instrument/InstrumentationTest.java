@@ -1483,8 +1483,9 @@ public class InstrumentationTest {
             // parse all files into OperationStatistics
             OperationStatisticsCallback callback = (operationStatistics) -> {
                 // JVM must be the only source, no SFS involved
-                assert (OperationSource.JVM
-                        .equals(operationStatistics.getSource()));
+                assert (OperationSource.JVM.equals(
+                        operationStatistics.getSource())) : operationStatistics
+                                .getSource();
 
                 NavigableMap<Long, NavigableMap<Integer, OperationStatistics>> timeBins = aggregates
                         .get(LiveOperationStatisticsAggregator.getUniqueIndex(
@@ -1593,23 +1594,27 @@ public class InstrumentationTest {
                 OperationStatistics operationStatistics = null;
                 switch (category) {
                 case OTHER:
-                    operationStatistics = OperationStatistics.fromCsv(line,
+                    operationStatistics = new OperationStatistics();
+                    OperationStatistics.fromCsv(line,
                             LiveOperationStatisticsAggregator.instance
                                     .getCsvOutputSeparator(),
-                            3);
+                            3, operationStatistics);
                     break;
                 case WRITE:
-                    operationStatistics = DataOperationStatistics.fromCsv(line,
+                    operationStatistics = new DataOperationStatistics();
+                    DataOperationStatistics.fromCsv(line,
                             LiveOperationStatisticsAggregator.instance
                                     .getCsvOutputSeparator(),
-                            3);
+                            3, (DataOperationStatistics) operationStatistics);
                     break;
                 case READ:
                 case ZIP:
-                    operationStatistics = ReadDataOperationStatistics.fromCsv(
-                            line, LiveOperationStatisticsAggregator.instance
+                    operationStatistics = new ReadDataOperationStatistics();
+                    ReadDataOperationStatistics.fromCsv(line,
+                            LiveOperationStatisticsAggregator.instance
                                     .getCsvOutputSeparator(),
-                            3);
+                            3,
+                            (ReadDataOperationStatistics) operationStatistics);
                     break;
                 default:
                     throw new IllegalArgumentException();
@@ -1646,17 +1651,20 @@ public class InstrumentationTest {
                 case FB:
                     switch (category) {
                     case OTHER:
-                        operationStatistics = OperationStatistics
-                                .fromFlatBuffer(buffer);
+                        operationStatistics = new OperationStatistics();
+                        OperationStatistics.fromFlatBuffer(buffer,
+                                operationStatistics);
                         break;
                     case WRITE:
-                        operationStatistics = DataOperationStatistics
-                                .fromFlatBuffer(buffer);
+                        operationStatistics = new DataOperationStatistics();
+                        DataOperationStatistics.fromFlatBuffer(buffer,
+                                (DataOperationStatistics) operationStatistics);
                         break;
                     case READ:
                     case ZIP:
-                        operationStatistics = ReadDataOperationStatistics
-                                .fromFlatBuffer(buffer);
+                        operationStatistics = new ReadDataOperationStatistics();
+                        ReadDataOperationStatistics.fromFlatBuffer(buffer,
+                                (ReadDataOperationStatistics) operationStatistics);
                         break;
                     default:
                         throw new IllegalArgumentException(category.name());
