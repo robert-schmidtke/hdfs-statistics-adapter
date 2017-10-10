@@ -61,6 +61,8 @@ public class ClassTransformationService {
             case "--verbose":
                 verbose = "y".equals(args[++i]);
                 break;
+            default:
+                throw new IllegalArgumentException(args[i]);
             }
             ++i;
         }
@@ -163,11 +165,11 @@ public class ClassTransformationService {
         // shut down the server when this VM is shut down
         LogUtil.stderr("Registering shutdown hook.\n");
         Runtime.getRuntime().addShutdownHook(new Thread() {
-            private ClassTransformationServer classTransformationServer;
+            private ClassTransformationServer cts;
 
             public Thread setClassTransformationServer(
-                    ClassTransformationServer classTransformationServer) {
-                this.classTransformationServer = classTransformationServer;
+                    ClassTransformationServer cts) {
+                this.cts = cts;
                 return this;
             }
 
@@ -175,9 +177,9 @@ public class ClassTransformationService {
             public void run() {
                 LogUtil.stderr("Running shutdown hook.\n");
                 try {
-                    if (classTransformationServer != null) {
+                    if (this.cts != null) {
                         LogUtil.stderr("Shutting down server.\n");
-                        classTransformationServer.shutdown();
+                        this.cts.shutdown();
                     }
                 } catch (InterruptedException e) {
                     System.err

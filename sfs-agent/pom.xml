@@ -277,6 +277,7 @@
                 <argument>-o</argument>
                 <argument>${project.build.directory}/generated-sources/flatbuffers/java</argument>
                 <argument>${project.build.sourceDirectory}/../fbs/operation_statistics.fbs</argument>
+                <gument>${project.build.sourceDirectory}/../fbs/file_descriptor_mapping.fbs</gument>
               </arguments>
             </configuration>
           </execution>

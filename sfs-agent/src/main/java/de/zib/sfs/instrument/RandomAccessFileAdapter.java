@@ -28,8 +28,7 @@ import de.zib.sfs.instrument.statistics.OperationCategory;
 public class RandomAccessFileAdapter extends AbstractSfsAdapter {
 
     public RandomAccessFileAdapter(ClassVisitor cv, String methodPrefix,
-            Set<OperationCategory> skip)
-            throws NoSuchMethodException, SecurityException {
+            Set<OperationCategory> skip) throws SecurityException {
         super(cv, RandomAccessFile.class, RandomAccessFileCallback.class,
                 methodPrefix, skip);
     }
@@ -47,7 +46,7 @@ public class RandomAccessFileAdapter extends AbstractSfsAdapter {
     }
 
     @Override
-    protected void appendWrappedMethods(ClassVisitor cv) {
+    protected void appendWrappedMethods(ClassVisitor visitor) {
         ResultPasser resultDiscarder = new DiscardResultPasser();
 
         wrapMethod(Opcodes.ACC_PRIVATE, "open", Type.VOID_TYPE,
@@ -190,7 +189,7 @@ public class RandomAccessFileAdapter extends AbstractSfsAdapter {
 
     }
 
-    private boolean isOpenMethod(int access, String name, String desc,
+    private static boolean isOpenMethod(int access, String name, String desc,
             String signature, String[] exceptions) {
         return access == Opcodes.ACC_PRIVATE && "open".equals(name)
                 && Type.getMethodDescriptor(Type.VOID_TYPE,

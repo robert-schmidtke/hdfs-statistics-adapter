@@ -9,6 +9,7 @@ package de.zib.sfs.instrument.statistics;
 
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 
 import com.google.flatbuffers.ByteBufferUtil;
 import com.google.flatbuffers.Constants;
@@ -20,6 +21,9 @@ import de.zib.sfs.instrument.statistics.fb.OperationStatisticsFB;
 public class ReadDataOperationStatistics extends DataOperationStatistics {
 
     private long remoteCount, remoteCpuTime, remoteData;
+
+    public ReadDataOperationStatistics() {
+    }
 
     public ReadDataOperationStatistics(long timeBinDuration,
             OperationSource source, OperationCategory category, long startTime,
@@ -39,7 +43,7 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
     }
 
     public long getRemoteCount() {
-        return remoteCount;
+        return this.remoteCount;
     }
 
     public void setRemoteCount(long remoteCount) {
@@ -47,15 +51,15 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
     }
 
     public long getRemoteCpuTime() {
-        return remoteCpuTime;
+        return this.remoteCpuTime;
     }
 
-    public void setRemoteDuration(long remoteDuration) {
+    public void setRemoteCpuTime(long remoteDuration) {
         this.remoteCpuTime = remoteDuration;
     }
 
     public long getRemoteData() {
-        return remoteData;
+        return this.remoteData;
     }
 
     public void setRemoteData(long remoteData) {
@@ -74,17 +78,16 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
                 aggregate.getTimeBin(), aggregate.getCpuTime(),
                 aggregate.getSource(), aggregate.getCategory(),
                 aggregate.getFileDescriptor(), aggregate.getData(),
-                remoteCount + ((ReadDataOperationStatistics) other)
+                this.remoteCount + ((ReadDataOperationStatistics) other)
                         .getRemoteCount(),
-                remoteCpuTime + ((ReadDataOperationStatistics) other)
+                this.remoteCpuTime + ((ReadDataOperationStatistics) other)
                         .getRemoteCpuTime(),
-                remoteData + ((ReadDataOperationStatistics) other)
+                this.remoteData + ((ReadDataOperationStatistics) other)
                         .getRemoteData());
     }
 
-    @Override
-    public void getCsvHeaders(String separator, StringBuilder sb) {
-        super.getCsvHeaders(separator, sb);
+    public static void getCsvHeaders(String separator, StringBuilder sb) {
+        DataOperationStatistics.getCsvHeaders(separator, sb);
         sb.append(separator).append("remoteCount");
         sb.append(separator).append("remoteCpuTime");
         sb.append(separator).append("remoteData");
@@ -93,9 +96,9 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
     @Override
     public void toCsv(String separator, StringBuilder sb) {
         super.toCsv(separator, sb);
-        sb.append(separator).append(remoteCount);
-        sb.append(separator).append(remoteCpuTime);
-        sb.append(separator).append(remoteData);
+        sb.append(separator).append(this.remoteCount);
+        sb.append(separator).append(this.remoteCpuTime);
+        sb.append(separator).append(this.remoteData);
     }
 
     public static ReadDataOperationStatistics fromCsv(String line,
@@ -116,27 +119,29 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
     @Override
     protected void toFlatBuffer(FlatBufferBuilder builder) {
         super.toFlatBuffer(builder);
-        if (remoteCount > 0)
-            OperationStatisticsFB.addRemoteCount(builder, remoteCount);
-        if (remoteCpuTime > 0)
-            OperationStatisticsFB.addRemoteCpuTime(builder, remoteCpuTime);
-        if (remoteData > 0)
-            OperationStatisticsFB.addRemoteData(builder, remoteData);
+        if (this.remoteCount > 0)
+            OperationStatisticsFB.addRemoteCount(builder, this.remoteCount);
+        if (this.remoteCpuTime > 0)
+            OperationStatisticsFB.addRemoteCpuTime(builder, this.remoteCpuTime);
+        if (this.remoteData > 0)
+            OperationStatisticsFB.addRemoteData(builder, this.remoteData);
     }
 
     public static ReadDataOperationStatistics fromFlatBuffer(
             ByteBuffer buffer) {
-        int length;
-        if (buffer.remaining() < Constants.SIZE_PREFIX_LENGTH
-                || (length = ByteBufferUtil.getSizePrefix(buffer)
-                        + Constants.SIZE_PREFIX_LENGTH) > buffer.remaining()) {
+        buffer.order(ByteOrder.LITTLE_ENDIAN);
+
+        int length = Constants.SIZE_PREFIX_LENGTH;
+        if (buffer.remaining() < length)
             throw new BufferUnderflowException();
-        }
+        length += ByteBufferUtil.getSizePrefix(buffer);
+        if (buffer.remaining() < length)
+            throw new BufferUnderflowException();
         ByteBuffer osBuffer = ByteBufferUtil.removeSizePrefix(buffer);
-        buffer.position(buffer.position() + length);
 
         OperationStatisticsFB os = OperationStatisticsFB
                 .getRootAsOperationStatisticsFB(osBuffer);
+        buffer.position(buffer.position() + length);
         return new ReadDataOperationStatistics(os.count(), os.timeBin(),
                 os.cpuTime(), OperationSource.fromFlatBuffer(os.source()),
                 OperationCategory.fromFlatBuffer(os.category()),
@@ -145,8 +150,9 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
     }
 
     @Override
-    public ByteBuffer toByteBuffer(String hostname, int pid, String key) {
-        return new OperationStatisticsBufferBuilder(this).serialize(hostname,
-                pid, key);
+    public void toByteBuffer(ByteBuffer hostname, int pid, ByteBuffer key,
+            ByteBuffer bb) {
+        OperationStatisticsBufferBuilder.serialize(hostname, pid, key, this,
+                bb);
     }
 }

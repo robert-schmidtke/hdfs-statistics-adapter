@@ -126,7 +126,7 @@ public class StatisticsFileSystem extends FileSystem {
     @Override
     public synchronized void initialize(URI name, Configuration conf)
             throws IOException {
-        if (initialized) {
+        if (this.initialized) {
             LOG.warn("Ignoring attempt to re-initialize file system.");
             return;
         }
@@ -148,17 +148,17 @@ public class StatisticsFileSystem extends FileSystem {
                             + ", using $HOSTNAME instead.");
                     hostname = System.getenv("HOSTNAME");
                 } else {
-                    BufferedReader reader = new BufferedReader(
+                    try (BufferedReader reader = new BufferedReader(
                             new InputStreamReader(
-                                    hostnameProcess.getInputStream()));
+                                    hostnameProcess.getInputStream()))) {
 
-                    StringBuilder hostnameBuilder = new StringBuilder();
-                    String line = "";
-                    while ((line = reader.readLine()) != null) {
-                        hostnameBuilder.append(line);
+                        StringBuilder hostnameBuilder = new StringBuilder();
+                        String line = "";
+                        while ((line = reader.readLine()) != null) {
+                            hostnameBuilder.append(line);
+                        }
+                        hostname = hostnameBuilder.toString();
                     }
-                    reader.close();
-                    hostname = hostnameBuilder.toString();
                 }
             } catch (InterruptedException e) {
                 LOG.warn("Error executing 'hostname', using $HOSTNAME instead.",
@@ -233,8 +233,8 @@ public class StatisticsFileSystem extends FileSystem {
             throw new RuntimeException(
                     SFS_WRAPPED_FS_CLASS_NAME_KEY + " not specified");
         }
-        wrappedFSScheme = getConf().get(SFS_WRAPPED_FS_SCHEME_KEY);
-        if (wrappedFSScheme == null) {
+        this.wrappedFSScheme = getConf().get(SFS_WRAPPED_FS_SCHEME_KEY);
+        if (this.wrappedFSScheme == null) {
             throw new RuntimeException(
                     SFS_WRAPPED_FS_SCHEME_KEY + " not specified");
         }
@@ -253,7 +253,7 @@ public class StatisticsFileSystem extends FileSystem {
                         .startsWith("org.xtreemfs.common.clients.hadoop")) {
             try {
                 // Wrap Hadoop file system directly.
-                wrappedFS = wrappedFSClass.asSubclass(FileSystem.class)
+                this.wrappedFS = wrappedFSClass.asSubclass(FileSystem.class)
                         .newInstance();
             } catch (Exception e) {
                 throw new RuntimeException("Error instantiating Hadoop class '"
@@ -265,27 +265,28 @@ public class StatisticsFileSystem extends FileSystem {
         }
 
         if (LOG.isDebugEnabled()) {
-            LOG.debug("Wrapping file system '" + wrappedFS.getClass().getName()
-                    + "' with scheme '" + wrappedFSScheme + "' as '"
-                    + getScheme() + "'.");
+            LOG.debug("Wrapping file system '"
+                    + this.wrappedFS.getClass().getName() + "' with scheme '"
+                    + this.wrappedFSScheme + "' as '" + getScheme() + "'.");
             LOG.debug("You can change it by setting '"
                     + SFS_WRAPPED_FS_CLASS_NAME_KEY + "'.");
         }
 
         if (name.getAuthority() != null) {
-            fileSystemUri = URI
+            this.fileSystemUri = URI
                     .create(getScheme() + "://" + name.getAuthority() + "/");
         } else {
-            fileSystemUri = URI.create(getScheme() + ":///");
+            this.fileSystemUri = URI.create(getScheme() + ":///");
         }
 
         // Finally initialize the wrapped file system with the unwrapped name.
-        URI wrappedFSUri = replaceUriScheme(name, getScheme(), wrappedFSScheme);
+        URI wrappedFSUri = replaceUriScheme(name, getScheme(),
+                this.wrappedFSScheme);
         if (LOG.isDebugEnabled()) {
             LOG.debug("Initializing wrapped file system with URI '"
                     + wrappedFSUri + "'.");
         }
-        wrappedFS.initialize(wrappedFSUri, conf);
+        this.wrappedFS.initialize(wrappedFSUri, conf);
 
         // Add shutdown hook that closes this file system
         Runtime.getRuntime().addShutdownHook(new Thread() {
@@ -306,18 +307,18 @@ public class StatisticsFileSystem extends FileSystem {
         String instrumentationSkip = getConf()
                 .get(SFS_INSTRUMENTATION_SKIP_KEY);
         if (instrumentationSkip != null) {
-            skipRead = instrumentationSkip.contains("r");
-            skipWrite = instrumentationSkip.contains("w");
-            skipOther = instrumentationSkip.contains("o");
+            this.skipRead = instrumentationSkip.contains("r");
+            this.skipWrite = instrumentationSkip.contains("w");
+            this.skipOther = instrumentationSkip.contains("o");
         }
 
-        initialized = true;
+        this.initialized = true;
     }
 
     @Override
     public Token<?>[] addDelegationTokens(String renewer,
             Credentials credentials) throws IOException {
-        return wrappedFS.addDelegationTokens(renewer, credentials);
+        return this.wrappedFS.addDelegationTokens(renewer, credentials);
     }
 
     @Override
@@ -325,14 +326,14 @@ public class StatisticsFileSystem extends FileSystem {
         long startTime = System.currentTimeMillis();
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream;
-        if (!skipWrite) {
+        if (!this.skipWrite) {
             stream = new WrappedFSDataOutputStream(
-                    wrappedFS.append(unwrappedPath), f,
+                    this.wrappedFS.append(unwrappedPath), f,
                     LiveOperationStatisticsAggregator.instance);
         } else {
-            stream = wrappedFS.append(unwrappedPath);
+            stream = this.wrappedFS.append(unwrappedPath);
         }
-        if (!skipOther) {
+        if (!this.skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
                     .registerFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
@@ -349,14 +350,14 @@ public class StatisticsFileSystem extends FileSystem {
         long startTime = System.currentTimeMillis();
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream;
-        if (!skipWrite) {
+        if (!this.skipWrite) {
             stream = new WrappedFSDataOutputStream(
-                    wrappedFS.append(unwrappedPath, bufferSize), f,
+                    this.wrappedFS.append(unwrappedPath, bufferSize), f,
                     LiveOperationStatisticsAggregator.instance);
         } else {
-            stream = wrappedFS.append(unwrappedPath, bufferSize);
+            stream = this.wrappedFS.append(unwrappedPath, bufferSize);
         }
-        if (!skipOther) {
+        if (!this.skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
                     .registerFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
@@ -373,14 +374,14 @@ public class StatisticsFileSystem extends FileSystem {
         long startTime = System.currentTimeMillis();
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream;
-        if (!skipWrite) {
+        if (!this.skipWrite) {
             stream = new WrappedFSDataOutputStream(
-                    wrappedFS.append(unwrappedPath, bufferSize, progress), f,
-                    LiveOperationStatisticsAggregator.instance);
+                    this.wrappedFS.append(unwrappedPath, bufferSize, progress),
+                    f, LiveOperationStatisticsAggregator.instance);
         } else {
-            stream = wrappedFS.append(unwrappedPath, bufferSize, progress);
+            stream = this.wrappedFS.append(unwrappedPath, bufferSize, progress);
         }
-        if (!skipOther) {
+        if (!this.skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
                     .registerFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
@@ -393,7 +394,7 @@ public class StatisticsFileSystem extends FileSystem {
 
     @Override
     public boolean cancelDeleteOnExit(Path f) {
-        return wrappedFS.cancelDeleteOnExit(unwrapPath(f));
+        return this.wrappedFS.cancelDeleteOnExit(unwrapPath(f));
     }
 
     @Override
@@ -401,13 +402,12 @@ public class StatisticsFileSystem extends FileSystem {
         close(false);
     }
 
-    private synchronized final void close(boolean fromShutdownHook)
-            throws IOException {
+    synchronized final void close(boolean fromShutdownHook) throws IOException {
         if (LOG.isDebugEnabled()) {
             LOG.debug("Closing file system.");
         }
 
-        if (closed) {
+        if (this.closed) {
             LOG.warn("Ignoring attempt to re-close file system.");
             return;
         }
@@ -419,7 +419,7 @@ public class StatisticsFileSystem extends FileSystem {
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Closing wrapped file system.");
             }
-            wrappedFS.close();
+            this.wrappedFS.close();
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Closed wrapped file system.");
             }
@@ -444,13 +444,13 @@ public class StatisticsFileSystem extends FileSystem {
         if (LOG.isDebugEnabled()) {
             LOG.debug("Closed file system.");
         }
-        closed = true;
+        this.closed = true;
     }
 
     @Override
     public void completeLocalOutput(Path fsOutputFile, Path tmpLocalFile)
             throws IOException {
-        wrappedFS.completeLocalOutput(unwrapPath(fsOutputFile),
+        this.wrappedFS.completeLocalOutput(unwrapPath(fsOutputFile),
                 unwrapPath(tmpLocalFile));
     }
 
@@ -460,13 +460,13 @@ public class StatisticsFileSystem extends FileSystem {
         for (int i = 0; i < psrcs.length; ++i) {
             unwrappedPsrcs[i] = unwrapPath(psrcs[i]);
         }
-        wrappedFS.concat(unwrapPath(trg), unwrappedPsrcs);
+        this.wrappedFS.concat(unwrapPath(trg), unwrappedPsrcs);
     }
 
     @Override
     public void copyFromLocalFile(boolean delSrc, boolean overwrite, Path src,
             Path dst) throws IOException {
-        wrappedFS.copyFromLocalFile(delSrc, overwrite, unwrapPath(src),
+        this.wrappedFS.copyFromLocalFile(delSrc, overwrite, unwrapPath(src),
                 unwrapPath(dst));
     }
 
@@ -477,36 +477,39 @@ public class StatisticsFileSystem extends FileSystem {
         for (int i = 0; i < srcs.length; ++i) {
             unwrappedSrcs[i] = unwrapPath(srcs[i]);
         }
-        wrappedFS.copyFromLocalFile(delSrc, overwrite, srcs, unwrapPath(dst));
+        this.wrappedFS.copyFromLocalFile(delSrc, overwrite, srcs,
+                unwrapPath(dst));
     }
 
     @Override
     public void copyFromLocalFile(boolean delSrc, Path src, Path dst)
             throws IOException {
-        wrappedFS.copyFromLocalFile(delSrc, unwrapPath(src), unwrapPath(dst));
+        this.wrappedFS.copyFromLocalFile(delSrc, unwrapPath(src),
+                unwrapPath(dst));
     }
 
     @Override
     public void copyFromLocalFile(Path src, Path dst) throws IOException {
-        wrappedFS.copyFromLocalFile(unwrapPath(src), unwrapPath(dst));
+        this.wrappedFS.copyFromLocalFile(unwrapPath(src), unwrapPath(dst));
     }
 
     @Override
     public void copyToLocalFile(boolean delSrc, Path src, Path dst)
             throws IOException {
-        wrappedFS.copyToLocalFile(delSrc, unwrapPath(src), unwrapPath(dst));
+        this.wrappedFS.copyToLocalFile(delSrc, unwrapPath(src),
+                unwrapPath(dst));
     }
 
     @Override
     public void copyToLocalFile(boolean delSrc, Path src, Path dst,
             boolean useRawLocalFileSystem) throws IOException {
-        wrappedFS.copyToLocalFile(delSrc, unwrapPath(src), unwrapPath(dst),
+        this.wrappedFS.copyToLocalFile(delSrc, unwrapPath(src), unwrapPath(dst),
                 useRawLocalFileSystem);
     }
 
     @Override
     public void copyToLocalFile(Path src, Path dst) throws IOException {
-        wrappedFS.copyToLocalFile(unwrapPath(src), unwrapPath(dst));
+        this.wrappedFS.copyToLocalFile(unwrapPath(src), unwrapPath(dst));
     }
 
     @Override
@@ -514,14 +517,14 @@ public class StatisticsFileSystem extends FileSystem {
         long startTime = System.currentTimeMillis();
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream;
-        if (!skipWrite) {
+        if (!this.skipWrite) {
             stream = new WrappedFSDataOutputStream(
-                    wrappedFS.create(unwrappedPath), f,
+                    this.wrappedFS.create(unwrappedPath), f,
                     LiveOperationStatisticsAggregator.instance);
         } else {
-            stream = wrappedFS.create(unwrappedPath);
+            stream = this.wrappedFS.create(unwrappedPath);
         }
-        if (!skipOther) {
+        if (!this.skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
                     .registerFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
@@ -538,14 +541,14 @@ public class StatisticsFileSystem extends FileSystem {
         long startTime = System.currentTimeMillis();
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream;
-        if (!skipWrite) {
+        if (!this.skipWrite) {
             stream = new WrappedFSDataOutputStream(
-                    wrappedFS.create(unwrappedPath, overwrite), f,
+                    this.wrappedFS.create(unwrappedPath, overwrite), f,
                     LiveOperationStatisticsAggregator.instance);
         } else {
-            stream = wrappedFS.create(unwrappedPath, overwrite);
+            stream = this.wrappedFS.create(unwrappedPath, overwrite);
         }
-        if (!skipOther) {
+        if (!this.skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
                     .registerFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
@@ -562,14 +565,15 @@ public class StatisticsFileSystem extends FileSystem {
         long startTime = System.currentTimeMillis();
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream;
-        if (!skipWrite) {
+        if (!this.skipWrite) {
             stream = new WrappedFSDataOutputStream(
-                    wrappedFS.create(unwrappedPath, overwrite, bufferSize), f,
-                    LiveOperationStatisticsAggregator.instance);
+                    this.wrappedFS.create(unwrappedPath, overwrite, bufferSize),
+                    f, LiveOperationStatisticsAggregator.instance);
         } else {
-            stream = wrappedFS.create(unwrappedPath, overwrite, bufferSize);
+            stream = this.wrappedFS.create(unwrappedPath, overwrite,
+                    bufferSize);
         }
-        if (!skipOther) {
+        if (!this.skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
                     .registerFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
@@ -586,16 +590,16 @@ public class StatisticsFileSystem extends FileSystem {
         long startTime = System.currentTimeMillis();
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream;
-        if (!skipWrite) {
+        if (!this.skipWrite) {
             stream = new WrappedFSDataOutputStream(
-                    wrappedFS.create(unwrappedPath, overwrite, bufferSize,
+                    this.wrappedFS.create(unwrappedPath, overwrite, bufferSize,
                             progress),
                     f, LiveOperationStatisticsAggregator.instance);
         } else {
-            stream = wrappedFS.create(unwrappedPath, overwrite, bufferSize,
+            stream = this.wrappedFS.create(unwrappedPath, overwrite, bufferSize,
                     progress);
         }
-        if (!skipOther) {
+        if (!this.skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
                     .registerFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
@@ -612,16 +616,16 @@ public class StatisticsFileSystem extends FileSystem {
         long startTime = System.currentTimeMillis();
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream;
-        if (!skipWrite) {
+        if (!this.skipWrite) {
             stream = new WrappedFSDataOutputStream(
-                    wrappedFS.create(unwrappedPath, overwrite, bufferSize,
+                    this.wrappedFS.create(unwrappedPath, overwrite, bufferSize,
                             replication, blockSize),
                     f, LiveOperationStatisticsAggregator.instance);
         } else {
-            stream = wrappedFS.create(unwrappedPath, overwrite, bufferSize,
+            stream = this.wrappedFS.create(unwrappedPath, overwrite, bufferSize,
                     replication, blockSize);
         }
-        if (!skipOther) {
+        if (!this.skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
                     .registerFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
@@ -639,16 +643,16 @@ public class StatisticsFileSystem extends FileSystem {
         long startTime = System.currentTimeMillis();
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream;
-        if (!skipWrite) {
+        if (!this.skipWrite) {
             stream = new WrappedFSDataOutputStream(
-                    wrappedFS.create(unwrappedPath, overwrite, bufferSize,
+                    this.wrappedFS.create(unwrappedPath, overwrite, bufferSize,
                             replication, blockSize, progress),
                     f, LiveOperationStatisticsAggregator.instance);
         } else {
-            stream = wrappedFS.create(unwrappedPath, overwrite, bufferSize,
+            stream = this.wrappedFS.create(unwrappedPath, overwrite, bufferSize,
                     replication, blockSize, progress);
         }
-        if (!skipOther) {
+        if (!this.skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
                     .registerFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
@@ -666,16 +670,16 @@ public class StatisticsFileSystem extends FileSystem {
         long startTime = System.currentTimeMillis();
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream;
-        if (!skipWrite) {
+        if (!this.skipWrite) {
             stream = new WrappedFSDataOutputStream(
-                    wrappedFS.create(unwrappedPath, permission, overwrite,
+                    this.wrappedFS.create(unwrappedPath, permission, overwrite,
                             bufferSize, replication, blockSize, progress),
                     f, LiveOperationStatisticsAggregator.instance);
         } else {
-            stream = wrappedFS.create(unwrappedPath, permission, overwrite,
+            stream = this.wrappedFS.create(unwrappedPath, permission, overwrite,
                     bufferSize, replication, blockSize, progress);
         }
-        if (!skipOther) {
+        if (!this.skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
                     .registerFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
@@ -693,16 +697,16 @@ public class StatisticsFileSystem extends FileSystem {
         long startTime = System.currentTimeMillis();
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream;
-        if (!skipWrite) {
+        if (!this.skipWrite) {
             stream = new WrappedFSDataOutputStream(
-                    wrappedFS.create(unwrappedPath, permission, flags,
+                    this.wrappedFS.create(unwrappedPath, permission, flags,
                             bufferSize, replication, blockSize, progress),
                     f, LiveOperationStatisticsAggregator.instance);
         } else {
-            stream = wrappedFS.create(unwrappedPath, permission, flags,
+            stream = this.wrappedFS.create(unwrappedPath, permission, flags,
                     bufferSize, replication, blockSize, progress);
         }
-        if (!skipOther) {
+        if (!this.skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
                     .registerFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
@@ -721,17 +725,17 @@ public class StatisticsFileSystem extends FileSystem {
         long startTime = System.currentTimeMillis();
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream;
-        if (!skipWrite) {
+        if (!this.skipWrite) {
             stream = new WrappedFSDataOutputStream(
-                    wrappedFS.create(unwrappedPath, permission, flags,
+                    this.wrappedFS.create(unwrappedPath, permission, flags,
                             bufferSize, replication, blockSize, progress,
                             checksumOpt),
                     f, LiveOperationStatisticsAggregator.instance);
         } else {
-            stream = wrappedFS.create(unwrappedPath, permission, flags,
+            stream = this.wrappedFS.create(unwrappedPath, permission, flags,
                     bufferSize, replication, blockSize, progress, checksumOpt);
         }
-        if (!skipOther) {
+        if (!this.skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
                     .registerFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
@@ -748,14 +752,14 @@ public class StatisticsFileSystem extends FileSystem {
         long startTime = System.currentTimeMillis();
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream;
-        if (!skipWrite) {
+        if (!this.skipWrite) {
             stream = new WrappedFSDataOutputStream(
-                    wrappedFS.create(unwrappedPath, progress), f,
+                    this.wrappedFS.create(unwrappedPath, progress), f,
                     LiveOperationStatisticsAggregator.instance);
         } else {
-            stream = wrappedFS.create(unwrappedPath, progress);
+            stream = this.wrappedFS.create(unwrappedPath, progress);
         }
-        if (!skipOther) {
+        if (!this.skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
                     .registerFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
@@ -772,14 +776,14 @@ public class StatisticsFileSystem extends FileSystem {
         long startTime = System.currentTimeMillis();
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream;
-        if (!skipWrite) {
+        if (!this.skipWrite) {
             stream = new WrappedFSDataOutputStream(
-                    wrappedFS.create(unwrappedPath, replication), f,
+                    this.wrappedFS.create(unwrappedPath, replication), f,
                     LiveOperationStatisticsAggregator.instance);
         } else {
-            stream = wrappedFS.create(unwrappedPath, replication);
+            stream = this.wrappedFS.create(unwrappedPath, replication);
         }
-        if (!skipOther) {
+        if (!this.skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
                     .registerFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
@@ -796,14 +800,15 @@ public class StatisticsFileSystem extends FileSystem {
         long startTime = System.currentTimeMillis();
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream;
-        if (!skipWrite) {
+        if (!this.skipWrite) {
             stream = new WrappedFSDataOutputStream(
-                    wrappedFS.create(unwrappedPath, replication, progress), f,
-                    LiveOperationStatisticsAggregator.instance);
+                    this.wrappedFS.create(unwrappedPath, replication, progress),
+                    f, LiveOperationStatisticsAggregator.instance);
         } else {
-            stream = wrappedFS.create(unwrappedPath, replication, progress);
+            stream = this.wrappedFS.create(unwrappedPath, replication,
+                    progress);
         }
-        if (!skipOther) {
+        if (!this.skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
                     .registerFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
@@ -816,7 +821,7 @@ public class StatisticsFileSystem extends FileSystem {
 
     @Override
     public boolean createNewFile(Path f) throws IOException {
-        return wrappedFS.createNewFile(unwrapPath(f));
+        return this.wrappedFS.createNewFile(unwrapPath(f));
     }
 
     @Override
@@ -827,16 +832,16 @@ public class StatisticsFileSystem extends FileSystem {
         long startTime = System.currentTimeMillis();
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream;
-        if (!skipWrite) {
+        if (!this.skipWrite) {
             stream = new WrappedFSDataOutputStream(
-                    wrappedFS.createNonRecursive(unwrappedPath, overwrite,
+                    this.wrappedFS.createNonRecursive(unwrappedPath, overwrite,
                             bufferSize, replication, blockSize, progress),
                     f, LiveOperationStatisticsAggregator.instance);
         } else {
-            stream = wrappedFS.createNonRecursive(unwrappedPath, overwrite,
+            stream = this.wrappedFS.createNonRecursive(unwrappedPath, overwrite,
                     bufferSize, replication, blockSize, progress);
         }
-        if (!skipOther) {
+        if (!this.skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
                     .registerFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
@@ -856,17 +861,18 @@ public class StatisticsFileSystem extends FileSystem {
         long startTime = System.currentTimeMillis();
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream;
-        if (!skipWrite) {
+        if (!this.skipWrite) {
             stream = new WrappedFSDataOutputStream(
-                    wrappedFS.createNonRecursive(unwrappedPath, permission,
+                    this.wrappedFS.createNonRecursive(unwrappedPath, permission,
                             overwrite, bufferSize, replication, blockSize,
                             progress),
                     f, LiveOperationStatisticsAggregator.instance);
         } else {
-            stream = wrappedFS.createNonRecursive(unwrappedPath, permission,
-                    overwrite, bufferSize, replication, blockSize, progress);
+            stream = this.wrappedFS.createNonRecursive(unwrappedPath,
+                    permission, overwrite, bufferSize, replication, blockSize,
+                    progress);
         }
-        if (!skipOther) {
+        if (!this.skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
                     .registerFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
@@ -886,17 +892,18 @@ public class StatisticsFileSystem extends FileSystem {
         long startTime = System.currentTimeMillis();
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream;
-        if (!skipWrite) {
+        if (!this.skipWrite) {
             stream = new WrappedFSDataOutputStream(
-                    wrappedFS.createNonRecursive(unwrappedPath, permission,
+                    this.wrappedFS.createNonRecursive(unwrappedPath, permission,
                             flags, bufferSize, replication, blockSize,
                             progress),
                     f, LiveOperationStatisticsAggregator.instance);
         } else {
-            stream = wrappedFS.createNonRecursive(unwrappedPath, permission,
-                    flags, bufferSize, replication, blockSize, progress);
+            stream = this.wrappedFS.createNonRecursive(unwrappedPath,
+                    permission, flags, bufferSize, replication, blockSize,
+                    progress);
         }
-        if (!skipOther) {
+        if (!this.skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
                     .registerFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
@@ -911,7 +918,8 @@ public class StatisticsFileSystem extends FileSystem {
     public Path createSnapshot(Path path, String snapshotName)
             throws IOException {
         UnwrappedPath unwrappedPath = unwrapPath(path);
-        Path result = wrappedFS.createSnapshot(unwrappedPath, snapshotName);
+        Path result = this.wrappedFS.createSnapshot(unwrappedPath,
+                snapshotName);
         return unwrappedPath.isUnwrapped() ? wrapPath(result) : result;
     }
 
@@ -920,22 +928,22 @@ public class StatisticsFileSystem extends FileSystem {
             throws AccessControlException, FileAlreadyExistsException,
             FileNotFoundException, ParentNotDirectoryException,
             UnsupportedFileSystemException, IOException {
-        wrappedFS.createSymlink(unwrapPath(target), unwrapPath(link),
+        this.wrappedFS.createSymlink(unwrapPath(target), unwrapPath(link),
                 createParent);
     }
 
     @Override
     @Deprecated
     public boolean delete(Path f) throws IOException {
-        return wrappedFS.delete(unwrapPath(f));
+        return this.wrappedFS.delete(unwrapPath(f));
     }
 
     @Override
     public boolean delete(Path f, boolean recursive) throws IOException {
         long startTime = System.currentTimeMillis();
         Path unwrappedPath = unwrapPath(f);
-        boolean result = wrappedFS.delete(unwrappedPath, recursive);
-        if (!skipOther) {
+        boolean result = this.wrappedFS.delete(unwrappedPath, recursive);
+        if (!this.skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
                     .registerFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
@@ -948,66 +956,66 @@ public class StatisticsFileSystem extends FileSystem {
 
     @Override
     public boolean deleteOnExit(Path f) throws IOException {
-        return wrappedFS.deleteOnExit(unwrapPath(f));
+        return this.wrappedFS.deleteOnExit(unwrapPath(f));
     }
 
     @Override
     public void deleteSnapshot(Path path, String snapshotName)
             throws IOException {
-        wrappedFS.deleteSnapshot(unwrapPath(path), snapshotName);
+        this.wrappedFS.deleteSnapshot(unwrapPath(path), snapshotName);
     }
 
     @Override
     public boolean exists(Path path) throws IOException {
-        return wrappedFS.exists(unwrapPath(path));
+        return this.wrappedFS.exists(unwrapPath(path));
     }
 
     @Override
     @Deprecated
     public long getBlockSize(Path f) throws IOException {
-        return wrappedFS.getBlockSize(unwrapPath(f));
+        return this.wrappedFS.getBlockSize(unwrapPath(f));
     }
 
     @Override
     public String getCanonicalServiceName() {
-        return wrappedFS.getCanonicalServiceName();
+        return this.wrappedFS.getCanonicalServiceName();
     }
 
     @Override
     public FileSystem[] getChildFileSystems() {
-        return wrappedFS.getChildFileSystems();
+        return this.wrappedFS.getChildFileSystems();
     }
 
     @Override
     public ContentSummary getContentSummary(Path path) throws IOException {
-        return wrappedFS.getContentSummary(unwrapPath(path));
+        return this.wrappedFS.getContentSummary(unwrapPath(path));
     }
 
     @Override
     @Deprecated
     public long getDefaultBlockSize() {
-        return wrappedFS.getDefaultBlockSize();
+        return this.wrappedFS.getDefaultBlockSize();
     }
 
     @Override
     public long getDefaultBlockSize(Path f) {
-        return wrappedFS.getDefaultBlockSize(unwrapPath(f));
+        return this.wrappedFS.getDefaultBlockSize(unwrapPath(f));
     }
 
     @Override
     @Deprecated
     public short getDefaultReplication() {
-        return wrappedFS.getDefaultReplication();
+        return this.wrappedFS.getDefaultReplication();
     }
 
     @Override
     public short getDefaultReplication(Path path) {
-        return wrappedFS.getDefaultReplication(unwrapPath(path));
+        return this.wrappedFS.getDefaultReplication(unwrapPath(path));
     }
 
     @Override
     public Token<?> getDelegationToken(String renewer) throws IOException {
-        return wrappedFS.getDelegationToken(renewer);
+        return this.wrappedFS.getDelegationToken(renewer);
     }
 
     @Override
@@ -1016,10 +1024,10 @@ public class StatisticsFileSystem extends FileSystem {
         long startTime = System.currentTimeMillis();
         Path path = file.getPath();
         file.setPath(unwrapPath(path));
-        BlockLocation[] blockLocations = wrappedFS.getFileBlockLocations(file,
-                start, len);
+        BlockLocation[] blockLocations = this.wrappedFS
+                .getFileBlockLocations(file, start, len);
         file.setPath(path);
-        if (!skipOther) {
+        if (!this.skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
                     .registerFileDescriptor(file.getPath().toString());
             LiveOperationStatisticsAggregator.instance
@@ -1035,9 +1043,9 @@ public class StatisticsFileSystem extends FileSystem {
             throws IOException {
         long startTime = System.currentTimeMillis();
         Path path = unwrapPath(p);
-        BlockLocation[] blockLocations = wrappedFS.getFileBlockLocations(path,
-                start, len);
-        if (!skipOther) {
+        BlockLocation[] blockLocations = this.wrappedFS
+                .getFileBlockLocations(path, start, len);
+        if (!this.skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
                     .registerFileDescriptor(p.toString());
             LiveOperationStatisticsAggregator.instance
@@ -1050,14 +1058,14 @@ public class StatisticsFileSystem extends FileSystem {
 
     @Override
     public FileChecksum getFileChecksum(Path f) throws IOException {
-        return wrappedFS.getFileChecksum(unwrapPath(f));
+        return this.wrappedFS.getFileChecksum(unwrapPath(f));
     }
 
     @Override
     public FileStatus getFileLinkStatus(Path f) throws AccessControlException,
             FileNotFoundException, UnsupportedFileSystemException, IOException {
         UnwrappedPath unwrappedPath = unwrapPath(f);
-        FileStatus fileStatus = wrappedFS.getFileLinkStatus(unwrappedPath);
+        FileStatus fileStatus = this.wrappedFS.getFileLinkStatus(unwrappedPath);
         if (unwrappedPath.isUnwrapped()) {
             fileStatus.setPath(setAuthority(wrapPath(fileStatus.getPath()),
                     f.toUri().getAuthority()));
@@ -1069,12 +1077,12 @@ public class StatisticsFileSystem extends FileSystem {
     public FileStatus getFileStatus(Path f) throws IOException {
         long startTime = System.currentTimeMillis();
         UnwrappedPath unwrappedPath = unwrapPath(f);
-        FileStatus fileStatus = wrappedFS.getFileStatus(unwrappedPath);
+        FileStatus fileStatus = this.wrappedFS.getFileStatus(unwrappedPath);
         if (unwrappedPath.isUnwrapped()) {
             fileStatus.setPath(setAuthority(wrapPath(fileStatus.getPath()),
                     f.toUri().getAuthority()));
         }
-        if (!skipOther) {
+        if (!this.skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
                     .registerFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
@@ -1087,33 +1095,33 @@ public class StatisticsFileSystem extends FileSystem {
 
     @Override
     public Path getHomeDirectory() {
-        return wrapPath(wrappedFS.getHomeDirectory());
+        return wrapPath(this.wrappedFS.getHomeDirectory());
     }
 
     @Override
     @Deprecated
     public long getLength(Path f) throws IOException {
-        return wrappedFS.getLength(unwrapPath(f));
+        return this.wrappedFS.getLength(unwrapPath(f));
     }
 
     @Override
     public Path getLinkTarget(Path f) throws IOException {
         UnwrappedPath unwrappedPath = unwrapPath(f);
         return unwrappedPath.isUnwrapped()
-                ? wrapPath(wrappedFS.getLinkTarget(unwrapPath(f)))
-                : wrappedFS.getLinkTarget(unwrapPath(f));
+                ? wrapPath(this.wrappedFS.getLinkTarget(unwrapPath(f)))
+                : this.wrappedFS.getLinkTarget(unwrapPath(f));
     }
 
     @Override
     @Deprecated
     public String getName() {
-        return wrappedFS.getName();
+        return this.wrappedFS.getName();
     }
 
     @Override
     @Deprecated
     public short getReplication(Path src) throws IOException {
-        return wrappedFS.getReplication(unwrapPath(src));
+        return this.wrappedFS.getReplication(unwrapPath(src));
     }
 
     @Override
@@ -1124,46 +1132,47 @@ public class StatisticsFileSystem extends FileSystem {
     @Override
     @Deprecated
     public FsServerDefaults getServerDefaults() throws IOException {
-        return wrappedFS.getServerDefaults();
+        return this.wrappedFS.getServerDefaults();
     }
 
     @Override
     public FsServerDefaults getServerDefaults(Path p) throws IOException {
-        return wrappedFS.getServerDefaults(unwrapPath(p));
+        return this.wrappedFS.getServerDefaults(unwrapPath(p));
     }
 
     @Override
     public FsStatus getStatus() throws IOException {
-        return wrappedFS.getStatus();
+        return this.wrappedFS.getStatus();
     }
 
     @Override
     public FsStatus getStatus(Path p) throws IOException {
-        return wrappedFS.getStatus(unwrapPath(p));
+        return this.wrappedFS.getStatus(unwrapPath(p));
     }
 
     @Override
     public URI getUri() {
-        return fileSystemUri;
+        return this.fileSystemUri;
     }
 
     @Override
     public long getUsed() throws IOException {
-        return wrappedFS.getUsed();
+        return this.wrappedFS.getUsed();
     }
 
     @Override
     public Path getWorkingDirectory() {
-        Path f = wrappedFS.getWorkingDirectory();
+        Path f = this.wrappedFS.getWorkingDirectory();
         Path wrappedWorkingDirectory = setAuthority(wrapPath(f),
-                fileSystemUri.getAuthority());
+                this.fileSystemUri.getAuthority());
         return wrappedWorkingDirectory;
     }
 
     @Override
     public FileStatus[] globStatus(Path pathPattern) throws IOException {
         UnwrappedPath unwrappedPathPattern = unwrapPath(pathPattern);
-        FileStatus[] fileStatuses = wrappedFS.globStatus(unwrappedPathPattern);
+        FileStatus[] fileStatuses = this.wrappedFS
+                .globStatus(unwrappedPathPattern);
         if (fileStatuses == null) {
             return null;
         }
@@ -1187,8 +1196,8 @@ public class StatisticsFileSystem extends FileSystem {
         };
 
         UnwrappedPath unwrappedPathPattern = unwrapPath(pathPattern);
-        FileStatus[] fileStatuses = wrappedFS.globStatus(unwrappedPathPattern,
-                wrappedFilter);
+        FileStatus[] fileStatuses = this.wrappedFS
+                .globStatus(unwrappedPathPattern, wrappedFilter);
         if (fileStatuses == null) {
             return null;
         }
@@ -1203,19 +1212,19 @@ public class StatisticsFileSystem extends FileSystem {
 
     @Override
     public boolean isDirectory(Path path) throws IOException {
-        return wrappedFS.isDirectory(unwrapPath(path));
+        return this.wrappedFS.isDirectory(unwrapPath(path));
     }
 
     @Override
     public boolean isFile(Path path) throws IOException {
-        return wrappedFS.isFile(unwrapPath(path));
+        return this.wrappedFS.isFile(unwrapPath(path));
     }
 
     @Override
     public RemoteIterator<Path> listCorruptFileBlocks(Path path)
             throws IOException {
         final UnwrappedPath unwrappedPath = unwrapPath(path);
-        final RemoteIterator<Path> it = wrappedFS
+        final RemoteIterator<Path> it = this.wrappedFS
                 .listCorruptFileBlocks(unwrappedPath);
         return new RemoteIterator<Path>() {
             @Override
@@ -1235,7 +1244,7 @@ public class StatisticsFileSystem extends FileSystem {
     public RemoteIterator<LocatedFileStatus> listFiles(Path f,
             boolean recursive) throws FileNotFoundException, IOException {
         final UnwrappedPath unwrappedPath = unwrapPath(f);
-        final RemoteIterator<LocatedFileStatus> it = wrappedFS
+        final RemoteIterator<LocatedFileStatus> it = this.wrappedFS
                 .listFiles(unwrappedPath, recursive);
         return new RemoteIterator<LocatedFileStatus>() {
             @Override
@@ -1260,7 +1269,7 @@ public class StatisticsFileSystem extends FileSystem {
     public RemoteIterator<LocatedFileStatus> listLocatedStatus(Path f)
             throws FileNotFoundException, IOException {
         final UnwrappedPath unwrappedPath = unwrapPath(f);
-        final RemoteIterator<LocatedFileStatus> it = wrappedFS
+        final RemoteIterator<LocatedFileStatus> it = this.wrappedFS
                 .listLocatedStatus(unwrappedPath);
         return new RemoteIterator<LocatedFileStatus>() {
             @Override
@@ -1286,14 +1295,14 @@ public class StatisticsFileSystem extends FileSystem {
             throws FileNotFoundException, IOException {
         long startTime = System.currentTimeMillis();
         UnwrappedPath unwrappedPath = unwrapPath(f);
-        FileStatus[] fileStatuses = wrappedFS.listStatus(unwrappedPath);
+        FileStatus[] fileStatuses = this.wrappedFS.listStatus(unwrappedPath);
         if (unwrappedPath.isUnwrapped()) {
             for (FileStatus fileStatus : fileStatuses) {
                 fileStatus.setPath(setAuthority(wrapPath(fileStatus.getPath()),
                         f.toUri().getAuthority()));
             }
         }
-        if (!skipOther) {
+        if (!this.skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
                     .registerFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
@@ -1316,7 +1325,7 @@ public class StatisticsFileSystem extends FileSystem {
             }
         };
 
-        FileStatus[] fileStatuses = wrappedFS.listStatus(unwrappedPath,
+        FileStatus[] fileStatuses = this.wrappedFS.listStatus(unwrappedPath,
                 wrappedFilter);
         if (unwrappedPath.isUnwrapped()) {
             for (FileStatus fileStatus : fileStatuses) {
@@ -1324,7 +1333,7 @@ public class StatisticsFileSystem extends FileSystem {
                         f.toUri().getAuthority()));
             }
         }
-        if (!skipOther) {
+        if (!this.skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
                     .registerFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
@@ -1343,7 +1352,7 @@ public class StatisticsFileSystem extends FileSystem {
             unwrappedFiles[i] = unwrapPath(files[i]);
         }
 
-        FileStatus[] fileStatuses = wrappedFS.listStatus(unwrappedFiles);
+        FileStatus[] fileStatuses = this.wrappedFS.listStatus(unwrappedFiles);
         for (int i = 0; i < fileStatuses.length; ++i) {
             if (unwrappedFiles[i].isUnwrapped()) {
                 fileStatuses[i].setPath(
@@ -1364,12 +1373,12 @@ public class StatisticsFileSystem extends FileSystem {
 
         PathFilter wrappedFilter = new PathFilter() {
             @Override
-            public boolean accept(Path path) {
-                return filter.accept(unwrapPath(path));
+            public boolean accept(Path p) {
+                return filter.accept(unwrapPath(p));
             }
         };
 
-        FileStatus[] fileStatuses = wrappedFS.listStatus(unwrappedPaths,
+        FileStatus[] fileStatuses = this.wrappedFS.listStatus(unwrappedPaths,
                 wrappedFilter);
         for (int i = 0; i < fileStatuses.length; ++i) {
             if (unwrappedPaths[i].isUnwrapped()) {
@@ -1385,21 +1394,21 @@ public class StatisticsFileSystem extends FileSystem {
     public Path makeQualified(Path path) {
         UnwrappedPath unwrappedPath = unwrapPath(path);
         return unwrappedPath.isUnwrapped()
-                ? wrapPath(wrappedFS.makeQualified(unwrappedPath))
-                : wrappedFS.makeQualified(unwrappedPath);
+                ? wrapPath(this.wrappedFS.makeQualified(unwrappedPath))
+                : this.wrappedFS.makeQualified(unwrappedPath);
     }
 
     @Override
     public boolean mkdirs(Path f) throws IOException {
-        return wrappedFS.mkdirs(unwrapPath(f));
+        return this.wrappedFS.mkdirs(unwrapPath(f));
     }
 
     @Override
     public boolean mkdirs(Path f, FsPermission permission) throws IOException {
         long startTime = System.currentTimeMillis();
         Path unwrappedPath = unwrapPath(f);
-        boolean result = wrappedFS.mkdirs(unwrappedPath, permission);
-        if (!skipOther) {
+        boolean result = this.wrappedFS.mkdirs(unwrappedPath, permission);
+        if (!this.skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
                     .registerFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
@@ -1412,7 +1421,7 @@ public class StatisticsFileSystem extends FileSystem {
 
     @Override
     public void moveFromLocalFile(Path src, Path dst) throws IOException {
-        wrappedFS.moveFromLocalFile(unwrapPath(src), unwrapPath(dst));
+        this.wrappedFS.moveFromLocalFile(unwrapPath(src), unwrapPath(dst));
     }
 
     @Override
@@ -1421,12 +1430,12 @@ public class StatisticsFileSystem extends FileSystem {
         for (int i = 0; i < srcs.length; ++i) {
             unwrappedSrcs[i] = unwrapPath(srcs[i]);
         }
-        wrappedFS.moveFromLocalFile(unwrappedSrcs, unwrapPath(dst));
+        this.wrappedFS.moveFromLocalFile(unwrappedSrcs, unwrapPath(dst));
     }
 
     @Override
     public void moveToLocalFile(Path src, Path dst) throws IOException {
-        wrappedFS.moveToLocalFile(unwrapPath(src), unwrapPath(dst));
+        this.wrappedFS.moveToLocalFile(unwrapPath(src), unwrapPath(dst));
     }
 
     @Override
@@ -1434,14 +1443,15 @@ public class StatisticsFileSystem extends FileSystem {
         long startTime = System.currentTimeMillis();
         Path unwrappedPath = unwrapPath(f);
         FSDataInputStream stream;
-        if (!skipRead) {
+        if (!this.skipRead) {
             stream = new FSDataInputStream(new WrappedFSDataInputStream(
-                    wrappedFS.open(unwrappedPath), f,
-                    LiveOperationStatisticsAggregator.instance, skipOther));
+                    this.wrappedFS.open(unwrappedPath), f,
+                    LiveOperationStatisticsAggregator.instance,
+                    this.skipOther));
         } else {
-            stream = wrappedFS.open(unwrappedPath);
+            stream = this.wrappedFS.open(unwrappedPath);
         }
-        if (!skipOther) {
+        if (!this.skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
                     .registerFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
@@ -1457,14 +1467,15 @@ public class StatisticsFileSystem extends FileSystem {
         long startTime = System.currentTimeMillis();
         Path unwrappedPath = unwrapPath(f);
         FSDataInputStream stream;
-        if (!skipRead) {
+        if (!this.skipRead) {
             stream = new FSDataInputStream(new WrappedFSDataInputStream(
-                    wrappedFS.open(unwrappedPath, bufferSize), f,
-                    LiveOperationStatisticsAggregator.instance, skipOther));
+                    this.wrappedFS.open(unwrappedPath, bufferSize), f,
+                    LiveOperationStatisticsAggregator.instance,
+                    this.skipOther));
         } else {
-            stream = wrappedFS.open(unwrappedPath, bufferSize);
+            stream = this.wrappedFS.open(unwrappedPath, bufferSize);
         }
-        if (!skipOther) {
+        if (!this.skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
                     .registerFileDescriptor(f.toString());
             LiveOperationStatisticsAggregator.instance
@@ -1480,8 +1491,8 @@ public class StatisticsFileSystem extends FileSystem {
         long startTime = System.currentTimeMillis();
         Path unwrappedSrc = unwrapPath(src);
         Path unwrappedDst = unwrapPath(dst);
-        boolean result = wrappedFS.rename(unwrappedSrc, unwrappedDst);
-        if (!skipOther) {
+        boolean result = this.wrappedFS.rename(unwrappedSrc, unwrappedDst);
+        if (!this.skipOther) {
             int fd = LiveOperationStatisticsAggregator.instance
                     .registerFileDescriptor(src.toString());
             LiveOperationStatisticsAggregator.instance
@@ -1495,7 +1506,7 @@ public class StatisticsFileSystem extends FileSystem {
     @Override
     public void renameSnapshot(Path path, String snapshotOldName,
             String snapshotNewName) throws IOException {
-        wrappedFS.renameSnapshot(unwrapPath(path), snapshotOldName,
+        this.wrappedFS.renameSnapshot(unwrapPath(path), snapshotOldName,
                 snapshotNewName);
     }
 
@@ -1503,47 +1514,47 @@ public class StatisticsFileSystem extends FileSystem {
     public Path resolvePath(Path p) throws IOException {
         UnwrappedPath unwrappedPath = unwrapPath(p);
         return unwrappedPath.isUnwrapped()
-                ? wrapPath(wrappedFS.resolvePath(unwrappedPath))
-                : wrappedFS.resolvePath(unwrappedPath);
+                ? wrapPath(this.wrappedFS.resolvePath(unwrappedPath))
+                : this.wrappedFS.resolvePath(unwrappedPath);
     }
 
     @Override
     public void setOwner(Path p, String username, String groupname)
             throws IOException {
-        wrappedFS.setOwner(unwrapPath(p), username, groupname);
+        this.wrappedFS.setOwner(unwrapPath(p), username, groupname);
     }
 
     @Override
     public void setPermission(Path p, FsPermission permission)
             throws IOException {
-        wrappedFS.setPermission(unwrapPath(p), permission);
+        this.wrappedFS.setPermission(unwrapPath(p), permission);
     }
 
     @Override
     public boolean setReplication(Path src, short replication)
             throws IOException {
-        return wrappedFS.setReplication(unwrapPath(src), replication);
+        return this.wrappedFS.setReplication(unwrapPath(src), replication);
     }
 
     @Override
     public void setTimes(Path p, long mtime, long atime) throws IOException {
-        wrappedFS.setTimes(unwrapPath(p), mtime, atime);
+        this.wrappedFS.setTimes(unwrapPath(p), mtime, atime);
     }
 
     @Override
     public void setVerifyChecksum(boolean verifyChecksum) {
-        wrappedFS.setVerifyChecksum(verifyChecksum);
+        this.wrappedFS.setVerifyChecksum(verifyChecksum);
     }
 
     @Override
     public void setWorkingDirectory(Path new_dir) {
         Path unwrappedPath = unwrapPath(new_dir);
-        wrappedFS.setWorkingDirectory(unwrappedPath);
+        this.wrappedFS.setWorkingDirectory(unwrappedPath);
     }
 
     @Override
     public void setWriteChecksum(boolean writeChecksum) {
-        wrappedFS.setWriteChecksum(writeChecksum);
+        this.wrappedFS.setWriteChecksum(writeChecksum);
     }
 
     @Override
@@ -1551,20 +1562,20 @@ public class StatisticsFileSystem extends FileSystem {
             throws IOException {
         UnwrappedPath unwrappedFsOutputFile = unwrapPath(fsOutputFile);
         return unwrappedFsOutputFile.isUnwrapped()
-                ? wrapPath(wrappedFS.startLocalOutput(unwrappedFsOutputFile,
-                        tmpLocalFile))
-                : wrappedFS.startLocalOutput(unwrappedFsOutputFile,
+                ? wrapPath(this.wrappedFS
+                        .startLocalOutput(unwrappedFsOutputFile, tmpLocalFile))
+                : this.wrappedFS.startLocalOutput(unwrappedFsOutputFile,
                         tmpLocalFile);
     }
 
     @Override
     public boolean supportsSymlinks() {
-        return wrappedFS.supportsSymlinks();
+        return this.wrappedFS.supportsSymlinks();
     }
 
     // Helper methods.
 
-    private URI replaceUriScheme(URI uri, String from, String to) {
+    private static URI replaceUriScheme(URI uri, String from, String to) {
         // TODO add cache for replaced URIs? possibly useful for scenarios with
         // many metadata operations.
 
@@ -1606,13 +1617,13 @@ public class StatisticsFileSystem extends FileSystem {
                 // uri has wrong scheme
                 return null;
             }
-        } else {
-            // uri has no scheme
-            return null;
         }
+
+        // uri has no scheme
+        return null;
     }
 
-    private Path setAuthority(Path path, String authority) {
+    static Path setAuthority(Path path, String authority) {
         if (authority != null) {
             URI pathUri = path.toUri();
             String query = pathUri.getQuery();
@@ -1622,14 +1633,14 @@ public class StatisticsFileSystem extends FileSystem {
                             + pathUri.getPath()
                             + (query != null ? ("?" + query) : ""))
                     + (fragment != null ? ("#" + fragment) : ""));
-        } else {
-            return path;
         }
+
+        return path;
     }
 
-    private UnwrappedPath unwrapPath(Path path) {
+    UnwrappedPath unwrapPath(Path path) {
         URI unwrappedUri = replaceUriScheme(path.toUri(), getScheme(),
-                wrappedFSScheme);
+                this.wrappedFSScheme);
 
         // if the returned URI is null, then the path has not been unwrapped,
         // either because it has no scheme, it has the wrong scheme, or it
@@ -1638,10 +1649,10 @@ public class StatisticsFileSystem extends FileSystem {
                 : new UnwrappedPath(path.toUri(), false);
     }
 
-    private Path wrapPath(Path path) {
+    Path wrapPath(Path path) {
         // only wrap the path if it has been unwrapped before
-        return new Path(
-                replaceUriScheme(path.toUri(), wrappedFSScheme, getScheme()));
+        return new Path(replaceUriScheme(path.toUri(), this.wrappedFSScheme,
+                getScheme()));
     }
 
     private static class UnwrappedPath extends Path {
@@ -1649,7 +1660,7 @@ public class StatisticsFileSystem extends FileSystem {
 
         public UnwrappedPath(URI aUri) {
             super(aUri);
-            unwrapped = false;
+            this.unwrapped = false;
         }
 
         public UnwrappedPath(URI aUri, boolean unwrapped) {
@@ -1658,7 +1669,7 @@ public class StatisticsFileSystem extends FileSystem {
         }
 
         public boolean isUnwrapped() {
-            return unwrapped;
+            return this.unwrapped;
         }
     }
 }

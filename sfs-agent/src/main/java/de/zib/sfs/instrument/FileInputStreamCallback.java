@@ -24,17 +24,18 @@ public class FileInputStreamCallback extends AbstractSfsCallback {
 
     public void openCallback(long startTime, long endTime, String filename) {
         try {
-            fd = LiveOperationStatisticsAggregator.instance
-                    .registerFileDescriptor(filename, fis.getFD());
-            fis = null;
+            this.fd = LiveOperationStatisticsAggregator.instance
+                    .registerFileDescriptor(filename, this.fis.getFD());
+            this.fis = null;
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
 
-        if (!skipOther) {
+        if (!this.skipOther) {
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.JVM,
-                            OperationCategory.OTHER, startTime, endTime, fd);
+                            OperationCategory.OTHER, startTime, endTime,
+                            this.fd);
         }
     }
 
@@ -42,7 +43,7 @@ public class FileInputStreamCallback extends AbstractSfsCallback {
         getFileDescriptor();
         LiveOperationStatisticsAggregator.instance
                 .aggregateReadDataOperationStatistics(OperationSource.JVM,
-                        OperationCategory.READ, startTime, endTime, fd,
+                        OperationCategory.READ, startTime, endTime, this.fd,
                         readResult == -1 ? 0 : 1, false);
     }
 
@@ -51,23 +52,23 @@ public class FileInputStreamCallback extends AbstractSfsCallback {
         getFileDescriptor();
         LiveOperationStatisticsAggregator.instance
                 .aggregateReadDataOperationStatistics(OperationSource.JVM,
-                        OperationCategory.READ, startTime, endTime, fd,
+                        OperationCategory.READ, startTime, endTime, this.fd,
                         readResult == -1 ? 0 : readResult, false);
     }
 
     private void getFileDescriptor() {
-        if (fd != -1) {
+        if (this.fd != -1) {
             return;
         }
         try {
             synchronized (this) {
-                if (fis == null) {
+                if (this.fis == null) {
                     return;
                 }
 
-                fd = LiveOperationStatisticsAggregator.instance
-                        .getFileDescriptor(fis.getFD());
-                fis = null;
+                this.fd = LiveOperationStatisticsAggregator.instance
+                        .getFileDescriptor(this.fis.getFD());
+                this.fis = null;
             }
         } catch (IOException e) {
             throw new RuntimeException(e);

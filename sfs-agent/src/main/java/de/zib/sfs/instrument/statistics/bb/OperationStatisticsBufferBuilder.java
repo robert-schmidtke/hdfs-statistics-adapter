@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 by Robert Schmidtke,
+ * Copyright (c) 2017 by Robert Schmidtke,
  *               Zuse Institute Berlin
  *
  * Licensed under the BSD License, see LICENSE file for details.
@@ -7,6 +7,7 @@
  */
 package de.zib.sfs.instrument.statistics.bb;
 
+import java.nio.BufferOverflowException;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -14,7 +15,6 @@ import java.nio.CharBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.Charset;
 import java.nio.charset.CharsetDecoder;
-import java.nio.charset.CharsetEncoder;
 import java.nio.charset.CoderResult;
 
 import de.zib.sfs.instrument.statistics.DataOperationStatistics;
@@ -30,28 +30,25 @@ public class OperationStatisticsBufferBuilder {
         OS, DOS, RDOS;
     }
 
-    private final OperationStatistics os;
-    private final ByteBuffer bb;
-
-    private short header;
-    private final byte[] headerExt;
-    private int size;
-
-    public final static ThreadLocal<CharsetEncoder> ENCODER = new ThreadLocal<CharsetEncoder>() {
-        @Override
-        protected CharsetEncoder initialValue() {
-            return Charset.forName("US-ASCII").newEncoder();
-        }
-    };
-    private final static ThreadLocal<CharsetDecoder> DECODER = new ThreadLocal<CharsetDecoder>() {
+    private static final ThreadLocal<CharsetDecoder> DECODER = new ThreadLocal<CharsetDecoder>() {
         @Override
         protected CharsetDecoder initialValue() {
             return Charset.forName("US-ASCII").newDecoder();
         }
     };
 
-    private OperationStatisticsBufferBuilder(int headerExtLength,
-            OperationStatistics os) {
+    private static final ThreadLocal<CharBuffer> BUFFER = new ThreadLocal<CharBuffer>() {
+        @Override
+        protected CharBuffer initialValue() {
+            return CharBuffer.allocate(256);
+        }
+    };
+
+    public static void serialize(ByteBuffer hostnameBb, int pid,
+            ByteBuffer keyBb, OperationStatistics os, ByteBuffer bb) {
+        ByteBuffer hostname = hostnameBb.slice();
+        ByteBuffer key = keyBb.slice();
+
         // 0-1: empty
         // 2-3: type (OS, DOS, RDOS)
         // 4: hasPid
@@ -62,151 +59,152 @@ public class OperationStatisticsBufferBuilder {
         // 11-12: cpuTimeType
         // 13: hasFd
         // 14-15: fdType
-        this.os = os;
-        bb = null;
-        headerExt = new byte[headerExtLength];
-        size = headerExtLength + 2;
-        setCountInfo(os.getCount());
-        setCpuTimeInfo(os.getCpuTime());
-        setFdInfo(os.getFileDescriptor());
+        short header = 0;
 
-        size += 8; // timeBin
-        size += 1; // source
-        size += 1; // category
-    }
+        // for the short header
+        int size = 2;
 
-    public OperationStatisticsBufferBuilder(OperationStatistics os) {
-        this(0, os);
-        setOperationStatisticsType(OperationStatisticsType.OS);
-    }
+        int ost = OperationStatisticsType.OS.ordinal();
+        if (os instanceof ReadDataOperationStatistics) {
+            ost = OperationStatisticsType.RDOS.ordinal();
+        } else if (os instanceof DataOperationStatistics) {
+            ost = OperationStatisticsType.DOS.ordinal();
+        }
+        header |= ost << 12;
 
-    private OperationStatisticsBufferBuilder(int headerExtLength,
-            DataOperationStatistics dos) {
-        // see above for 0-15
-        // 16: empty
-        // 17: hasData
-        // 18-19: dataType
-        // 20-23: empty
-        this(headerExtLength, (OperationStatistics) dos);
-        setDataInfo(dos.getData());
-    }
+        // an additional byte per extended header
+        size += ost;
 
-    public OperationStatisticsBufferBuilder(DataOperationStatistics dos) {
-        this(1, dos);
-        setOperationStatisticsType(OperationStatisticsType.DOS);
-    }
-
-    private OperationStatisticsBufferBuilder(int headerExtLength,
-            ReadDataOperationStatistics rdos) {
-        // see above for 0-19
-        // 20: hasRemoteCount
-        // 21-22: remoteCountType
-        // 23-24: empty
-        // 25: hasRemoteCpuTime
-        // 26-27: remoteCpuTimeType
-        // 28: hasRemoteData
-        // 29-30: remoteDataType
-        // 31: empty
-        this(headerExtLength, (DataOperationStatistics) rdos);
-        setRemoteCountInfo(rdos.getRemoteCount());
-        setRemoteCpuTimeInfo(rdos.getRemoteCpuTime());
-        setRemoteDataInfo(rdos.getRemoteData());
-    }
-
-    public OperationStatisticsBufferBuilder(ReadDataOperationStatistics rdos) {
-        this(2, rdos);
-        setOperationStatisticsType(OperationStatisticsType.RDOS);
-    }
-
-    public OperationStatisticsBufferBuilder(ByteBuffer bb) {
-        os = null;
-        this.bb = bb;
-        this.bb.order(ByteOrder.LITTLE_ENDIAN);
-
-        header = this.bb.getShort();
-        switch (getOperationStatisticsType()) {
-        case OS:
-            size = 2;
-            break;
-        case DOS:
-            size = 3;
-            break;
-        case RDOS:
-            size = 4;
-            break;
-        default:
-            throw new IllegalArgumentException();
+        NumberType ntPid = ByteBufferUtil.getNumberType(pid);
+        if (pid != 0) {
+            header |= 0b100 << 9;
+            header |= ntPid.ordinal() << 9;
+            size += ntPid.getSize();
         }
 
-        headerExt = new byte[size - 2];
-        for (int i = 0; i < size - 2; ++i) {
-            headerExt[i] = this.bb.get();
+        NumberType ntCount = ByteBufferUtil.getNumberType(os.getCount());
+        if (os.getCount() != 0) {
+            header |= 0b100 << 6;
+            header |= ntCount.ordinal() << 6;
+            size += ntCount.getSize();
         }
-    }
 
-    public ByteBuffer serialize(String hostname, int pid, String key) {
-        CharsetEncoder encoder = ENCODER.get();
+        NumberType ntTime = ByteBufferUtil.getNumberType(os.getCpuTime());
+        if (os.getCpuTime() != 0) {
+            header |= 0b100 << 3;
+            header |= ntTime.ordinal() << 3;
+            size += ntTime.getSize();
+        }
 
-        setPidInfo(pid);
+        NumberType ntFd = ByteBufferUtil.getNumberType(os.getFileDescriptor());
+        if (os.getFileDescriptor() != 0) {
+            header |= 0b100;
+            header |= ntFd.ordinal();
+            size += ntFd.getSize();
+        }
 
-        int hostnameLength = hostname.length();
+        byte[] extHeader = new byte[ost];
+
+        NumberType ntData = null;
+        if (ost > 0) {
+            // see above for 0-15
+            // 16: empty
+            // 17: hasData
+            // 18-19: dataType
+            // 20-23: empty
+            DataOperationStatistics dos = (DataOperationStatistics) os;
+            ntData = ByteBufferUtil.getNumberType(dos.getData());
+            if (dos.getData() != 0) {
+                extHeader[0] |= 0b100 << 4;
+                extHeader[0] |= ntData.ordinal() << 4;
+                size += ntData.getSize();
+            }
+        }
+
+        NumberType ntRemoteCount = null;
+        NumberType ntRemoteTime = null;
+        NumberType ntRemoteData = null;
+        if (ost > 1) {
+            // see above for 0-19
+            // 20: hasRemoteCount
+            // 21-22: remoteCountType
+            // 23-24: empty
+            // 25: hasRemoteCpuTime
+            // 26-27: remoteCpuTimeType
+            // 28: hasRemoteData
+            // 29-30: remoteDataType
+            // 31: empty
+            ReadDataOperationStatistics rdos = (ReadDataOperationStatistics) os;
+
+            ntRemoteCount = ByteBufferUtil.getNumberType(rdos.getRemoteCount());
+            if (rdos.getRemoteCount() != 0) {
+                extHeader[0] |= 0b100 << 1;
+                extHeader[0] |= ntRemoteCount.ordinal() << 1;
+                size += ntRemoteCount.getSize();
+            }
+
+            ntRemoteTime = ByteBufferUtil
+                    .getNumberType(rdos.getRemoteCpuTime());
+            if (rdos.getRemoteCpuTime() != 0) {
+                extHeader[1] |= 0b100 << 4;
+                extHeader[1] |= ntRemoteTime.ordinal() << 4;
+                size += ntRemoteTime.getSize();
+            }
+
+            ntRemoteData = ByteBufferUtil.getNumberType(rdos.getRemoteData());
+            if (rdos.getRemoteData() != 0) {
+                extHeader[1] |= 0b100 << 1;
+                extHeader[1] |= ntRemoteData.ordinal() << 1;
+                size += ntRemoteData.getSize();
+            }
+        }
+
+        int hostnameLength = hostname.remaining();
         if (hostnameLength - Byte.MAX_VALUE > Byte.MAX_VALUE) {
-            throw new IllegalArgumentException(hostname);
+            throw new IllegalArgumentException("Length: " + hostnameLength);
         }
         size += hostnameLength;
         size += 1; // for encoding the length, 255 at most
 
-        int keyLength = key.length();
+        int keyLength = key.remaining();
         if (keyLength - Byte.MAX_VALUE > Byte.MAX_VALUE) {
-            throw new IllegalArgumentException(key);
+            throw new IllegalArgumentException("Length: " + keyLength);
         }
-        size += key.length();
+        size += keyLength;
         size += 1; // for encoding the length, 255 at most
 
-        ByteBuffer bb = ByteBuffer.allocate(size);
+        size += 8; // timeBin
+        size += 1; // source
+        size += 1; // category
+
+        if (bb.remaining() < size) {
+            throw new BufferOverflowException();
+        }
         bb.order(ByteOrder.LITTLE_ENDIAN);
 
         // header
         bb.putShort(header);
-        for (byte b : headerExt) {
+        for (byte b : extHeader) {
             bb.put(b);
         }
 
         // hostname
-        bb.put((byte) (hostnameLength - Byte.MAX_VALUE));
-        encoder.reset();
-        CoderResult cr = encoder.encode(CharBuffer.wrap(hostname), bb, true);
-        if (cr.isError()) {
-            try {
-                cr.throwException();
-            } catch (CharacterCodingException e) {
-                throw new IllegalArgumentException(hostname, e);
-            }
-        }
+        bb.put((byte) (hostnameLength - Byte.MAX_VALUE)).put(hostname);
 
         // pid
-        getPidInfo().putInt(bb, pid);
+        ntPid.putInt(bb, pid);
 
         // key
-        bb.put((byte) (keyLength - Byte.MAX_VALUE));
-        encoder.reset();
-        cr = encoder.encode(CharBuffer.wrap(key), bb, true);
-        if (cr.isError()) {
-            try {
-                cr.throwException();
-            } catch (CharacterCodingException e) {
-                throw new IllegalArgumentException(key, e);
-            }
-        }
+        bb.put((byte) (keyLength - Byte.MAX_VALUE)).put(key);
 
         // timeBin
         bb.putLong(os.getTimeBin());
 
         // count
-        getCountInfo().putLong(bb, os.getCount());
+        ntCount.putLong(bb, os.getCount());
 
         // cpuTime
-        getCpuTimeInfo().putLong(bb, os.getCpuTime());
+        ntTime.putLong(bb, os.getCpuTime());
 
         // source
         bb.put((byte) os.getSource().ordinal());
@@ -215,47 +213,97 @@ public class OperationStatisticsBufferBuilder {
         bb.put((byte) os.getCategory().ordinal());
 
         // file descriptor
-        getFdInfo().putInt(bb, os.getFileDescriptor());
+        ntFd.putInt(bb, os.getFileDescriptor());
 
-        switch (getOperationStatisticsType()) {
-        case OS:
-            break;
-        case DOS:
-            // data
-            getDataInfo().putLong(bb, ((DataOperationStatistics) os).getData());
-            break;
-        case RDOS:
-            ReadDataOperationStatistics rdos = (ReadDataOperationStatistics) os;
-
-            // data
-            getDataInfo().putLong(bb, rdos.getData());
-
-            // remoteCount
-            getRemoteCountInfo().putLong(bb, rdos.getRemoteCount());
-
-            // remoteCpuTime
-            getRemoteCpuTimeInfo().putLong(bb, rdos.getRemoteCpuTime());
-
-            // remoteData
-            getRemoteDataInfo().putLong(bb, rdos.getRemoteData());
-            break;
-        default:
-            throw new IllegalArgumentException();
+        if (ost > 0) {
+            DataOperationStatistics dos = (DataOperationStatistics) os;
+            ntData.putLong(bb, dos.getData());
         }
 
-        bb.flip();
-        return bb;
+        if (ost > 1) {
+            ReadDataOperationStatistics rdos = (ReadDataOperationStatistics) os;
+            ntRemoteCount.putLong(bb, rdos.getRemoteCount());
+            ntRemoteTime.putLong(bb, rdos.getRemoteCpuTime());
+            ntRemoteData.putLong(bb, rdos.getRemoteData());
+        }
     }
 
-    public OperationStatistics deserialize() {
+    public static void deserialize(ByteBuffer bb, OperationStatistics os) {
+        bb.order(ByteOrder.LITTLE_ENDIAN);
+
+        short header = bb.getShort();
+        int ost = header >> 12;
+
+        NumberType ntPid = NumberType.EMPTY;
+        if ((header & (0b100 << 9)) > 0) {
+            ntPid = NumberType.values()[(header & (0b011 << 9)) >> 9];
+        }
+
+        NumberType ntCount = NumberType.EMPTY;
+        if ((header & (0b100 << 6)) > 0) {
+            ntCount = NumberType.values()[(header & (0b011 << 6)) >> 6];
+        }
+
+        NumberType ntTime = NumberType.EMPTY;
+        if ((header & (0b100 << 3)) > 0) {
+            ntTime = NumberType.values()[(header & (0b011 << 3)) >> 3];
+        }
+
+        NumberType ntFd = NumberType.EMPTY;
+        if ((header & 0b100) > 0) {
+            ntFd = NumberType.values()[header & 0b011];
+        }
+
+        byte[] extHeader = new byte[ost];
+        for (int i = 0; i < ost; ++i) {
+            extHeader[i] = bb.get();
+        }
+
+        NumberType ntData = null;
+        if (ost > 0) {
+            if ((extHeader[0] & (0b100 << 4)) > 0) {
+                ntData = NumberType
+                        .values()[(extHeader[0] & (0b011 << 4)) >> 4];
+            } else {
+                ntData = NumberType.EMPTY;
+            }
+        }
+
+        NumberType ntRemoteCount = null;
+        NumberType ntRemoteTime = null;
+        NumberType ntRemoteData = null;
+        if (ost > 1) {
+            if ((extHeader[0] & (0b100 << 1)) > 0) {
+                ntRemoteCount = NumberType
+                        .values()[(extHeader[0] & (0b011 << 1)) >> 1];
+            } else {
+                ntRemoteCount = NumberType.EMPTY;
+            }
+
+            if ((extHeader[1] & (0b100 << 4)) > 0) {
+                ntRemoteTime = NumberType
+                        .values()[(extHeader[1] & (0b011 << 4)) >> 4];
+            } else {
+                ntRemoteTime = NumberType.EMPTY;
+            }
+
+            if ((extHeader[1] & (0b100 << 1)) > 0) {
+                ntRemoteData = NumberType
+                        .values()[(extHeader[1] & (0b011 << 1)) >> 1];
+            } else {
+                ntRemoteData = NumberType.EMPTY;
+            }
+        }
+
         CharsetDecoder decoder = DECODER.get();
 
         // hostname
         byte hostnameLength = (byte) (bb.get() + Byte.MAX_VALUE);
+
         if (bb.remaining() < hostnameLength) {
             throw new BufferUnderflowException();
         }
-        CharBuffer cb = CharBuffer.allocate(hostnameLength);
+        CharBuffer cb = BUFFER.get();
         decoder.reset();
         ByteBuffer _bb = bb.slice();
         _bb.limit(hostnameLength);
@@ -268,17 +316,18 @@ public class OperationStatisticsBufferBuilder {
             }
         }
         String hostname = cb.flip().toString();
+        cb.clear();
         bb.position(bb.position() + hostnameLength);
 
         // pid
-        int pid = getPidInfo().getInt(bb);
+        int pid = ntPid.getInt(bb);
 
         // key
         byte keyLength = (byte) (bb.get() + Byte.MAX_VALUE);
+
         if (bb.remaining() < keyLength) {
             throw new BufferUnderflowException();
         }
-        cb = CharBuffer.allocate(keyLength);
         decoder.reset();
         _bb = bb.slice();
         _bb.limit(keyLength);
@@ -291,16 +340,17 @@ public class OperationStatisticsBufferBuilder {
             }
         }
         String key = cb.flip().toString();
+        cb.clear();
         bb.position(bb.position() + keyLength);
 
         // timeBin
         long timeBin = bb.getLong();
 
         // count
-        long count = getCountInfo().getLong(bb);
+        long count = ntCount.getLong(bb);
 
         // cpuTime
-        long cpuTime = getCpuTimeInfo().getLong(bb);
+        long cpuTime = ntTime.getLong(bb);
 
         // source
         OperationSource source = OperationSource.values()[bb.get()];
@@ -309,148 +359,26 @@ public class OperationStatisticsBufferBuilder {
         OperationCategory category = OperationCategory.values()[bb.get()];
 
         // file descriptor
-        int fd = getFdInfo().getInt(bb);
+        int fd = ntFd.getInt(bb);
 
-        switch (getOperationStatisticsType()) {
-        case OS:
-            return new OperationStatistics(count, timeBin, cpuTime, source,
-                    category, fd);
-        case DOS:
-            long dosData = getDataInfo().getLong(bb);
-            return new DataOperationStatistics(count, timeBin, cpuTime, source,
-                    category, fd, dosData);
-        case RDOS:
-            long rdosData = getDataInfo().getLong(bb);
-            long remoteCount = getRemoteCountInfo().getLong(bb);
-            long remoteCpuTime = getRemoteCpuTimeInfo().getLong(bb);
-            long remoteData = getRemoteDataInfo().getLong(bb);
-            return new ReadDataOperationStatistics(count, timeBin, cpuTime,
-                    source, category, fd, rdosData, remoteCount, remoteCpuTime,
-                    remoteData);
-        default:
-            throw new IllegalArgumentException();
-        }
-    }
+        os.setTimeBin(timeBin);
+        os.setCount(count);
+        os.setCpuTime(cpuTime);
+        os.setSource(source);
+        os.setCategory(category);
+        os.setFileDescriptor(fd);
 
-    private void setOperationStatisticsType(OperationStatisticsType ost) {
-        header &= ~0b0110000000000000;
-        header |= ost.ordinal() << 12;
-    }
-
-    private OperationStatisticsType getOperationStatisticsType() {
-        return OperationStatisticsType.values()[header >> 12];
-    }
-
-    private void setPidInfo(int pid) {
-        setFieldInfo(9, pid);
-    }
-
-    private void setCountInfo(long count) {
-        setFieldInfo(6, count);
-    }
-
-    private void setCpuTimeInfo(long cpuTime) {
-        setFieldInfo(3, cpuTime);
-    }
-
-    private void setFdInfo(int fd) {
-        setFieldInfo(0, fd);
-    }
-
-    private void setDataInfo(long data) {
-        setFieldInfo(0, 4, data);
-    }
-
-    private void setRemoteCountInfo(long remoteCount) {
-        setFieldInfo(0, 1, remoteCount);
-    }
-
-    private void setRemoteCpuTimeInfo(long remoteCpuTime) {
-        setFieldInfo(1, 4, remoteCpuTime);
-    }
-
-    private void setRemoteDataInfo(long remoteData) {
-        setFieldInfo(1, 1, remoteData);
-    }
-
-    private void setFieldInfo(int headerBitOffset, long fieldValue) {
-        header &= ~(0b111 << headerBitOffset);
-        if (fieldValue != 0) {
-            header |= 0b100 << headerBitOffset;
-            NumberType nt = ByteBufferUtil.getNumberType(fieldValue);
-            header |= nt.ordinal() << headerBitOffset;
-            size += nt.getSize();
-        }
-    }
-
-    private void setFieldInfo(int headerOffset, int headerBitOffset,
-            long fieldValue) {
-        headerExt[headerOffset] &= ~(0b111 << headerBitOffset);
-        if (fieldValue != 0) {
-            headerExt[headerOffset] |= 0b100 << headerBitOffset;
-            NumberType nt = ByteBufferUtil.getNumberType(fieldValue);
-            headerExt[headerOffset] |= nt.ordinal() << headerBitOffset;
-            size += nt.getSize();
-        }
-    }
-
-    private NumberType getPidInfo() {
-        return getFieldInfo(9);
-    }
-
-    private NumberType getCountInfo() {
-        return getFieldInfo(6);
-    }
-
-    private NumberType getCpuTimeInfo() {
-        return getFieldInfo(3);
-    }
-
-    private NumberType getFdInfo() {
-        return getFieldInfo(0);
-    }
-
-    private NumberType getDataInfo() {
-        return getFieldInfo(0, 4);
-    }
-
-    private NumberType getRemoteCountInfo() {
-        return getFieldInfo(0, 1);
-    }
-
-    private NumberType getRemoteCpuTimeInfo() {
-        return getFieldInfo(1, 4);
-    }
-
-    private NumberType getRemoteDataInfo() {
-        return getFieldInfo(1, 1);
-    }
-
-    private NumberType getFieldInfo(int headerBitOffset) {
-        // we have the header information, but the requested field is not set
-        if (((header
-                & (0b100 << headerBitOffset)) >> headerBitOffset) != 0b100) {
-            return NumberType.EMPTY;
+        if (ost > 0) {
+            DataOperationStatistics dos = (DataOperationStatistics) os;
+            dos.setData(ntData.getLong(bb));
         }
 
-        return NumberType.values()[(header
-                & (0b11 << headerBitOffset)) >> headerBitOffset];
-    }
-
-    private NumberType getFieldInfo(int headerOffset, int headerBitOffset) {
-        // extended header information we do not have
-        if (headerOffset >= headerExt.length) {
-            return NumberType.EMPTY;
+        if (ost > 1) {
+            ReadDataOperationStatistics rdos = (ReadDataOperationStatistics) os;
+            rdos.setRemoteCount(ntRemoteCount.getLong(bb));
+            rdos.setRemoteCpuTime(ntRemoteTime.getLong(bb));
+            rdos.setRemoteData(ntRemoteData.getLong(bb));
         }
-
-        // we have the header information, but the requested field is not set
-        if (((headerExt[headerOffset]
-                & (0b100 << headerBitOffset)) >> headerBitOffset) != 0b100) {
-            return NumberType.EMPTY;
-        }
-
-        return NumberType.values()[(headerExt[headerOffset]
-                & (0b11 << headerBitOffset)) >> headerBitOffset];
     }
 
 }

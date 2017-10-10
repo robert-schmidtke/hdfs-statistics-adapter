@@ -27,18 +27,18 @@ public class MappedByteBufferAdapter extends AbstractSfsAdapter {
     }
 
     @Override
-    protected void appendFields(ClassVisitor cv) {
+    protected void appendFields(ClassVisitor visitor) {
         // add protected field that DirectByteBuffer can access to see if it was
         // created by a FileChannelImpl
 
         // protected boolean fromFileChannel;
-        FieldVisitor fromFileChannelFV = cv.visitField(Opcodes.ACC_PROTECTED,
-                "fromFileChannel", Type.getDescriptor(Boolean.TYPE), null,
-                null);
+        FieldVisitor fromFileChannelFV = visitor.visitField(
+                Opcodes.ACC_PROTECTED, "fromFileChannel",
+                Type.getDescriptor(Boolean.TYPE), null, null);
         fromFileChannelFV.visitEnd();
 
         // protected FileDescriptor fileDescriptor;
-        FieldVisitor filenameFV = cv.visitField(Opcodes.ACC_PROTECTED,
+        FieldVisitor filenameFV = visitor.visitField(Opcodes.ACC_PROTECTED,
                 "fileDescriptor", Type.getDescriptor(FileDescriptor.class),
                 null, null);
         filenameFV.visitEnd();
@@ -68,10 +68,10 @@ public class MappedByteBufferAdapter extends AbstractSfsAdapter {
     }
 
     @Override
-    protected void appendWrappedMethods(ClassVisitor cv) {
+    protected void appendWrappedMethods(ClassVisitor visitor) {
         // public void setFromFileChannel(boolean fromFileChannel) {
-        MethodVisitor setFromFileChannelMV = cv.visitMethod(Opcodes.ACC_PUBLIC,
-                "setFromFileChannel",
+        MethodVisitor setFromFileChannelMV = visitor.visitMethod(
+                Opcodes.ACC_PUBLIC, "setFromFileChannel",
                 Type.getMethodDescriptor(Type.VOID_TYPE, Type.BOOLEAN_TYPE),
                 null, null);
         setFromFileChannelMV.visitCode();
@@ -89,8 +89,8 @@ public class MappedByteBufferAdapter extends AbstractSfsAdapter {
         setFromFileChannelMV.visitEnd();
 
         // public boolean isFromFileChannel() {
-        MethodVisitor isFromFileChannelMV = cv.visitMethod(Opcodes.ACC_PUBLIC,
-                "isFromFileChannel",
+        MethodVisitor isFromFileChannelMV = visitor.visitMethod(
+                Opcodes.ACC_PUBLIC, "isFromFileChannel",
                 Type.getMethodDescriptor(Type.BOOLEAN_TYPE), null, null);
         isFromFileChannelMV.visitCode();
 
@@ -105,7 +105,7 @@ public class MappedByteBufferAdapter extends AbstractSfsAdapter {
         isFromFileChannelMV.visitEnd();
 
         // public void setFileDescriptor(FileDescriptor fileDescriptor) {
-        MethodVisitor settFileDescriptorMV = cv
+        MethodVisitor settFileDescriptorMV = visitor
                 .visitMethod(Opcodes.ACC_PUBLIC, "setFileDescriptor",
                         Type.getMethodDescriptor(Type.VOID_TYPE,
                                 Type.getType(FileDescriptor.class)),
@@ -125,8 +125,8 @@ public class MappedByteBufferAdapter extends AbstractSfsAdapter {
         settFileDescriptorMV.visitEnd();
 
         // public FileDescriptor getFileDescriptor() {
-        MethodVisitor getFileDescriptorMV = cv.visitMethod(Opcodes.ACC_PUBLIC,
-                "getFileDescriptor",
+        MethodVisitor getFileDescriptorMV = visitor.visitMethod(
+                Opcodes.ACC_PUBLIC, "getFileDescriptor",
                 Type.getMethodDescriptor(Type.getType(FileDescriptor.class)),
                 null, null);
         getFileDescriptorMV.visitCode();
@@ -135,7 +135,7 @@ public class MappedByteBufferAdapter extends AbstractSfsAdapter {
         // }
         getFileDescriptorMV.visitVarInsn(Opcodes.ALOAD, 0);
         getFileDescriptorMV.visitMethodInsn(Opcodes.INVOKESPECIAL,
-                instrumentedTypeInternalName, "getFileDescriptorImpl",
+                this.instrumentedTypeInternalName, "getFileDescriptorImpl",
                 Type.getMethodDescriptor(Type.getType(FileDescriptor.class)),
                 false);
         getFileDescriptorMV.visitInsn(Opcodes.ARETURN);
@@ -143,7 +143,7 @@ public class MappedByteBufferAdapter extends AbstractSfsAdapter {
         getFileDescriptorMV.visitEnd();
 
         // protected FileDescriptor getFileDescriptorImpl() {
-        MethodVisitor getFileDescriptorImplMV = cv.visitMethod(
+        MethodVisitor getFileDescriptorImplMV = visitor.visitMethod(
                 Opcodes.ACC_PROTECTED, "getFileDescriptorImpl",
                 Type.getMethodDescriptor(Type.getType(FileDescriptor.class)),
                 null, null);
@@ -159,7 +159,7 @@ public class MappedByteBufferAdapter extends AbstractSfsAdapter {
         getFileDescriptorImplMV.visitMaxs(0, 0);
         getFileDescriptorImplMV.visitEnd();
 
-        cv.visitEnd();
+        visitor.visitEnd();
     }
 
 }

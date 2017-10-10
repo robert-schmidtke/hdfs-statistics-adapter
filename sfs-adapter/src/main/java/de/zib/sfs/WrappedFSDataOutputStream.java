@@ -41,18 +41,18 @@ public class WrappedFSDataOutputStream extends FSDataOutputStream {
     public synchronized void write(int b) throws IOException {
         long startTime = System.currentTimeMillis();
         super.write(b);
-        aggregator.aggregateDataOperationStatistics(OperationSource.SFS,
+        this.aggregator.aggregateDataOperationStatistics(OperationSource.SFS,
                 OperationCategory.WRITE, startTime, System.currentTimeMillis(),
-                fd, 1);
+                this.fd, 1);
     }
 
     @Override
     public void write(byte[] b) throws IOException {
         long startTime = System.currentTimeMillis();
         super.write(b);
-        aggregator.aggregateDataOperationStatistics(OperationSource.SFS,
+        this.aggregator.aggregateDataOperationStatistics(OperationSource.SFS,
                 OperationCategory.WRITE, startTime, System.currentTimeMillis(),
-                fd, b.length);
+                this.fd, b.length);
     }
 
     @Override
@@ -60,9 +60,9 @@ public class WrappedFSDataOutputStream extends FSDataOutputStream {
             throws IOException {
         long startTime = System.currentTimeMillis();
         super.write(b, off, len);
-        aggregator.aggregateDataOperationStatistics(OperationSource.SFS,
+        this.aggregator.aggregateDataOperationStatistics(OperationSource.SFS,
                 OperationCategory.WRITE, startTime, System.currentTimeMillis(),
-                fd, len);
+                this.fd, len);
     }
 
 }

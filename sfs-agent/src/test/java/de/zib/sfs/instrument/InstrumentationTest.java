@@ -22,16 +22,11 @@ import java.nio.BufferOverflowException;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.nio.CharBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileChannel.MapMode;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.WritableByteChannel;
-import java.nio.charset.CharacterCodingException;
-import java.nio.charset.Charset;
-import java.nio.charset.CharsetDecoder;
-import java.nio.charset.CoderResult;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -53,12 +48,14 @@ import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
 import de.zib.sfs.instrument.statistics.DataOperationStatistics;
+import de.zib.sfs.instrument.statistics.FileDescriptorMapping;
 import de.zib.sfs.instrument.statistics.LiveOperationStatisticsAggregator;
 import de.zib.sfs.instrument.statistics.OperationCategory;
 import de.zib.sfs.instrument.statistics.OperationSource;
 import de.zib.sfs.instrument.statistics.OperationStatistics;
 import de.zib.sfs.instrument.statistics.ReadDataOperationStatistics;
-import de.zib.sfs.instrument.statistics.bb.ByteBufferUtil.NumberType;
+import de.zib.sfs.instrument.statistics.bb.FileDescriptorMappingBufferBuilder;
+import de.zib.sfs.instrument.statistics.fb.FileDescriptorMappingFB;
 
 /**
  * Basic test cases that cover the wrapped methods of FileInputStream,
@@ -76,7 +73,7 @@ public class InstrumentationTest {
     private static final int BUFFER_SIZE_OVER_32768 = BUFFER_SIZE / 32768;
 
     // same random bytes for every run
-    private static final Random RANDOM = new Random(0);
+    static final Random RANDOM = new Random(0);
 
     // count operations and data
     private static int openOperations = 0;
@@ -137,6 +134,11 @@ public class InstrumentationTest {
         assertStatistics();
     }
 
+    /**
+     * @param executor
+     * @param numProcessors
+     * @throws IOException
+     */
     private static void runStreamTest(ExecutorService executor,
             int numProcessors) throws IOException {
         // TODO add threading
@@ -204,6 +206,11 @@ public class InstrumentationTest {
         file.delete();
     }
 
+    /**
+     * @param executor
+     * @param numProcessors
+     * @throws IOException
+     */
     private static void runRandomTest(ExecutorService executor,
             int numProcessors) throws IOException {
         assert (numProcessors == 1);
@@ -465,21 +472,19 @@ public class InstrumentationTest {
         // fco is now 3 MB
 
         // write all 3 buffers using offsets, possibly concurrently
-        List<Future<Long>> numsWritten = new ArrayList<Future<Long>>();
+        List<Future<Long>> numsWritten = new ArrayList<>();
         long currentFcoPosition = fco.position();
         for (int i = 0; i < numProcessors; ++i) {
             final long offset = currentFcoPosition + i * 3L * BUFFER_SIZE;
             numsWritten.add(executor.submit(new Callable<Long>() {
                 @Override
                 public Long call() throws Exception {
-                    long numWritten = fco.write(wrappedWriteBuffer.duplicate(),
-                            offset);
-                    numWritten += fco.write(allocatedWriteBuffer.duplicate(),
+                    long n = fco.write(wrappedWriteBuffer.duplicate(), offset);
+                    n += fco.write(allocatedWriteBuffer.duplicate(),
                             offset + BUFFER_SIZE);
-                    numWritten += fco.write(
-                            allocatedDirectWriteBuffer.duplicate(),
+                    n += fco.write(allocatedDirectWriteBuffer.duplicate(),
                             offset + 2L * BUFFER_SIZE);
-                    return numWritten;
+                    return n;
                 }
             }));
         }
@@ -598,34 +603,36 @@ public class InstrumentationTest {
                 public Long call() throws Exception {
                     long remaining = BUFFER_SIZE;
                     while (remaining > 0) {
-                        remaining -= fco
-                                .transferFrom(new ReadableByteChannel() {
-                                    boolean open = true;
+                        try (ReadableByteChannel rbc = new ReadableByteChannel() {
+                            boolean open = true;
 
-                                    @Override
-                                    public boolean isOpen() {
-                                        return open;
-                                    }
+                            @Override
+                            public boolean isOpen() {
+                                return this.open;
+                            }
 
-                                    @Override
-                                    public void close() throws IOException {
-                                        open = false;
-                                    }
+                            @Override
+                            public void close() throws IOException {
+                                this.open = false;
+                            }
 
-                                    @Override
-                                    public int read(ByteBuffer dst)
-                                            throws IOException {
-                                        // produce random bytes from this
-                                        // channel
-                                        byte[] src = new byte[dst.remaining()];
-                                        for (int i = 0; i < src.length; ++i) {
-                                            src[i] = (byte) InstrumentationTest.RANDOM
-                                                    .nextInt(Byte.MAX_VALUE);
-                                        }
-                                        dst.put(src, 0, src.length);
-                                        return src.length;
-                                    }
-                                }, offset + BUFFER_SIZE - remaining, remaining);
+                            @Override
+                            public int read(ByteBuffer dst) throws IOException {
+                                // produce random bytes from this
+                                // channel
+                                byte[] src = new byte[dst.remaining()];
+                                for (int j = 0; j < src.length; ++j) {
+                                    src[j] = (byte) InstrumentationTest.RANDOM
+                                            .nextInt(Byte.MAX_VALUE);
+                                }
+                                dst.put(src, 0, src.length);
+                                return src.length;
+                            }
+                        }) {
+                            remaining -= fco.transferFrom(rbc,
+                                    offset + BUFFER_SIZE - remaining,
+                                    remaining);
+                        }
                     }
                     return (long) BUFFER_SIZE;
                 }
@@ -709,20 +716,19 @@ public class InstrumentationTest {
         // fci is now 6 MB
 
         // read all 3 buffers using offsets
-        List<Future<Long>> numsRead = new ArrayList<Future<Long>>();
+        List<Future<Long>> numsRead = new ArrayList<>();
         long currentFciPosition = fci.position();
         for (int i = 0; i < numProcessors; ++i) {
             final long offset = currentFciPosition + i * 3L * BUFFER_SIZE;
             numsRead.add(executor.submit(new Callable<Long>() {
                 @Override
                 public Long call() throws Exception {
-                    long numRead = fci.read(wrappedReadBuffer.duplicate(),
-                            offset);
-                    numRead += fci.read(allocatedReadBuffer.duplicate(),
+                    long n = fci.read(wrappedReadBuffer.duplicate(), offset);
+                    n += fci.read(allocatedReadBuffer.duplicate(),
                             offset + BUFFER_SIZE);
-                    numRead += fci.read(allocatedDirectReadBuffer.duplicate(),
+                    n += fci.read(allocatedDirectReadBuffer.duplicate(),
                             offset + 2L * BUFFER_SIZE);
-                    return numRead;
+                    return n;
                 }
             }));
         }
@@ -860,6 +866,9 @@ public class InstrumentationTest {
                 .startsWith("linux")) {
             readBytes += 1L * numProcessors * BUFFER_SIZE;
         } else {
+            fci.close();
+            readDummyRafChannel.close();
+            writeDummyRafChannel.close();
             dummyRaf.close();
             fis.close();
             throw new RuntimeException(
@@ -882,30 +891,32 @@ public class InstrumentationTest {
                 public Long call() throws Exception {
                     long remaining = BUFFER_SIZE;
                     while (remaining > 0) {
-                        remaining -= fci.transferTo(
-                                offset + BUFFER_SIZE - remaining, remaining,
-                                new WritableByteChannel() {
-                                    boolean open = true;
+                        try (WritableByteChannel wbc = new WritableByteChannel() {
+                            boolean open = true;
 
-                                    @Override
-                                    public boolean isOpen() {
-                                        return open;
-                                    }
+                            @Override
+                            public boolean isOpen() {
+                                return this.open;
+                            }
 
-                                    @Override
-                                    public void close() throws IOException {
-                                        open = false;
-                                    }
+                            @Override
+                            public void close() throws IOException {
+                                this.open = false;
+                            }
 
-                                    @Override
-                                    public int write(ByteBuffer src)
-                                            throws IOException {
-                                        // discard everything
-                                        byte[] dst = new byte[src.remaining()];
-                                        src.get(dst, 0, dst.length);
-                                        return dst.length;
-                                    }
-                                });
+                            @Override
+                            public int write(ByteBuffer src)
+                                    throws IOException {
+                                // discard everything
+                                byte[] dst = new byte[src.remaining()];
+                                src.get(dst, 0, dst.length);
+                                return dst.length;
+                            }
+                        }) {
+                            remaining -= fci.transferTo(
+                                    offset + BUFFER_SIZE - remaining, remaining,
+                                    wbc);
+                        }
                     }
                     return (long) BUFFER_SIZE;
                 }
@@ -930,6 +941,11 @@ public class InstrumentationTest {
         file.delete();
     }
 
+    /**
+     * @param executor
+     * @param numProcessors
+     * @throws IOException
+     */
     private static void runMappedTest(ExecutorService executor,
             int numProcessors) throws IOException {
         // TODO add threading
@@ -1249,6 +1265,11 @@ public class InstrumentationTest {
         file.delete();
     }
 
+    /**
+     * @param executor
+     * @param numProcessors
+     * @throws IOException
+     */
     private static void runZipTest(ExecutorService executor, int numProcessors)
             throws IOException {
         assert (numProcessors == 1);
@@ -1321,26 +1342,31 @@ public class InstrumentationTest {
 
         // should not induce any reads
         for (int i = 0; i < 3; ++i) {
-            InputStream is = zipFile.getInputStream(ze);
-            numRead = 0;
-            while (readData.length - numRead > 0) {
-                numRead += is.read(readData, numRead,
-                        readData.length - numRead);
-            }
-            assert (numRead == readData.length);
+            try (InputStream is = zipFile.getInputStream(ze)) {
+                numRead = 0;
+                while (readData.length - numRead > 0) {
+                    numRead += is.read(readData, numRead,
+                            readData.length - numRead);
+                }
+                assert (numRead == readData.length);
 
-            for (int j = 0; j < readData.length; ++j) {
-                assert (writeData[j] == readData[j]);
+                for (int j = 0; j < readData.length; ++j) {
+                    assert (writeData[j] == readData[j]);
+                }
             }
         }
 
         // opening the same ZIP should hit the cache
-        new ZipFile(file).close();
+        try (ZipFile zf = new ZipFile(file)) {
+            // closed automatically
+        }
 
         zipFile.close();
 
         // expect reads again
-        new ZipFile(file).close();
+        try (ZipFile zf = new ZipFile(file)) {
+            // closed automatically
+        }
         zipReadBytes += file.length();
 
         file.delete();
@@ -1404,10 +1430,14 @@ public class InstrumentationTest {
             }
         }
 
-        new JarFile(file).close();
+        try (JarFile jf = new JarFile(file)) {
+            // closed automatically
+        }
         jarFile.close();
 
-        new JarFile(file).close();
+        try (JarFile jf = new JarFile(file)) {
+            // closed automatically
+        }
         zipReadBytes += file.length();
 
         file.delete();
@@ -1424,7 +1454,7 @@ public class InstrumentationTest {
 
         aggregator.shutdown();
 
-        List<NavigableMap<Long, NavigableMap<Integer, OperationStatistics>>> aggregates = new ArrayList<NavigableMap<Long, NavigableMap<Integer, OperationStatistics>>>();
+        List<NavigableMap<Long, NavigableMap<Integer, OperationStatistics>>> aggregates = new ArrayList<>();
         for (int i = 0; i < OperationSource.values().length
                 * OperationCategory.values().length; ++i) {
             aggregates.add(new ConcurrentSkipListMap<>());
@@ -1480,33 +1510,44 @@ public class InstrumentationTest {
 
             switch (aggregator.getOutputFormat()) {
             case CSV:
-                processCsvFiles(categoryFiles, category, callback);
+                processFilesCsv(categoryFiles, category, callback);
                 break;
             case FB:
             case BB:
-                processBinaryFiles(categoryFiles, category, callback);
+                processFilesBinary(categoryFiles, category, callback);
                 break;
+            default:
+                throw new IllegalArgumentException();
             }
         }
 
         // process the file descriptor mappings as well
         File[] fdFiles = outputDirectory.listFiles(new FilenameFilter() {
+
             @Override
             public boolean accept(File dir, String name) {
                 return name.contains("filedescriptormappings") && name.endsWith(
                         aggregator.getOutputFormat().name().toLowerCase());
             }
         });
+
         Map<Integer, String> fileDescriptorMappings = new HashMap<>();
         switch (aggregator.getOutputFormat()) {
         case CSV:
-        case FB:
-            // TODO
-            break;
-        case BB:
-            processBinaryFileDescriptorMappingFiles(fdFiles,
+
+            processFileDescriptorMappingFilesCsv(fdFiles,
                     fileDescriptorMappings);
             break;
+        case FB:
+            processFileDescriptorMappingFilesFb(fdFiles,
+                    fileDescriptorMappings);
+            break;
+        case BB:
+            processFileDescriptorMappingFilesBb(fdFiles,
+                    fileDescriptorMappings);
+            break;
+        default:
+            throw new IllegalArgumentException();
         }
 
         // we opened the file a few times, however the JVM might open a lot
@@ -1537,7 +1578,7 @@ public class InstrumentationTest {
         public void call(OperationStatistics os);
     }
 
-    private static void processCsvFiles(File[] files,
+    private static void processFilesCsv(File[] files,
             OperationCategory category, OperationStatisticsCallback callback)
             throws IOException {
         // parse all files into OperationStatistics
@@ -1554,22 +1595,24 @@ public class InstrumentationTest {
                 case OTHER:
                     operationStatistics = OperationStatistics.fromCsv(line,
                             LiveOperationStatisticsAggregator.instance
-                                    .getOutputSeparator(),
+                                    .getCsvOutputSeparator(),
                             3);
                     break;
                 case WRITE:
                     operationStatistics = DataOperationStatistics.fromCsv(line,
                             LiveOperationStatisticsAggregator.instance
-                                    .getOutputSeparator(),
+                                    .getCsvOutputSeparator(),
                             3);
                     break;
                 case READ:
                 case ZIP:
                     operationStatistics = ReadDataOperationStatistics.fromCsv(
                             line, LiveOperationStatisticsAggregator.instance
-                                    .getOutputSeparator(),
+                                    .getCsvOutputSeparator(),
                             3);
                     break;
+                default:
+                    throw new IllegalArgumentException();
                 }
 
                 callback.call(operationStatistics);
@@ -1582,65 +1625,69 @@ public class InstrumentationTest {
         }
     }
 
-    private static void processBinaryFiles(File[] files,
+    private static void processFilesBinary(File[] files,
             OperationCategory category, OperationStatisticsCallback callback)
             throws IOException {
         // parse all files into OperationStatistics
         for (File file : files) {
             @SuppressWarnings("resource") // we close the channel
             FileChannel bbChannel = new FileInputStream(file).getChannel();
-            long position = bbChannel.position();
-
-            ByteBuffer buffer = ByteBuffer.allocate(1048576);
-            while (bbChannel.read(buffer) != -1) {
-                buffer.flip();
-                while (true) {
-                    try {
-                        int length = buffer.position();
-                        OperationStatistics operationStatistics = null;
-                        switch (LiveOperationStatisticsAggregator.instance
-                                .getOutputFormat()) {
-                        case FB:
-                            switch (category) {
-                            case OTHER:
-                                operationStatistics = OperationStatistics
-                                        .fromFlatBuffer(buffer);
-                                break;
-                            case WRITE:
-                                operationStatistics = DataOperationStatistics
-                                        .fromFlatBuffer(buffer);
-                                break;
-                            case READ:
-                            case ZIP:
-                                operationStatistics = ReadDataOperationStatistics
-                                        .fromFlatBuffer(buffer);
-                                break;
-                            }
-                            break;
-                        case BB:
-                            operationStatistics = OperationStatistics
-                                    .fromByteBuffer(buffer);
-                            break;
-                        default:
-                            throw new IllegalArgumentException();
-                        }
-
-                        // keep track of where we are in the file channel
-                        length = buffer.position() - length;
-                        position += length;
-
-                        callback.call(operationStatistics);
-                    } catch (BufferUnderflowException e) {
-                        // buffer held incomplete object, reset file channel to
-                        // last good position before reading again
-                        bbChannel.position(position);
-                        buffer.clear();
-                        break;
-                    }
-                }
+            ByteBuffer buffer = ByteBuffer.allocate((int) file.length());
+            while (buffer.remaining() > 0) {
+                bbChannel.read(buffer);
             }
-
             bbChannel.close();
+            buffer.flip();
+
+            while (buffer.remaining() > 0) {
+                OperationStatistics operationStatistics = null;
+                switch (LiveOperationStatisticsAggregator.instance
+                        .getOutputFormat()) {
+                case FB:
+                    switch (category) {
+                    case OTHER:
+                        operationStatistics = OperationStatistics
+                                .fromFlatBuffer(buffer);
+                        break;
+                    case WRITE:
+                        operationStatistics = DataOperationStatistics
+                                .fromFlatBuffer(buffer);
+                        break;
+                    case READ:
+                    case ZIP:
+                        operationStatistics = ReadDataOperationStatistics
+                                .fromFlatBuffer(buffer);
+                        break;
+                    default:
+                        throw new IllegalArgumentException(category.name());
+                    }
+                    break;
+                case BB:
+                    switch (category) {
+                    case OTHER:
+                        operationStatistics = new OperationStatistics();
+                        break;
+                    case WRITE:
+                        operationStatistics = new DataOperationStatistics();
+                        break;
+                    case READ:
+                    case ZIP:
+                        operationStatistics = new ReadDataOperationStatistics();
+                        break;
+                    default:
+                        throw new IllegalArgumentException(category.name());
+                    }
+                    OperationStatistics.fromByteBuffer(buffer,
+                            operationStatistics);
+                    break;
+                case CSV:
+                    // should not happen
+                default:
+                    throw new IllegalArgumentException();
+                }
+
+                callback.call(operationStatistics);
+            }
 
             // remove statistics file at the end to avoid counting it twice
             // in future test runs
@@ -1648,11 +1695,51 @@ public class InstrumentationTest {
         }
     }
 
-    @SuppressWarnings("resource") // we close the channel later on
-    private static void processBinaryFileDescriptorMappingFiles(File[] files,
+    private static void processFileDescriptorMappingFilesCsv(File[] files,
             Map<Integer, String> out) throws IOException {
-        CharsetDecoder decoder = Charset.forName("US-ASCII").newDecoder();
+        for (File file : files) {
+            BufferedReader reader = new BufferedReader(new FileReader(file));
 
+            // keep track of file descriptors
+            boolean[] fileDescriptors = new boolean[32];
+
+            // skip header
+            String line = reader.readLine();
+            while ((line = reader.readLine()) != null) {
+                // hostname, pid, key, fd, path
+                String[] parts = line
+                        .split(LiveOperationStatisticsAggregator.instance
+                                .getCsvOutputSeparator());
+
+                int pid = Integer.parseInt(parts[1]);
+                int fileDescriptor = Integer.parseInt(parts[3]);
+
+                // should not have been seen before
+                assert (!fileDescriptors[fileDescriptor]) : fileDescriptor;
+                fileDescriptors[fileDescriptor] = true;
+
+                // check correctness of what we've parsed
+                LiveOperationStatisticsAggregator aggregator = LiveOperationStatisticsAggregator.instance;
+                assert (parts[0].equals(aggregator.getHostname())) : parts[0];
+                assert (pid == aggregator.getPid()) : pid;
+                assert (parts[2].equals(aggregator.getKey())) : parts[2];
+
+                // expect non-temporary files to still exist
+                if (!parts[4].endsWith("tmp")) {
+                    assert (new File(parts[4]).exists()) : parts[4];
+                }
+
+                out.put(fileDescriptor, parts[4]);
+
+            }
+            reader.close();
+            file.delete();
+        }
+    }
+
+    @SuppressWarnings("resource") // we close the channel later on
+    private static void processFileDescriptorMappingFilesBb(File[] files,
+            Map<Integer, String> out) throws IOException {
         for (File file : files) {
             ByteBuffer bb = ByteBuffer.allocate((int) file.length());
             bb.order(ByteOrder.LITTLE_ENDIAN);
@@ -1667,98 +1754,28 @@ public class InstrumentationTest {
             // keep track of file descriptors
             boolean[] fileDescriptors = new boolean[32];
 
+            FileDescriptorMapping fdm = new FileDescriptorMapping();
             while (bb.remaining() > 0) {
-                // header byte:
-                // 0-1: empty
-                // 2-3: pidType
-                // 4-5: fdType
-                // 6-7: lengthType
-                byte header = bb.get();
-                NumberType ntPid = NumberType
-                        .values()[(header & 0b00110000) >> 4];
-                NumberType ntFd = NumberType
-                        .values()[(header & 0b00001100) >> 2];
-                NumberType ntLength = NumberType.values()[header & 0b00000011];
-
-                // hostname
-                byte hostnameLength = (byte) (bb.get() + Byte.MAX_VALUE);
-                CharBuffer cb = CharBuffer.allocate(hostnameLength);
-                decoder.reset();
-                ByteBuffer _bb = bb.slice();
-                _bb.limit(hostnameLength);
-                CoderResult cr = decoder.decode(_bb, cb, true);
-                if (cr.isError()) {
-                    try {
-                        cr.throwException();
-                    } catch (CharacterCodingException e) {
-                        throw new IllegalArgumentException(e);
-                    }
-                }
-                String hostname = cb.flip().toString();
-                bb.position(bb.position() + hostnameLength);
-
-                // pid
-                int pid = ntPid.getInt(bb);
-
-                // key
-                byte keyLength = (byte) (bb.get() + Byte.MAX_VALUE);
-                if (bb.remaining() < keyLength) {
-                    throw new BufferUnderflowException();
-                }
-                cb = CharBuffer.allocate(keyLength);
-                decoder.reset();
-                _bb = bb.slice();
-                _bb.limit(keyLength);
-                cr = decoder.decode(_bb, cb, true);
-                if (cr.isError()) {
-                    try {
-                        cr.throwException();
-                    } catch (CharacterCodingException e) {
-                        throw new IllegalArgumentException(e);
-                    }
-                }
-                String key = cb.flip().toString();
-                bb.position(bb.position() + keyLength);
-
-                // file descriptor
-                int fileDescriptor = ntFd.getInt(bb);
+                FileDescriptorMappingBufferBuilder.deserialize(bb, fdm);
 
                 // should not have been seen before
-                assert (!fileDescriptors[fileDescriptor]) : fileDescriptor;
-                fileDescriptors[fileDescriptor] = true;
-
-                // path
-                int pathLength = ntLength.getInt(bb);
-                if (bb.remaining() < pathLength) {
-                    throw new BufferUnderflowException();
-                }
-                cb = CharBuffer.allocate(pathLength);
-                decoder.reset();
-                _bb = bb.slice();
-                _bb.limit(pathLength);
-                cr = decoder.decode(_bb, cb, true);
-                if (cr.isError()) {
-                    try {
-                        cr.throwException();
-                    } catch (CharacterCodingException e) {
-                        throw new IllegalArgumentException(e);
-                    }
-                }
-                String path = cb.flip().toString();
-                bb.position(bb.position() + pathLength);
+                assert (!fileDescriptors[fdm.getFd()]) : fdm.getFd();
+                fileDescriptors[fdm.getFd()] = true;
 
                 // check correctness of what we've parsed
                 LiveOperationStatisticsAggregator aggregator = LiveOperationStatisticsAggregator.instance;
-                assert (hostname.equals(aggregator.getHostname())) : hostname;
-                assert (pid == aggregator.getPid()) : pid;
-                assert (key.equals(aggregator.getKey())) : key;
+                assert (fdm.getHostname()
+                        .equals(aggregator.getHostname())) : fdm.getHostname();
+                assert (fdm.getPid() == aggregator.getPid()) : fdm.getPid();
+                assert (fdm.getKey().equals(aggregator.getKey())) : fdm
+                        .getKey();
 
                 // expect non-temporary files to still exist
-                if (!path.endsWith("tmp")) {
-                    assert (new File(path).exists()) : path;
+                if (!fdm.getPath().endsWith("tmp")) {
+                    assert (new File(fdm.getPath()).exists()) : fdm.getPath();
                 }
 
-                out.put(fileDescriptor, path);
+                out.put(fdm.getFd(), fdm.getPath());
             }
 
             // 0 is not handed out
@@ -1766,10 +1783,72 @@ public class InstrumentationTest {
 
             // consecutive file descriptors
             int lastFd = 1;
-            while (fileDescriptors[lastFd++])
-                ;
+            while (fileDescriptors[lastFd++]) {
+                // it's all in the loop condition
+            }
             for (int i = lastFd; i < fileDescriptors.length; ++i) {
                 assert (!fileDescriptors[i]) : i;
+            }
+
+            file.delete();
+        }
+    }
+
+    @SuppressWarnings("resource") // we close the channel later on
+    private static void processFileDescriptorMappingFilesFb(File[] files,
+            Map<Integer, String> out) throws IOException {
+        for (File file : files) {
+            ByteBuffer bb = ByteBuffer.allocate((int) file.length());
+            FileChannel channel = new FileInputStream(file).getChannel();
+            while (bb.remaining() > 0) {
+                channel.read(bb);
+            }
+            channel.close();
+            bb.flip();
+
+            // normally, ByteBufferUtil would do this for us, but see below
+            bb.order(ByteOrder.LITTLE_ENDIAN);
+
+            // keep track of file descriptors
+            boolean[] fileDescriptors = new boolean[32];
+
+            while (bb.remaining() > 0) {
+                // Don't depend on ByteBufferUtil, as it will be relocated to a
+                // different package during shading, and we only have the shaded
+                // dependencies at this point.
+
+                // ByteBufferUtil.getSizePrefix(bb);
+                int length = bb.getInt(bb.position());
+
+                // ByteBufferUtil.removeSizePrefix(bb);
+                ByteBuffer _bb = bb.slice();
+                _bb.position(4);
+
+                // bb.position(bb.position() + Constants.SIZE_PREFIX_LENGTH +
+                // length);
+                bb.position(bb.position() + 4 + length);
+
+                FileDescriptorMappingFB fdm = FileDescriptorMappingFB
+                        .getRootAsFileDescriptorMappingFB(_bb);
+
+                // should not have been seen before
+                assert (!fileDescriptors[fdm.fileDescriptor()]) : fdm
+                        .fileDescriptor();
+                fileDescriptors[fdm.fileDescriptor()] = true;
+
+                // check correctness of what we've parsed
+                LiveOperationStatisticsAggregator aggregator = LiveOperationStatisticsAggregator.instance;
+                assert (fdm.hostname().equals(aggregator.getHostname())) : fdm
+                        .hostname();
+                assert (fdm.pid() == aggregator.getPid()) : fdm.pid();
+                assert (fdm.key().equals(aggregator.getKey())) : fdm.key();
+
+                // expect non-temporary files to still exist
+                if (!fdm.path().endsWith("tmp")) {
+                    assert (new File(fdm.path()).exists()) : fdm.path();
+                }
+
+                out.put(fdm.fileDescriptor(), fdm.path());
             }
 
             file.delete();
@@ -1815,26 +1894,23 @@ public class InstrumentationTest {
 
         // make sure the tmp files are exactly measured, if we have the file
         // descriptor mappings
-        if (!fileDescriptorMappings.isEmpty()) {
-            long exactData = 0;
+        long exactData = 0;
+        for (Map.Entry<Integer, Long> e : operationDataPerFd.entrySet()) {
+            String path = fileDescriptorMappings.get(e.getKey());
+            if (path != null && path.endsWith("tmp")) {
+                exactData += e.getValue();
+            }
+        }
+        if (exactData != exact) {
+            // for debugging purposes, display data collected per file
             for (Map.Entry<Integer, Long> e : operationDataPerFd.entrySet()) {
-                String path = fileDescriptorMappings.get(e.getKey());
-                if (path != null && path.endsWith("tmp")) {
-                    exactData += e.getValue();
-                }
+                System.err.println(
+                        fileDescriptorMappings.getOrDefault(e.getKey(), "n/a")
+                                + " (" + e.getKey() + "): " + e.getValue());
             }
-            if (exactData != exact) {
-                // for debugging purposes, display data collected per file
-                for (Map.Entry<Integer, Long> e : operationDataPerFd
-                        .entrySet()) {
-                    System.err.println(fileDescriptorMappings
-                            .getOrDefault(e.getKey(), "n/a") + " (" + e.getKey()
-                            + "): " + e.getValue());
-                }
-                assert (exactData == exact) : ("actual " + exactData + " vs. "
-                        + exact + " expected " + source + "/" + category
-                        + " operation data");
-            }
+            assert (exactData == exact) : ("actual " + exactData + " vs. "
+                    + exact + " expected " + source + "/" + category
+                    + " operation data");
         }
 
         if (allData < exact || allData > atMost) {

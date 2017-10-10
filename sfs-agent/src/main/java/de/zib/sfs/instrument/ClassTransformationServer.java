@@ -49,14 +49,14 @@ public class ClassTransformationServer extends
 
     public ClassTransformationServer(int port, boolean traceMmap,
             Set<OperationCategory> skip) {
-        server = ServerBuilder.forPort(port).addService(this).build();
+        this.server = ServerBuilder.forPort(port).addService(this).build();
 
-        isEndClassTransformations = false;
-        isEndClassTransformationsLock = new ReentrantLock();
-        isEndClassTransformationsCondition = isEndClassTransformationsLock
+        this.isEndClassTransformations = false;
+        this.isEndClassTransformationsLock = new ReentrantLock();
+        this.isEndClassTransformationsCondition = this.isEndClassTransformationsLock
                 .newCondition();
 
-        transformedClassesCache = new ConcurrentHashMap<>();
+        this.transformedClassesCache = new ConcurrentHashMap<>();
 
         this.traceMmap = traceMmap;
 
@@ -70,7 +70,8 @@ public class ClassTransformationServer extends
 
         LogUtil.stderr("Transforming class '%s'.\n", className);
 
-        ByteString transformedClass = transformedClassesCache.get(className);
+        ByteString transformedClass = this.transformedClassesCache
+                .get(className);
         if (transformedClass == null) {
             ClassReader cr = new ClassReader(
                     request.getBytecode().toByteArray());
@@ -82,19 +83,19 @@ public class ClassTransformationServer extends
                 case "java/io/FileInputStream":
                     cr.accept(
                             new FileInputStreamAdapter(cw,
-                                    request.getNativeMethodPrefix(), skip),
+                                    request.getNativeMethodPrefix(), this.skip),
                             ClassReader.EXPAND_FRAMES);
                     break;
                 case "java/io/FileOutputStream":
                     cr.accept(
                             new FileOutputStreamAdapter(cw,
-                                    request.getNativeMethodPrefix(), skip),
+                                    request.getNativeMethodPrefix(), this.skip),
                             ClassReader.EXPAND_FRAMES);
                     break;
                 case "java/io/RandomAccessFile":
                     cr.accept(
                             new RandomAccessFileAdapter(cw,
-                                    request.getNativeMethodPrefix(), skip),
+                                    request.getNativeMethodPrefix(), this.skip),
                             ClassReader.EXPAND_FRAMES);
                     break;
                 case "java/lang/Shutdown":
@@ -104,22 +105,24 @@ public class ClassTransformationServer extends
                 case "java/nio/DirectByteBuffer":
                 case "java/nio/DirectByteBufferR":
                     cr.accept(new DirectByteBufferAdapter(cw,
-                            request.getNativeMethodPrefix(), skip, className),
-                            ClassReader.EXPAND_FRAMES);
+                            request.getNativeMethodPrefix(), this.skip,
+                            className), ClassReader.EXPAND_FRAMES);
                     break;
                 case "java/nio/MappedByteBuffer":
-                    cr.accept(new MappedByteBufferAdapter(cw, skip),
+                    cr.accept(new MappedByteBufferAdapter(cw, this.skip),
                             ClassReader.EXPAND_FRAMES);
                     break;
                 case "java/util/zip/ZipFile":
                     cr.accept(
                             new ZipFileAdapter(cw,
-                                    request.getNativeMethodPrefix(), skip),
+                                    request.getNativeMethodPrefix(), this.skip),
                             ClassReader.EXPAND_FRAMES);
                     break;
                 case "sun/nio/ch/FileChannelImpl":
-                    cr.accept(new FileChannelImplAdapter(cw,
-                            request.getNativeMethodPrefix(), traceMmap, skip),
+                    cr.accept(
+                            new FileChannelImplAdapter(cw,
+                                    request.getNativeMethodPrefix(),
+                                    this.traceMmap, this.skip),
                             ClassReader.EXPAND_FRAMES);
                     break;
                 default:
@@ -128,7 +131,7 @@ public class ClassTransformationServer extends
                 }
 
                 transformedClass = ByteString.copyFrom(cw.toByteArray());
-                transformedClassesCache.put(className, transformedClass);
+                this.transformedClassesCache.put(className, transformedClass);
             } catch (Exception e) {
                 System.err.println("Error during class transformation:");
                 e.printStackTrace();
@@ -147,44 +150,45 @@ public class ClassTransformationServer extends
                 .onNext(EndClassTransformationsResponse.newBuilder().build());
         responseObserver.onCompleted();
 
-        isEndClassTransformationsLock.lock();
+        this.isEndClassTransformationsLock.lock();
         try {
-            isEndClassTransformations = true;
-            isEndClassTransformationsCondition.signal();
+            this.isEndClassTransformations = true;
+            this.isEndClassTransformationsCondition.signal();
         } finally {
-            isEndClassTransformationsLock.unlock();
+            this.isEndClassTransformationsLock.unlock();
         }
     }
 
     public void start() throws IOException {
-        server.start();
+        this.server.start();
     }
 
     public void shutdown() throws InterruptedException {
-        server.shutdown().awaitTermination();
+        this.server.shutdown().awaitTermination();
     }
 
     public boolean awaitEndClassTransformations(int timeoutSeconds)
             throws InterruptedException {
-        isEndClassTransformationsLock.lock();
+        this.isEndClassTransformationsLock.lock();
         try {
-            while (!isEndClassTransformations) {
+            while (!this.isEndClassTransformations) {
                 if (timeoutSeconds > 0) {
-                    if (!isEndClassTransformationsCondition
+                    if (!this.isEndClassTransformationsCondition
                             .await(timeoutSeconds, TimeUnit.SECONDS)) {
                         // time elapsed
                         break;
                     }
                 } else {
-                    isEndClassTransformationsCondition.awaitUninterruptibly();
+                    this.isEndClassTransformationsCondition
+                            .awaitUninterruptibly();
                 }
             }
         } finally {
-            isEndClassTransformationsLock.unlock();
+            this.isEndClassTransformationsLock.unlock();
         }
 
         // this is still false in case of a timeout
-        return isEndClassTransformations;
+        return this.isEndClassTransformations;
     }
 
 }

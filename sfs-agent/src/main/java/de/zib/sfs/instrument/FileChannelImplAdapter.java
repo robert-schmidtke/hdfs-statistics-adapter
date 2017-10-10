@@ -38,7 +38,7 @@ public class FileChannelImplAdapter extends AbstractSfsAdapter {
 
     public FileChannelImplAdapter(ClassVisitor cv, String methodPrefix,
             boolean traceMmap, Set<OperationCategory> skip)
-            throws NoSuchMethodException, SecurityException {
+            throws SecurityException {
         super(cv, FileChannelImpl.class, FileChannelImplCallback.class,
                 methodPrefix, skip);
         this.traceMmap = traceMmap;
@@ -50,14 +50,14 @@ public class FileChannelImplAdapter extends AbstractSfsAdapter {
         // callback.openCallback(fd);
         constructorMV.visitVarInsn(Opcodes.ALOAD, 0);
         constructorMV.visitFieldInsn(Opcodes.GETFIELD,
-                instrumentedTypeInternalName, "callback",
-                callbackTypeDescriptor);
+                this.instrumentedTypeInternalName, "callback",
+                this.callbackTypeDescriptor);
         constructorMV.visitVarInsn(Opcodes.ALOAD, 0);
         constructorMV.visitFieldInsn(Opcodes.GETFIELD,
-                instrumentedTypeInternalName, "fd",
+                this.instrumentedTypeInternalName, "fd",
                 Type.getDescriptor(FileDescriptor.class));
         constructorMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
-                callbackTypeInternalName, "openCallback",
+                this.callbackTypeInternalName, "openCallback",
                 Type.getMethodDescriptor(Type.VOID_TYPE,
                         Type.getType(FileDescriptor.class)),
                 false);
@@ -76,10 +76,10 @@ public class FileChannelImplAdapter extends AbstractSfsAdapter {
     }
 
     @Override
-    protected void appendWrappedMethods(ClassVisitor cv) {
+    protected void appendWrappedMethods(ClassVisitor visitor) {
         // public FileDescriptor getFileDescriptor() {
-        MethodVisitor getFileDescriptorMV = cv.visitMethod(Opcodes.ACC_PUBLIC,
-                "getFileDescriptor",
+        MethodVisitor getFileDescriptorMV = visitor.visitMethod(
+                Opcodes.ACC_PUBLIC, "getFileDescriptor",
                 Type.getMethodDescriptor(Type.getType(FileDescriptor.class)),
                 null, null);
         getFileDescriptorMV.visitCode();
@@ -168,7 +168,7 @@ public class FileChannelImplAdapter extends AbstractSfsAdapter {
 
         // public MappedByteBuffer map(MapMode mode, long position, long size)
         // throws IOException {
-        MethodVisitor mapMV = cv.visitMethod(Opcodes.ACC_PUBLIC, "map",
+        MethodVisitor mapMV = visitor.visitMethod(Opcodes.ACC_PUBLIC, "map",
                 mapMethodDescriptor, null,
                 new String[] { Type.getInternalName(IOException.class) });
         mapMV.visitCode();
@@ -179,7 +179,7 @@ public class FileChannelImplAdapter extends AbstractSfsAdapter {
         mapMV.visitVarInsn(Opcodes.LLOAD, 2);
         mapMV.visitVarInsn(Opcodes.LLOAD, 4);
         mapMV.visitMethodInsn(Opcodes.INVOKESPECIAL,
-                instrumentedTypeInternalName, methodPrefix + "map",
+                this.instrumentedTypeInternalName, this.methodPrefix + "map",
                 mapMethodDescriptor, false);
         mapMV.visitVarInsn(Opcodes.ASTORE, 6);
 
@@ -195,8 +195,9 @@ public class FileChannelImplAdapter extends AbstractSfsAdapter {
         // mbb.setFileDescriptor(fd);
         mapMV.visitVarInsn(Opcodes.ALOAD, 6);
         mapMV.visitVarInsn(Opcodes.ALOAD, 0);
-        mapMV.visitFieldInsn(Opcodes.GETFIELD, instrumentedTypeInternalName,
-                "fd", Type.getDescriptor(FileDescriptor.class));
+        mapMV.visitFieldInsn(Opcodes.GETFIELD,
+                this.instrumentedTypeInternalName, "fd",
+                Type.getDescriptor(FileDescriptor.class));
         mapMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
                 Type.getInternalName(MappedByteBuffer.class),
                 "setFileDescriptor", Type.getMethodDescriptor(Type.VOID_TYPE,
@@ -205,7 +206,7 @@ public class FileChannelImplAdapter extends AbstractSfsAdapter {
 
         // if we don't want to trace mmap calls, then map needs to reset the
         // instrumentationActive flag
-        if (!traceMmap) {
+        if (!this.traceMmap) {
             // setInstrumentationActive(false);
             setInstrumentationActive(mapMV, false);
         }
@@ -228,7 +229,7 @@ public class FileChannelImplAdapter extends AbstractSfsAdapter {
 
         // <access> <returnType> <name>(<argumentTypes> arguments) throws
         // <exceptions> {
-        MethodVisitor mv = cv.visitMethod(access, name, methodDescriptor,
+        MethodVisitor mv = this.cv.visitMethod(access, name, methodDescriptor,
                 signature, exceptions);
         mv.visitCode();
 
@@ -244,8 +245,9 @@ public class FileChannelImplAdapter extends AbstractSfsAdapter {
             mv.visitVarInsn(argument.getOpcode(Opcodes.ILOAD), argumentIndex);
             argumentIndex += argument.getSize();
         }
-        mv.visitMethodInsn(Opcodes.INVOKESPECIAL, instrumentedTypeInternalName,
-                methodPrefix + name, methodDescriptor, false);
+        mv.visitMethodInsn(Opcodes.INVOKESPECIAL,
+                this.instrumentedTypeInternalName, this.methodPrefix + name,
+                methodDescriptor, false);
         mv.visitInsn(returnType.getOpcode(Opcodes.IRETURN));
 
         // }
@@ -286,7 +288,7 @@ public class FileChannelImplAdapter extends AbstractSfsAdapter {
                     bufferInstanceofMappedByteBufferLabel);
 
             // only trace mmapped file channels if desired
-            if (traceMmap) {
+            if (this.traceMmap) {
                 // if (<buffers>[0].isFromFileChannel()) {
                 mv.visitVarInsn(Opcodes.ALOAD, bufferArgumentIndex);
                 mv.visitInsn(Opcodes.ICONST_0);
@@ -358,7 +360,7 @@ public class FileChannelImplAdapter extends AbstractSfsAdapter {
             // additional check required if the buffer is a MappedByteBuffer,
             // and we want to trace those
             Label fromFileChannelLabel = new Label();
-            if (!isTransferMethod && traceMmap) {
+            if (!isTransferMethod && this.traceMmap) {
                 // if (buffer.isFromFileChannel()) {
                 mv.visitVarInsn(Opcodes.ALOAD, bufferArgumentIndex);
                 mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
@@ -371,7 +373,7 @@ public class FileChannelImplAdapter extends AbstractSfsAdapter {
             // either we're dealing with a FileChannelImpl (in a
             // transferTo/transferFrom method), or this is a regular read or
             // write and we want to count in mmapped buffers
-            if (isTransferMethod || traceMmap) {
+            if (isTransferMethod || this.traceMmap) {
                 // buffer.setInstrumentationActive(true);
                 mv.visitVarInsn(Opcodes.ALOAD, bufferArgumentIndex);
                 mv.visitInsn(Opcodes.ICONST_1);
@@ -389,7 +391,7 @@ public class FileChannelImplAdapter extends AbstractSfsAdapter {
                         bufferInstrumentationActiveIndex);
             }
 
-            if (!isTransferMethod && traceMmap) {
+            if (!isTransferMethod && this.traceMmap) {
                 // }
                 mv.visitLabel(fromFileChannelLabel);
             }
@@ -409,8 +411,9 @@ public class FileChannelImplAdapter extends AbstractSfsAdapter {
             mv.visitVarInsn(argument.getOpcode(Opcodes.ILOAD), argumentIndex);
             argumentIndex += argument.getSize();
         }
-        mv.visitMethodInsn(Opcodes.INVOKESPECIAL, instrumentedTypeInternalName,
-                methodPrefix + name, methodDescriptor, false);
+        mv.visitMethodInsn(Opcodes.INVOKESPECIAL,
+                this.instrumentedTypeInternalName, this.methodPrefix + name,
+                methodDescriptor, false);
         int resultIndex = startTimeIndex + 2;
         mv.visitVarInsn(returnType.getOpcode(Opcodes.ISTORE), resultIndex);
         int endTimeIndex = resultIndex + returnType.getSize();
@@ -430,12 +433,12 @@ public class FileChannelImplAdapter extends AbstractSfsAdapter {
 
         // callback.<callbackName>(startTime, endTime, result);
         mv.visitVarInsn(Opcodes.ALOAD, 0);
-        mv.visitFieldInsn(Opcodes.GETFIELD, instrumentedTypeInternalName,
-                "callback", callbackTypeDescriptor);
+        mv.visitFieldInsn(Opcodes.GETFIELD, this.instrumentedTypeInternalName,
+                "callback", this.callbackTypeDescriptor);
         mv.visitVarInsn(Opcodes.LLOAD, startTimeIndex);
         mv.visitVarInsn(Opcodes.LLOAD, endTimeIndex);
         mv.visitVarInsn(returnType.getOpcode(Opcodes.ILOAD), resultIndex);
-        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, callbackTypeInternalName,
+        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, this.callbackTypeInternalName,
                 callbackName,
                 Type.getMethodDescriptor(Type.VOID_TYPE, Type.LONG_TYPE,
                         Type.LONG_TYPE, additionalCallbackArgumentType),
@@ -464,7 +467,7 @@ public class FileChannelImplAdapter extends AbstractSfsAdapter {
             // additional check required if the buffer is a MappedByteBuffer,
             // and we want to trace those
             Label fromFileChannelLabel = new Label();
-            if (!isTransferMethod && traceMmap) {
+            if (!isTransferMethod && this.traceMmap) {
                 // if (buffer.isFromFileChannel()) {
                 mv.visitVarInsn(Opcodes.ALOAD, bufferArgumentIndex);
                 mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
@@ -478,7 +481,7 @@ public class FileChannelImplAdapter extends AbstractSfsAdapter {
             // transferTo/transferFrom method), which might have flipped its
             // instrumentationActive flag because mmap was used, or this is a
             // regular read or write and we want to count in mmapped buffers
-            if (isTransferMethod || traceMmap) {
+            if (isTransferMethod || this.traceMmap) {
                 // if traceMmap is true, then we could actually just set
                 // bufferInstrumentationActive to true
 
@@ -495,7 +498,7 @@ public class FileChannelImplAdapter extends AbstractSfsAdapter {
                         bufferInstrumentationActiveIndex);
             }
 
-            if (!isTransferMethod && traceMmap) {
+            if (!isTransferMethod && this.traceMmap) {
                 // }
                 mv.visitLabel(fromFileChannelLabel);
             }
@@ -511,9 +514,6 @@ public class FileChannelImplAdapter extends AbstractSfsAdapter {
 
         // callback.<oppositeCallbackName>(buffer.getFileDescriptor(),
         // startTime, endTime, result);
-        mv.visitVarInsn(Opcodes.ALOAD, 0);
-        mv.visitFieldInsn(Opcodes.GETFIELD, instrumentedTypeInternalName,
-                "callback", callbackTypeDescriptor);
         if (!isTransferMethod) {
             if (argumentTypes[bufferArgumentTypeIndex]
                     .getSort() == Type.ARRAY) {
@@ -543,7 +543,7 @@ public class FileChannelImplAdapter extends AbstractSfsAdapter {
         mv.visitVarInsn(Opcodes.LLOAD, startTimeIndex);
         mv.visitVarInsn(Opcodes.LLOAD, endTimeIndex);
         mv.visitVarInsn(returnType.getOpcode(Opcodes.ILOAD), resultIndex);
-        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, callbackTypeInternalName,
+        mv.visitMethodInsn(Opcodes.INVOKESTATIC, this.callbackTypeInternalName,
                 oppositeCallbackName,
                 Type.getMethodDescriptor(Type.VOID_TYPE,
                         Type.getType(FileDescriptor.class), Type.LONG_TYPE,
@@ -665,7 +665,7 @@ public class FileChannelImplAdapter extends AbstractSfsAdapter {
                 && !skipWrites();
     }
 
-    private boolean isMapMethod(int access, String name, String desc,
+    private static boolean isMapMethod(int access, String name, String desc,
             String signature, String[] exceptions) {
         return access == Opcodes.ACC_PUBLIC && "map".equals(name)
                 && Type.getMethodDescriptor(

@@ -25,7 +25,7 @@ import de.zib.sfs.instrument.statistics.OperationCategory;
 
 public class DirectByteBufferAdapter extends AbstractSfsAdapter {
 
-    private static final Map<String, Type> TYPES = new HashMap<String, Type>();
+    private static final Map<String, Type> TYPES = new HashMap<>();
     static {
         TYPES.put("", Type.BYTE_TYPE);
         TYPES.put("Char", Type.CHAR_TYPE);
@@ -71,21 +71,21 @@ public class DirectByteBufferAdapter extends AbstractSfsAdapter {
                     "isFromFileChannel",
                     Type.getMethodDescriptor(Type.BOOLEAN_TYPE), false);
             constructorMV.visitMethodInsn(Opcodes.INVOKESPECIAL,
-                    instrumentedTypeInternalName, "setFromFileChannel",
+                    this.instrumentedTypeInternalName, "setFromFileChannel",
                     Type.getMethodDescriptor(Type.VOID_TYPE, Type.BOOLEAN_TYPE),
                     false);
 
             // callback.openCallback(db.fileDescriptor);
             constructorMV.visitVarInsn(Opcodes.ALOAD, 0);
             constructorMV.visitFieldInsn(Opcodes.GETFIELD,
-                    instrumentedTypeInternalName, "callback",
-                    callbackTypeDescriptor);
+                    this.instrumentedTypeInternalName, "callback",
+                    this.callbackTypeDescriptor);
             constructorMV.visitVarInsn(Opcodes.ALOAD, 1);
             constructorMV.visitFieldInsn(Opcodes.GETFIELD,
                     Type.getInternalName(MappedByteBuffer.class),
                     "fileDescriptor", Type.getDescriptor(FileDescriptor.class));
             constructorMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
-                    callbackTypeInternalName, "openCallback",
+                    this.callbackTypeInternalName, "openCallback",
                     Type.getMethodDescriptor(Type.VOID_TYPE,
                             Type.getType(FileDescriptor.class)),
                     false);
@@ -96,12 +96,12 @@ public class DirectByteBufferAdapter extends AbstractSfsAdapter {
     }
 
     @Override
-    protected void appendWrappedMethods(ClassVisitor cv) {
+    protected void appendWrappedMethods(ClassVisitor visitor) {
         // override from MappedByteBuffer so we can re-init the callback
         // properly
 
         // public void setFileDescriptor(FileDescriptor fileDescriptor) {
-        MethodVisitor settFileDescriptorMV = cv
+        MethodVisitor settFileDescriptorMV = visitor
                 .visitMethod(Opcodes.ACC_PUBLIC, "setFileDescriptor",
                         Type.getMethodDescriptor(Type.VOID_TYPE,
                                 Type.getType(FileDescriptor.class)),
@@ -118,14 +118,14 @@ public class DirectByteBufferAdapter extends AbstractSfsAdapter {
         // callback.openCallback(this.fileDescriptor);
         settFileDescriptorMV.visitVarInsn(Opcodes.ALOAD, 0);
         settFileDescriptorMV.visitFieldInsn(Opcodes.GETFIELD,
-                instrumentedTypeInternalName, "callback",
-                callbackTypeDescriptor);
+                this.instrumentedTypeInternalName, "callback",
+                this.callbackTypeDescriptor);
         settFileDescriptorMV.visitVarInsn(Opcodes.ALOAD, 0);
         settFileDescriptorMV.visitFieldInsn(Opcodes.GETFIELD,
                 Type.getInternalName(MappedByteBuffer.class), "fileDescriptor",
                 Type.getDescriptor(FileDescriptor.class));
         settFileDescriptorMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
-                callbackTypeInternalName, "openCallback",
+                this.callbackTypeInternalName, "openCallback",
                 Type.getMethodDescriptor(Type.VOID_TYPE,
                         Type.getType(FileDescriptor.class)),
                 false);
@@ -138,7 +138,7 @@ public class DirectByteBufferAdapter extends AbstractSfsAdapter {
         // also override from MappedByteBuffer
 
         // protected FileDescriptor getFileDescriptorImpl() {
-        MethodVisitor getFileDescriptorImplMV = cv.visitMethod(
+        MethodVisitor getFileDescriptorImplMV = visitor.visitMethod(
                 Opcodes.ACC_PROTECTED, "getFileDescriptorImpl",
                 Type.getMethodDescriptor(Type.getType(FileDescriptor.class)),
                 null, null);
@@ -174,7 +174,8 @@ public class DirectByteBufferAdapter extends AbstractSfsAdapter {
 
         if (!skipWrites()) {
             // public ByteBuffer put(ByteBuffer src) {
-            MethodVisitor bulkPutMV = cv.visitMethod(Opcodes.ACC_PUBLIC, "put",
+            MethodVisitor bulkPutMV = visitor.visitMethod(Opcodes.ACC_PUBLIC,
+                    "put",
                     Type.getMethodDescriptor(Type.getType(ByteBuffer.class),
                             Type.getType(ByteBuffer.class)),
                     null, null);
@@ -189,7 +190,8 @@ public class DirectByteBufferAdapter extends AbstractSfsAdapter {
             bulkPutMV.visitVarInsn(Opcodes.ALOAD, 0);
             bulkPutMV.visitVarInsn(Opcodes.ALOAD, 1);
             bulkPutMV.visitMethodInsn(Opcodes.INVOKESPECIAL,
-                    instrumentedTypeInternalName, methodPrefix + "put",
+                    this.instrumentedTypeInternalName,
+                    this.methodPrefix + "put",
                     Type.getMethodDescriptor(Type.getType(ByteBuffer.class),
                             Type.getType(ByteBuffer.class)),
                     false);
@@ -202,10 +204,11 @@ public class DirectByteBufferAdapter extends AbstractSfsAdapter {
             bulkPutMV.visitVarInsn(Opcodes.ALOAD, 0);
             bulkPutMV.visitVarInsn(Opcodes.ALOAD, 0);
             bulkPutMV.visitFieldInsn(Opcodes.GETFIELD,
-                    instrumentedTypeInternalName, "fromFileChannel",
+                    this.instrumentedTypeInternalName, "fromFileChannel",
                     Type.getDescriptor(Boolean.TYPE));
             bulkPutMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
-                    instrumentedTypeInternalName, "setInstrumentationActive",
+                    this.instrumentedTypeInternalName,
+                    "setInstrumentationActive",
                     Type.getMethodDescriptor(Type.VOID_TYPE, Type.BOOLEAN_TYPE),
                     false);
 
@@ -249,23 +252,26 @@ public class DirectByteBufferAdapter extends AbstractSfsAdapter {
             bulkPutMV.visitVarInsn(Opcodes.ISTORE, 4);
 
             // long startTime = System.currentTimeMillis();
-            bulkPutMV.visitMethodInsn(Opcodes.INVOKESTATIC, systemInternalName,
-                    "currentTimeMillis", currentTimeMillisDescriptor, false);
+            bulkPutMV.visitMethodInsn(Opcodes.INVOKESTATIC,
+                    this.systemInternalName, "currentTimeMillis",
+                    this.currentTimeMillisDescriptor, false);
             bulkPutMV.visitVarInsn(Opcodes.LSTORE, 5);
 
             // ByteBuffer result = nativeMethodPrefixput(src);
             bulkPutMV.visitVarInsn(Opcodes.ALOAD, 0);
             bulkPutMV.visitVarInsn(Opcodes.ALOAD, 1);
             bulkPutMV.visitMethodInsn(Opcodes.INVOKESPECIAL,
-                    instrumentedTypeInternalName, methodPrefix + "put",
+                    this.instrumentedTypeInternalName,
+                    this.methodPrefix + "put",
                     Type.getMethodDescriptor(Type.getType(ByteBuffer.class),
                             Type.getType(ByteBuffer.class)),
                     false);
             bulkPutMV.visitVarInsn(Opcodes.ASTORE, 7);
 
             // long endTime = System.currentTimeMillis();
-            bulkPutMV.visitMethodInsn(Opcodes.INVOKESTATIC, systemInternalName,
-                    "currentTimeMillis", currentTimeMillisDescriptor, false);
+            bulkPutMV.visitMethodInsn(Opcodes.INVOKESTATIC,
+                    this.systemInternalName, "currentTimeMillis",
+                    this.currentTimeMillisDescriptor, false);
             bulkPutMV.visitVarInsn(Opcodes.LSTORE, 8);
 
             // if (isInstrumentationActive()) {
@@ -277,13 +283,13 @@ public class DirectByteBufferAdapter extends AbstractSfsAdapter {
             // callback.putCallback(startTime, endTime, length);
             bulkPutMV.visitVarInsn(Opcodes.ALOAD, 0);
             bulkPutMV.visitFieldInsn(Opcodes.GETFIELD,
-                    instrumentedTypeInternalName, "callback",
-                    callbackTypeDescriptor);
+                    this.instrumentedTypeInternalName, "callback",
+                    this.callbackTypeDescriptor);
             bulkPutMV.visitVarInsn(Opcodes.LLOAD, 5);
             bulkPutMV.visitVarInsn(Opcodes.LLOAD, 8);
             bulkPutMV.visitVarInsn(Opcodes.ILOAD, 4);
             bulkPutMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
-                    callbackTypeInternalName,
+                    this.callbackTypeInternalName,
                     "putCallback", Type.getMethodDescriptor(Type.VOID_TYPE,
                             Type.LONG_TYPE, Type.LONG_TYPE, Type.INT_TYPE),
                     false);
@@ -302,10 +308,6 @@ public class DirectByteBufferAdapter extends AbstractSfsAdapter {
 
             // callback.onGetEnd(src.getFileDescriptor(), startTime, endTime,
             // length);
-            bulkPutMV.visitVarInsn(Opcodes.ALOAD, 0);
-            bulkPutMV.visitFieldInsn(Opcodes.GETFIELD,
-                    instrumentedTypeInternalName, "callback",
-                    callbackTypeDescriptor);
             bulkPutMV.visitVarInsn(Opcodes.ALOAD, 1);
             bulkPutMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
                     Type.getInternalName(MappedByteBuffer.class),
@@ -315,8 +317,8 @@ public class DirectByteBufferAdapter extends AbstractSfsAdapter {
             bulkPutMV.visitVarInsn(Opcodes.LLOAD, 5);
             bulkPutMV.visitVarInsn(Opcodes.LLOAD, 8);
             bulkPutMV.visitVarInsn(Opcodes.ILOAD, 4);
-            bulkPutMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
-                    callbackTypeInternalName, "getCallback",
+            bulkPutMV.visitMethodInsn(Opcodes.INVOKESTATIC,
+                    this.callbackTypeInternalName, "getCallback",
                     Type.getMethodDescriptor(Type.VOID_TYPE,
                             Type.getType(FileDescriptor.class), Type.LONG_TYPE,
                             Type.LONG_TYPE, Type.INT_TYPE),
@@ -377,7 +379,7 @@ public class DirectByteBufferAdapter extends AbstractSfsAdapter {
             }
         }
 
-        cv.visitEnd();
+        visitor.visitEnd();
     }
 
     @Override
@@ -391,7 +393,7 @@ public class DirectByteBufferAdapter extends AbstractSfsAdapter {
 
         // <access> <returnType> <name>(<argumentTypes> arguments) throws
         // <exceptions> {
-        MethodVisitor mv = cv.visitMethod(access, name, methodDescriptor,
+        MethodVisitor mv = this.cv.visitMethod(access, name, methodDescriptor,
                 signature, exceptions);
         mv.visitCode();
 
@@ -401,7 +403,7 @@ public class DirectByteBufferAdapter extends AbstractSfsAdapter {
         mv.visitJumpInsn(Opcodes.IFNE, instrumentationActiveLabel);
 
         mv.visitVarInsn(Opcodes.ALOAD, 0);
-        mv.visitFieldInsn(Opcodes.GETFIELD, instrumentedTypeInternalName,
+        mv.visitFieldInsn(Opcodes.GETFIELD, this.instrumentedTypeInternalName,
                 "fromFileChannel", Type.getDescriptor(Boolean.TYPE));
         Label fromFileChannelLabel = new Label();
         mv.visitJumpInsn(Opcodes.IFNE, fromFileChannelLabel);
@@ -415,8 +417,9 @@ public class DirectByteBufferAdapter extends AbstractSfsAdapter {
             mv.visitVarInsn(argument.getOpcode(Opcodes.ILOAD), argumentIndex);
             argumentIndex += argument.getSize();
         }
-        mv.visitMethodInsn(Opcodes.INVOKESPECIAL, instrumentedTypeInternalName,
-                methodPrefix + name, methodDescriptor, false);
+        mv.visitMethodInsn(Opcodes.INVOKESPECIAL,
+                this.instrumentedTypeInternalName, this.methodPrefix + name,
+                methodDescriptor, false);
         if (!Type.VOID_TYPE.equals(returnType)) {
             mv.visitInsn(returnType.getOpcode(Opcodes.IRETURN));
         } else {
@@ -443,8 +446,9 @@ public class DirectByteBufferAdapter extends AbstractSfsAdapter {
             mv.visitVarInsn(argument.getOpcode(Opcodes.ILOAD), argumentIndex);
             argumentIndex += argument.getSize();
         }
-        mv.visitMethodInsn(Opcodes.INVOKESPECIAL, instrumentedTypeInternalName,
-                methodPrefix + name, methodDescriptor, false);
+        mv.visitMethodInsn(Opcodes.INVOKESPECIAL,
+                this.instrumentedTypeInternalName, this.methodPrefix + name,
+                methodDescriptor, false);
         int endTimeIndex = startTimeIndex + 2;
         if (!Type.VOID_TYPE.equals(returnType)) {
             mv.visitVarInsn(returnType.getOpcode(Opcodes.ISTORE),
@@ -457,8 +461,8 @@ public class DirectByteBufferAdapter extends AbstractSfsAdapter {
 
         // callback.<callbackMethod>(startTime, endTime, result?);
         mv.visitVarInsn(Opcodes.ALOAD, 0);
-        mv.visitFieldInsn(Opcodes.GETFIELD, instrumentedTypeInternalName,
-                "callback", callbackTypeDescriptor);
+        mv.visitFieldInsn(Opcodes.GETFIELD, this.instrumentedTypeInternalName,
+                "callback", this.callbackTypeDescriptor);
         mv.visitVarInsn(Opcodes.LLOAD, startTimeIndex);
         mv.visitVarInsn(Opcodes.LLOAD, endTimeIndex);
 
@@ -487,7 +491,7 @@ public class DirectByteBufferAdapter extends AbstractSfsAdapter {
             callbackArgumentTypes = new Type[] { Type.LONG_TYPE, Type.LONG_TYPE,
                     additionalCallbackArgumentType };
         }
-        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, callbackTypeInternalName,
+        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, this.callbackTypeInternalName,
                 callbackName,
                 Type.getMethodDescriptor(Type.VOID_TYPE, callbackArgumentTypes),
                 false);

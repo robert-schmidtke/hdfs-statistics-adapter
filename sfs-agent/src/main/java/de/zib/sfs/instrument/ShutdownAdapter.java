@@ -27,11 +27,11 @@ public class ShutdownAdapter extends ClassVisitor {
         MethodVisitor mv;
         if (isHaltOrShutdownMethod(access, name, desc, signature, exceptions)) {
             // because who needs shutdown hooks anyway
-            mv = new HaltAndShutdownMethodAdapter(api,
-                    cv.visitMethod(access, name, desc, signature, exceptions),
+            mv = new HaltAndShutdownMethodAdapter(this.api, this.cv
+                    .visitMethod(access, name, desc, signature, exceptions),
                     access, name, desc);
         } else {
-            mv = cv.visitMethod(access, name, desc, signature, exceptions);
+            mv = this.cv.visitMethod(access, name, desc, signature, exceptions);
         }
         return mv;
     }
@@ -47,11 +47,11 @@ public class ShutdownAdapter extends ClassVisitor {
         protected void onMethodEnter() {
             String liveOperationStatisticsAggregatorInternalName = Type
                     .getInternalName(LiveOperationStatisticsAggregator.class);
-            mv.visitFieldInsn(Opcodes.GETSTATIC,
+            this.mv.visitFieldInsn(Opcodes.GETSTATIC,
                     liveOperationStatisticsAggregatorInternalName, "instance",
                     Type.getDescriptor(
                             LiveOperationStatisticsAggregator.class));
-            mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+            this.mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
                     liveOperationStatisticsAggregatorInternalName, "shutdown",
                     Type.getMethodDescriptor(Type.VOID_TYPE), false);
         }
@@ -60,8 +60,8 @@ public class ShutdownAdapter extends ClassVisitor {
 
     // Helper methods
 
-    private boolean isHaltOrShutdownMethod(int access, String name, String desc,
-            String signature, String[] exceptions) {
+    private static boolean isHaltOrShutdownMethod(int access, String name,
+            String desc, String signature, String[] exceptions) {
         // shutdown() is called by JNI during regular termination of the JVM,
         // halt(exitCode) is called when the user terminates the JVM via
         // System.exit(errorCode); or Runtime.halt(exitCode);

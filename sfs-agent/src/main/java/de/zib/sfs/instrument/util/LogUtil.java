@@ -11,8 +11,8 @@ public class LogUtil {
 
     private static boolean enableStderr = false;
 
-    public static void enableStderrLogging(boolean enableStderr) {
-        LogUtil.enableStderr = enableStderr;
+    public static void enableStderrLogging(boolean enable) {
+        LogUtil.enableStderr = enable;
     }
 
     public static void stderr(String format, Object... args) {

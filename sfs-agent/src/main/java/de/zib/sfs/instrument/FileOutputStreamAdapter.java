@@ -28,8 +28,7 @@ import de.zib.sfs.instrument.statistics.OperationCategory;
 public class FileOutputStreamAdapter extends AbstractSfsAdapter {
 
     public FileOutputStreamAdapter(ClassVisitor cv, String methodPrefix,
-            Set<OperationCategory> skip)
-            throws NoSuchMethodException, SecurityException {
+            Set<OperationCategory> skip) throws SecurityException {
         super(cv, FileOutputStream.class, FileOutputStreamCallback.class,
                 methodPrefix, skip);
     }
@@ -42,7 +41,7 @@ public class FileOutputStreamAdapter extends AbstractSfsAdapter {
     }
 
     @Override
-    protected void appendWrappedMethods(ClassVisitor cv) {
+    protected void appendWrappedMethods(ClassVisitor visitor) {
         ResultPasser resultDiscarder = new DiscardResultPasser();
 
         wrapMethod(Opcodes.ACC_PRIVATE, "open", Type.VOID_TYPE,
@@ -85,7 +84,7 @@ public class FileOutputStreamAdapter extends AbstractSfsAdapter {
         }
     }
 
-    private boolean isOpenMethod(int access, String name, String desc,
+    private static boolean isOpenMethod(int access, String name, String desc,
             String signature, String[] exceptions) {
         return access == Opcodes.ACC_PRIVATE && "open".equals(name)
                 && Type.getMethodDescriptor(Type.VOID_TYPE,

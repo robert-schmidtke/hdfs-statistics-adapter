@@ -19,7 +19,7 @@ public enum OperationSource {
     }
 
     public byte toFlatBuffer() {
-        return flatBuffer;
+        return this.flatBuffer;
     }
 
     public static OperationSource fromFlatBuffer(byte flatBuffer) {

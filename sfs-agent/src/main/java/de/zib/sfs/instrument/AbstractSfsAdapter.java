@@ -42,20 +42,22 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
 
         this.methodPrefix = methodPrefix;
 
-        instrumentedTypeInternalName = Type
+        this.instrumentedTypeInternalName = Type
                 .getInternalName(instrumentedTypeClass);
-        callbackTypeInternalName = Type.getInternalName(callbackTypeClass);
-        callbackTypeDescriptor = Type.getDescriptor(callbackTypeClass);
+        this.callbackTypeInternalName = Type.getInternalName(callbackTypeClass);
+        this.callbackTypeDescriptor = Type.getDescriptor(callbackTypeClass);
         try {
-            callbackTypeConstructorDescriptor = Type.getConstructorDescriptor(
-                    callbackTypeClass.getConstructor(instrumentedTypeClass));
+            this.callbackTypeConstructorDescriptor = Type
+                    .getConstructorDescriptor(callbackTypeClass
+                            .getConstructor(instrumentedTypeClass));
         } catch (Exception e) {
             throw new IllegalArgumentException("Constructor of "
-                    + callbackTypeInternalName + " is not accessible.");
+                    + this.callbackTypeInternalName + " is not accessible.", e);
         }
 
-        systemInternalName = Type.getInternalName(System.class);
-        currentTimeMillisDescriptor = Type.getMethodDescriptor(Type.LONG_TYPE);
+        this.systemInternalName = Type.getInternalName(System.class);
+        this.currentTimeMillisDescriptor = Type
+                .getMethodDescriptor(Type.LONG_TYPE);
 
         this.skip = skip;
     }
@@ -67,14 +69,15 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
 
         this.methodPrefix = null;
 
-        instrumentedTypeInternalName = Type
+        this.instrumentedTypeInternalName = Type
                 .getInternalName(instrumentedTypeClass);
-        callbackTypeInternalName = null;
-        callbackTypeDescriptor = null;
-        callbackTypeConstructorDescriptor = null;
+        this.callbackTypeInternalName = null;
+        this.callbackTypeDescriptor = null;
+        this.callbackTypeConstructorDescriptor = null;
 
-        systemInternalName = Type.getInternalName(System.class);
-        currentTimeMillisDescriptor = Type.getMethodDescriptor(Type.LONG_TYPE);
+        this.systemInternalName = Type.getInternalName(System.class);
+        this.currentTimeMillisDescriptor = Type
+                .getMethodDescriptor(Type.LONG_TYPE);
 
         this.skip = skip;
     }
@@ -88,45 +91,51 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
         this.methodPrefix = methodPrefix;
 
         this.instrumentedTypeInternalName = instrumentedTypeInternalName;
-        callbackTypeInternalName = Type.getInternalName(callbackTypeClass);
-        callbackTypeDescriptor = Type.getDescriptor(callbackTypeClass);
+        this.callbackTypeInternalName = Type.getInternalName(callbackTypeClass);
+        this.callbackTypeDescriptor = Type.getDescriptor(callbackTypeClass);
         try {
-            callbackTypeConstructorDescriptor = Type.getConstructorDescriptor(
-                    callbackTypeClass.getConstructor());
+            this.callbackTypeConstructorDescriptor = Type
+                    .getConstructorDescriptor(
+                            callbackTypeClass.getConstructor());
         } catch (Exception e) {
             throw new IllegalArgumentException("No-arg constructor of "
-                    + callbackTypeInternalName + " is not accessible.");
+                    + this.callbackTypeInternalName + " is not accessible.", e);
         }
 
-        systemInternalName = Type.getInternalName(System.class);
-        currentTimeMillisDescriptor = Type.getMethodDescriptor(Type.LONG_TYPE);
+        this.systemInternalName = Type.getInternalName(System.class);
+        this.currentTimeMillisDescriptor = Type
+                .getMethodDescriptor(Type.LONG_TYPE);
 
         this.skip = skip;
     }
 
-    protected void appendFields(ClassVisitor cv) {
+    /**
+     * @param visitor
+     */
+    protected void appendFields(ClassVisitor visitor) {
+        // children may override
     }
 
     @Override
     public void visitSource(String source, String debug) {
-        if (callbackTypeDescriptor != null) {
+        if (this.callbackTypeDescriptor != null) {
             // private final <CallbackType> callback;
-            FieldVisitor callbackFV = cv.visitField(
+            FieldVisitor callbackFV = this.cv.visitField(
                     Opcodes.ACC_PRIVATE | Opcodes.ACC_FINAL, "callback",
-                    callbackTypeDescriptor, null, null);
+                    this.callbackTypeDescriptor, null, null);
             callbackFV.visitEnd();
         }
 
         // private final InstrumentationActive instrumentationActive;
-        FieldVisitor instrumentationActiveFV = cv.visitField(
+        FieldVisitor instrumentationActiveFV = this.cv.visitField(
                 Opcodes.ACC_PRIVATE | Opcodes.ACC_FINAL,
                 "instrumentationActive",
                 Type.getDescriptor(InstrumentationActive.class), null, null);
         instrumentationActiveFV.visitEnd();
 
-        appendFields(cv);
+        appendFields(this.cv);
 
-        cv.visitSource(source, debug);
+        this.cv.visitSource(source, debug);
     }
 
     @Override
@@ -134,15 +143,14 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
             String signature, String[] exceptions) {
         MethodVisitor mv;
         if ("<init>".equals(name)) {
-            mv = new ConstructorAdapter(
-                    cv.visitMethod(access, name, desc, signature, exceptions),
-                    access, name, desc);
+            mv = new ConstructorAdapter(this.cv.visitMethod(access, name, desc,
+                    signature, exceptions), access, name, desc);
         } else if (wrapMethod(access, name, desc, signature, exceptions)) {
             // rename methods so we can wrap them
-            mv = cv.visitMethod(access, methodPrefix + name, desc, signature,
-                    exceptions);
+            mv = this.cv.visitMethod(access, this.methodPrefix + name, desc,
+                    signature, exceptions);
         } else {
-            mv = cv.visitMethod(access, name, desc, signature, exceptions);
+            mv = this.cv.visitMethod(access, name, desc, signature, exceptions);
         }
         return mv;
     }
@@ -160,7 +168,7 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
 
         // <access> <returnType> <name>(<argumentTypes> arguments) throws
         // <exceptions> {
-        MethodVisitor mv = cv.visitMethod(access, name, methodDescriptor,
+        MethodVisitor mv = this.cv.visitMethod(access, name, methodDescriptor,
                 signature, exceptions);
         mv.visitCode();
 
@@ -179,7 +187,7 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
         mv.visitMethodInsn(
                 (access & Opcodes.ACC_STATIC) == 0 ? Opcodes.INVOKESPECIAL
                         : Opcodes.INVOKESTATIC,
-                instrumentedTypeInternalName, methodPrefix + name,
+                this.instrumentedTypeInternalName, this.methodPrefix + name,
                 methodDescriptor, false);
         if (!Type.VOID_TYPE.equals(returnType)) {
             mv.visitInsn(returnType.getOpcode(Opcodes.IRETURN));
@@ -210,7 +218,7 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
         mv.visitMethodInsn(
                 (access & Opcodes.ACC_STATIC) == 0 ? Opcodes.INVOKESPECIAL
                         : Opcodes.INVOKESTATIC,
-                instrumentedTypeInternalName, methodPrefix + name,
+                this.instrumentedTypeInternalName, this.methodPrefix + name,
                 methodDescriptor, false);
         int endTimeIndex = startTimeIndex + 2;
         if (!Type.VOID_TYPE.equals(returnType)) {
@@ -224,8 +232,8 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
 
         // callback.<callbackMethod>(startTime, endTime, result?);
         mv.visitVarInsn(Opcodes.ALOAD, 0);
-        mv.visitFieldInsn(Opcodes.GETFIELD, instrumentedTypeInternalName,
-                "callback", callbackTypeDescriptor);
+        mv.visitFieldInsn(Opcodes.GETFIELD, this.instrumentedTypeInternalName,
+                "callback", this.callbackTypeDescriptor);
         mv.visitVarInsn(Opcodes.LLOAD, startTimeIndex);
         mv.visitVarInsn(Opcodes.LLOAD, endTimeIndex);
 
@@ -254,7 +262,7 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
             callbackArgumentTypes = new Type[] { Type.LONG_TYPE, Type.LONG_TYPE,
                     additionalCallbackArgumentType };
         }
-        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, callbackTypeInternalName,
+        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, this.callbackTypeInternalName,
                 callbackName,
                 Type.getMethodDescriptor(Type.VOID_TYPE, callbackArgumentTypes),
                 false);
@@ -275,13 +283,17 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
         mv.visitEnd();
     }
 
-    protected void appendWrappedMethods(ClassVisitor cv) {
+    /**
+     * @param visitor
+     */
+    protected void appendWrappedMethods(ClassVisitor visitor) {
+        // children may override
     }
 
     @Override
     public void visitEnd() {
         // public void setInstrumentationActive(boolean instrumentationActive) {
-        MethodVisitor setInstrumentationActiveMV = cv.visitMethod(
+        MethodVisitor setInstrumentationActiveMV = this.cv.visitMethod(
                 Opcodes.ACC_PUBLIC, "setInstrumentationActive",
                 Type.getMethodDescriptor(Type.VOID_TYPE, Type.BOOLEAN_TYPE),
                 null, null);
@@ -290,7 +302,7 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
         // this.instrumentationActive.setInstrumentationActive(instrumentationActive);
         setInstrumentationActiveMV.visitVarInsn(Opcodes.ALOAD, 0);
         setInstrumentationActiveMV.visitFieldInsn(Opcodes.GETFIELD,
-                instrumentedTypeInternalName, "instrumentationActive",
+                this.instrumentedTypeInternalName, "instrumentationActive",
                 Type.getDescriptor(InstrumentationActive.class));
         setInstrumentationActiveMV.visitVarInsn(Opcodes.ILOAD, 1);
         setInstrumentationActiveMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
@@ -305,7 +317,7 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
         setInstrumentationActiveMV.visitEnd();
 
         // public boolean isInstrumentationActive() {
-        MethodVisitor isInstrumentationActiveMV = cv.visitMethod(
+        MethodVisitor isInstrumentationActiveMV = this.cv.visitMethod(
                 Opcodes.ACC_PUBLIC, "isInstrumentationActive",
                 Type.getMethodDescriptor(Type.BOOLEAN_TYPE), null, null);
         isInstrumentationActiveMV.visitCode();
@@ -314,7 +326,7 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
         // }
         isInstrumentationActiveMV.visitVarInsn(Opcodes.ALOAD, 0);
         isInstrumentationActiveMV.visitFieldInsn(Opcodes.GETFIELD,
-                instrumentedTypeInternalName, "instrumentationActive",
+                this.instrumentedTypeInternalName, "instrumentationActive",
                 Type.getDescriptor(InstrumentationActive.class));
         isInstrumentationActiveMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
                 Type.getInternalName(InstrumentationActive.class),
@@ -324,12 +336,12 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
         isInstrumentationActiveMV.visitMaxs(0, 0);
         isInstrumentationActiveMV.visitEnd();
 
-        appendWrappedMethods(cv);
+        appendWrappedMethods(this.cv);
 
-        cv.visitEnd();
+        this.cv.visitEnd();
     }
 
-    protected void println(MethodVisitor mv, String string) {
+    protected static void println(MethodVisitor mv, String string) {
         // System.err.println(<string>);
         mv.visitFieldInsn(Opcodes.GETSTATIC, Type.getInternalName(System.class),
                 "err", Type.getDescriptor(PrintStream.class));
@@ -343,16 +355,16 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
 
     protected void storeTime(MethodVisitor mv, int index) {
         // long time = System.currentTimeMillis();
-        mv.visitMethodInsn(Opcodes.INVOKESTATIC, systemInternalName,
-                "currentTimeMillis", currentTimeMillisDescriptor, false);
+        mv.visitMethodInsn(Opcodes.INVOKESTATIC, this.systemInternalName,
+                "currentTimeMillis", this.currentTimeMillisDescriptor, false);
         mv.visitVarInsn(Opcodes.LSTORE, index);
     }
 
     protected void isInstrumentationActive(MethodVisitor mv) {
         // isInstrumentationActive();
         mv.visitVarInsn(Opcodes.ALOAD, 0);
-        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, instrumentedTypeInternalName,
-                "isInstrumentationActive",
+        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+                this.instrumentedTypeInternalName, "isInstrumentationActive",
                 Type.getMethodDescriptor(Type.BOOLEAN_TYPE), false);
     }
 
@@ -362,30 +374,35 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
         mv.visitVarInsn(Opcodes.ALOAD, 0);
         mv.visitInsn(
                 instrumentationActive ? Opcodes.ICONST_1 : Opcodes.ICONST_0);
-        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, instrumentedTypeInternalName,
-                "setInstrumentationActive",
+        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+                this.instrumentedTypeInternalName, "setInstrumentationActive",
                 Type.getMethodDescriptor(Type.VOID_TYPE, Type.BOOLEAN_TYPE),
                 false);
     }
 
+    /**
+     * @param constructorMV
+     * @param constructorDesc
+     */
     protected void initializeFields(MethodVisitor constructorMV,
             String constructorDesc) {
+        // children may override
     }
 
     protected boolean skipReads() {
-        return skip.contains(OperationCategory.READ);
+        return this.skip.contains(OperationCategory.READ);
     }
 
     protected boolean skipWrites() {
-        return skip.contains(OperationCategory.WRITE);
+        return this.skip.contains(OperationCategory.WRITE);
     }
 
     protected boolean skipOther() {
-        return skip.contains(OperationCategory.OTHER);
+        return this.skip.contains(OperationCategory.OTHER);
     }
 
     protected boolean skipZip() {
-        return skip.contains(OperationCategory.ZIP);
+        return this.skip.contains(OperationCategory.ZIP);
     }
 
     protected class ConstructorAdapter extends AdviceAdapter {
@@ -397,40 +414,47 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
 
         @Override
         protected void onMethodEnter() {
-            if (callbackTypeInternalName != null) {
+            if (AbstractSfsAdapter.this.callbackTypeInternalName != null) {
                 // callback = new <CallbackType>(this?);
-                mv.visitVarInsn(Opcodes.ALOAD, 0);
-                mv.visitTypeInsn(Opcodes.NEW, callbackTypeInternalName);
-                mv.visitInsn(Opcodes.DUP);
-                if (!"()V".equals(callbackTypeConstructorDescriptor)) {
-                    mv.visitVarInsn(Opcodes.ALOAD, 0);
+                this.mv.visitVarInsn(Opcodes.ALOAD, 0);
+                this.mv.visitTypeInsn(Opcodes.NEW,
+                        AbstractSfsAdapter.this.callbackTypeInternalName);
+                this.mv.visitInsn(Opcodes.DUP);
+                if (!"()V".equals(
+                        AbstractSfsAdapter.this.callbackTypeConstructorDescriptor)) {
+                    this.mv.visitVarInsn(Opcodes.ALOAD, 0);
                 }
-                mv.visitMethodInsn(Opcodes.INVOKESPECIAL,
-                        callbackTypeInternalName, "<init>",
-                        callbackTypeConstructorDescriptor, false);
-                mv.visitFieldInsn(Opcodes.PUTFIELD,
-                        instrumentedTypeInternalName, "callback",
-                        callbackTypeDescriptor);
+                this.mv.visitMethodInsn(Opcodes.INVOKESPECIAL,
+                        AbstractSfsAdapter.this.callbackTypeInternalName,
+                        "<init>",
+                        AbstractSfsAdapter.this.callbackTypeConstructorDescriptor,
+                        false);
+                this.mv.visitFieldInsn(Opcodes.PUTFIELD,
+                        AbstractSfsAdapter.this.instrumentedTypeInternalName,
+                        "callback",
+                        AbstractSfsAdapter.this.callbackTypeDescriptor);
 
                 if (skipOther()) {
                     // callback.skipOther();
-                    mv.visitVarInsn(Opcodes.ALOAD, 0);
-                    mv.visitFieldInsn(Opcodes.GETFIELD,
-                            instrumentedTypeInternalName, "callback",
-                            callbackTypeDescriptor);
-                    mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
-                            callbackTypeInternalName, "skipOther",
+                    this.mv.visitVarInsn(Opcodes.ALOAD, 0);
+                    this.mv.visitFieldInsn(Opcodes.GETFIELD,
+                            AbstractSfsAdapter.this.instrumentedTypeInternalName,
+                            "callback",
+                            AbstractSfsAdapter.this.callbackTypeDescriptor);
+                    this.mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+                            AbstractSfsAdapter.this.callbackTypeInternalName,
+                            "skipOther",
                             Type.getMethodDescriptor(Type.VOID_TYPE), false);
                 }
             }
 
             // instrumentationActive = new InstrumentationActive();
-            mv.visitVarInsn(Opcodes.ALOAD, 0);
-            mv.visitTypeInsn(Opcodes.NEW,
+            this.mv.visitVarInsn(Opcodes.ALOAD, 0);
+            this.mv.visitTypeInsn(Opcodes.NEW,
                     Type.getInternalName(InstrumentationActive.class));
-            mv.visitInsn(Opcodes.DUP);
+            this.mv.visitInsn(Opcodes.DUP);
             try {
-                mv.visitMethodInsn(Opcodes.INVOKESPECIAL,
+                this.mv.visitMethodInsn(Opcodes.INVOKESPECIAL,
                         Type.getInternalName(InstrumentationActive.class),
                         "<init>",
                         Type.getConstructorDescriptor(
@@ -439,7 +463,8 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
             } catch (Exception e) {
                 throw new RuntimeException("Could not access constructor", e);
             }
-            mv.visitFieldInsn(Opcodes.PUTFIELD, instrumentedTypeInternalName,
+            this.mv.visitFieldInsn(Opcodes.PUTFIELD,
+                    AbstractSfsAdapter.this.instrumentedTypeInternalName,
                     "instrumentationActive",
                     Type.getDescriptor(InstrumentationActive.class));
         }
@@ -447,7 +472,7 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
         @Override
         protected void onMethodExit(int opcode) {
             if (opcode == Opcodes.RETURN) {
-                initializeFields(mv, methodDesc);
+                initializeFields(this.mv, this.methodDesc);
             }
         }
 
@@ -460,17 +485,19 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
      *
      */
     public static class InstrumentationActive {
-        private final Map<Thread, Boolean> instrumentingThreads = new ConcurrentHashMap<Thread, Boolean>();
+        private final Map<Thread, Boolean> instrumentingThreads = new ConcurrentHashMap<>();
 
         public boolean isInstrumentationActive() {
-            return instrumentingThreads.containsKey(Thread.currentThread());
+            return this.instrumentingThreads
+                    .containsKey(Thread.currentThread());
         }
 
         public void setInstrumentationActive(boolean instrumentationActive) {
             if (instrumentationActive) {
-                instrumentingThreads.put(Thread.currentThread(), true);
+                this.instrumentingThreads.put(Thread.currentThread(),
+                        Boolean.TRUE);
             } else {
-                instrumentingThreads.remove(Thread.currentThread());
+                this.instrumentingThreads.remove(Thread.currentThread());
             }
         }
     }
@@ -489,6 +516,7 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
 
         @Override
         public void passResult(MethodVisitor mv) {
+            // nothing to do
         }
     }
 
@@ -500,6 +528,7 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
 
         @Override
         public void passResult(MethodVisitor mv) {
+            // nothing to do
         }
     }
 
@@ -512,11 +541,12 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
 
         @Override
         public int getResultIndex() {
-            return index;
+            return this.index;
         }
 
         @Override
         public void passResult(MethodVisitor mv) {
+            // nothing to do
         }
     }
 

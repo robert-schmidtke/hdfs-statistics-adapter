@@ -40,59 +40,60 @@ public class FileOutputStreamCallback extends AbstractSfsCallback {
 
         // discard all writes to the LiveOperationStatisticsAggregator's log
         // files
-        discard = LOG_FILE_PREFIX != null && filename != null
+        this.discard = LOG_FILE_PREFIX != null && filename != null
                 && filename.startsWith(LOG_FILE_PREFIX);
-        if (!discard) {
+        if (!this.discard) {
             try {
-                fd = LiveOperationStatisticsAggregator.instance
-                        .registerFileDescriptor(filename, fos.getFD());
-                fos = null;
+                this.fd = LiveOperationStatisticsAggregator.instance
+                        .registerFileDescriptor(filename, this.fos.getFD());
+                this.fos = null;
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
 
-            if (!skipOther) {
+            if (!this.skipOther) {
                 LiveOperationStatisticsAggregator.instance
                         .aggregateOperationStatistics(OperationSource.JVM,
                                 OperationCategory.OTHER, startTime, endTime,
-                                fd);
+                                this.fd);
             }
         }
     }
 
     public void writeCallback(long startTime, long endTime) {
-        if (!discard) {
+        if (!this.discard) {
             getFileDescriptor();
             LiveOperationStatisticsAggregator.instance
                     .aggregateDataOperationStatistics(OperationSource.JVM,
-                            OperationCategory.WRITE, startTime, endTime, fd, 1);
+                            OperationCategory.WRITE, startTime, endTime,
+                            this.fd, 1);
         }
     }
 
     public void writeBytesCallback(long startTime, long endTime, int len) {
-        if (!discard) {
+        if (!this.discard) {
             getFileDescriptor();
             LiveOperationStatisticsAggregator.instance
                     .aggregateDataOperationStatistics(OperationSource.JVM,
-                            OperationCategory.WRITE, startTime, endTime, fd,
-                            len);
+                            OperationCategory.WRITE, startTime, endTime,
+                            this.fd, len);
         }
     }
 
     private void getFileDescriptor() {
-        if (fd != -1) {
+        if (this.fd != -1) {
             return;
         }
 
         try {
             synchronized (this) {
-                if (fos == null) {
+                if (this.fos == null) {
                     return;
                 }
 
-                fd = LiveOperationStatisticsAggregator.instance
-                        .getFileDescriptor(fos.getFD());
-                fos = null;
+                this.fd = LiveOperationStatisticsAggregator.instance
+                        .getFileDescriptor(this.fos.getFD());
+                this.fos = null;
             }
         } catch (IOException e) {
             throw new RuntimeException(e);

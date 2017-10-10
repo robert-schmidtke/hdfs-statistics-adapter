@@ -15,7 +15,7 @@ public abstract class AbstractSfsCallback {
     protected boolean skipOther = false;
 
     public void skipOther() {
-        skipOther = true;
+        this.skipOther = true;
     }
 
 }

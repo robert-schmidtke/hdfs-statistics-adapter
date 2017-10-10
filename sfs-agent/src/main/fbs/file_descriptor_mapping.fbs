@@ -1,0 +1,18 @@
+/*
+ * Copyright (c) 2017 by Robert Schmidtke,
+ *               Zuse Institute Berlin
+ *
+ * Licensed under the BSD License, see LICENSE file for details.
+ *
+ */
+namespace de.zib.sfs.instrument.statistics.fb;
+
+table FileDescriptorMappingFB {
+  hostname:string;
+  pid:int;
+  key:string;
+  file_descriptor:int;
+  path:string;
+}
+
+root_type FileDescriptorMappingFB;

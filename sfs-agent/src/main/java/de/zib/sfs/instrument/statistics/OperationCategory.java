@@ -20,7 +20,7 @@ public enum OperationCategory {
     }
 
     public byte toFlatBuffer() {
-        return flatBuffer;
+        return this.flatBuffer;
     }
 
     public static OperationCategory fromFlatBuffer(byte flatBuffer) {

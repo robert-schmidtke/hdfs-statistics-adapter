@@ -9,6 +9,7 @@ package de.zib.sfs.instrument.statistics;
 
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 
 import com.google.flatbuffers.ByteBufferUtil;
 import com.google.flatbuffers.Constants;
@@ -20,6 +21,9 @@ import de.zib.sfs.instrument.statistics.fb.OperationStatisticsFB;
 public class DataOperationStatistics extends OperationStatistics {
 
     private long data;
+
+    public DataOperationStatistics() {
+    }
 
     public DataOperationStatistics(long timeBinDuration, OperationSource source,
             OperationCategory category, long startTime, long endTime, int fd,
@@ -36,7 +40,7 @@ public class DataOperationStatistics extends OperationStatistics {
     }
 
     public long getData() {
-        return data;
+        return this.data;
     }
 
     public void setData(long data) {
@@ -55,19 +59,18 @@ public class DataOperationStatistics extends OperationStatistics {
                 aggregate.getTimeBin(), aggregate.getCpuTime(),
                 aggregate.getSource(), aggregate.getCategory(),
                 aggregate.getFileDescriptor(),
-                data + ((DataOperationStatistics) other).getData());
+                this.data + ((DataOperationStatistics) other).getData());
     }
 
-    @Override
-    public void getCsvHeaders(String separator, StringBuilder sb) {
-        super.getCsvHeaders(separator, sb);
+    public static void getCsvHeaders(String separator, StringBuilder sb) {
+        OperationStatistics.getCsvHeaders(separator, sb);
         sb.append(separator).append("data");
     }
 
     @Override
     public void toCsv(String separator, StringBuilder sb) {
         super.toCsv(separator, sb);
-        sb.append(separator).append(data);
+        sb.append(separator).append(this.data);
     }
 
     public static DataOperationStatistics fromCsv(String line, String separator,
@@ -85,22 +88,24 @@ public class DataOperationStatistics extends OperationStatistics {
     @Override
     protected void toFlatBuffer(FlatBufferBuilder builder) {
         super.toFlatBuffer(builder);
-        if (data > 0)
-            OperationStatisticsFB.addData(builder, data);
+        if (this.data > 0)
+            OperationStatisticsFB.addData(builder, this.data);
     }
 
     public static DataOperationStatistics fromFlatBuffer(ByteBuffer buffer) {
-        int length;
-        if (buffer.remaining() < Constants.SIZE_PREFIX_LENGTH
-                || (length = ByteBufferUtil.getSizePrefix(buffer)
-                        + Constants.SIZE_PREFIX_LENGTH) > buffer.remaining()) {
+        buffer.order(ByteOrder.LITTLE_ENDIAN);
+
+        int length = Constants.SIZE_PREFIX_LENGTH;
+        if (buffer.remaining() < length)
             throw new BufferUnderflowException();
-        }
+        length += ByteBufferUtil.getSizePrefix(buffer);
+        if (buffer.remaining() < length)
+            throw new BufferUnderflowException();
         ByteBuffer osBuffer = ByteBufferUtil.removeSizePrefix(buffer);
-        buffer.position(buffer.position() + length);
 
         OperationStatisticsFB os = OperationStatisticsFB
                 .getRootAsOperationStatisticsFB(osBuffer);
+        buffer.position(buffer.position() + length);
         return new DataOperationStatistics(os.count(), os.timeBin(),
                 os.cpuTime(), OperationSource.fromFlatBuffer(os.source()),
                 OperationCategory.fromFlatBuffer(os.category()),
@@ -108,8 +113,9 @@ public class DataOperationStatistics extends OperationStatistics {
     }
 
     @Override
-    public ByteBuffer toByteBuffer(String hostname, int pid, String key) {
-        return new OperationStatisticsBufferBuilder(this).serialize(hostname,
-                pid, key);
+    public void toByteBuffer(ByteBuffer hostname, int pid, ByteBuffer key,
+            ByteBuffer bb) {
+        OperationStatisticsBufferBuilder.serialize(hostname, pid, key, this,
+                bb);
     }
 }

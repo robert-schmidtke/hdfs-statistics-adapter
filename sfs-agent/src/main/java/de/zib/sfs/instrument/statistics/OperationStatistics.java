@@ -7,12 +7,15 @@
  */
 package de.zib.sfs.instrument.statistics;
 
+import java.nio.BufferOverflowException;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 
 import com.google.flatbuffers.ByteBufferUtil;
 import com.google.flatbuffers.Constants;
 import com.google.flatbuffers.FlatBufferBuilder;
+import com.google.flatbuffers.FlatBufferBuilder.ByteBufferFactory;
 
 import de.zib.sfs.instrument.statistics.bb.OperationStatisticsBufferBuilder;
 import de.zib.sfs.instrument.statistics.fb.OperationStatisticsFB;
@@ -41,6 +44,11 @@ public class OperationStatistics {
 
     private int fd;
 
+    private static ByteBufferFactory overflowByteBufferFactory;
+
+    public OperationStatistics() {
+    }
+
     public OperationStatistics(long timeBinDuration, OperationSource source,
             OperationCategory category, long startTime, long endTime, int fd) {
         this(1, startTime - startTime % timeBinDuration, endTime - startTime,
@@ -58,7 +66,7 @@ public class OperationStatistics {
     }
 
     public long getCount() {
-        return count;
+        return this.count;
     }
 
     public void setCount(long count) {
@@ -66,7 +74,7 @@ public class OperationStatistics {
     }
 
     public long getTimeBin() {
-        return timeBin;
+        return this.timeBin;
     }
 
     public void setTimeBin(long timeBin) {
@@ -74,7 +82,7 @@ public class OperationStatistics {
     }
 
     public long getCpuTime() {
-        return cpuTime;
+        return this.cpuTime;
     }
 
     public void setCpuTime(long cpuTime) {
@@ -82,7 +90,7 @@ public class OperationStatistics {
     }
 
     public OperationSource getSource() {
-        return source;
+        return this.source;
     }
 
     public void setSource(OperationSource source) {
@@ -90,7 +98,7 @@ public class OperationStatistics {
     }
 
     public OperationCategory getCategory() {
-        return category;
+        return this.category;
     }
 
     public void setCategory(OperationCategory category) {
@@ -98,7 +106,7 @@ public class OperationStatistics {
     }
 
     public int getFileDescriptor() {
-        return fd;
+        return this.fd;
     }
 
     public void setFileDescriptor(int fd) {
@@ -111,37 +119,38 @@ public class OperationStatistics {
             throw new NotAggregatableException("Cannot aggregate self");
         }
 
-        if (other.getTimeBin() != timeBin) {
+        if (other.getTimeBin() != this.timeBin) {
             throw new NotAggregatableException("Time bins do not match: "
-                    + timeBin + ", " + other.getTimeBin());
+                    + this.timeBin + ", " + other.getTimeBin());
         }
 
-        if (!other.getSource().equals(source)) {
-            throw new NotAggregatableException("Sources do not match: " + source
-                    + ", " + other.getSource());
+        if (!other.getSource().equals(this.source)) {
+            throw new NotAggregatableException("Sources do not match: "
+                    + this.source + ", " + other.getSource());
         }
 
-        if (!other.getCategory().equals(category)) {
+        if (!other.getCategory().equals(this.category)) {
             throw new NotAggregatableException("Categories do not match: "
-                    + category + ", " + other.getCategory());
+                    + this.category + ", " + other.getCategory());
         }
 
-        if (other.getFileDescriptor() != fd) {
+        if (other.getFileDescriptor() != this.fd) {
             throw new NotAggregatableException("File descriptors do not match: "
-                    + fd + ", " + other.getFileDescriptor());
+                    + this.fd + ", " + other.getFileDescriptor());
         }
 
-        return new OperationStatistics(count + other.getCount(), timeBin,
-                cpuTime + other.getCpuTime(), source, category, fd);
+        return new OperationStatistics(this.count + other.getCount(),
+                this.timeBin, this.cpuTime + other.getCpuTime(), this.source,
+                this.category, this.fd);
     }
 
-    public String getCsvHeaders(String separator) {
+    public static String getCsvHeaders(String separator) {
         StringBuilder sb = new StringBuilder();
         getCsvHeaders(separator, sb);
         return sb.toString();
     }
 
-    public void getCsvHeaders(String separator, StringBuilder sb) {
+    public static void getCsvHeaders(String separator, StringBuilder sb) {
         sb.append("count");
         sb.append(separator).append("timeBin");
         sb.append(separator).append("cpuTime");
@@ -157,12 +166,12 @@ public class OperationStatistics {
     }
 
     public void toCsv(String separator, StringBuilder sb) {
-        sb.append(count);
-        sb.append(separator).append(timeBin);
-        sb.append(separator).append(cpuTime);
-        sb.append(separator).append(source.name().toLowerCase());
-        sb.append(separator).append(category.name().toLowerCase());
-        sb.append(separator).append(fd);
+        sb.append(this.count);
+        sb.append(separator).append(this.timeBin);
+        sb.append(separator).append(this.cpuTime);
+        sb.append(separator).append(this.source.name().toLowerCase());
+        sb.append(separator).append(this.category.name().toLowerCase());
+        sb.append(separator).append(this.fd);
     }
 
     public static OperationStatistics fromCsv(String line, String separator,
@@ -176,8 +185,26 @@ public class OperationStatistics {
                 Integer.parseInt(values[off + 5]));
     }
 
-    public ByteBuffer toFlatBuffer(String hostname, int pid, String key) {
-        FlatBufferBuilder builder = new FlatBufferBuilder(0);
+    public void toFlatBuffer(String hostname, int pid, String key,
+            ByteBuffer bb) {
+        if (overflowByteBufferFactory == null) {
+            overflowByteBufferFactory = new ByteBufferFactory() {
+                @Override
+                public ByteBuffer newByteBuffer(int capacity) {
+                    // signal to the caller that the ByteBuffer was not
+                    // sufficiently large
+                    throw new BufferOverflowException();
+                }
+            };
+        }
+
+        FlatBufferBuilder builder = new FlatBufferBuilder(bb,
+                overflowByteBufferFactory);
+        toFlatBuffer(builder, hostname, pid, key);
+    }
+
+    private void toFlatBuffer(FlatBufferBuilder builder, String hostname,
+            int pid, String key) {
         int hostnameOffset = builder.createString(hostname);
         int keyOffset = builder.createString(key);
         OperationStatisticsFB.startOperationStatisticsFB(builder);
@@ -189,47 +216,50 @@ public class OperationStatistics {
         int os = OperationStatisticsFB.endOperationStatisticsFB(builder);
         OperationStatisticsFB
                 .finishSizePrefixedOperationStatisticsFBBuffer(builder, os);
-        return builder.dataBuffer();
     }
 
     protected void toFlatBuffer(FlatBufferBuilder builder) {
-        if (count > 0)
-            OperationStatisticsFB.addCount(builder, count);
-        if (timeBin > 0)
-            OperationStatisticsFB.addTimeBin(builder, timeBin);
-        if (cpuTime > 0)
-            OperationStatisticsFB.addCpuTime(builder, cpuTime);
-        OperationStatisticsFB.addSource(builder, source.toFlatBuffer());
-        OperationStatisticsFB.addCategory(builder, category.toFlatBuffer());
-        if (fd > 0)
-            OperationStatisticsFB.addFileDescriptor(builder, fd);
+        if (this.count > 0)
+            OperationStatisticsFB.addCount(builder, this.count);
+        if (this.timeBin > 0)
+            OperationStatisticsFB.addTimeBin(builder, this.timeBin);
+        if (this.cpuTime > 0)
+            OperationStatisticsFB.addCpuTime(builder, this.cpuTime);
+        OperationStatisticsFB.addSource(builder, this.source.toFlatBuffer());
+        OperationStatisticsFB.addCategory(builder,
+                this.category.toFlatBuffer());
+        if (this.fd > 0)
+            OperationStatisticsFB.addFileDescriptor(builder, this.fd);
     }
 
     public static OperationStatistics fromFlatBuffer(ByteBuffer buffer) {
-        int length;
-        if (buffer.remaining() < Constants.SIZE_PREFIX_LENGTH
-                || (length = ByteBufferUtil.getSizePrefix(buffer)
-                        + Constants.SIZE_PREFIX_LENGTH) > buffer.remaining()) {
+        buffer.order(ByteOrder.LITTLE_ENDIAN);
+
+        int length = Constants.SIZE_PREFIX_LENGTH;
+        if (buffer.remaining() < length)
             throw new BufferUnderflowException();
-        }
+        length += ByteBufferUtil.getSizePrefix(buffer);
+        if (buffer.remaining() < length)
+            throw new BufferUnderflowException();
         ByteBuffer osBuffer = ByteBufferUtil.removeSizePrefix(buffer);
-        buffer.position(buffer.position() + length);
 
         OperationStatisticsFB os = OperationStatisticsFB
                 .getRootAsOperationStatisticsFB(osBuffer);
+        buffer.position(buffer.position() + length);
         return new OperationStatistics(os.count(), os.timeBin(), os.cpuTime(),
                 OperationSource.fromFlatBuffer(os.source()),
                 OperationCategory.fromFlatBuffer(os.category()),
                 os.fileDescriptor());
     }
 
-    public ByteBuffer toByteBuffer(String hostname, int pid, String key) {
-        return new OperationStatisticsBufferBuilder(this).serialize(hostname,
-                pid, key);
+    public void toByteBuffer(ByteBuffer hostname, int pid, ByteBuffer key,
+            ByteBuffer bb) {
+        OperationStatisticsBufferBuilder.serialize(hostname, pid, key, this,
+                bb);
     }
 
-    public static OperationStatistics fromByteBuffer(ByteBuffer bb) {
-        return new OperationStatisticsBufferBuilder(bb).deserialize();
+    public static void fromByteBuffer(ByteBuffer bb, OperationStatistics os) {
+        OperationStatisticsBufferBuilder.deserialize(bb, os);
     }
 
     @Override

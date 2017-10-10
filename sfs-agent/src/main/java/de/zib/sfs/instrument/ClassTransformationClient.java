@@ -7,14 +7,13 @@
  */
 package de.zib.sfs.instrument;
 
-import io.grpc.ManagedChannel;
-import io.grpc.ManagedChannelBuilder;
-
 import java.util.concurrent.TimeUnit;
 
 import de.zib.sfs.instrument.rpc.ClassTransformationServiceGrpc;
 import de.zib.sfs.instrument.rpc.Sfs.BeginClassTransformationsRequest;
 import de.zib.sfs.instrument.rpc.Sfs.BeginClassTransformationsResponse;
+import io.grpc.ManagedChannel;
+import io.grpc.ManagedChannelBuilder;
 
 public class ClassTransformationClient {
 
@@ -28,18 +27,19 @@ public class ClassTransformationClient {
     }
 
     private ClassTransformationClient(ManagedChannelBuilder<?> channelBuilder) {
-        channel = channelBuilder.build();
-        stub = ClassTransformationServiceGrpc.newBlockingStub(channel);
+        this.channel = channelBuilder.build();
+        this.stub = ClassTransformationServiceGrpc
+                .newBlockingStub(this.channel);
     }
 
     public void shutdown() throws InterruptedException {
-        channel.shutdown().awaitTermination(5, TimeUnit.SECONDS);
+        this.channel.shutdown().awaitTermination(5, TimeUnit.SECONDS);
     }
 
     public void beginClassTransformations(int port) {
         BeginClassTransformationsRequest request = BeginClassTransformationsRequest
                 .newBuilder().setPort(port).build();
-        BeginClassTransformationsResponse response = stub
+        BeginClassTransformationsResponse response = this.stub
                 .beginClassTransformations(request);
     }
 

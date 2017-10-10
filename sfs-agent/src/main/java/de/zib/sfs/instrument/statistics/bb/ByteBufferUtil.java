@@ -105,10 +105,12 @@ public class ByteBufferUtil {
         }), EMPTY((byte) 0, new ByteBufferIO() {
             @Override
             public void putInt(ByteBuffer bb, int value) {
+                // nothing to do
             }
 
             @Override
             public void putLong(ByteBuffer bb, long value) {
+                // nothing to do
             }
 
             @Override
@@ -131,23 +133,27 @@ public class ByteBufferUtil {
         }
 
         public byte getSize() {
-            return size;
+            return this.size;
         }
 
+        @Override
         public void putInt(ByteBuffer bb, int value) {
-            bbio.putInt(bb, value);
+            this.bbio.putInt(bb, value);
         }
 
+        @Override
         public void putLong(ByteBuffer bb, long value) {
-            bbio.putLong(bb, value);
+            this.bbio.putLong(bb, value);
         }
 
+        @Override
         public int getInt(ByteBuffer bb) {
-            return bbio.getInt(bb);
+            return this.bbio.getInt(bb);
         }
 
+        @Override
         public long getLong(ByteBuffer bb) {
-            return bbio.getLong(bb);
+            return this.bbio.getLong(bb);
         }
     }
 

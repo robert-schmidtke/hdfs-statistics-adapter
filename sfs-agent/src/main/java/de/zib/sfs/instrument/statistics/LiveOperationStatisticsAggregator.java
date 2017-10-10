@@ -38,8 +38,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import de.zib.sfs.instrument.statistics.bb.ByteBufferUtil;
-import de.zib.sfs.instrument.statistics.bb.ByteBufferUtil.NumberType;
+import com.google.flatbuffers.FlatBufferBuilder;
+
+import de.zib.sfs.instrument.statistics.bb.FileDescriptorMappingBufferBuilder;
+import de.zib.sfs.instrument.statistics.fb.FileDescriptorMappingFB;
 
 public class LiveOperationStatisticsAggregator {
 
@@ -50,40 +52,41 @@ public class LiveOperationStatisticsAggregator {
     private boolean initialized;
 
     private String systemHostname, systemKey;
+    private ByteBuffer systemHostnameBb, systemKeyBb;
     private int systemPid;
 
     // needs to have a positive non-zero value before it has been properly
     // initialized, as it might be used before that
-    private long timeBinDuration = 1L;
-    private int timeBinCacheSize;
+    long timeBinDuration = 1L;
+    int timeBinCacheSize;
 
-    private OutputFormat outputFormat;
+    OutputFormat outputFormat;
 
     private String csvOutputSeparator;
     private String logFilePrefix;
 
     // only have one thread emit from the aggregates
-    private static final AtomicBoolean EMISSION_IN_PROGRESS = new AtomicBoolean(
-            false);
+    static final AtomicBoolean EMISSION_IN_PROGRESS = new AtomicBoolean(false);
 
     // for each source/category combination, map a time bin to an aggregate
     // operation statistics for each file
-    private final List<NavigableMap<Long, NavigableMap<Integer, OperationStatistics>>> aggregates;
+    final List<NavigableMap<Long, NavigableMap<Integer, OperationStatistics>>> aggregates;
 
     // FIXME Not ideal data structure, there are supposedly faster concurrent
     // queues out there. Plus it may grow quite large in face of high
     // concurrency.
-    private final Queue<OperationStatistics> overflowQueue;
+    final Queue<OperationStatistics> overflowQueue;
 
     // for coordinating writing of statistics
     private final Object[] writerLocks;
 
     // for CSV output
     private StringBuilder[] csvStringBuilders;
-    private BufferedWriter[] csvWriters;
+    BufferedWriter[] csvWriters;
 
     // for FlatBuffer/ByteBuffer output
-    private FileChannel[] bbChannels;
+    private ByteBuffer[] bbBuffers;
+    FileChannel[] bbChannels;
 
     private final ForkJoinPool threadPool;
 
@@ -103,51 +106,89 @@ public class LiveOperationStatisticsAggregator {
 
     private LiveOperationStatisticsAggregator() {
         // map each source/category combination, map a time bin to an aggregate
-        aggregates = new ArrayList<NavigableMap<Long, NavigableMap<Integer, OperationStatistics>>>();
+        this.aggregates = new ArrayList<>();
         for (int i = 0; i < OperationSource.values().length
                 * OperationCategory.values().length; ++i) {
-            aggregates.add(new ConcurrentSkipListMap<>());
+            this.aggregates.add(new ConcurrentSkipListMap<>());
         }
 
-        overflowQueue = new ConcurrentLinkedQueue<>();
+        this.overflowQueue = new ConcurrentLinkedQueue<>();
 
         // similar for the writer locks
-        writerLocks = new Object[OperationSource.values().length
+        this.writerLocks = new Object[OperationSource.values().length
                 * OperationCategory.values().length];
         for (OperationSource source : OperationSource.values()) {
             for (OperationCategory category : OperationCategory.values()) {
-                writerLocks[getUniqueIndex(source, category)] = new Object();
+                this.writerLocks[getUniqueIndex(source,
+                        category)] = new Object();
             }
         }
 
         // worker pool that will accept the aggregation tasks
-        threadPool = new ForkJoinPool(
+        this.threadPool = new ForkJoinPool(
                 Runtime.getRuntime().availableProcessors(),
                 ForkJoinPool.defaultForkJoinWorkerThreadFactory, null, true);
 
-        filenameToFd = new ConcurrentHashMap<>();
-        fdToFd = new ConcurrentHashMap<>();
-        currentFileDescriptor = new AtomicInteger(0);
+        this.filenameToFd = new ConcurrentHashMap<>();
+        this.fdToFd = new ConcurrentHashMap<>();
+        this.currentFileDescriptor = new AtomicInteger(0);
 
-        initialized = false;
+        this.initialized = false;
     }
 
     public void initialize() {
         synchronized (this) {
-            if (initialized) {
+            if (this.initialized) {
                 return;
             }
-            initialized = true;
+            this.initialized = true;
         }
 
-        csvOutputSeparator = ",";
+        this.csvOutputSeparator = ",";
 
         // guard against weird hostnames
-        systemHostname = System.getProperty("de.zib.sfs.hostname")
-                .replaceAll(csvOutputSeparator, "");
+        this.systemHostname = System.getProperty("de.zib.sfs.hostname")
+                .replaceAll(this.csvOutputSeparator, "");
 
-        systemPid = Integer.parseInt(System.getProperty("de.zib.sfs.pid"));
-        systemKey = System.getProperty("de.zib.sfs.key");
+        this.systemPid = Integer.parseInt(System.getProperty("de.zib.sfs.pid"));
+        this.systemKey = System.getProperty("de.zib.sfs.key");
+
+        CharsetEncoder encoder = Charset.forName("US-ASCII").newEncoder();
+
+        // pre-encode hostname
+        if (this.systemHostname.length() - Byte.MAX_VALUE > Byte.MAX_VALUE) {
+            throw new IllegalArgumentException(this.systemHostname);
+        }
+        this.systemHostnameBb = ByteBuffer
+                .allocate(this.systemHostname.length());
+        encoder.reset();
+        CoderResult cr = encoder.encode(CharBuffer.wrap(this.systemHostname),
+                this.systemHostnameBb, true);
+        if (cr.isError()) {
+            try {
+                cr.throwException();
+            } catch (CharacterCodingException e) {
+                throw new IllegalArgumentException(this.systemHostname, e);
+            }
+        }
+        this.systemHostnameBb.flip();
+
+        // same with key
+        if (this.systemKey.length() - Byte.MAX_VALUE > Byte.MAX_VALUE) {
+            throw new IllegalArgumentException(this.systemKey);
+        }
+        this.systemKeyBb = ByteBuffer.allocate(this.systemKey.length());
+        encoder.reset();
+        cr = encoder.encode(CharBuffer.wrap(this.systemKey), this.systemKeyBb,
+                true);
+        if (cr.isError()) {
+            try {
+                cr.throwException();
+            } catch (CharacterCodingException e) {
+                throw new IllegalArgumentException(this.systemKey, e);
+            }
+        }
+        this.systemKeyBb.flip();
 
         this.timeBinDuration = Long
                 .parseLong(System.getProperty("de.zib.sfs.timeBin.duration"));
@@ -155,61 +196,65 @@ public class LiveOperationStatisticsAggregator {
                 .parseInt(System.getProperty("de.zib.sfs.timeBin.cacheSize"));
         String outputDirectory = System
                 .getProperty("de.zib.sfs.output.directory");
-        outputFormat = OutputFormat.valueOf(
+        this.outputFormat = OutputFormat.valueOf(
                 System.getProperty("de.zib.sfs.output.format").toUpperCase());
-        switch (outputFormat) {
+        switch (this.outputFormat) {
         case CSV:
-            csvStringBuilders = new StringBuilder[OperationSource
+            this.csvStringBuilders = new StringBuilder[OperationSource
                     .values().length * OperationCategory.values().length];
-            csvWriters = new BufferedWriter[OperationSource.values().length
+            this.csvWriters = new BufferedWriter[OperationSource.values().length
                     * OperationCategory.values().length];
             break;
         case FB:
         case BB:
-            bbChannels = new FileChannel[OperationSource.values().length
+            this.bbBuffers = new ByteBuffer[OperationSource.values().length
+                    * OperationCategory.values().length];
+            this.bbChannels = new FileChannel[OperationSource.values().length
                     * OperationCategory.values().length];
             break;
         default:
-            throw new IllegalArgumentException(outputFormat.name());
+            throw new IllegalArgumentException(this.outputFormat.name());
         }
 
-        traceFileDescriptors = Boolean
+        this.traceFileDescriptors = Boolean
                 .parseBoolean(System.getProperty("de.zib.sfs.traceFds"));
 
-        logFilePrefix = outputDirectory
+        this.logFilePrefix = outputDirectory
                 + (outputDirectory.endsWith(File.separator) ? ""
                         : File.separator)
-                + systemHostname + "." + systemPid + "." + systemKey;
+                + this.systemHostname + "." + this.systemPid + "."
+                + this.systemKey;
 
-        initializationTime = System.currentTimeMillis();
+        this.initializationTime = System.currentTimeMillis();
     }
 
     public String getHostname() {
-        return systemHostname;
+        return this.systemHostname;
     }
 
     public int getPid() {
-        return systemPid;
+        return this.systemPid;
     }
 
     public String getKey() {
-        return systemKey;
+        return this.systemKey;
     }
 
     public int registerFileDescriptor(String filename,
             FileDescriptor fileDescriptor) {
-        if (!initialized || filename == null || !traceFileDescriptors) {
+        if (!this.initialized || filename == null
+                || !this.traceFileDescriptors) {
             return 0;
         }
 
         // reuses file descriptors for the same file
-        int fd = filenameToFd.computeIfAbsent(filename,
-                s -> currentFileDescriptor.incrementAndGet());
+        int fd = this.filenameToFd.computeIfAbsent(filename,
+                s -> this.currentFileDescriptor.incrementAndGet());
 
         // there may be different file descriptor objects associated with each
         // file, so add the descriptor, even if it maps to the same fd
         if (fileDescriptor != null) {
-            fdToFd.putIfAbsent(fileDescriptor, fd);
+            this.fdToFd.putIfAbsent(fileDescriptor, fd);
         }
         return fd;
     }
@@ -219,62 +264,65 @@ public class LiveOperationStatisticsAggregator {
     }
 
     public int getFileDescriptor(FileDescriptor fileDescriptor) {
-        if (!initialized || fileDescriptor == null || !traceFileDescriptors) {
+        if (!this.initialized || fileDescriptor == null
+                || !this.traceFileDescriptors) {
             return 0;
         }
 
-        return fdToFd.getOrDefault(fileDescriptor, 0);
+        return this.fdToFd.getOrDefault(fileDescriptor, 0);
     }
 
     public void aggregateOperationStatistics(OperationSource source,
             OperationCategory category, long startTime, long endTime, int fd) {
-        if (!initialized) {
+        if (!this.initialized) {
             return;
         }
 
         try {
-            threadPool.execute(new AggregationTask(source, category, startTime,
-                    endTime, fd));
+            this.threadPool.execute(new AggregationTask(source, category,
+                    startTime, endTime, fd));
         } catch (RejectedExecutionException e) {
-            overflowQueue.add(new OperationStatistics(timeBinDuration, source,
-                    category, startTime, endTime, fd));
+            this.overflowQueue.add(new OperationStatistics(this.timeBinDuration,
+                    source, category, startTime, endTime, fd));
         }
     }
 
     public void aggregateDataOperationStatistics(OperationSource source,
             OperationCategory category, long startTime, long endTime, int fd,
             long data) {
-        if (!initialized) {
+        if (!this.initialized) {
             return;
         }
 
         try {
-            threadPool.execute(new AggregationTask(source, category, startTime,
-                    endTime, fd, data));
+            this.threadPool.execute(new AggregationTask(source, category,
+                    startTime, endTime, fd, data));
         } catch (RejectedExecutionException e) {
-            overflowQueue.add(new DataOperationStatistics(timeBinDuration,
-                    source, category, startTime, endTime, fd, data));
+            this.overflowQueue
+                    .add(new DataOperationStatistics(this.timeBinDuration,
+                            source, category, startTime, endTime, fd, data));
         }
     }
 
     public void aggregateReadDataOperationStatistics(OperationSource source,
             OperationCategory category, long startTime, long endTime, int fd,
             long data, boolean isRemote) {
-        if (!initialized) {
+        if (!this.initialized) {
             return;
         }
 
         try {
-            threadPool.execute(new AggregationTask(source, category, startTime,
-                    endTime, fd, data, isRemote));
+            this.threadPool.execute(new AggregationTask(source, category,
+                    startTime, endTime, fd, data, isRemote));
         } catch (RejectedExecutionException e) {
-            overflowQueue.add(new ReadDataOperationStatistics(timeBinDuration,
-                    source, category, startTime, endTime, fd, data, isRemote));
+            this.overflowQueue.add(new ReadDataOperationStatistics(
+                    this.timeBinDuration, source, category, startTime, endTime,
+                    fd, data, isRemote));
         }
     }
 
     public synchronized void flush() {
-        aggregates.forEach(v -> {
+        this.aggregates.forEach(v -> {
             Map.Entry<Long, NavigableMap<Integer, OperationStatistics>> entry = v
                     .pollFirstEntry();
             while (entry != null) {
@@ -292,39 +340,40 @@ public class LiveOperationStatisticsAggregator {
     }
 
     public void shutdown() {
-        if (!initialized) {
+        if (!this.initialized) {
             return;
         }
 
         // wait a bit for all currently running threads before submitting the
         // processing of the overflow queue
-        if (!threadPool.awaitQuiescence(30, TimeUnit.SECONDS)) {
+        if (!this.threadPool.awaitQuiescence(30, TimeUnit.SECONDS)) {
             System.err.println("Thread pool did not quiesce");
         }
 
-        if (!overflowQueue.isEmpty()) {
+        if (!this.overflowQueue.isEmpty()) {
             for (int i = 0; i < Runtime.getRuntime()
                     .availableProcessors(); ++i) {
-                threadPool.execute(new AggregationTask(overflowQueue.poll()));
+                this.threadPool.execute(
+                        new AggregationTask(this.overflowQueue.poll()));
             }
 
-            if (!threadPool.awaitQuiescence(30, TimeUnit.SECONDS)) {
+            if (!this.threadPool.awaitQuiescence(30, TimeUnit.SECONDS)) {
                 System.err.println("Thread pool did not quiesce");
             }
         }
 
         // stop accepting new tasks
         synchronized (this) {
-            if (!initialized) {
+            if (!this.initialized) {
                 return;
             }
-            initialized = false;
+            this.initialized = false;
         }
-        threadPool.shutdown();
+        this.threadPool.shutdown();
 
         // wait a bit for all still currently running tasks
         try {
-            if (!threadPool.awaitTermination(30, TimeUnit.SECONDS)) {
+            if (!this.threadPool.awaitTermination(30, TimeUnit.SECONDS)) {
                 System.err.println("Thread pool did not shut down");
             }
         } catch (InterruptedException e) {
@@ -335,9 +384,9 @@ public class LiveOperationStatisticsAggregator {
         flush();
 
         // finally close all writers
-        switch (outputFormat) {
+        switch (this.outputFormat) {
         case CSV:
-            for (BufferedWriter writer : csvWriters)
+            for (BufferedWriter writer : this.csvWriters)
                 if (writer != null)
                     try {
                         writer.close();
@@ -347,7 +396,7 @@ public class LiveOperationStatisticsAggregator {
             break;
         case FB:
         case BB:
-            for (FileChannel channel : bbChannels)
+            for (FileChannel channel : this.bbChannels)
                 if (channel != null)
                     try {
                         channel.close();
@@ -356,33 +405,33 @@ public class LiveOperationStatisticsAggregator {
                     }
             break;
         default:
-            throw new IllegalArgumentException(outputFormat.name());
+            throw new IllegalArgumentException(this.outputFormat.name());
         }
 
         // write out the descriptor mappings
-        if (traceFileDescriptors) {
+        if (this.traceFileDescriptors) {
             writeFileDescriptorMappings();
         }
     }
 
     public String getLogFilePrefix() {
-        return logFilePrefix;
+        return this.logFilePrefix;
     }
 
     public OutputFormat getOutputFormat() {
-        return outputFormat;
+        return this.outputFormat;
     }
 
-    public String getOutputSeparator() {
-        return csvOutputSeparator;
+    public String getCsvOutputSeparator() {
+        return this.csvOutputSeparator;
     }
 
     public boolean isInitialized() {
-        return initialized;
+        return this.initialized;
     }
 
-    private void write(OperationStatistics aggregate) throws IOException {
-        switch (outputFormat) {
+    void write(OperationStatistics aggregate) throws IOException {
+        switch (this.outputFormat) {
         case CSV:
             writeCsv(aggregate);
             break;
@@ -391,61 +440,64 @@ public class LiveOperationStatisticsAggregator {
             writeBinary(aggregate);
             break;
         default:
-            throw new IllegalArgumentException(outputFormat.name());
+            throw new IllegalArgumentException(this.outputFormat.name());
         }
     }
 
     private void writeCsv(OperationStatistics aggregate) throws IOException {
         int index = getUniqueIndex(aggregate.getSource(),
                 aggregate.getCategory());
-        synchronized (writerLocks[index]) {
-            if (csvStringBuilders[index] == null) {
-                csvStringBuilders[index] = new StringBuilder();
+        synchronized (this.writerLocks[index]) {
+            if (this.csvStringBuilders[index] == null) {
+                this.csvStringBuilders[index] = new StringBuilder(256);
             } else {
-                csvStringBuilders[index].setLength(0);
+                this.csvStringBuilders[index].setLength(0);
             }
 
-            if (csvWriters[index] == null) {
+            if (this.csvWriters[index] == null) {
                 String filename = getLogFilePrefix() + "."
                         + aggregate.getSource().name().toLowerCase() + "."
                         + aggregate.getCategory().name().toLowerCase() + "."
-                        + initializationTime + "."
-                        + outputFormat.name().toLowerCase();
+                        + this.initializationTime + "."
+                        + this.outputFormat.name().toLowerCase();
 
                 File file = new File(filename);
                 if (!file.exists()) {
-                    csvStringBuilders[index].append("hostname");
-                    csvStringBuilders[index].append(csvOutputSeparator)
-                            .append("pid");
-                    csvStringBuilders[index].append(csvOutputSeparator)
-                            .append("key");
-                    csvStringBuilders[index].append(csvOutputSeparator);
-                    aggregate.getCsvHeaders(csvOutputSeparator,
-                            csvStringBuilders[index]);
+                    this.csvStringBuilders[index].append("hostname");
+                    this.csvStringBuilders[index]
+                            .append(this.csvOutputSeparator).append("pid");
+                    this.csvStringBuilders[index]
+                            .append(this.csvOutputSeparator).append("key");
+                    this.csvStringBuilders[index]
+                            .append(this.csvOutputSeparator);
+                    OperationStatistics.getCsvHeaders(this.csvOutputSeparator,
+                            this.csvStringBuilders[index]);
 
                     // we will receive writes to this file as well
-                    csvWriters[index] = new BufferedWriter(
+                    this.csvWriters[index] = new BufferedWriter(
                             new FileWriter(file));
-                    csvWriters[index]
-                            .write(csvStringBuilders[index].toString());
-                    csvWriters[index].newLine();
+                    this.csvWriters[index]
+                            .write(this.csvStringBuilders[index].toString());
+                    this.csvWriters[index].newLine();
 
-                    csvStringBuilders[index].setLength(0);
+                    this.csvStringBuilders[index].setLength(0);
                 } else {
                     throw new IOException(filename + " already exists");
                 }
             }
 
-            csvStringBuilders[index].append(systemHostname);
-            csvStringBuilders[index].append(csvOutputSeparator)
-                    .append(systemPid);
-            csvStringBuilders[index].append(csvOutputSeparator)
-                    .append(systemKey);
-            csvStringBuilders[index].append(csvOutputSeparator);
-            aggregate.toCsv(csvOutputSeparator, csvStringBuilders[index]);
+            this.csvStringBuilders[index].append(this.systemHostname);
+            this.csvStringBuilders[index].append(this.csvOutputSeparator)
+                    .append(this.systemPid);
+            this.csvStringBuilders[index].append(this.csvOutputSeparator)
+                    .append(this.systemKey);
+            this.csvStringBuilders[index].append(this.csvOutputSeparator);
+            aggregate.toCsv(this.csvOutputSeparator,
+                    this.csvStringBuilders[index]);
 
-            csvWriters[index].write(csvStringBuilders[index].toString());
-            csvWriters[index].newLine();
+            this.csvWriters[index]
+                    .write(this.csvStringBuilders[index].toString());
+            this.csvWriters[index].newLine();
         }
     }
 
@@ -453,180 +505,182 @@ public class LiveOperationStatisticsAggregator {
     private void writeBinary(OperationStatistics aggregate) throws IOException {
         int index = getUniqueIndex(aggregate.getSource(),
                 aggregate.getCategory());
-        synchronized (writerLocks[index]) {
-            if (bbChannels[index] == null) {
+        synchronized (this.writerLocks[index]) {
+            if (this.bbBuffers[index] == null) {
+                switch (this.outputFormat) {
+                case FB:
+                    this.bbBuffers[index] = ByteBuffer.allocate(256);
+                    break;
+                case BB:
+                    this.bbBuffers[index] = ByteBuffer.allocate(64);
+                    break;
+                case CSV:
+                    // this should not happen
+                default:
+                    throw new IllegalArgumentException(
+                            this.outputFormat.name());
+                }
+            } else {
+                this.bbBuffers[index].clear();
+            }
+
+            if (this.bbChannels[index] == null) {
                 String filename = getLogFilePrefix() + "."
                         + aggregate.getSource().name().toLowerCase() + "."
                         + aggregate.getCategory().name().toLowerCase() + "."
-                        + initializationTime + "."
-                        + outputFormat.name().toLowerCase();
+                        + this.initializationTime + "."
+                        + this.outputFormat.name().toLowerCase();
 
                 File file = new File(filename);
                 if (!file.exists()) {
-                    bbChannels[index] = new FileOutputStream(file).getChannel();
+                    this.bbChannels[index] = new FileOutputStream(file)
+                            .getChannel();
                 } else {
                     throw new IOException(filename + " already exists");
                 }
             }
 
-            switch (outputFormat) {
-            case FB:
-                bbChannels[index].write(aggregate.toFlatBuffer(systemHostname,
-                        systemPid, systemKey));
-                break;
-            case BB:
-                bbChannels[index].write(aggregate.toByteBuffer(systemHostname,
-                        systemPid, systemKey));
-                break;
-            default:
-                throw new IllegalArgumentException(outputFormat.name());
-            }
+            boolean overflow;
+            do {
+                overflow = false;
+                try {
+                    switch (this.outputFormat) {
+                    case FB:
+                        aggregate.toFlatBuffer(this.systemHostname,
+                                this.systemPid, this.systemKey,
+                                this.bbBuffers[index]);
+                        // resulting buffer is already 'flipped'
+                        break;
+                    case BB:
+                        aggregate.toByteBuffer(this.systemHostnameBb,
+                                this.systemPid, this.systemKeyBb,
+                                this.bbBuffers[index]);
+                        this.bbBuffers[index].flip();
+                        break;
+                    case CSV:
+                        // this should not happen
+                    default:
+                        throw new IllegalArgumentException(
+                                this.outputFormat.name());
+                    }
+                } catch (BufferOverflowException e) {
+                    overflow = true;
+                    this.bbBuffers[index] = ByteBuffer.allocate(
+                            (int) (this.bbBuffers[index].capacity() * 1.5));
+                }
+            } while (overflow);
+            this.bbChannels[index].write(this.bbBuffers[index]);
         }
     }
 
     private void writeFileDescriptorMappings() {
-        switch (outputFormat) {
-        case FB:
-            System.err.println(
-                    "FlatBuffer output for file descriptor mappings not yet supported, "
-                            + "falling back to CSV.");
+        switch (this.outputFormat) {
         case CSV:
             writeFileDescriptorMappingsCsv();
             break;
+        case FB:
+            writeFileDescriptorMappingsFb();
+            break;
         case BB:
-            writeFileDescriptorMappingsBinary();
+            writeFileDescriptorMappingsBb();
             break;
         default:
-            throw new IllegalArgumentException(outputFormat.name());
+            throw new IllegalArgumentException(this.outputFormat.name());
         }
     }
 
     private void writeFileDescriptorMappingsCsv() {
         try {
-            BufferedWriter fileDescriptorMappingsWriter = new BufferedWriter(
+            try (BufferedWriter fileDescriptorMappingsWriter = new BufferedWriter(
                     new FileWriter(new File(getLogFilePrefix()
-                            + ".filedescriptormappings." + initializationTime
-                            + outputFormat.name().toLowerCase())));
+                            + ".filedescriptormappings."
+                            + this.initializationTime + "."
+                            + this.outputFormat.name().toLowerCase())))) {
 
-            fileDescriptorMappingsWriter.write("hostname");
-            fileDescriptorMappingsWriter.write(csvOutputSeparator);
-            fileDescriptorMappingsWriter.write("pid");
-            fileDescriptorMappingsWriter.write(csvOutputSeparator);
-            fileDescriptorMappingsWriter.write("key");
-            fileDescriptorMappingsWriter.write(csvOutputSeparator);
-            fileDescriptorMappingsWriter.write("fileDescriptor");
-            fileDescriptorMappingsWriter.write(csvOutputSeparator);
-            fileDescriptorMappingsWriter.write("filename");
-            fileDescriptorMappingsWriter.newLine();
-
-            StringBuilder sb = new StringBuilder();
-            for (Map.Entry<String, Integer> fd : filenameToFd.entrySet()) {
-                sb.append(systemHostname).append(csvOutputSeparator);
-                sb.append(systemPid).append(csvOutputSeparator);
-                sb.append(systemKey).append(csvOutputSeparator);
-                sb.append(fd.getValue()).append(csvOutputSeparator);
-                sb.append(fd.getKey());
-                fileDescriptorMappingsWriter.write(sb.toString());
+                fileDescriptorMappingsWriter.write("hostname");
+                fileDescriptorMappingsWriter.write(this.csvOutputSeparator);
+                fileDescriptorMappingsWriter.write("pid");
+                fileDescriptorMappingsWriter.write(this.csvOutputSeparator);
+                fileDescriptorMappingsWriter.write("key");
+                fileDescriptorMappingsWriter.write(this.csvOutputSeparator);
+                fileDescriptorMappingsWriter.write("fileDescriptor");
+                fileDescriptorMappingsWriter.write(this.csvOutputSeparator);
+                fileDescriptorMappingsWriter.write("filename");
                 fileDescriptorMappingsWriter.newLine();
-                sb.setLength(0);
-            }
 
-            fileDescriptorMappingsWriter.close();
+                StringBuilder sb = new StringBuilder();
+                for (Map.Entry<String, Integer> fd : this.filenameToFd
+                        .entrySet()) {
+                    sb.append(this.systemHostname)
+                            .append(this.csvOutputSeparator);
+                    sb.append(this.systemPid).append(this.csvOutputSeparator);
+                    sb.append(this.systemKey).append(this.csvOutputSeparator);
+                    sb.append(fd.getValue()).append(this.csvOutputSeparator);
+                    sb.append(fd.getKey());
+                    fileDescriptorMappingsWriter.write(sb.toString());
+                    fileDescriptorMappingsWriter.newLine();
+                    sb.setLength(0);
+                }
+
+            }
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
 
-    private void writeFileDescriptorMappingsBinary() {
-        CharsetEncoder encoder = Charset.forName("US-ASCII").newEncoder();
-
+    private void writeFileDescriptorMappingsFb() {
         try {
             @SuppressWarnings("resource") // we close the channel later on
             FileChannel fileDescriptorMappingsChannel = new FileOutputStream(
                     new File(getLogFilePrefix() + ".filedescriptormappings."
-                            + initializationTime + "."
-                            + outputFormat.name().toLowerCase())).getChannel();
+                            + this.initializationTime + "."
+                            + this.outputFormat.name().toLowerCase()))
+                                    .getChannel();
 
-            // pre-encode hostname and key
-            String[] preEncodeStrings = new String[] { systemHostname,
-                    systemKey };
-            int[] preEncodeLengths = new int[] { systemHostname.length(),
-                    systemKey.length() };
-            ByteBuffer[] preEncodeBbs = new ByteBuffer[preEncodeStrings.length];
-            for (int i = 0; i < preEncodeStrings.length; ++i) {
-                String s = preEncodeStrings[i];
-                if (preEncodeLengths[i] - Byte.MAX_VALUE > Byte.MAX_VALUE) {
-                    throw new IllegalArgumentException(s);
-                }
-
-                preEncodeBbs[i] = ByteBuffer.allocate(preEncodeLengths[i]);
-                encoder.reset();
-                CoderResult cr = encoder.encode(CharBuffer.wrap(s),
-                        preEncodeBbs[i], true);
-                if (cr.isError()) {
-                    try {
-                        cr.throwException();
-                    } catch (CharacterCodingException e) {
-                        throw new IllegalArgumentException(s, e);
-                    }
-                }
-                preEncodeBbs[i].flip();
-                preEncodeBbs[i].mark();
+            FlatBufferBuilder builder = new FlatBufferBuilder(0);
+            for (Map.Entry<String, Integer> fd : this.filenameToFd.entrySet()) {
+                int hostnameOffset = builder.createString(this.systemHostname);
+                int keyOffset = builder.createString(this.systemKey);
+                int pathOffset = builder.createString(fd.getKey());
+                FileDescriptorMappingFB.startFileDescriptorMappingFB(builder);
+                FileDescriptorMappingFB.addHostname(builder, hostnameOffset);
+                FileDescriptorMappingFB.addPid(builder, this.systemPid);
+                FileDescriptorMappingFB.addKey(builder, keyOffset);
+                FileDescriptorMappingFB.addFileDescriptor(builder,
+                        fd.getValue());
+                FileDescriptorMappingFB.addPath(builder, pathOffset);
+                int fdm = FileDescriptorMappingFB
+                        .endFileDescriptorMappingFB(builder);
+                FileDescriptorMappingFB
+                        .finishSizePrefixedFileDescriptorMappingFBBuffer(
+                                builder, fdm);
+                fileDescriptorMappingsChannel.write(builder.dataBuffer());
+                builder.clear();
             }
+
+            fileDescriptorMappingsChannel.close();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void writeFileDescriptorMappingsBb() {
+        try {
+            @SuppressWarnings("resource") // we close the channel later on
+            FileChannel fileDescriptorMappingsChannel = new FileOutputStream(
+                    new File(getLogFilePrefix() + ".filedescriptormappings."
+                            + this.initializationTime + "."
+                            + this.outputFormat.name().toLowerCase()))
+                                    .getChannel();
 
             ByteBuffer bb = ByteBuffer.allocate(1048576);
             bb.order(ByteOrder.LITTLE_ENDIAN);
             bb.mark();
-            for (Map.Entry<String, Integer> fd : filenameToFd.entrySet()) {
+            for (Map.Entry<String, Integer> fd : this.filenameToFd.entrySet()) {
                 try {
-                    int fileDescriptor = fd.getValue();
-                    String path = fd.getKey();
-
-                    // header byte:
-                    // 0-1: empty
-                    // 2-3: pidType
-                    // 4-5: fdType
-                    // 6-7: lengthType
-                    NumberType ntPid = ByteBufferUtil.getNumberType(systemPid);
-                    NumberType ntFd = ByteBufferUtil
-                            .getNumberType(fileDescriptor);
-                    NumberType ntLength = ByteBufferUtil
-                            .getNumberType(path.length());
-                    byte header = (byte) ((ntPid.ordinal() << 4)
-                            | (ntFd.ordinal() << 2) | ntLength.ordinal());
-                    bb.put(header);
-
-                    // hostname
-                    bb.put((byte) (preEncodeLengths[0] - Byte.MAX_VALUE))
-                            .put(preEncodeBbs[0]);
-                    preEncodeBbs[0].reset();
-
-                    // pid
-                    ntPid.putInt(bb, systemPid);
-
-                    // key
-                    bb.put((byte) (preEncodeLengths[1] - Byte.MAX_VALUE))
-                            .put(preEncodeBbs[1]);
-                    preEncodeBbs[1].reset();
-
-                    // file descriptor
-                    ntFd.putInt(bb, fileDescriptor);
-
-                    // path
-                    ntLength.putInt(bb, path.length());
-                    if (path.length() > bb.remaining()) {
-                        throw new BufferOverflowException();
-                    }
-                    encoder.reset();
-                    CoderResult cr = encoder.encode(CharBuffer.wrap(path), bb,
-                            true);
-                    if (cr.isError()) {
-                        try {
-                            cr.throwException();
-                        } catch (CharacterCodingException e) {
-                            throw new IllegalArgumentException(path, e);
-                        }
-                    }
+                    FileDescriptorMappingBufferBuilder.serialize(fd.getValue(),
+                            fd.getKey(), this.systemHostnameBb, this.systemPid,
+                            this.systemKeyBb, bb);
 
                     // remember last good position
                     bb.mark();
@@ -667,7 +721,9 @@ public class LiveOperationStatisticsAggregator {
                 return 2;
             case ZIP:
                 return 6;
+            default:
             }
+            //$FALL-THROUGH$
         case SFS:
             switch (category) {
             case READ:
@@ -678,7 +734,10 @@ public class LiveOperationStatisticsAggregator {
                 return 5;
             case ZIP:
                 return 7;
+            default:
             }
+            //$FALL-THROUGH$
+        default:
         }
         throw new IllegalArgumentException(
                 source.name() + "/" + category.name());
@@ -697,22 +756,25 @@ public class LiveOperationStatisticsAggregator {
         public AggregationTask(OperationSource source,
                 OperationCategory category, long startTime, long endTime,
                 int fd, long data, boolean isRemote) {
-            aggregate = new ReadDataOperationStatistics(timeBinDuration, source,
-                    category, startTime, endTime, fd, data, isRemote);
+            this.aggregate = new ReadDataOperationStatistics(
+                    LiveOperationStatisticsAggregator.this.timeBinDuration,
+                    source, category, startTime, endTime, fd, data, isRemote);
         }
 
         public AggregationTask(OperationSource source,
                 OperationCategory category, long startTime, long endTime,
                 int fd, long data) {
-            aggregate = new DataOperationStatistics(timeBinDuration, source,
-                    category, startTime, endTime, fd, data);
+            this.aggregate = new DataOperationStatistics(
+                    LiveOperationStatisticsAggregator.this.timeBinDuration,
+                    source, category, startTime, endTime, fd, data);
         }
 
         public AggregationTask(OperationSource source,
                 OperationCategory category, long startTime, long endTime,
                 int fd) {
-            aggregate = new OperationStatistics(timeBinDuration, source,
-                    category, startTime, endTime, fd);
+            this.aggregate = new OperationStatistics(
+                    LiveOperationStatisticsAggregator.this.timeBinDuration,
+                    source, category, startTime, endTime, fd);
         }
 
         @Override
@@ -722,23 +784,24 @@ public class LiveOperationStatisticsAggregator {
 
         @Override
         protected void setRawResult(Void value) {
+            // discard
         }
 
         @Override
         protected boolean exec() {
-            while (aggregate != null) {
+            while (this.aggregate != null) {
                 // get the time bin applicable for this operation
-                NavigableMap<Long, NavigableMap<Integer, OperationStatistics>> timeBins = aggregates
-                        .get(getUniqueIndex(aggregate.getSource(),
-                                aggregate.getCategory()));
+                NavigableMap<Long, NavigableMap<Integer, OperationStatistics>> timeBins = LiveOperationStatisticsAggregator.this.aggregates
+                        .get(getUniqueIndex(this.aggregate.getSource(),
+                                this.aggregate.getCategory()));
 
                 // get the file descriptor applicable for this operation
                 NavigableMap<Integer, OperationStatistics> fileDescriptors = timeBins
-                        .computeIfAbsent(aggregate.getTimeBin(),
+                        .computeIfAbsent(this.aggregate.getTimeBin(),
                                 l -> new ConcurrentSkipListMap<>());
 
-                fileDescriptors.merge(aggregate.getFileDescriptor(), aggregate,
-                        (v1, v2) -> {
+                fileDescriptors.merge(this.aggregate.getFileDescriptor(),
+                        this.aggregate, (v1, v2) -> {
                             try {
                                 return v1.aggregate(v2);
                             } catch (OperationStatistics.NotAggregatableException e) {
@@ -754,7 +817,7 @@ public class LiveOperationStatisticsAggregator {
                     // emission was not in progress, all other threads now see
                     // it as in progress and skip this
                     int size = timeBins.size();
-                    if (size > timeBinCacheSize) {
+                    if (size > LiveOperationStatisticsAggregator.this.timeBinCacheSize) {
                         for (int i = size / 2; i > 0; --i) {
                             try {
                                 Map.Entry<Long, NavigableMap<Integer, OperationStatistics>> entry = timeBins
@@ -772,21 +835,22 @@ public class LiveOperationStatisticsAggregator {
                         }
 
                         try {
-                            switch (outputFormat) {
+                            switch (LiveOperationStatisticsAggregator.this.outputFormat) {
                             case CSV:
-                                for (Writer w : csvWriters)
+                                for (Writer w : LiveOperationStatisticsAggregator.this.csvWriters)
                                     if (w != null)
                                         w.flush();
                                 break;
                             case FB:
                             case BB:
-                                for (FileChannel fc : bbChannels)
+                                for (FileChannel fc : LiveOperationStatisticsAggregator.this.bbChannels)
                                     if (fc != null)
                                         fc.force(false);
                                 break;
                             default:
                                 throw new IllegalArgumentException(
-                                        outputFormat.name());
+                                        LiveOperationStatisticsAggregator.this.outputFormat
+                                                .name());
                             }
                         } catch (IOException e) {
                             throw new RuntimeException(e);
@@ -797,7 +861,8 @@ public class LiveOperationStatisticsAggregator {
                     EMISSION_IN_PROGRESS.set(false);
                 }
 
-                aggregate = overflowQueue.poll();
+                this.aggregate = LiveOperationStatisticsAggregator.this.overflowQueue
+                        .poll();
             }
 
             return true;
