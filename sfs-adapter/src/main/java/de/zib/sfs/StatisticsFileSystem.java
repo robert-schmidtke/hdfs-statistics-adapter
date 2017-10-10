@@ -208,8 +208,9 @@ public class StatisticsFileSystem extends FileSystem {
         if (System.getProperty("de.zib.sfs.output.format") == null) {
             LOG.warn(
                     "'de.zib.sfs.output.format' not set, did the agent start properly?");
-            OutputFormat outputFormat = OutputFormat.valueOf(getConf()
-                    .get(SFS_OUTPUT_FORMAT_KEY, OutputFormat.BB.name()));
+            OutputFormat outputFormat = OutputFormat.valueOf(
+                    getConf().get(SFS_OUTPUT_FORMAT_KEY, OutputFormat.BB.name())
+                            .toUpperCase());
             System.setProperty("de.zib.sfs.output.format", outputFormat.name());
         }
 
