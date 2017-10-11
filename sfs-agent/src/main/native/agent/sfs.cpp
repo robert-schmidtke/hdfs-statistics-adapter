@@ -114,7 +114,7 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
 
   // make sure a valid JAVA_HOME is set
   if (getenv("JAVA_HOME") == NULL) {
-    std::cerr << "JAVA_HOME not set" << std::endl;
+    std::cerr << "JAVA_HOME not set." << std::endl;
     return JNI_EINVAL;
   }
 
