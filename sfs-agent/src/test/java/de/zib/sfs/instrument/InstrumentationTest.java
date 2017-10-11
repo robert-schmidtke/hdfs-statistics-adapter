@@ -87,7 +87,7 @@ public class InstrumentationTest {
             throws IOException, InterruptedException, ExecutionException {
         // expect <test>,<true|false> as argument
         assert (args.length == 1);
-        String[] arguments = args[0].split(",");
+        String[] arguments = args[0].split("-");
         assert (arguments.length == 2);
         String test = arguments[0];
         boolean useThreading = Boolean.parseBoolean(arguments[1]);
