@@ -270,7 +270,13 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
 
     // pipe for redirecting transformer JVM's output
     int pipe_fds[2];
-    pipe(pipe_fds);
+    if (pipe(pipe_fds) != 0) {
+      int errnum = errno;
+      std::cerr << "pipe returned " << std::strerror(errnum) << ": " << errnum
+                << std::endl;
+      cleanup();
+      return JNI_ERR;
+    }
 
     // write end of pipe to stderr of parent
     dup2(2, pipe_fds[1]);
