@@ -59,7 +59,7 @@ public class DataOperationStatistics extends OperationStatistics {
 
     @Override
     public void returnOperationStatistics() {
-        pool.add(this);
+        pool.offer(this);
     }
 
     protected DataOperationStatistics() {

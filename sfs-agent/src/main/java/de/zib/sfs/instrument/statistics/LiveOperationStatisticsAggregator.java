@@ -292,7 +292,7 @@ public class LiveOperationStatisticsAggregator {
     }
 
     static void returnTask(AggregationTask task) {
-        taskPool.add(task);
+        taskPool.offer(task);
     }
 
     public void aggregateOperationStatistics(OperationSource source,

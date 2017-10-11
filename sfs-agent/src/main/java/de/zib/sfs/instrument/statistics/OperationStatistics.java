@@ -89,7 +89,7 @@ public class OperationStatistics {
     }
 
     public void returnOperationStatistics() {
-        pool.add(this);
+        pool.offer(this);
     }
 
     protected OperationStatistics() {

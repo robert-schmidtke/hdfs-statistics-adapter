@@ -64,7 +64,7 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
 
     @Override
     public void returnOperationStatistics() {
-        pool.add(this);
+        pool.offer(this);
     }
 
     protected ReadDataOperationStatistics() {
