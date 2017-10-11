@@ -8,6 +8,8 @@
 package de.zib.sfs.instrument.statistics;
 
 import java.nio.ByteBuffer;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 import com.google.flatbuffers.FlatBufferBuilder;
 
@@ -16,23 +18,51 @@ import de.zib.sfs.instrument.statistics.fb.OperationStatisticsFB;
 
 public class DataOperationStatistics extends OperationStatistics {
 
+    private static final Queue<DataOperationStatistics> pool = new ConcurrentLinkedQueue<>();
+
     private long data;
 
-    public DataOperationStatistics() {
+    public static DataOperationStatistics getDataOperationStatistics() {
+        DataOperationStatistics dos = pool.poll();
+        if (dos == null) {
+            dos = new DataOperationStatistics();
+        }
+        return dos;
     }
 
-    public DataOperationStatistics(long timeBinDuration, OperationSource source,
+    public static DataOperationStatistics getDataOperationStatistics(long count,
+            long timeBin, long cpuTime, OperationSource source,
+            OperationCategory category, int fd, long data) {
+        DataOperationStatistics dos = getDataOperationStatistics();
+        getDataOperationStatistics(dos, count, timeBin, cpuTime, source,
+                category, fd, data);
+        return dos;
+    }
+
+    protected static void getDataOperationStatistics(
+            DataOperationStatistics dos, long count, long timeBin, long cpuTime,
+            OperationSource source, OperationCategory category, int fd,
+            long data) {
+        OperationStatistics.getOperationStatistics(dos, count, timeBin, cpuTime,
+                source, category, fd);
+        dos.setData(data);
+    }
+
+    public static DataOperationStatistics getDataOperationStatistics(
+            long timeBinDuration, OperationSource source,
             OperationCategory category, long startTime, long endTime, int fd,
             long data) {
-        this(1, startTime - startTime % timeBinDuration, endTime - startTime,
+        return getDataOperationStatistics(1,
+                startTime - startTime % timeBinDuration, endTime - startTime,
                 source, category, fd, data);
     }
 
-    public DataOperationStatistics(long count, long timeBin, long cpuTime,
-            OperationSource source, OperationCategory category, int fd,
-            long data) {
-        super(count, timeBin, cpuTime, source, category, fd);
-        this.data = data;
+    @Override
+    public void returnOperationStatistics() {
+        pool.add(this);
+    }
+
+    protected DataOperationStatistics() {
     }
 
     public long getData() {

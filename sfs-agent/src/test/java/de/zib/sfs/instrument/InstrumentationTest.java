@@ -1594,14 +1594,16 @@ public class InstrumentationTest {
                 OperationStatistics operationStatistics = null;
                 switch (category) {
                 case OTHER:
-                    operationStatistics = new OperationStatistics();
+                    operationStatistics = OperationStatistics
+                            .getOperationStatistics();
                     OperationStatistics.fromCsv(line,
                             LiveOperationStatisticsAggregator.instance
                                     .getCsvOutputSeparator(),
                             3, operationStatistics);
                     break;
                 case WRITE:
-                    operationStatistics = new DataOperationStatistics();
+                    operationStatistics = DataOperationStatistics
+                            .getDataOperationStatistics();
                     DataOperationStatistics.fromCsv(line,
                             LiveOperationStatisticsAggregator.instance
                                     .getCsvOutputSeparator(),
@@ -1609,7 +1611,8 @@ public class InstrumentationTest {
                     break;
                 case READ:
                 case ZIP:
-                    operationStatistics = new ReadDataOperationStatistics();
+                    operationStatistics = ReadDataOperationStatistics
+                            .getReadDataOperationStatistics();
                     ReadDataOperationStatistics.fromCsv(line,
                             LiveOperationStatisticsAggregator.instance
                                     .getCsvOutputSeparator(),
@@ -1651,18 +1654,21 @@ public class InstrumentationTest {
                 case FB:
                     switch (category) {
                     case OTHER:
-                        operationStatistics = new OperationStatistics();
+                        operationStatistics = OperationStatistics
+                                .getOperationStatistics();
                         OperationStatistics.fromFlatBuffer(buffer,
                                 operationStatistics);
                         break;
                     case WRITE:
-                        operationStatistics = new DataOperationStatistics();
+                        operationStatistics = DataOperationStatistics
+                                .getDataOperationStatistics();
                         DataOperationStatistics.fromFlatBuffer(buffer,
                                 (DataOperationStatistics) operationStatistics);
                         break;
                     case READ:
                     case ZIP:
-                        operationStatistics = new ReadDataOperationStatistics();
+                        operationStatistics = ReadDataOperationStatistics
+                                .getReadDataOperationStatistics();
                         ReadDataOperationStatistics.fromFlatBuffer(buffer,
                                 (ReadDataOperationStatistics) operationStatistics);
                         break;
@@ -1673,14 +1679,17 @@ public class InstrumentationTest {
                 case BB:
                     switch (category) {
                     case OTHER:
-                        operationStatistics = new OperationStatistics();
+                        operationStatistics = OperationStatistics
+                                .getOperationStatistics();
                         break;
                     case WRITE:
-                        operationStatistics = new DataOperationStatistics();
+                        operationStatistics = DataOperationStatistics
+                                .getDataOperationStatistics();
                         break;
                     case READ:
                     case ZIP:
-                        operationStatistics = new ReadDataOperationStatistics();
+                        operationStatistics = ReadDataOperationStatistics
+                                .getReadDataOperationStatistics();
                         break;
                     default:
                         throw new IllegalArgumentException(category.name());

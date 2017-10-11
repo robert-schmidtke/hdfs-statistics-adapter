@@ -8,6 +8,8 @@
 package de.zib.sfs.instrument.statistics;
 
 import java.nio.ByteBuffer;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 import com.google.flatbuffers.FlatBufferBuilder;
 
@@ -16,26 +18,56 @@ import de.zib.sfs.instrument.statistics.fb.OperationStatisticsFB;
 
 public class ReadDataOperationStatistics extends DataOperationStatistics {
 
+    private static final Queue<ReadDataOperationStatistics> pool = new ConcurrentLinkedQueue<>();
+
     private long remoteCount, remoteCpuTime, remoteData;
 
-    public ReadDataOperationStatistics() {
+    public static ReadDataOperationStatistics getReadDataOperationStatistics() {
+        ReadDataOperationStatistics rdos = pool.poll();
+        if (rdos == null) {
+            rdos = new ReadDataOperationStatistics();
+        }
+        return rdos;
     }
 
-    public ReadDataOperationStatistics(long timeBinDuration,
-            OperationSource source, OperationCategory category, long startTime,
-            long endTime, int fd, long data, boolean isRemote) {
-        this(1, startTime - startTime % timeBinDuration, endTime - startTime,
+    public static ReadDataOperationStatistics getReadDataOperationStatistics(
+            long count, long timeBin, long cpuTime, OperationSource source,
+            OperationCategory category, int fd, long data, long remoteCount,
+            long remoteCpuTime, long remoteData) {
+        ReadDataOperationStatistics rdos = getReadDataOperationStatistics();
+        getReadDataOperationStatistics(rdos, count, timeBin, cpuTime, source,
+                category, fd, data, remoteCount, remoteCpuTime, remoteData);
+        return rdos;
+    }
+
+    protected static void getReadDataOperationStatistics(
+            ReadDataOperationStatistics rdos, long count, long timeBin,
+            long cpuTime, OperationSource source, OperationCategory category,
+            int fd, long data, long remoteCount, long remoteCpuTime,
+            long remoteData) {
+        DataOperationStatistics.getDataOperationStatistics(rdos, count, timeBin,
+                cpuTime, source, category, fd, data);
+        rdos.setRemoteCount(remoteCount);
+        rdos.setRemoteCpuTime(remoteCpuTime);
+        rdos.setRemoteData(remoteData);
+    }
+
+    public static ReadDataOperationStatistics getReadDataOperationStatistics(
+            long timeBinDuration, OperationSource source,
+            OperationCategory category, long startTime, long endTime, int fd,
+            long data, boolean isRemote) {
+        return getReadDataOperationStatistics(1,
+                startTime - startTime % timeBinDuration, endTime - startTime,
                 source, category, fd, data, isRemote ? 1 : 0,
                 isRemote ? endTime - startTime : 0, isRemote ? data : 0);
     }
 
-    public ReadDataOperationStatistics(long count, long timeBin, long cpuTime,
-            OperationSource source, OperationCategory category, int fd,
-            long data, long remoteCount, long remoteCpuTime, long remoteData) {
-        super(count, timeBin, cpuTime, source, category, fd, data);
-        this.remoteCount = remoteCount;
-        this.remoteCpuTime = remoteCpuTime;
-        this.remoteData = remoteData;
+    @Override
+    public void returnOperationStatistics() {
+        pool.add(this);
+    }
+
+    protected ReadDataOperationStatistics() {
     }
 
     public long getRemoteCount() {
@@ -50,8 +82,8 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
         return this.remoteCpuTime;
     }
 
-    public void setRemoteCpuTime(long remoteDuration) {
-        this.remoteCpuTime = remoteDuration;
+    public void setRemoteCpuTime(long remoteCpuTime) {
+        this.remoteCpuTime = remoteCpuTime;
     }
 
     public long getRemoteData() {

@@ -102,6 +102,8 @@ public class LiveOperationStatisticsAggregator {
 
     private long initializationTime;
 
+    static final Queue<AggregationTask> taskPool = new ConcurrentLinkedQueue<>();
+
     public static final LiveOperationStatisticsAggregator instance = new LiveOperationStatisticsAggregator();
 
     private LiveOperationStatisticsAggregator() {
@@ -272,18 +274,42 @@ public class LiveOperationStatisticsAggregator {
         return this.fdToFd.getOrDefault(fileDescriptor, 0);
     }
 
+    private AggregationTask getTask(OperationStatistics os) {
+        AggregationTask task = taskPool.poll();
+        if (task == null) {
+            task = new AggregationTask();
+        } else {
+            // put the task back if it's not done yet
+            if (task.isCompletedNormally()) {
+                task.reinitialize();
+            } else {
+                returnTask(task);
+                task = new AggregationTask();
+            }
+        }
+        task.setAggregate(os);
+        return task;
+    }
+
+    static void returnTask(AggregationTask task) {
+        taskPool.add(task);
+    }
+
     public void aggregateOperationStatistics(OperationSource source,
             OperationCategory category, long startTime, long endTime, int fd) {
         if (!this.initialized) {
             return;
         }
 
+        OperationStatistics os = OperationStatistics.getOperationStatistics(
+                this.timeBinDuration, source, category, startTime, endTime, fd);
+        AggregationTask task = getTask(os);
+
         try {
-            this.threadPool.execute(new AggregationTask(source, category,
-                    startTime, endTime, fd));
+            this.threadPool.execute(task);
         } catch (RejectedExecutionException e) {
-            this.overflowQueue.add(new OperationStatistics(this.timeBinDuration,
-                    source, category, startTime, endTime, fd));
+            returnTask(task);
+            this.overflowQueue.add(os);
         }
     }
 
@@ -294,13 +320,16 @@ public class LiveOperationStatisticsAggregator {
             return;
         }
 
+        DataOperationStatistics dos = DataOperationStatistics
+                .getDataOperationStatistics(this.timeBinDuration, source,
+                        category, startTime, endTime, fd, data);
+        AggregationTask task = getTask(dos);
+
         try {
-            this.threadPool.execute(new AggregationTask(source, category,
-                    startTime, endTime, fd, data));
+            this.threadPool.execute(task);
         } catch (RejectedExecutionException e) {
-            this.overflowQueue
-                    .add(new DataOperationStatistics(this.timeBinDuration,
-                            source, category, startTime, endTime, fd, data));
+            returnTask(task);
+            this.overflowQueue.add(dos);
         }
     }
 
@@ -311,13 +340,16 @@ public class LiveOperationStatisticsAggregator {
             return;
         }
 
+        ReadDataOperationStatistics rdos = ReadDataOperationStatistics
+                .getReadDataOperationStatistics(this.timeBinDuration, source,
+                        category, startTime, endTime, fd, data, isRemote);
+        AggregationTask task = getTask(rdos);
+
         try {
-            this.threadPool.execute(new AggregationTask(source, category,
-                    startTime, endTime, fd, data, isRemote));
+            this.threadPool.execute(task);
         } catch (RejectedExecutionException e) {
-            this.overflowQueue.add(new ReadDataOperationStatistics(
-                    this.timeBinDuration, source, category, startTime, endTime,
-                    fd, data, isRemote));
+            returnTask(task);
+            this.overflowQueue.add(rdos);
         }
     }
 
@@ -353,8 +385,8 @@ public class LiveOperationStatisticsAggregator {
         if (!this.overflowQueue.isEmpty()) {
             for (int i = 0; i < Runtime.getRuntime()
                     .availableProcessors(); ++i) {
-                this.threadPool.execute(
-                        new AggregationTask(this.overflowQueue.poll()));
+                AggregationTask task = getTask(this.overflowQueue.poll());
+                this.threadPool.execute(task);
             }
 
             if (!this.threadPool.awaitQuiescence(30, TimeUnit.SECONDS)) {
@@ -442,6 +474,8 @@ public class LiveOperationStatisticsAggregator {
         default:
             throw new IllegalArgumentException(this.outputFormat.name());
         }
+
+        aggregate.returnOperationStatistics();
     }
 
     private void writeCsv(OperationStatistics aggregate) throws IOException {
@@ -749,32 +783,11 @@ public class LiveOperationStatisticsAggregator {
 
         private OperationStatistics aggregate;
 
-        public AggregationTask(OperationStatistics aggregate) {
-            this.aggregate = aggregate;
+        public AggregationTask() {
         }
 
-        public AggregationTask(OperationSource source,
-                OperationCategory category, long startTime, long endTime,
-                int fd, long data, boolean isRemote) {
-            this.aggregate = new ReadDataOperationStatistics(
-                    LiveOperationStatisticsAggregator.this.timeBinDuration,
-                    source, category, startTime, endTime, fd, data, isRemote);
-        }
-
-        public AggregationTask(OperationSource source,
-                OperationCategory category, long startTime, long endTime,
-                int fd, long data) {
-            this.aggregate = new DataOperationStatistics(
-                    LiveOperationStatisticsAggregator.this.timeBinDuration,
-                    source, category, startTime, endTime, fd, data);
-        }
-
-        public AggregationTask(OperationSource source,
-                OperationCategory category, long startTime, long endTime,
-                int fd) {
-            this.aggregate = new OperationStatistics(
-                    LiveOperationStatisticsAggregator.this.timeBinDuration,
-                    source, category, startTime, endTime, fd);
+        public void setAggregate(OperationStatistics os) {
+            this.aggregate = os;
         }
 
         @Override
@@ -867,7 +880,11 @@ public class LiveOperationStatisticsAggregator {
                         .poll();
             }
 
+            // at this point, the task is not fully done, so when getting a
+            // task, we have to check whether it has completed fully
+            returnTask(this);
             return true;
         }
+
     }
 }

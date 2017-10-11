@@ -11,6 +11,8 @@ import java.nio.BufferOverflowException;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 import com.google.flatbuffers.ByteBufferUtil;
 import com.google.flatbuffers.Constants;
@@ -48,23 +50,49 @@ public class OperationStatistics {
 
     private static ByteBufferFactory overflowByteBufferFactory;
 
-    public OperationStatistics() {
+    private static final Queue<OperationStatistics> pool = new ConcurrentLinkedQueue<>();
+
+    public static OperationStatistics getOperationStatistics() {
+        OperationStatistics os = pool.poll();
+        if (os == null) {
+            os = new OperationStatistics();
+        }
+        return os;
     }
 
-    public OperationStatistics(long timeBinDuration, OperationSource source,
+    public static OperationStatistics getOperationStatistics(long count,
+            long timeBin, long cpuTime, OperationSource source,
+            OperationCategory category, int fd) {
+        OperationStatistics os = getOperationStatistics();
+        getOperationStatistics(os, count, timeBin, cpuTime, source, category,
+                fd);
+        return os;
+    }
+
+    protected static void getOperationStatistics(OperationStatistics os,
+            long count, long timeBin, long cpuTime, OperationSource source,
+            OperationCategory category, int fd) {
+        os.setCount(count);
+        os.setTimeBin(timeBin);
+        os.setCpuTime(cpuTime);
+        os.setSource(source);
+        os.setCategory(category);
+        os.setFileDescriptor(fd);
+    }
+
+    public static OperationStatistics getOperationStatistics(
+            long timeBinDuration, OperationSource source,
             OperationCategory category, long startTime, long endTime, int fd) {
-        this(1, startTime - startTime % timeBinDuration, endTime - startTime,
+        return getOperationStatistics(1,
+                startTime - startTime % timeBinDuration, endTime - startTime,
                 source, category, fd);
     }
 
-    public OperationStatistics(long count, long timeBin, long cpuTime,
-            OperationSource source, OperationCategory category, int fd) {
-        this.count = count;
-        this.timeBin = timeBin;
-        this.cpuTime = cpuTime;
-        this.source = source;
-        this.category = category;
-        this.fd = fd;
+    public void returnOperationStatistics() {
+        pool.add(this);
+    }
+
+    protected OperationStatistics() {
     }
 
     public long getCount() {
@@ -157,6 +185,7 @@ public class OperationStatistics {
         if (this.aggregate != null) {
             this.count += this.aggregate.getCount();
             this.cpuTime += this.aggregate.getCpuTime();
+            this.aggregate.returnOperationStatistics();
             this.aggregate = null;
         }
     }
