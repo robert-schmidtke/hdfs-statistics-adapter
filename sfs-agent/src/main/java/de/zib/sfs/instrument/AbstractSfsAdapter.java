@@ -8,9 +8,9 @@
 package de.zib.sfs.instrument;
 
 import java.io.PrintStream;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.FieldVisitor;
@@ -485,20 +485,17 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
      *
      */
     public static class InstrumentationActive {
-        private final Map<Thread, Boolean> instrumentingThreads = new ConcurrentHashMap<>();
+        private final Map<Thread, Boolean> instrumentingThreads = new HashMap<>();
 
         public boolean isInstrumentationActive() {
             return this.instrumentingThreads
-                    .containsKey(Thread.currentThread());
+                    .getOrDefault(Thread.currentThread(), false);
         }
 
-        public void setInstrumentationActive(boolean instrumentationActive) {
-            if (instrumentationActive) {
-                this.instrumentingThreads.put(Thread.currentThread(),
-                        Boolean.TRUE);
-            } else {
-                this.instrumentingThreads.remove(Thread.currentThread());
-            }
+        public void setInstrumentationActive(
+                boolean instrumentationActive) {
+            this.instrumentingThreads.put(Thread.currentThread(),
+                    instrumentationActive);
         }
     }
 
