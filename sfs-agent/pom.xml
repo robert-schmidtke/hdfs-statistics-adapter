@@ -24,6 +24,9 @@
     <!-- Test dependencies -->
     <junit.version>4.12</junit.version>
 
+    <!-- something along 1 MB per processor, plus 16 fixed -->
+    <jvm.maxHeap>20</jvm.maxHeap>
+
     <!-- Plugin configurations -->
     <build-helper-maven-plugin.version>3.0.0</build-helper-maven-plugin.version>
     <exec-maven-plugin.version>1.5.0</exec-maven-plugin.version>
@@ -401,7 +404,7 @@
                   <configuration>
                     <executable>java</executable>
                     <arguments>
-                      <argument>-Xmx20M</argument>
+                      <argument>-Xmx${jvm.maxHeap}M</argument>
                       <!-- <argument>-verbose:gc</argument>
                       <argument>-XX:+PrintGCDetails</argument> -->
                       <argument>-agentpath:${project.build.directory}/${libsfs.name}=trans_jar=${project.build.directory}/sfs-agent.jar,key=test,bin_duration=1000,cache_size=120,out_dir=${project.build.directory},out_fmt=bb,verbose=n,trace_mmap=n,instr_skip=n,trace_fds=y,use_proxy=n</argument>
