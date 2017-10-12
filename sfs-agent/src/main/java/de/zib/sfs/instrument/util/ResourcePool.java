@@ -7,7 +7,6 @@
  */
 package de.zib.sfs.instrument.util;
 
-import java.lang.reflect.Constructor;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.Queue;
@@ -53,28 +52,30 @@ public class ResourcePool<P extends ResourcePool.Poolable> implements Queue<P> {
 
         @Override
         public boolean casItem(Poolable cmp, Poolable val) {
-            return U.compareAndSwapObject(this, POLLED, cmp == this,
+            return Unsafe.U.compareAndSwapObject(this, POLLED, cmp == this,
                     val == null);
         }
 
         @Override
         public void lazySetNext(Poolable val) {
-            U.putOrderedObject(this, NEXT, val);
+            Unsafe.U.putOrderedObject(this, NEXT, val);
         }
 
         @Override
         public boolean casNext(Poolable cmp, Poolable val) {
-            return U.compareAndSwapObject(this, NEXT, cmp, val);
+            return Unsafe.U.compareAndSwapObject(this, NEXT, cmp, val);
         }
 
         private static final long POLLED;
         static final long NEXT;
         static {
             try {
-                POLLED = U.objectFieldOffset(ResourcePool.PoolableResource.class
-                        .getDeclaredField("polled"));
-                NEXT = U.objectFieldOffset(ResourcePool.PoolableResource.class
-                        .getDeclaredField("next"));
+                POLLED = Unsafe.U
+                        .objectFieldOffset(ResourcePool.PoolableResource.class
+                                .getDeclaredField("polled"));
+                NEXT = Unsafe.U
+                        .objectFieldOffset(ResourcePool.PoolableResource.class
+                                .getDeclaredField("next"));
             } catch (ReflectiveOperationException e) {
                 throw new Error(e);
             }
@@ -130,25 +131,20 @@ public class ResourcePool<P extends ResourcePool.Poolable> implements Queue<P> {
     }
 
     private boolean casHead(Poolable cmp, Poolable val) {
-        return U.compareAndSwapObject(this, HEAD, cmp, val);
+        return Unsafe.U.compareAndSwapObject(this, HEAD, cmp, val);
     }
 
     private boolean casTail(Poolable cmp, Poolable val) {
-        return U.compareAndSwapObject(this, TAIL, cmp, val);
+        return Unsafe.U.compareAndSwapObject(this, TAIL, cmp, val);
     }
 
-    private static final sun.misc.Unsafe U;
     private static final long HEAD;
     private static final long TAIL;
     static {
         try {
-            Constructor<sun.misc.Unsafe> unsafeConstructor = sun.misc.Unsafe.class
-                    .getDeclaredConstructor();
-            unsafeConstructor.setAccessible(true);
-            U = unsafeConstructor.newInstance();
-            HEAD = U.objectFieldOffset(
+            HEAD = Unsafe.U.objectFieldOffset(
                     ResourcePool.class.getDeclaredField("head"));
-            TAIL = U.objectFieldOffset(
+            TAIL = Unsafe.U.objectFieldOffset(
                     ResourcePool.class.getDeclaredField("tail"));
         } catch (ReflectiveOperationException e) {
             throw new Error(e);

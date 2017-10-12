@@ -14,7 +14,6 @@ import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Writer;
-import java.lang.reflect.Constructor;
 import java.nio.BufferOverflowException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -45,7 +44,7 @@ import de.zib.sfs.instrument.statistics.bb.FileDescriptorMappingBufferBuilder;
 import de.zib.sfs.instrument.statistics.fb.FileDescriptorMappingFB;
 import de.zib.sfs.instrument.util.ResourcePool;
 import de.zib.sfs.instrument.util.ResourcePool.Poolable;
-import de.zib.sfs.instrument.util.ResourcePool.PoolableResource;
+import de.zib.sfs.instrument.util.Unsafe;
 
 @SuppressWarnings("restriction")
 public class LiveOperationStatisticsAggregator {
@@ -893,7 +892,7 @@ public class LiveOperationStatisticsAggregator {
             return true;
         }
 
-        volatile PoolableResource next;
+        volatile AggregationTask next;
 
         @SuppressWarnings("unused") // used in casItem
         volatile boolean polled = false;
@@ -910,35 +909,30 @@ public class LiveOperationStatisticsAggregator {
 
         @Override
         public boolean casItem(Poolable cmp, Poolable val) {
-            return LiveOperationStatisticsAggregator.U.compareAndSwapObject(
-                    this, LiveOperationStatisticsAggregator.POLLED, cmp == this,
+            return Unsafe.U.compareAndSwapObject(this,
+                    LiveOperationStatisticsAggregator.POLLED, cmp == this,
                     val == null);
         }
 
         @Override
         public void lazySetNext(Poolable val) {
-            U.putOrderedObject(this, NEXT, val);
+            Unsafe.U.putOrderedObject(this, NEXT, val);
         }
 
         @Override
         public boolean casNext(Poolable cmp, Poolable val) {
-            return U.compareAndSwapObject(this, NEXT, cmp, val);
+            return Unsafe.U.compareAndSwapObject(this, NEXT, cmp, val);
         }
 
     }
 
-    static final sun.misc.Unsafe U;
     static final long POLLED;
     static final long NEXT;
     static {
         try {
-            Constructor<sun.misc.Unsafe> unsafeConstructor = sun.misc.Unsafe.class
-                    .getDeclaredConstructor();
-            unsafeConstructor.setAccessible(true);
-            U = unsafeConstructor.newInstance();
-            POLLED = U.objectFieldOffset(
+            POLLED = Unsafe.U.objectFieldOffset(
                     AggregationTask.class.getDeclaredField("polled"));
-            NEXT = U.objectFieldOffset(
+            NEXT = Unsafe.U.objectFieldOffset(
                     AggregationTask.class.getDeclaredField("next"));
         } catch (Exception e) {
             throw new Error(e);
