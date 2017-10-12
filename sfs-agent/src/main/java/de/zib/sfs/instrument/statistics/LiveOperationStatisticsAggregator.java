@@ -14,6 +14,7 @@ import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Writer;
+import java.lang.reflect.Constructor;
 import java.nio.BufferOverflowException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -42,7 +43,11 @@ import com.google.flatbuffers.FlatBufferBuilder;
 
 import de.zib.sfs.instrument.statistics.bb.FileDescriptorMappingBufferBuilder;
 import de.zib.sfs.instrument.statistics.fb.FileDescriptorMappingFB;
+import de.zib.sfs.instrument.util.ResourcePool;
+import de.zib.sfs.instrument.util.ResourcePool.Poolable;
+import de.zib.sfs.instrument.util.ResourcePool.PoolableResource;
 
+@SuppressWarnings("restriction")
 public class LiveOperationStatisticsAggregator {
 
     public static enum OutputFormat {
@@ -102,9 +107,10 @@ public class LiveOperationStatisticsAggregator {
 
     private long initializationTime;
 
-    static final Queue<AggregationTask> taskPool = new ConcurrentLinkedQueue<>();
-
     public static final LiveOperationStatisticsAggregator instance = new LiveOperationStatisticsAggregator();
+
+    static Queue<AggregationTask> taskPool = new ResourcePool<>(
+            instance.new AggregationTask());
 
     private LiveOperationStatisticsAggregator() {
         // map each source/category combination, map a time bin to an aggregate
@@ -777,7 +783,8 @@ public class LiveOperationStatisticsAggregator {
                 source.name() + "/" + category.name());
     }
 
-    private class AggregationTask extends ForkJoinTask<Void> {
+    private class AggregationTask extends ForkJoinTask<Void>
+            implements ResourcePool.Poolable {
 
         private static final long serialVersionUID = -6851294902690575903L;
 
@@ -886,5 +893,55 @@ public class LiveOperationStatisticsAggregator {
             return true;
         }
 
+        volatile PoolableResource next;
+
+        @SuppressWarnings("unused") // used in casItem
+        volatile boolean polled = false;
+
+        @Override
+        public Poolable next() {
+            return this.next;
+        }
+
+        @Override
+        public void unsetPolled() {
+            this.polled = false;
+        }
+
+        @Override
+        public boolean casItem(Poolable cmp, Poolable val) {
+            return LiveOperationStatisticsAggregator.U.compareAndSwapObject(
+                    this, LiveOperationStatisticsAggregator.POLLED, cmp == this,
+                    val == null);
+        }
+
+        @Override
+        public void lazySetNext(Poolable val) {
+            U.putOrderedObject(this, NEXT, val);
+        }
+
+        @Override
+        public boolean casNext(Poolable cmp, Poolable val) {
+            return U.compareAndSwapObject(this, NEXT, cmp, val);
+        }
+
+    }
+
+    static final sun.misc.Unsafe U;
+    static final long POLLED;
+    static final long NEXT;
+    static {
+        try {
+            Constructor<sun.misc.Unsafe> unsafeConstructor = sun.misc.Unsafe.class
+                    .getDeclaredConstructor();
+            unsafeConstructor.setAccessible(true);
+            U = unsafeConstructor.newInstance();
+            POLLED = U.objectFieldOffset(
+                    AggregationTask.class.getDeclaredField("polled"));
+            NEXT = U.objectFieldOffset(
+                    AggregationTask.class.getDeclaredField("next"));
+        } catch (Exception e) {
+            throw new Error(e);
+        }
     }
 }

@@ -9,16 +9,17 @@ package de.zib.sfs.instrument.statistics;
 
 import java.nio.ByteBuffer;
 import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedQueue;
 
 import com.google.flatbuffers.FlatBufferBuilder;
 
 import de.zib.sfs.instrument.statistics.bb.OperationStatisticsBufferBuilder;
 import de.zib.sfs.instrument.statistics.fb.OperationStatisticsFB;
+import de.zib.sfs.instrument.util.ResourcePool;
 
 public class ReadDataOperationStatistics extends DataOperationStatistics {
 
-    private static final Queue<ReadDataOperationStatistics> pool = new ConcurrentLinkedQueue<>();
+    private static final Queue<ReadDataOperationStatistics> pool = new ResourcePool<>(
+            new ReadDataOperationStatistics());
 
     private long remoteCount, remoteCpuTime, remoteData;
 
