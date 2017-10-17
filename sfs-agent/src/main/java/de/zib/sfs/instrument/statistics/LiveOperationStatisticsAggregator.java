@@ -42,9 +42,6 @@ import com.google.flatbuffers.FlatBufferBuilder;
 
 import de.zib.sfs.instrument.statistics.bb.FileDescriptorMappingBufferBuilder;
 import de.zib.sfs.instrument.statistics.fb.FileDescriptorMappingFB;
-import de.zib.sfs.instrument.util.ResourcePool;
-import de.zib.sfs.instrument.util.ResourcePool.Poolable;
-import de.zib.sfs.instrument.util.Unsafe;
 
 @SuppressWarnings("restriction")
 public class LiveOperationStatisticsAggregator {
@@ -108,8 +105,7 @@ public class LiveOperationStatisticsAggregator {
 
     public static final LiveOperationStatisticsAggregator instance = new LiveOperationStatisticsAggregator();
 
-    static Queue<AggregationTask> taskPool = new ResourcePool<>(
-            instance.new AggregationTask());
+    static Queue<AggregationTask> taskPool = new ConcurrentLinkedQueue<>();
 
     private LiveOperationStatisticsAggregator() {
         // map each source/category combination, map a time bin to an aggregate
@@ -782,8 +778,7 @@ public class LiveOperationStatisticsAggregator {
                 source.name() + "/" + category.name());
     }
 
-    private class AggregationTask extends ForkJoinTask<Void>
-            implements ResourcePool.Poolable {
+    private class AggregationTask extends ForkJoinTask<Void> {
 
         private static final long serialVersionUID = -6851294902690575903L;
 
@@ -890,52 +885,6 @@ public class LiveOperationStatisticsAggregator {
             // task, we have to check whether it has completed fully
             returnTask(this);
             return true;
-        }
-
-        volatile AggregationTask next;
-
-        @SuppressWarnings("unused") // used in casItem
-        volatile boolean polled = false;
-
-        @Override
-        public Poolable next() {
-            return this.next;
-        }
-
-        @Override
-        public void unsetPolled() {
-            this.polled = false;
-        }
-
-        @Override
-        public boolean casItem(Poolable cmp, Poolable val) {
-            return Unsafe.U.compareAndSwapObject(this,
-                    LiveOperationStatisticsAggregator.POLLED, cmp == this,
-                    val == null);
-        }
-
-        @Override
-        public void lazySetNext(Poolable val) {
-            Unsafe.U.putOrderedObject(this, NEXT, val);
-        }
-
-        @Override
-        public boolean casNext(Poolable cmp, Poolable val) {
-            return Unsafe.U.compareAndSwapObject(this, NEXT, cmp, val);
-        }
-
-    }
-
-    static final long POLLED;
-    static final long NEXT;
-    static {
-        try {
-            POLLED = Unsafe.U.objectFieldOffset(
-                    AggregationTask.class.getDeclaredField("polled"));
-            NEXT = Unsafe.U.objectFieldOffset(
-                    AggregationTask.class.getDeclaredField("next"));
-        } catch (Exception e) {
-            throw new Error(e);
         }
     }
 }

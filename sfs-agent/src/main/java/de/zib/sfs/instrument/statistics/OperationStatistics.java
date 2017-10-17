@@ -12,6 +12,7 @@ import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 import com.google.flatbuffers.ByteBufferUtil;
 import com.google.flatbuffers.Constants;
@@ -20,9 +21,8 @@ import com.google.flatbuffers.FlatBufferBuilder.ByteBufferFactory;
 
 import de.zib.sfs.instrument.statistics.bb.OperationStatisticsBufferBuilder;
 import de.zib.sfs.instrument.statistics.fb.OperationStatisticsFB;
-import de.zib.sfs.instrument.util.ResourcePool;
 
-public class OperationStatistics extends ResourcePool.PoolableResource {
+public class OperationStatistics {
 
     public static class NotAggregatableException extends Exception {
         private static final long serialVersionUID = 2284196048334825540L;
@@ -50,8 +50,7 @@ public class OperationStatistics extends ResourcePool.PoolableResource {
 
     private static ByteBufferFactory overflowByteBufferFactory;
 
-    private static final Queue<OperationStatistics> pool = new ResourcePool<>(
-            new OperationStatistics());
+    private static final Queue<OperationStatistics> pool = new ConcurrentLinkedQueue<>();
 
     public static OperationStatistics getOperationStatistics() {
         OperationStatistics os = pool.poll();
