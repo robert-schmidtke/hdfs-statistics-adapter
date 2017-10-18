@@ -83,6 +83,9 @@ public class InstrumentationTest {
     // whether to count mmap calls as well or not
     private static boolean traceMmap;
 
+    // whether to trace per file
+    private static boolean traceFds;
+
     public static void main(String[] args)
             throws IOException, InterruptedException, ExecutionException {
         // expect <test>,<true|false> as argument
@@ -99,6 +102,8 @@ public class InstrumentationTest {
 
         traceMmap = Boolean
                 .parseBoolean(System.getProperty("de.zib.sfs.traceMmap"));
+        traceFds = Boolean
+                .parseBoolean(System.getProperty("de.zib.sfs.traceFds"));
 
         switch (test) {
         case "stream":
@@ -1911,23 +1916,26 @@ public class InstrumentationTest {
 
         // make sure the tmp files are exactly measured, if we have the file
         // descriptor mappings
-        long exactData = 0;
-        for (Map.Entry<Integer, Long> e : operationDataPerFd.entrySet()) {
-            String path = fileDescriptorMappings.get(e.getKey());
-            if (path != null && path.endsWith("tmp")) {
-                exactData += e.getValue();
-            }
-        }
-        if (exactData != exact) {
-            // for debugging purposes, display data collected per file
+        if (traceFds) {
+            long exactData = 0;
             for (Map.Entry<Integer, Long> e : operationDataPerFd.entrySet()) {
-                System.err.println(
-                        fileDescriptorMappings.getOrDefault(e.getKey(), "n/a")
-                                + " (" + e.getKey() + "): " + e.getValue());
+                String path = fileDescriptorMappings.get(e.getKey());
+                if (path != null && path.endsWith("tmp")) {
+                    exactData += e.getValue();
+                }
             }
-            assert (exactData == exact) : ("actual " + exactData + " vs. "
-                    + exact + " expected " + source + "/" + category
-                    + " operation data");
+            if (exactData != exact) {
+                // for debugging purposes, display data collected per file
+                for (Map.Entry<Integer, Long> e : operationDataPerFd
+                        .entrySet()) {
+                    System.err.println(fileDescriptorMappings
+                            .getOrDefault(e.getKey(), "n/a") + " (" + e.getKey()
+                            + "): " + e.getValue());
+                }
+                assert (exactData == exact) : ("actual " + exactData + " vs. "
+                        + exact + " expected " + source + "/" + category
+                        + " operation data");
+            }
         }
 
         if (allData < exact || allData > atMost) {
