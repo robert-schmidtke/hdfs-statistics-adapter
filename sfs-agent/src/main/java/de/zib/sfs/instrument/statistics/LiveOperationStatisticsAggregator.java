@@ -43,7 +43,6 @@ import com.google.flatbuffers.FlatBufferBuilder;
 import de.zib.sfs.instrument.statistics.bb.FileDescriptorMappingBufferBuilder;
 import de.zib.sfs.instrument.statistics.fb.FileDescriptorMappingFB;
 
-@SuppressWarnings("restriction")
 public class LiveOperationStatisticsAggregator {
 
     public static enum OutputFormat {
