@@ -36,15 +36,15 @@ public class OperationStatistics {
         }
     }
 
-    private long count;
+    protected final ByteBuffer bb;
 
-    private long timeBin, cpuTime;
-
-    private OperationSource source;
-
-    private OperationCategory category;
-
-    private int fd;
+    private static final int COUNT_OFFSET = 0; // long
+    private static final int TIME_BIN_OFFSET = COUNT_OFFSET + 8; // long
+    private static final int CPU_TIME_OFFSET = TIME_BIN_OFFSET + 8; // long
+    private static final int SOURCE_OFFSET = CPU_TIME_OFFSET + 8; // byte
+    private static final int CATEGORY_OFFSET = SOURCE_OFFSET + 1; // byte
+    private static final int FILE_DESCRIPTOR_OFFSET = CATEGORY_OFFSET + 1; // int
+    protected static final int SIZE = FILE_DESCRIPTOR_OFFSET + 4;
 
     protected OperationStatistics aggregate;
 
@@ -92,55 +92,76 @@ public class OperationStatistics {
         pool.offer(this);
     }
 
-    protected OperationStatistics() {
+    private OperationStatistics() {
+        this(SIZE);
+    }
+
+    protected OperationStatistics(int size) {
+        // this.bb = ByteBuffer.allocate(size);
+        this.bb = ByteBuffer.allocateDirect(size);
     }
 
     public long getCount() {
-        return this.count;
+        return this.bb.getLong(this.bb.position() + COUNT_OFFSET);
     }
 
     public void setCount(long count) {
-        this.count = count;
+        this.bb.putLong(this.bb.position() + COUNT_OFFSET, count);
+    }
+
+    public void incrementCount(long count) {
+        long current = this.bb.getLong(this.bb.position() + COUNT_OFFSET);
+        this.bb.putLong(this.bb.position() + COUNT_OFFSET, current + count);
     }
 
     public long getTimeBin() {
-        return this.timeBin;
+        return this.bb.getLong(this.bb.position() + TIME_BIN_OFFSET);
     }
 
     public void setTimeBin(long timeBin) {
-        this.timeBin = timeBin;
+        this.bb.putLong(this.bb.position() + TIME_BIN_OFFSET, timeBin);
     }
 
     public long getCpuTime() {
-        return this.cpuTime;
+        return this.bb.getLong(this.bb.position() + CPU_TIME_OFFSET);
     }
 
     public void setCpuTime(long cpuTime) {
-        this.cpuTime = cpuTime;
+        this.bb.putLong(this.bb.position() + CPU_TIME_OFFSET, cpuTime);
+    }
+
+    public void incrementCpuTime(long cpuTime) {
+        long current = this.bb.getLong(this.bb.position() + CPU_TIME_OFFSET);
+        this.bb.putLong(this.bb.position() + CPU_TIME_OFFSET,
+                current + cpuTime);
     }
 
     public OperationSource getSource() {
-        return this.source;
+        return OperationSource.values()[this.bb
+                .get(this.bb.position() + SOURCE_OFFSET)];
     }
 
     public void setSource(OperationSource source) {
-        this.source = source;
+        this.bb.put(this.bb.position() + SOURCE_OFFSET,
+                (byte) source.ordinal());
     }
 
     public OperationCategory getCategory() {
-        return this.category;
+        return OperationCategory.values()[this.bb
+                .get(this.bb.position() + CATEGORY_OFFSET)];
     }
 
     public void setCategory(OperationCategory category) {
-        this.category = category;
+        this.bb.put(this.bb.position() + CATEGORY_OFFSET,
+                (byte) category.ordinal());
     }
 
     public int getFileDescriptor() {
-        return this.fd;
+        return this.bb.getInt(this.bb.position() + FILE_DESCRIPTOR_OFFSET);
     }
 
     public void setFileDescriptor(int fd) {
-        this.fd = fd;
+        this.bb.putInt(this.bb.position() + FILE_DESCRIPTOR_OFFSET, fd);
     }
 
     public OperationStatistics aggregate(OperationStatistics other)
@@ -149,24 +170,24 @@ public class OperationStatistics {
             throw new NotAggregatableException("Cannot aggregate self");
         }
 
-        if (other.getTimeBin() != this.timeBin) {
+        if (other.getTimeBin() != getTimeBin()) {
             throw new NotAggregatableException("Time bins do not match: "
-                    + this.timeBin + ", " + other.getTimeBin());
+                    + getTimeBin() + ", " + other.getTimeBin());
         }
 
-        if (!other.getSource().equals(this.source)) {
+        if (!other.getSource().equals(getSource())) {
             throw new NotAggregatableException("Sources do not match: "
-                    + this.source + ", " + other.getSource());
+                    + getSource() + ", " + other.getSource());
         }
 
-        if (!other.getCategory().equals(this.category)) {
+        if (!other.getCategory().equals(getCategory())) {
             throw new NotAggregatableException("Categories do not match: "
-                    + this.category + ", " + other.getCategory());
+                    + getCategory() + ", " + other.getCategory());
         }
 
-        if (other.getFileDescriptor() != this.fd) {
+        if (other.getFileDescriptor() != getFileDescriptor()) {
             throw new NotAggregatableException("File descriptors do not match: "
-                    + this.fd + ", " + other.getFileDescriptor());
+                    + getFileDescriptor() + ", " + other.getFileDescriptor());
         }
 
         // allow the same aggregate to be set multiple times
@@ -183,8 +204,8 @@ public class OperationStatistics {
 
     public synchronized void doAggregation() {
         if (this.aggregate != null) {
-            this.count += this.aggregate.getCount();
-            this.cpuTime += this.aggregate.getCpuTime();
+            incrementCount(this.aggregate.getCount());
+            incrementCpuTime(this.aggregate.getCpuTime());
             this.aggregate.returnOperationStatistics();
             this.aggregate = null;
         }
@@ -200,12 +221,12 @@ public class OperationStatistics {
     }
 
     public void toCsv(String separator, StringBuilder sb) {
-        sb.append(this.count);
-        sb.append(separator).append(this.timeBin);
-        sb.append(separator).append(this.cpuTime);
-        sb.append(separator).append(this.source.name().toLowerCase());
-        sb.append(separator).append(this.category.name().toLowerCase());
-        sb.append(separator).append(this.fd);
+        sb.append(getCount());
+        sb.append(separator).append(getTimeBin());
+        sb.append(separator).append(getCpuTime());
+        sb.append(separator).append(getSource().name().toLowerCase());
+        sb.append(separator).append(getCategory().name().toLowerCase());
+        sb.append(separator).append(getFileDescriptor());
     }
 
     public static void fromCsv(String line, String separator, int off,
@@ -258,17 +279,18 @@ public class OperationStatistics {
     }
 
     protected void toFlatBuffer(FlatBufferBuilder builder) {
-        if (this.count > 0)
-            OperationStatisticsFB.addCount(builder, this.count);
-        if (this.timeBin > 0)
-            OperationStatisticsFB.addTimeBin(builder, this.timeBin);
-        if (this.cpuTime > 0)
-            OperationStatisticsFB.addCpuTime(builder, this.cpuTime);
-        OperationStatisticsFB.addSource(builder, this.source.toFlatBuffer());
+        if (getCount() > 0)
+            OperationStatisticsFB.addCount(builder, getCount());
+        if (getTimeBin() > 0)
+            OperationStatisticsFB.addTimeBin(builder, getTimeBin());
+        if (getCpuTime() > 0)
+            OperationStatisticsFB.addCpuTime(builder, getCpuTime());
+        OperationStatisticsFB.addSource(builder, getSource().toFlatBuffer());
         OperationStatisticsFB.addCategory(builder,
-                this.category.toFlatBuffer());
-        if (this.fd > 0)
-            OperationStatisticsFB.addFileDescriptor(builder, this.fd);
+                getCategory().toFlatBuffer());
+        if (getFileDescriptor() > 0)
+            OperationStatisticsFB.addFileDescriptor(builder,
+                    getFileDescriptor());
     }
 
     protected static OperationStatisticsFB fromFlatBuffer(ByteBuffer buffer) {

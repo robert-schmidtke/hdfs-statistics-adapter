@@ -20,7 +20,10 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
 
     private static final Queue<ReadDataOperationStatistics> pool = new ConcurrentLinkedQueue<>();
 
-    private long remoteCount, remoteCpuTime, remoteData;
+    private static final int REMOTE_COUNT_OFFSET = DataOperationStatistics.SIZE; // long
+    private static final int REMOTE_CPU_TIME_OFFSET = REMOTE_COUNT_OFFSET + 8; // long
+    private static final int REMOTE_DATA_OFFSET = REMOTE_CPU_TIME_OFFSET + 8; // long
+    static final int SIZE = REMOTE_DATA_OFFSET + 8;
 
     public static ReadDataOperationStatistics getReadDataOperationStatistics() {
         ReadDataOperationStatistics rdos = pool.poll();
@@ -67,31 +70,57 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
         pool.offer(this);
     }
 
-    protected ReadDataOperationStatistics() {
+    private ReadDataOperationStatistics() {
+        this(SIZE);
+    }
+
+    protected ReadDataOperationStatistics(int size) {
+        super(size);
     }
 
     public long getRemoteCount() {
-        return this.remoteCount;
+        return this.bb.getLong(this.bb.position() + REMOTE_COUNT_OFFSET);
     }
 
     public void setRemoteCount(long remoteCount) {
-        this.remoteCount = remoteCount;
+        this.bb.putLong(this.bb.position() + REMOTE_COUNT_OFFSET, remoteCount);
+    }
+
+    public void incrementRemoteCount(long remoteCount) {
+        long current = this.bb
+                .getLong(this.bb.position() + REMOTE_COUNT_OFFSET);
+        this.bb.putLong(this.bb.position() + REMOTE_COUNT_OFFSET,
+                current + remoteCount);
     }
 
     public long getRemoteCpuTime() {
-        return this.remoteCpuTime;
+        return this.bb.getLong(this.bb.position() + REMOTE_CPU_TIME_OFFSET);
     }
 
     public void setRemoteCpuTime(long remoteCpuTime) {
-        this.remoteCpuTime = remoteCpuTime;
+        this.bb.putLong(this.bb.position() + REMOTE_CPU_TIME_OFFSET,
+                remoteCpuTime);
+    }
+
+    public void incrementRemoteCpuTime(long remoteCpuTime) {
+        long current = this.bb
+                .getLong(this.bb.position() + REMOTE_CPU_TIME_OFFSET);
+        this.bb.putLong(this.bb.position() + REMOTE_CPU_TIME_OFFSET,
+                current + remoteCpuTime);
     }
 
     public long getRemoteData() {
-        return this.remoteData;
+        return this.bb.getLong(this.bb.position() + REMOTE_DATA_OFFSET);
     }
 
     public void setRemoteData(long remoteData) {
-        this.remoteData = remoteData;
+        this.bb.putLong(this.bb.position() + REMOTE_DATA_OFFSET, remoteData);
+    }
+
+    public void incrementRemoteData(long remoteData) {
+        long current = this.bb.getLong(this.bb.position() + REMOTE_DATA_OFFSET);
+        this.bb.putLong(this.bb.position() + REMOTE_DATA_OFFSET,
+                current + remoteData);
     }
 
     @Override
@@ -109,9 +138,9 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
     public synchronized void doAggregation() {
         if (this.aggregate != null) {
             ReadDataOperationStatistics rdos = (ReadDataOperationStatistics) this.aggregate;
-            this.remoteCount += rdos.getRemoteCount();
-            this.remoteCpuTime += rdos.getRemoteCpuTime();
-            this.remoteData += rdos.getRemoteData();
+            incrementRemoteCount(rdos.getRemoteCount());
+            incrementRemoteCpuTime(rdos.getRemoteCpuTime());
+            incrementRemoteData(rdos.getRemoteData());
             super.doAggregation();
         }
     }
@@ -126,9 +155,9 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
     @Override
     public void toCsv(String separator, StringBuilder sb) {
         super.toCsv(separator, sb);
-        sb.append(separator).append(this.remoteCount);
-        sb.append(separator).append(this.remoteCpuTime);
-        sb.append(separator).append(this.remoteData);
+        sb.append(separator).append(getRemoteCount());
+        sb.append(separator).append(getRemoteCpuTime());
+        sb.append(separator).append(getRemoteData());
     }
 
     public static void fromCsv(String line, String separator, int off,
@@ -147,12 +176,12 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
     @Override
     protected void toFlatBuffer(FlatBufferBuilder builder) {
         super.toFlatBuffer(builder);
-        if (this.remoteCount > 0)
-            OperationStatisticsFB.addRemoteCount(builder, this.remoteCount);
-        if (this.remoteCpuTime > 0)
-            OperationStatisticsFB.addRemoteCpuTime(builder, this.remoteCpuTime);
-        if (this.remoteData > 0)
-            OperationStatisticsFB.addRemoteData(builder, this.remoteData);
+        if (getRemoteCount() > 0)
+            OperationStatisticsFB.addRemoteCount(builder, getRemoteCount());
+        if (getRemoteCpuTime() > 0)
+            OperationStatisticsFB.addRemoteCpuTime(builder, getRemoteCpuTime());
+        if (getRemoteData() > 0)
+            OperationStatisticsFB.addRemoteData(builder, getRemoteData());
     }
 
     public static void fromFlatBuffer(ByteBuffer buffer,

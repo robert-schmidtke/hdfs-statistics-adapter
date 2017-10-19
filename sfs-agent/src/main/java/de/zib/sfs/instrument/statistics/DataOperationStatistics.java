@@ -18,9 +18,10 @@ import de.zib.sfs.instrument.statistics.fb.OperationStatisticsFB;
 
 public class DataOperationStatistics extends OperationStatistics {
 
-    private static final Queue<DataOperationStatistics> pool = new ConcurrentLinkedQueue<>();
+    private static final int DATA_OFFSET = OperationStatistics.SIZE; // long
+    protected static final int SIZE = DATA_OFFSET + 8;
 
-    private long data;
+    private static final Queue<DataOperationStatistics> pool = new ConcurrentLinkedQueue<>();
 
     public static DataOperationStatistics getDataOperationStatistics() {
         DataOperationStatistics dos = pool.poll();
@@ -62,15 +63,25 @@ public class DataOperationStatistics extends OperationStatistics {
         pool.offer(this);
     }
 
-    protected DataOperationStatistics() {
+    private DataOperationStatistics() {
+        this(SIZE);
+    }
+
+    protected DataOperationStatistics(int size) {
+        super(size);
     }
 
     public long getData() {
-        return this.data;
+        return this.bb.getLong(this.bb.position() + DATA_OFFSET);
     }
 
     public void setData(long data) {
-        this.data = data;
+        this.bb.putLong(this.bb.position() + DATA_OFFSET, data);
+    }
+
+    public void incrementData(long data) {
+        long current = this.bb.getLong(this.bb.position() + DATA_OFFSET);
+        this.bb.putLong(this.bb.position() + DATA_OFFSET, current + data);
     }
 
     @Override
@@ -87,7 +98,7 @@ public class DataOperationStatistics extends OperationStatistics {
     @Override
     public synchronized void doAggregation() {
         if (this.aggregate != null) {
-            this.data += ((DataOperationStatistics) this.aggregate).getData();
+            incrementData(((DataOperationStatistics) this.aggregate).getData());
             super.doAggregation();
         }
     }
@@ -100,7 +111,7 @@ public class DataOperationStatistics extends OperationStatistics {
     @Override
     public void toCsv(String separator, StringBuilder sb) {
         super.toCsv(separator, sb);
-        sb.append(separator).append(this.data);
+        sb.append(separator).append(getData());
     }
 
     public static void fromCsv(String line, String separator, int off,
@@ -117,8 +128,8 @@ public class DataOperationStatistics extends OperationStatistics {
     @Override
     protected void toFlatBuffer(FlatBufferBuilder builder) {
         super.toFlatBuffer(builder);
-        if (this.data > 0)
-            OperationStatisticsFB.addData(builder, this.data);
+        if (getData() > 0)
+            OperationStatisticsFB.addData(builder, getData());
     }
 
     public static void fromFlatBuffer(ByteBuffer buffer,
