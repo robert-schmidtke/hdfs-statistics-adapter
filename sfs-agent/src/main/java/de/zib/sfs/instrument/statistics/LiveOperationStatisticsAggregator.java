@@ -49,7 +49,7 @@ public class LiveOperationStatisticsAggregator {
         CSV, FB, BB;
     }
 
-    private boolean initialized;
+    private boolean initializing, initialized;
 
     private String systemHostname, systemKey;
     private ByteBuffer systemHostnameBb, systemKeyBb;
@@ -109,18 +109,18 @@ public class LiveOperationStatisticsAggregator {
     private LiveOperationStatisticsAggregator() {
         // map each source/category combination, map a time bin to an aggregate
         this.aggregates = new ArrayList<>();
-        for (int i = 0; i < OperationSource.values().length
-                * OperationCategory.values().length; ++i) {
+        for (int i = 0; i < OperationSource.VALUES.length
+                * OperationCategory.VALUES.length; ++i) {
             this.aggregates.add(new ConcurrentSkipListMap<>());
         }
 
         this.overflowQueue = new ConcurrentLinkedQueue<>();
 
         // similar for the writer locks
-        this.writerLocks = new Object[OperationSource.values().length
-                * OperationCategory.values().length];
-        for (OperationSource source : OperationSource.values()) {
-            for (OperationCategory category : OperationCategory.values()) {
+        this.writerLocks = new Object[OperationSource.VALUES.length
+                * OperationCategory.VALUES.length];
+        for (OperationSource source : OperationSource.VALUES) {
+            for (OperationCategory category : OperationCategory.VALUES) {
                 this.writerLocks[getUniqueIndex(source,
                         category)] = new Object();
             }
@@ -135,15 +135,16 @@ public class LiveOperationStatisticsAggregator {
         this.fdToFd = new ConcurrentHashMap<>();
         this.currentFileDescriptor = new AtomicInteger(0);
 
+        this.initializing = false;
         this.initialized = false;
     }
 
     public void initialize() {
         synchronized (this) {
-            if (this.initialized) {
+            if (this.initialized || this.initializing) {
                 return;
             }
-            this.initialized = true;
+            this.initializing = true;
         }
 
         this.csvOutputSeparator = ",";
@@ -202,17 +203,17 @@ public class LiveOperationStatisticsAggregator {
                 System.getProperty("de.zib.sfs.output.format").toUpperCase());
         switch (this.outputFormat) {
         case CSV:
-            this.csvStringBuilders = new StringBuilder[OperationSource
-                    .values().length * OperationCategory.values().length];
-            this.csvWriters = new BufferedWriter[OperationSource.values().length
-                    * OperationCategory.values().length];
+            this.csvStringBuilders = new StringBuilder[OperationSource.VALUES.length
+                    * OperationCategory.VALUES.length];
+            this.csvWriters = new BufferedWriter[OperationSource.VALUES.length
+                    * OperationCategory.VALUES.length];
             break;
         case FB:
         case BB:
-            this.bbBuffers = new ByteBuffer[OperationSource.values().length
-                    * OperationCategory.values().length];
-            this.bbChannels = new FileChannel[OperationSource.values().length
-                    * OperationCategory.values().length];
+            this.bbBuffers = new ByteBuffer[OperationSource.VALUES.length
+                    * OperationCategory.VALUES.length];
+            this.bbChannels = new FileChannel[OperationSource.VALUES.length
+                    * OperationCategory.VALUES.length];
             break;
         default:
             throw new IllegalArgumentException(this.outputFormat.name());
@@ -228,6 +229,8 @@ public class LiveOperationStatisticsAggregator {
                 + this.systemKey;
 
         this.initializationTime = System.currentTimeMillis();
+        this.initialized = true;
+        this.initializing = false;
     }
 
     public String getHostname() {

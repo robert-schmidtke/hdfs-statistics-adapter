@@ -15,19 +15,31 @@ import com.google.flatbuffers.FlatBufferBuilder;
 
 import de.zib.sfs.instrument.statistics.bb.OperationStatisticsBufferBuilder;
 import de.zib.sfs.instrument.statistics.fb.OperationStatisticsFB;
+import de.zib.sfs.instrument.util.MemoryPool;
 
 public class DataOperationStatistics extends OperationStatistics {
 
     private static final int DATA_OFFSET = OperationStatistics.SIZE; // long
     protected static final int SIZE = DATA_OFFSET + 8;
 
+    private static MemoryPool memory;
     private static final Queue<DataOperationStatistics> pool = new ConcurrentLinkedQueue<>();
 
     public static DataOperationStatistics getDataOperationStatistics() {
+        if (memory == null) {
+            synchronized (DataOperationStatistics.class) {
+                if (memory == null) {
+                    memory = new MemoryPool(SIZE * 10485760, SIZE);
+                }
+            }
+        }
+
         DataOperationStatistics dos = pool.poll();
         if (dos == null) {
-            dos = new DataOperationStatistics();
+            dos = new DataOperationStatistics(memory.pool);
         }
+
+        dos.setAddress(memory.alloc());
         return dos;
     }
 
@@ -60,28 +72,25 @@ public class DataOperationStatistics extends OperationStatistics {
 
     @Override
     public void returnOperationStatistics() {
+        memory.free(this.address);
         pool.offer(this);
     }
 
-    private DataOperationStatistics() {
-        this(SIZE);
-    }
-
-    protected DataOperationStatistics(int size) {
-        super(size);
+    protected DataOperationStatistics(ByteBuffer bb) {
+        super(bb);
     }
 
     public long getData() {
-        return this.bb.getLong(this.bb.position() + DATA_OFFSET);
+        return this.bb.getLong(this.address + DATA_OFFSET);
     }
 
     public void setData(long data) {
-        this.bb.putLong(this.bb.position() + DATA_OFFSET, data);
+        this.bb.putLong(this.address + DATA_OFFSET, data);
     }
 
     public void incrementData(long data) {
-        long current = this.bb.getLong(this.bb.position() + DATA_OFFSET);
-        this.bb.putLong(this.bb.position() + DATA_OFFSET, current + data);
+        long current = this.bb.getLong(this.address + DATA_OFFSET);
+        this.bb.putLong(this.address + DATA_OFFSET, current + data);
     }
 
     @Override

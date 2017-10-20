@@ -125,9 +125,9 @@ public class FileDescriptorMappingBufferBuilder {
         bb.order(ByteOrder.LITTLE_ENDIAN);
 
         byte header = bb.get();
-        NumberType ntPid = NumberType.values()[(header & 0b00110000) >> 4];
-        NumberType ntFd = NumberType.values()[(header & 0b00001100) >> 2];
-        NumberType ntLength = NumberType.values()[header & 0b00000011];
+        NumberType ntPid = NumberType.VALUES[(header & 0b00110000) >> 4];
+        NumberType ntFd = NumberType.VALUES[(header & 0b00001100) >> 2];
+        NumberType ntLength = NumberType.VALUES[header & 0b00000011];
 
         CharsetDecoder decoder = DECODER.get();
 

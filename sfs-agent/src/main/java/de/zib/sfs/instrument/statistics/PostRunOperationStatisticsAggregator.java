@@ -55,12 +55,11 @@ public class PostRunOperationStatisticsAggregator {
         // for each source/category combination, create a thread that will
         // aggregate the relevant files, additional thread for file descriptor
         // mappings
-        Thread[] aggregatorThreads = new Thread[OperationSource.values().length
-                * OperationCategory.values().length + 1];
+        Thread[] aggregatorThreads = new Thread[OperationSource.VALUES.length
+                * OperationCategory.VALUES.length + 1];
         int threadId = 0;
-        for (final OperationSource source : OperationSource.values()) {
-            for (final OperationCategory category : OperationCategory
-                    .values()) {
+        for (final OperationSource source : OperationSource.VALUES) {
+            for (final OperationCategory category : OperationCategory.VALUES) {
                 aggregatorThreads[threadId++] = new Thread(new Runnable() {
                     @Override
                     public void run() {

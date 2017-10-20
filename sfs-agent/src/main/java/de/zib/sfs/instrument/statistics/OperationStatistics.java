@@ -21,6 +21,7 @@ import com.google.flatbuffers.FlatBufferBuilder.ByteBufferFactory;
 
 import de.zib.sfs.instrument.statistics.bb.OperationStatisticsBufferBuilder;
 import de.zib.sfs.instrument.statistics.fb.OperationStatisticsFB;
+import de.zib.sfs.instrument.util.MemoryPool;
 
 public class OperationStatistics {
 
@@ -38,6 +39,8 @@ public class OperationStatistics {
 
     protected final ByteBuffer bb;
 
+    protected int address;
+
     private static final int COUNT_OFFSET = 0; // long
     private static final int TIME_BIN_OFFSET = COUNT_OFFSET + 8; // long
     private static final int CPU_TIME_OFFSET = TIME_BIN_OFFSET + 8; // long
@@ -50,13 +53,23 @@ public class OperationStatistics {
 
     private static ByteBufferFactory overflowByteBufferFactory;
 
+    private static MemoryPool memory;
     private static final Queue<OperationStatistics> pool = new ConcurrentLinkedQueue<>();
 
     public static OperationStatistics getOperationStatistics() {
+        if (memory == null) {
+            synchronized (OperationStatistics.class) {
+                if (memory == null) {
+                    memory = new MemoryPool(SIZE * 1048576, SIZE);
+                }
+            }
+        }
+
         OperationStatistics os = pool.poll();
         if (os == null) {
-            os = new OperationStatistics();
+            os = new OperationStatistics(memory.pool);
         }
+        os.setAddress(memory.alloc());
         return os;
     }
 
@@ -89,79 +102,80 @@ public class OperationStatistics {
     }
 
     public void returnOperationStatistics() {
+        memory.free(this.address);
         pool.offer(this);
     }
 
-    private OperationStatistics() {
-        this(SIZE);
+    protected OperationStatistics(ByteBuffer bb) {
+        this.bb = bb;
     }
 
-    protected OperationStatistics(int size) {
-        // this.bb = ByteBuffer.allocate(size);
-        this.bb = ByteBuffer.allocateDirect(size);
+    public int getAddress() {
+        return this.address;
+    }
+
+    public void setAddress(int address) {
+        this.address = address;
     }
 
     public long getCount() {
-        return this.bb.getLong(this.bb.position() + COUNT_OFFSET);
+        return this.bb.getLong(this.address + COUNT_OFFSET);
     }
 
     public void setCount(long count) {
-        this.bb.putLong(this.bb.position() + COUNT_OFFSET, count);
+        this.bb.putLong(this.address + COUNT_OFFSET, count);
     }
 
     public void incrementCount(long count) {
-        long current = this.bb.getLong(this.bb.position() + COUNT_OFFSET);
-        this.bb.putLong(this.bb.position() + COUNT_OFFSET, current + count);
+        long current = this.bb.getLong(this.address + COUNT_OFFSET);
+        this.bb.putLong(this.address + COUNT_OFFSET, current + count);
     }
 
     public long getTimeBin() {
-        return this.bb.getLong(this.bb.position() + TIME_BIN_OFFSET);
+        return this.bb.getLong(this.address + TIME_BIN_OFFSET);
     }
 
     public void setTimeBin(long timeBin) {
-        this.bb.putLong(this.bb.position() + TIME_BIN_OFFSET, timeBin);
+        this.bb.putLong(this.address + TIME_BIN_OFFSET, timeBin);
     }
 
     public long getCpuTime() {
-        return this.bb.getLong(this.bb.position() + CPU_TIME_OFFSET);
+        return this.bb.getLong(this.address + CPU_TIME_OFFSET);
     }
 
     public void setCpuTime(long cpuTime) {
-        this.bb.putLong(this.bb.position() + CPU_TIME_OFFSET, cpuTime);
+        this.bb.putLong(this.address + CPU_TIME_OFFSET, cpuTime);
     }
 
     public void incrementCpuTime(long cpuTime) {
-        long current = this.bb.getLong(this.bb.position() + CPU_TIME_OFFSET);
-        this.bb.putLong(this.bb.position() + CPU_TIME_OFFSET,
-                current + cpuTime);
+        long current = this.bb.getLong(this.address + CPU_TIME_OFFSET);
+        this.bb.putLong(this.address + CPU_TIME_OFFSET, current + cpuTime);
     }
 
     public OperationSource getSource() {
-        return OperationSource.values()[this.bb
-                .get(this.bb.position() + SOURCE_OFFSET)];
+        return OperationSource.VALUES[this.bb
+                .get(this.address + SOURCE_OFFSET)];
     }
 
     public void setSource(OperationSource source) {
-        this.bb.put(this.bb.position() + SOURCE_OFFSET,
-                (byte) source.ordinal());
+        this.bb.put(this.address + SOURCE_OFFSET, (byte) source.ordinal());
     }
 
     public OperationCategory getCategory() {
-        return OperationCategory.values()[this.bb
-                .get(this.bb.position() + CATEGORY_OFFSET)];
+        return OperationCategory.VALUES[this.bb
+                .get(this.address + CATEGORY_OFFSET)];
     }
 
     public void setCategory(OperationCategory category) {
-        this.bb.put(this.bb.position() + CATEGORY_OFFSET,
-                (byte) category.ordinal());
+        this.bb.put(this.address + CATEGORY_OFFSET, (byte) category.ordinal());
     }
 
     public int getFileDescriptor() {
-        return this.bb.getInt(this.bb.position() + FILE_DESCRIPTOR_OFFSET);
+        return this.bb.getInt(this.address + FILE_DESCRIPTOR_OFFSET);
     }
 
     public void setFileDescriptor(int fd) {
-        this.bb.putInt(this.bb.position() + FILE_DESCRIPTOR_OFFSET, fd);
+        this.bb.putInt(this.address + FILE_DESCRIPTOR_OFFSET, fd);
     }
 
     public OperationStatistics aggregate(OperationStatistics other)

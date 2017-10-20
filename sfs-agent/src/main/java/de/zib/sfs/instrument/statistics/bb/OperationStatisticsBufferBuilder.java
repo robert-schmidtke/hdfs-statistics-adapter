@@ -236,22 +236,22 @@ public class OperationStatisticsBufferBuilder {
 
         NumberType ntPid = NumberType.EMPTY;
         if ((header & (0b100 << 9)) > 0) {
-            ntPid = NumberType.values()[(header & (0b011 << 9)) >> 9];
+            ntPid = NumberType.VALUES[(header & (0b011 << 9)) >> 9];
         }
 
         NumberType ntCount = NumberType.EMPTY;
         if ((header & (0b100 << 6)) > 0) {
-            ntCount = NumberType.values()[(header & (0b011 << 6)) >> 6];
+            ntCount = NumberType.VALUES[(header & (0b011 << 6)) >> 6];
         }
 
         NumberType ntTime = NumberType.EMPTY;
         if ((header & (0b100 << 3)) > 0) {
-            ntTime = NumberType.values()[(header & (0b011 << 3)) >> 3];
+            ntTime = NumberType.VALUES[(header & (0b011 << 3)) >> 3];
         }
 
         NumberType ntFd = NumberType.EMPTY;
         if ((header & 0b100) > 0) {
-            ntFd = NumberType.values()[header & 0b011];
+            ntFd = NumberType.VALUES[header & 0b011];
         }
 
         byte[] extHeader = new byte[ost];
@@ -262,8 +262,7 @@ public class OperationStatisticsBufferBuilder {
         NumberType ntData = null;
         if (ost > 0) {
             if ((extHeader[0] & (0b100 << 4)) > 0) {
-                ntData = NumberType
-                        .values()[(extHeader[0] & (0b011 << 4)) >> 4];
+                ntData = NumberType.VALUES[(extHeader[0] & (0b011 << 4)) >> 4];
             } else {
                 ntData = NumberType.EMPTY;
             }
@@ -274,22 +273,22 @@ public class OperationStatisticsBufferBuilder {
         NumberType ntRemoteData = null;
         if (ost > 1) {
             if ((extHeader[0] & (0b100 << 1)) > 0) {
-                ntRemoteCount = NumberType
-                        .values()[(extHeader[0] & (0b011 << 1)) >> 1];
+                ntRemoteCount = NumberType.VALUES[(extHeader[0]
+                        & (0b011 << 1)) >> 1];
             } else {
                 ntRemoteCount = NumberType.EMPTY;
             }
 
             if ((extHeader[1] & (0b100 << 4)) > 0) {
-                ntRemoteTime = NumberType
-                        .values()[(extHeader[1] & (0b011 << 4)) >> 4];
+                ntRemoteTime = NumberType.VALUES[(extHeader[1]
+                        & (0b011 << 4)) >> 4];
             } else {
                 ntRemoteTime = NumberType.EMPTY;
             }
 
             if ((extHeader[1] & (0b100 << 1)) > 0) {
-                ntRemoteData = NumberType
-                        .values()[(extHeader[1] & (0b011 << 1)) >> 1];
+                ntRemoteData = NumberType.VALUES[(extHeader[1]
+                        & (0b011 << 1)) >> 1];
             } else {
                 ntRemoteData = NumberType.EMPTY;
             }
@@ -353,10 +352,10 @@ public class OperationStatisticsBufferBuilder {
         long cpuTime = ntTime.getLong(bb);
 
         // source
-        OperationSource source = OperationSource.values()[bb.get()];
+        OperationSource source = OperationSource.VALUES[bb.get()];
 
         // category
-        OperationCategory category = OperationCategory.values()[bb.get()];
+        OperationCategory category = OperationCategory.VALUES[bb.get()];
 
         // file descriptor
         int fd = ntFd.getInt(bb);

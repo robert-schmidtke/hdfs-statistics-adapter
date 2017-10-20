@@ -15,21 +15,33 @@ import com.google.flatbuffers.FlatBufferBuilder;
 
 import de.zib.sfs.instrument.statistics.bb.OperationStatisticsBufferBuilder;
 import de.zib.sfs.instrument.statistics.fb.OperationStatisticsFB;
+import de.zib.sfs.instrument.util.MemoryPool;
 
 public class ReadDataOperationStatistics extends DataOperationStatistics {
-
-    private static final Queue<ReadDataOperationStatistics> pool = new ConcurrentLinkedQueue<>();
 
     private static final int REMOTE_COUNT_OFFSET = DataOperationStatistics.SIZE; // long
     private static final int REMOTE_CPU_TIME_OFFSET = REMOTE_COUNT_OFFSET + 8; // long
     private static final int REMOTE_DATA_OFFSET = REMOTE_CPU_TIME_OFFSET + 8; // long
     static final int SIZE = REMOTE_DATA_OFFSET + 8;
 
+    private static MemoryPool memory;
+    private static final Queue<ReadDataOperationStatistics> pool = new ConcurrentLinkedQueue<>();
+
     public static ReadDataOperationStatistics getReadDataOperationStatistics() {
+        if (memory == null) {
+            synchronized (ReadDataOperationStatistics.class) {
+                if (memory == null) {
+                    memory = new MemoryPool(SIZE * 10485760, SIZE);
+                }
+            }
+        }
+
         ReadDataOperationStatistics rdos = pool.poll();
         if (rdos == null) {
-            rdos = new ReadDataOperationStatistics();
+            rdos = new ReadDataOperationStatistics(memory.pool);
         }
+
+        rdos.setAddress(memory.alloc());
         return rdos;
     }
 
@@ -67,59 +79,53 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
 
     @Override
     public void returnOperationStatistics() {
+        memory.free(this.address);
         pool.offer(this);
     }
 
-    private ReadDataOperationStatistics() {
-        this(SIZE);
-    }
-
-    protected ReadDataOperationStatistics(int size) {
-        super(size);
+    protected ReadDataOperationStatistics(ByteBuffer bb) {
+        super(bb);
     }
 
     public long getRemoteCount() {
-        return this.bb.getLong(this.bb.position() + REMOTE_COUNT_OFFSET);
+        return this.bb.getLong(this.address + REMOTE_COUNT_OFFSET);
     }
 
     public void setRemoteCount(long remoteCount) {
-        this.bb.putLong(this.bb.position() + REMOTE_COUNT_OFFSET, remoteCount);
+        this.bb.putLong(this.address + REMOTE_COUNT_OFFSET, remoteCount);
     }
 
     public void incrementRemoteCount(long remoteCount) {
-        long current = this.bb
-                .getLong(this.bb.position() + REMOTE_COUNT_OFFSET);
-        this.bb.putLong(this.bb.position() + REMOTE_COUNT_OFFSET,
+        long current = this.bb.getLong(this.address + REMOTE_COUNT_OFFSET);
+        this.bb.putLong(this.address + REMOTE_COUNT_OFFSET,
                 current + remoteCount);
     }
 
     public long getRemoteCpuTime() {
-        return this.bb.getLong(this.bb.position() + REMOTE_CPU_TIME_OFFSET);
+        return this.bb.getLong(this.address + REMOTE_CPU_TIME_OFFSET);
     }
 
     public void setRemoteCpuTime(long remoteCpuTime) {
-        this.bb.putLong(this.bb.position() + REMOTE_CPU_TIME_OFFSET,
-                remoteCpuTime);
+        this.bb.putLong(this.address + REMOTE_CPU_TIME_OFFSET, remoteCpuTime);
     }
 
     public void incrementRemoteCpuTime(long remoteCpuTime) {
-        long current = this.bb
-                .getLong(this.bb.position() + REMOTE_CPU_TIME_OFFSET);
-        this.bb.putLong(this.bb.position() + REMOTE_CPU_TIME_OFFSET,
+        long current = this.bb.getLong(this.address + REMOTE_CPU_TIME_OFFSET);
+        this.bb.putLong(this.address + REMOTE_CPU_TIME_OFFSET,
                 current + remoteCpuTime);
     }
 
     public long getRemoteData() {
-        return this.bb.getLong(this.bb.position() + REMOTE_DATA_OFFSET);
+        return this.bb.getLong(this.address + REMOTE_DATA_OFFSET);
     }
 
     public void setRemoteData(long remoteData) {
-        this.bb.putLong(this.bb.position() + REMOTE_DATA_OFFSET, remoteData);
+        this.bb.putLong(this.address + REMOTE_DATA_OFFSET, remoteData);
     }
 
     public void incrementRemoteData(long remoteData) {
-        long current = this.bb.getLong(this.bb.position() + REMOTE_DATA_OFFSET);
-        this.bb.putLong(this.bb.position() + REMOTE_DATA_OFFSET,
+        long current = this.bb.getLong(this.address + REMOTE_DATA_OFFSET);
+        this.bb.putLong(this.address + REMOTE_DATA_OFFSET,
                 current + remoteData);
     }
 

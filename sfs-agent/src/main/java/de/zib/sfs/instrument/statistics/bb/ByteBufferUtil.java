@@ -155,6 +155,10 @@ public class ByteBufferUtil {
         public long getLong(ByteBuffer bb) {
             return this.bbio.getLong(bb);
         }
+
+        // convenience final array to index into, since values() always does a
+        // clone() on the array
+        public static final NumberType[] VALUES = values();
     }
 
     public static NumberType getNumberType(long l) {

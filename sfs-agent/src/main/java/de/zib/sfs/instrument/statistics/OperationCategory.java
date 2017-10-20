@@ -37,4 +37,8 @@ public enum OperationCategory {
             throw new IllegalArgumentException("flatBuffer: " + flatBuffer);
         }
     }
+
+    // convenience final array to index into, since values() always does a
+    // clone() on the array
+    public static final OperationCategory[] VALUES = values();
 }
