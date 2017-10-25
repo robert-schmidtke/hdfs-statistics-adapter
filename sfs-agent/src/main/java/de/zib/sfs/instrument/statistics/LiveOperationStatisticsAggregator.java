@@ -41,7 +41,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import com.google.flatbuffers.FlatBufferBuilder;
 
 import de.zib.sfs.instrument.statistics.bb.FileDescriptorMappingBufferBuilder;
+import de.zib.sfs.instrument.statistics.bb.OperationStatisticsBufferBuilder;
 import de.zib.sfs.instrument.statistics.fb.FileDescriptorMappingFB;
+import de.zib.sfs.instrument.util.MemoryPool;
 
 public class LiveOperationStatisticsAggregator {
 
@@ -70,12 +72,12 @@ public class LiveOperationStatisticsAggregator {
 
     // for each source/category combination, map a time bin to an aggregate
     // operation statistics for each file
-    final List<NavigableMap<Long, NavigableMap<Integer, OperationStatistics>>> aggregates;
+    final List<NavigableMap<Long, NavigableMap<Integer, Integer>>> aggregates;
 
     // FIXME Not ideal data structure, there are supposedly faster concurrent
     // queues out there. Plus it may grow quite large in face of high
     // concurrency.
-    final Queue<OperationStatistics> overflowQueue;
+    final Queue<Integer> overflowQueue;
 
     // for coordinating writing of statistics
     private final Object[] writerLocks;
@@ -277,7 +279,7 @@ public class LiveOperationStatisticsAggregator {
         return this.fdToFd.getOrDefault(fileDescriptor, 0);
     }
 
-    private AggregationTask getTask(OperationStatistics os) {
+    private AggregationTask getTask(int os) {
         AggregationTask task = taskPool.poll();
         if (task == null) {
             task = new AggregationTask();
@@ -304,7 +306,7 @@ public class LiveOperationStatisticsAggregator {
             return;
         }
 
-        OperationStatistics os = OperationStatistics.getOperationStatistics(
+        int os = OperationStatistics.getOperationStatistics(
                 this.timeBinDuration, source, category, startTime, endTime, fd);
         AggregationTask task = getTask(os);
 
@@ -323,9 +325,9 @@ public class LiveOperationStatisticsAggregator {
             return;
         }
 
-        DataOperationStatistics dos = DataOperationStatistics
-                .getDataOperationStatistics(this.timeBinDuration, source,
-                        category, startTime, endTime, fd, data);
+        int dos = DataOperationStatistics.getDataOperationStatistics(
+                this.timeBinDuration, source, category, startTime, endTime, fd,
+                data);
         AggregationTask task = getTask(dos);
 
         try {
@@ -343,9 +345,9 @@ public class LiveOperationStatisticsAggregator {
             return;
         }
 
-        ReadDataOperationStatistics rdos = ReadDataOperationStatistics
-                .getReadDataOperationStatistics(this.timeBinDuration, source,
-                        category, startTime, endTime, fd, data, isRemote);
+        int rdos = ReadDataOperationStatistics.getReadDataOperationStatistics(
+                this.timeBinDuration, source, category, startTime, endTime, fd,
+                data, isRemote);
         AggregationTask task = getTask(rdos);
 
         try {
@@ -358,11 +360,11 @@ public class LiveOperationStatisticsAggregator {
 
     public synchronized void flush() {
         this.aggregates.forEach(v -> {
-            Map.Entry<Long, NavigableMap<Integer, OperationStatistics>> entry = v
+            Map.Entry<Long, NavigableMap<Integer, Integer>> entry = v
                     .pollFirstEntry();
             while (entry != null) {
                 try {
-                    for (OperationStatistics os : entry.getValue().values())
+                    for (Integer os : entry.getValue().values())
                         write(os);
 
                     entry = v.pollFirstEntry();
@@ -465,7 +467,7 @@ public class LiveOperationStatisticsAggregator {
         return this.initialized;
     }
 
-    void write(OperationStatistics aggregate) throws IOException {
+    void write(int aggregate) throws IOException {
         switch (this.outputFormat) {
         case CSV:
             writeCsv(aggregate);
@@ -478,12 +480,16 @@ public class LiveOperationStatisticsAggregator {
             throw new IllegalArgumentException(this.outputFormat.name());
         }
 
-        aggregate.returnOperationStatistics();
+        OperationStatistics.returnOperationStatistics(aggregate);
     }
 
-    private void writeCsv(OperationStatistics aggregate) throws IOException {
-        int index = getUniqueIndex(aggregate.getSource(),
-                aggregate.getCategory());
+    private void writeCsv(int aggregate) throws IOException {
+        MemoryPool mp = OperationStatistics.getMemoryPool(aggregate);
+        aggregate = OperationStatistics.sanitizeAddress(aggregate);
+        OperationSource source = OperationStatistics.getSource(mp, aggregate);
+        OperationCategory category = OperationStatistics.getCategory(mp,
+                aggregate);
+        int index = getUniqueIndex(source, category);
         synchronized (this.writerLocks[index]) {
             if (this.csvStringBuilders[index] == null) {
                 this.csvStringBuilders[index] = new StringBuilder(256);
@@ -493,8 +499,8 @@ public class LiveOperationStatisticsAggregator {
 
             if (this.csvWriters[index] == null) {
                 String filename = getLogFilePrefix() + "."
-                        + aggregate.getSource().name().toLowerCase() + "."
-                        + aggregate.getCategory().name().toLowerCase() + "."
+                        + source.name().toLowerCase() + "."
+                        + category.name().toLowerCase() + "."
                         + this.initializationTime + "."
                         + this.outputFormat.name().toLowerCase();
 
@@ -507,7 +513,8 @@ public class LiveOperationStatisticsAggregator {
                             .append(this.csvOutputSeparator).append("key");
                     this.csvStringBuilders[index]
                             .append(this.csvOutputSeparator);
-                    OperationStatistics.getCsvHeaders(this.csvOutputSeparator,
+                    OperationStatistics.getCsvHeaders(mp, aggregate,
+                            this.csvOutputSeparator,
                             this.csvStringBuilders[index]);
 
                     // we will receive writes to this file as well
@@ -529,7 +536,7 @@ public class LiveOperationStatisticsAggregator {
             this.csvStringBuilders[index].append(this.csvOutputSeparator)
                     .append(this.systemKey);
             this.csvStringBuilders[index].append(this.csvOutputSeparator);
-            aggregate.toCsv(this.csvOutputSeparator,
+            OperationStatistics.toCsv(mp, aggregate, this.csvOutputSeparator,
                     this.csvStringBuilders[index]);
 
             this.csvWriters[index]
@@ -539,9 +546,15 @@ public class LiveOperationStatisticsAggregator {
     }
 
     @SuppressWarnings("resource") // we close the channels on shutdown
-    private void writeBinary(OperationStatistics aggregate) throws IOException {
-        int index = getUniqueIndex(aggregate.getSource(),
-                aggregate.getCategory());
+    private void writeBinary(int aggregate) throws IOException {
+        MemoryPool mp = OperationStatistics.getMemoryPool(aggregate);
+        int sanitizedAggregate = OperationStatistics.sanitizeAddress(aggregate);
+
+        OperationSource source = OperationStatistics.getSource(mp,
+                sanitizedAggregate);
+        OperationCategory category = OperationStatistics.getCategory(mp,
+                sanitizedAggregate);
+        int index = getUniqueIndex(source, category);
         synchronized (this.writerLocks[index]) {
             if (this.bbBuffers[index] == null) {
                 switch (this.outputFormat) {
@@ -563,8 +576,8 @@ public class LiveOperationStatisticsAggregator {
 
             if (this.bbChannels[index] == null) {
                 String filename = getLogFilePrefix() + "."
-                        + aggregate.getSource().name().toLowerCase() + "."
-                        + aggregate.getCategory().name().toLowerCase() + "."
+                        + source.name().toLowerCase() + "."
+                        + category.name().toLowerCase() + "."
                         + this.initializationTime + "."
                         + this.outputFormat.name().toLowerCase();
 
@@ -583,14 +596,15 @@ public class LiveOperationStatisticsAggregator {
                 try {
                     switch (this.outputFormat) {
                     case FB:
-                        aggregate.toFlatBuffer(this.systemHostname,
-                                this.systemPid, this.systemKey,
-                                this.bbBuffers[index]);
+                        OperationStatistics.toFlatBuffer(mp, sanitizedAggregate,
+                                this.systemHostname, this.systemPid,
+                                this.systemKey, this.bbBuffers[index]);
                         // resulting buffer is already 'flipped'
                         break;
                     case BB:
-                        aggregate.toByteBuffer(this.systemHostnameBb,
-                                this.systemPid, this.systemKeyBb,
+                        OperationStatisticsBufferBuilder.serialize(
+                                this.systemHostnameBb, this.systemPid,
+                                this.systemKeyBb, aggregate,
                                 this.bbBuffers[index]);
                         this.bbBuffers[index].flip();
                         break;
@@ -784,12 +798,12 @@ public class LiveOperationStatisticsAggregator {
 
         private static final long serialVersionUID = -6851294902690575903L;
 
-        private OperationStatistics aggregate;
+        private int aggregate;
 
         public AggregationTask() {
         }
 
-        public void setAggregate(OperationStatistics os) {
+        public void setAggregate(int os) {
             this.aggregate = os;
         }
 
@@ -805,28 +819,43 @@ public class LiveOperationStatisticsAggregator {
 
         @Override
         protected boolean exec() {
-            while (this.aggregate != null) {
+            while (this.aggregate >= 0) {
+                MemoryPool mp = OperationStatistics
+                        .getMemoryPool(this.aggregate);
+                int aggregateAddress = OperationStatistics
+                        .sanitizeAddress(this.aggregate);
+
                 // get the time bin applicable for this operation
-                NavigableMap<Long, NavigableMap<Integer, OperationStatistics>> timeBins = LiveOperationStatisticsAggregator.this.aggregates
-                        .get(getUniqueIndex(this.aggregate.getSource(),
-                                this.aggregate.getCategory()));
+                NavigableMap<Long, NavigableMap<Integer, Integer>> timeBins = LiveOperationStatisticsAggregator.this.aggregates
+                        .get(getUniqueIndex(
+                                OperationStatistics.getSource(mp,
+                                        aggregateAddress),
+                                OperationStatistics.getCategory(mp,
+                                        aggregateAddress)));
 
                 // get the file descriptor applicable for this operation
-                NavigableMap<Integer, OperationStatistics> fileDescriptors = timeBins
-                        .computeIfAbsent(this.aggregate.getTimeBin(),
+                NavigableMap<Integer, Integer> fileDescriptors = timeBins
+                        .computeIfAbsent(
+                                OperationStatistics.getTimeBin(mp,
+                                        aggregateAddress),
                                 l -> new ConcurrentSkipListMap<>());
 
-                OperationStatistics aggregatedOperationStatistics = fileDescriptors
-                        .merge(this.aggregate.getFileDescriptor(),
-                                this.aggregate, (v1, v2) -> {
-                                    try {
-                                        return v1.aggregate(v2);
-                                    } catch (OperationStatistics.NotAggregatableException e) {
-                                        e.printStackTrace();
-                                        throw new IllegalArgumentException(e);
-                                    }
-                                });
-                aggregatedOperationStatistics.doAggregation();
+                fileDescriptors.merge(OperationStatistics.getFileDescriptor(mp,
+                        aggregateAddress), this.aggregate, (v1, v2) -> {
+                            try {
+                                // sets a reference to v1 in v2 and returns v1
+                                return OperationStatistics.aggregate(v1, v2);
+                            } catch (OperationStatistics.NotAggregatableException e) {
+                                e.printStackTrace();
+                                throw new IllegalArgumentException(e);
+                            }
+                        });
+
+                // Upon successfuly merge, this.aggregate holds a reference to
+                // the OperationStatistics that was already in the map. If there
+                // was no OperationStatistics in the map before, the reference
+                // will be empty. So trigger the aggregation on this.aggregate.
+                OperationStatistics.doAggregation(this.aggregate);
 
                 // make sure to emit aggregates when the cache is full until
                 // it's half full again to avoid writing every time bin size
@@ -838,11 +867,10 @@ public class LiveOperationStatisticsAggregator {
                     if (size > LiveOperationStatisticsAggregator.this.timeBinCacheSize) {
                         for (int i = size / 2; i > 0; --i) {
                             try {
-                                Map.Entry<Long, NavigableMap<Integer, OperationStatistics>> entry = timeBins
+                                Map.Entry<Long, NavigableMap<Integer, Integer>> entry = timeBins
                                         .pollFirstEntry();
                                 if (entry != null) {
-                                    for (OperationStatistics os : entry
-                                            .getValue().values())
+                                    for (Integer os : entry.getValue().values())
                                         write(os);
                                 } else {
                                     break;
@@ -879,8 +907,9 @@ public class LiveOperationStatisticsAggregator {
                     EMISSION_IN_PROGRESS.set(false);
                 }
 
-                this.aggregate = LiveOperationStatisticsAggregator.this.overflowQueue
+                Integer nextAggregate = LiveOperationStatisticsAggregator.this.overflowQueue
                         .poll();
+                this.aggregate = nextAggregate != null ? nextAggregate : -1;
             }
 
             // at this point, the task is not fully done, so when getting a

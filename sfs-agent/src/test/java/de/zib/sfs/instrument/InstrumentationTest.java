@@ -55,6 +55,7 @@ import de.zib.sfs.instrument.statistics.OperationSource;
 import de.zib.sfs.instrument.statistics.OperationStatistics;
 import de.zib.sfs.instrument.statistics.ReadDataOperationStatistics;
 import de.zib.sfs.instrument.statistics.bb.FileDescriptorMappingBufferBuilder;
+import de.zib.sfs.instrument.statistics.bb.OperationStatisticsBufferBuilder;
 import de.zib.sfs.instrument.statistics.fb.FileDescriptorMappingFB;
 
 /**
@@ -1459,7 +1460,7 @@ public class InstrumentationTest {
 
         aggregator.shutdown();
 
-        List<NavigableMap<Long, NavigableMap<Integer, OperationStatistics>>> aggregates = new ArrayList<>();
+        List<NavigableMap<Long, NavigableMap<Integer, Integer>>> aggregates = new ArrayList<>();
         for (int i = 0; i < OperationSource.VALUES.length
                 * OperationCategory.VALUES.length; ++i) {
             aggregates.add(new ConcurrentSkipListMap<>());
@@ -1489,24 +1490,29 @@ public class InstrumentationTest {
             OperationStatisticsCallback callback = (operationStatistics) -> {
                 // JVM must be the only source, no SFS involved
                 assert (OperationSource.JVM.equals(
-                        operationStatistics.getSource())) : operationStatistics
-                                .getSource();
+                        OperationStatistics.getSource(operationStatistics)));
 
-                NavigableMap<Long, NavigableMap<Integer, OperationStatistics>> timeBins = aggregates
+                NavigableMap<Long, NavigableMap<Integer, Integer>> timeBins = aggregates
                         .get(LiveOperationStatisticsAggregator.getUniqueIndex(
-                                operationStatistics.getSource(),
-                                operationStatistics.getCategory()));
+                                OperationStatistics
+                                        .getSource(operationStatistics),
+                                OperationStatistics
+                                        .getCategory(operationStatistics)));
 
                 // get the file descriptor applicable for this operation
-                NavigableMap<Integer, OperationStatistics> fileDescriptors = timeBins
-                        .computeIfAbsent(operationStatistics.getTimeBin(),
+                NavigableMap<Integer, Integer> fileDescriptors = timeBins
+                        .computeIfAbsent(
+                                OperationStatistics
+                                        .getTimeBin(operationStatistics),
                                 l -> new ConcurrentSkipListMap<>());
 
                 // put the aggregates into the appropriate list/bin
-                fileDescriptors.merge(operationStatistics.getFileDescriptor(),
+                fileDescriptors.merge(
+                        OperationStatistics
+                                .getFileDescriptor(operationStatistics),
                         operationStatistics, (v1, v2) -> {
                             try {
-                                return v1.aggregate(v2);
+                                return OperationStatistics.aggregate(v1, v2);
                             } catch (OperationStatistics.NotAggregatableException e) {
                                 e.printStackTrace();
                                 throw new IllegalArgumentException(e);
@@ -1516,7 +1522,7 @@ public class InstrumentationTest {
 
             switch (aggregator.getOutputFormat()) {
             case CSV:
-                processFilesCsv(categoryFiles, category, callback);
+                processFilesCsv(categoryFiles, callback);
                 break;
             case FB:
             case BB:
@@ -1581,12 +1587,11 @@ public class InstrumentationTest {
     }
 
     private static interface OperationStatisticsCallback {
-        public void call(OperationStatistics os);
+        public void call(int os);
     }
 
     private static void processFilesCsv(File[] files,
-            OperationCategory category, OperationStatisticsCallback callback)
-            throws IOException {
+            OperationStatisticsCallback callback) throws IOException {
         // parse all files into OperationStatistics
         for (File file : files) {
             BufferedReader reader = new BufferedReader(new FileReader(file));
@@ -1596,38 +1601,12 @@ public class InstrumentationTest {
             while ((line = reader.readLine()) != null) {
                 // LiveOperationStatisticsAggregator prepends hostname, pid
                 // and key for each line
-                OperationStatistics operationStatistics = null;
-                switch (category) {
-                case OTHER:
-                    operationStatistics = OperationStatistics
-                            .getOperationStatistics();
-                    OperationStatistics.fromCsv(line,
-                            LiveOperationStatisticsAggregator.instance
-                                    .getCsvOutputSeparator(),
-                            3, operationStatistics);
-                    break;
-                case WRITE:
-                    operationStatistics = DataOperationStatistics
-                            .getDataOperationStatistics();
-                    DataOperationStatistics.fromCsv(line,
-                            LiveOperationStatisticsAggregator.instance
-                                    .getCsvOutputSeparator(),
-                            3, (DataOperationStatistics) operationStatistics);
-                    break;
-                case READ:
-                case ZIP:
-                    operationStatistics = ReadDataOperationStatistics
-                            .getReadDataOperationStatistics();
-                    ReadDataOperationStatistics.fromCsv(line,
-                            LiveOperationStatisticsAggregator.instance
-                                    .getCsvOutputSeparator(),
-                            3,
-                            (ReadDataOperationStatistics) operationStatistics);
-                    break;
-                default:
-                    throw new IllegalArgumentException();
-                }
-
+                int operationStatistics = OperationStatistics
+                        .getOperationStatistics();
+                OperationStatistics.fromCsv(
+                        line.split(LiveOperationStatisticsAggregator.instance
+                                .getCsvOutputSeparator()),
+                        3, operationStatistics);
                 callback.call(operationStatistics);
             }
             reader.close();
@@ -1653,7 +1632,7 @@ public class InstrumentationTest {
             buffer.flip();
 
             while (buffer.remaining() > 0) {
-                OperationStatistics operationStatistics = null;
+                int operationStatistics = -1;
                 switch (LiveOperationStatisticsAggregator.instance
                         .getOutputFormat()) {
                 case FB:
@@ -1661,25 +1640,21 @@ public class InstrumentationTest {
                     case OTHER:
                         operationStatistics = OperationStatistics
                                 .getOperationStatistics();
-                        OperationStatistics.fromFlatBuffer(buffer,
-                                operationStatistics);
                         break;
                     case WRITE:
                         operationStatistics = DataOperationStatistics
                                 .getDataOperationStatistics();
-                        DataOperationStatistics.fromFlatBuffer(buffer,
-                                (DataOperationStatistics) operationStatistics);
                         break;
                     case READ:
                     case ZIP:
                         operationStatistics = ReadDataOperationStatistics
                                 .getReadDataOperationStatistics();
-                        ReadDataOperationStatistics.fromFlatBuffer(buffer,
-                                (ReadDataOperationStatistics) operationStatistics);
                         break;
                     default:
                         throw new IllegalArgumentException(category.name());
                     }
+                    OperationStatistics.fromFlatBuffer(buffer,
+                            operationStatistics);
                     break;
                 case BB:
                     switch (category) {
@@ -1699,7 +1674,7 @@ public class InstrumentationTest {
                     default:
                         throw new IllegalArgumentException(category.name());
                     }
-                    OperationStatistics.fromByteBuffer(buffer,
+                    OperationStatisticsBufferBuilder.deserialize(buffer,
                             operationStatistics);
                     break;
                 case CSV:
@@ -1878,15 +1853,15 @@ public class InstrumentationTest {
     }
 
     private static void assertOperationCount(
-            List<NavigableMap<Long, NavigableMap<Integer, OperationStatistics>>> aggregates,
+            List<NavigableMap<Long, NavigableMap<Integer, Integer>>> aggregates,
             OperationSource source, OperationCategory category, long atLeast) {
-        Map<Long, NavigableMap<Integer, OperationStatistics>> timeBins = aggregates
+        Map<Long, NavigableMap<Integer, Integer>> timeBins = aggregates
                 .get(LiveOperationStatisticsAggregator.getUniqueIndex(source,
                         category));
         long operationCount = 0;
-        for (Map<Integer, OperationStatistics> fds : timeBins.values()) {
-            for (OperationStatistics os : fds.values()) {
-                operationCount += os.getCount();
+        for (Map<Integer, Integer> fds : timeBins.values()) {
+            for (Integer os : fds.values()) {
+                operationCount += OperationStatistics.getCount(os);
             }
         }
         assert (operationCount >= atLeast) : ("actual " + operationCount
@@ -1895,20 +1870,21 @@ public class InstrumentationTest {
     }
 
     private static void assertOperationData(
-            List<NavigableMap<Long, NavigableMap<Integer, OperationStatistics>>> aggregates,
+            List<NavigableMap<Long, NavigableMap<Integer, Integer>>> aggregates,
             Map<Integer, String> fileDescriptorMappings, OperationSource source,
             OperationCategory category, long exact, long atMost) {
-        Map<Long, NavigableMap<Integer, OperationStatistics>> timeBins = aggregates
+        Map<Long, NavigableMap<Integer, Integer>> timeBins = aggregates
                 .get(LiveOperationStatisticsAggregator.getUniqueIndex(source,
                         category));
         Map<Integer, Long> operationDataPerFd = new HashMap<>();
         long allData = 0;
-        for (Map<Integer, OperationStatistics> fds : timeBins.values()) {
-            for (OperationStatistics os : fds.values()) {
-                assert (os instanceof DataOperationStatistics) : os.getClass()
-                        .getSimpleName();
-                long data = ((DataOperationStatistics) os).getData();
-                operationDataPerFd.merge(os.getFileDescriptor(), data,
+        for (Map<Integer, Integer> fds : timeBins.values()) {
+            for (Integer os : fds.values()) {
+                assert (OperationStatistics.getOperationStatisticsOffset(
+                        os) >= OperationStatistics.DOS_OFFSET) : os;
+                long data = DataOperationStatistics.getData(os);
+                operationDataPerFd.merge(
+                        OperationStatistics.getFileDescriptor(os), data,
                         (v1, v2) -> v1 + v2);
                 allData += data;
             }

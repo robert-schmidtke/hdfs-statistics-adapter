@@ -7,13 +7,8 @@
  */
 package de.zib.sfs.instrument.statistics;
 
-import java.nio.ByteBuffer;
-import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedQueue;
-
 import com.google.flatbuffers.FlatBufferBuilder;
 
-import de.zib.sfs.instrument.statistics.bb.OperationStatisticsBufferBuilder;
 import de.zib.sfs.instrument.statistics.fb.OperationStatisticsFB;
 import de.zib.sfs.instrument.util.MemoryPool;
 
@@ -22,140 +17,129 @@ public class DataOperationStatistics extends OperationStatistics {
     private static final int DATA_OFFSET = OperationStatistics.SIZE; // long
     protected static final int SIZE = DATA_OFFSET + 8;
 
-    private static MemoryPool memory;
-    private static final Queue<DataOperationStatistics> pool = new ConcurrentLinkedQueue<>();
+    private static final int MAX_POOL_SIZE;
+    static {
+        // see super
+        int maxBytes = 536870911;
+        MAX_POOL_SIZE = (maxBytes - (maxBytes % SIZE) - SIZE) / SIZE;
+    }
 
-    public static DataOperationStatistics getDataOperationStatistics() {
-        if (memory == null) {
+    public static int getDataOperationStatistics() {
+        if (memory[DOS_OFFSET] == null) {
             synchronized (DataOperationStatistics.class) {
-                if (memory == null) {
-                    memory = new MemoryPool(SIZE * 10485760, SIZE);
+                if (memory[DOS_OFFSET] == null) {
+                    memory[DOS_OFFSET] = new MemoryPool(SIZE * MAX_POOL_SIZE,
+                            SIZE);
+                    impl[DOS_OFFSET] = new DataOperationStatistics();
                 }
             }
         }
 
-        DataOperationStatistics dos = pool.poll();
-        if (dos == null) {
-            dos = new DataOperationStatistics(memory.pool);
-        }
-
-        dos.setAddress(memory.alloc());
-        return dos;
+        int address = memory[DOS_OFFSET].alloc();
+        return address | (DOS_OFFSET << 29);
     }
 
-    public static DataOperationStatistics getDataOperationStatistics(long count,
-            long timeBin, long cpuTime, OperationSource source,
-            OperationCategory category, int fd, long data) {
-        DataOperationStatistics dos = getDataOperationStatistics();
-        getDataOperationStatistics(dos, count, timeBin, cpuTime, source,
+    public static int getDataOperationStatistics(long count, long timeBin,
+            long cpuTime, OperationSource source, OperationCategory category,
+            int fd, long data) {
+        int address = getDataOperationStatistics();
+        getDataOperationStatistics(getMemoryPool(address),
+                sanitizeAddress(address), count, timeBin, cpuTime, source,
                 category, fd, data);
-        return dos;
+        return address;
     }
 
-    protected static void getDataOperationStatistics(
-            DataOperationStatistics dos, long count, long timeBin, long cpuTime,
-            OperationSource source, OperationCategory category, int fd,
-            long data) {
-        OperationStatistics.getOperationStatistics(dos, count, timeBin, cpuTime,
-                source, category, fd);
-        dos.setData(data);
+    protected static void getDataOperationStatistics(MemoryPool mp, int address,
+            long count, long timeBin, long cpuTime, OperationSource source,
+            OperationCategory category, int fd, long data) {
+        OperationStatistics.getOperationStatistics(mp, address, count, timeBin,
+                cpuTime, source, category, fd);
+        setData(mp, address, data);
     }
 
-    public static DataOperationStatistics getDataOperationStatistics(
-            long timeBinDuration, OperationSource source,
-            OperationCategory category, long startTime, long endTime, int fd,
-            long data) {
+    public static int getDataOperationStatistics(long timeBinDuration,
+            OperationSource source, OperationCategory category, long startTime,
+            long endTime, int fd, long data) {
         return getDataOperationStatistics(1,
                 startTime - startTime % timeBinDuration, endTime - startTime,
                 source, category, fd, data);
     }
 
+    public static long getData(int address) {
+        return getData(getMemoryPool(address), sanitizeAddress(address));
+    }
+
+    public static long getData(MemoryPool mp, int address) {
+        return mp.pool.getLong(address + DATA_OFFSET);
+    }
+
+    public static void setData(int address, long data) {
+        setData(getMemoryPool(address), sanitizeAddress(address), data);
+    }
+
+    public static void setData(MemoryPool mp, int address, long data) {
+        mp.pool.putLong(address + DATA_OFFSET, data);
+    }
+
+    public static void incrementData(int address, long data) {
+        incrementData(getMemoryPool(address), sanitizeAddress(address), data);
+    }
+
+    public static void incrementData(MemoryPool mp, int address, long data) {
+        long current = mp.pool.getLong(address + DATA_OFFSET);
+        mp.pool.putLong(address + DATA_OFFSET, current + data);
+    }
+
     @Override
-    public void returnOperationStatistics() {
-        memory.free(this.address);
-        pool.offer(this);
-    }
-
-    protected DataOperationStatistics(ByteBuffer bb) {
-        super(bb);
-    }
-
-    public long getData() {
-        return this.bb.getLong(this.address + DATA_OFFSET);
-    }
-
-    public void setData(long data) {
-        this.bb.putLong(this.address + DATA_OFFSET, data);
-    }
-
-    public void incrementData(long data) {
-        long current = this.bb.getLong(this.address + DATA_OFFSET);
-        this.bb.putLong(this.address + DATA_OFFSET, current + data);
-    }
-
-    @Override
-    public DataOperationStatistics aggregate(OperationStatistics other)
-            throws NotAggregatableException {
-        if (!(other instanceof DataOperationStatistics)) {
-            throw new OperationStatistics.NotAggregatableException(
-                    "aggregator must be of type " + getClass().getName());
+    protected void doAggregationImpl(MemoryPool mp, int address) {
+        int aggregate = mp.pool.getInt(address + AGGREGATE_OFFSET);
+        if (aggregate < 0) {
+            return;
         }
-        super.aggregate(other);
-        return this;
-    }
 
-    @Override
-    public synchronized void doAggregation() {
-        if (this.aggregate != null) {
-            incrementData(((DataOperationStatistics) this.aggregate).getData());
-            super.doAggregation();
+        // see super for reasoning behind locking mechanism
+        Integer lock = Integer.valueOf(
+                ((aggregate / 2) % INTEGER_CACHE_SIZE) + INTEGER_CACHE_LOW);
+        synchronized (lock) {
+            incrementData(mp, aggregate, getData(mp, address));
+            super.doAggregationImpl(mp, address);
         }
     }
 
-    public static void getCsvHeaders(String separator, StringBuilder sb) {
-        OperationStatistics.getCsvHeaders(separator, sb);
+    @Override
+    protected void getCsvHeadersImpl(MemoryPool mp, int address,
+            String separator, StringBuilder sb) {
+        super.getCsvHeadersImpl(mp, address, separator, sb);
         sb.append(separator).append("data");
     }
 
     @Override
-    public void toCsv(String separator, StringBuilder sb) {
-        super.toCsv(separator, sb);
-        sb.append(separator).append(getData());
-    }
-
-    public static void fromCsv(String line, String separator, int off,
-            DataOperationStatistics dos) {
-        fromCsv(line.split(separator), off, dos);
-    }
-
-    public static void fromCsv(String[] values, int off,
-            DataOperationStatistics dos) {
-        OperationStatistics.fromCsv(values, off, dos);
-        dos.setData(Long.parseLong(values[off + 6]));
+    protected void toCsvImpl(MemoryPool mp, int address, String separator,
+            StringBuilder sb) {
+        super.toCsvImpl(mp, address, separator, sb);
+        sb.append(separator).append(getData(mp, address));
     }
 
     @Override
-    protected void toFlatBuffer(FlatBufferBuilder builder) {
-        super.toFlatBuffer(builder);
-        if (getData() > 0)
-            OperationStatisticsFB.addData(builder, getData());
-    }
-
-    public static void fromFlatBuffer(ByteBuffer buffer,
-            DataOperationStatistics dos) {
-        fromFlatBuffer(fromFlatBuffer(buffer), dos);
-    }
-
-    protected static void fromFlatBuffer(OperationStatisticsFB osfb,
-            DataOperationStatistics dos) {
-        OperationStatistics.fromFlatBuffer(osfb, dos);
-        dos.setData(osfb.data());
+    protected void fromCsvImpl(String[] values, int off, MemoryPool mp,
+            int address) {
+        super.fromCsvImpl(values, off, mp, address);
+        setData(mp, address, Long.parseLong(values[off + 6]));
     }
 
     @Override
-    public void toByteBuffer(ByteBuffer hostname, int pid, ByteBuffer key,
-            ByteBuffer bb) {
-        OperationStatisticsBufferBuilder.serialize(hostname, pid, key, this,
-                bb);
+    protected void toFlatBufferImpl(MemoryPool mp, int address,
+            FlatBufferBuilder builder) {
+        super.toFlatBufferImpl(mp, address, builder);
+        long data = getData(mp, address);
+        if (data > 0)
+            OperationStatisticsFB.addData(builder, data);
+    }
+
+    @Override
+    protected void fromFlatBufferImpl(OperationStatisticsFB osfb, MemoryPool mp,
+            int address) {
+        super.fromFlatBufferImpl(osfb, mp, address);
+        setData(mp, address, osfb.data());
     }
 }

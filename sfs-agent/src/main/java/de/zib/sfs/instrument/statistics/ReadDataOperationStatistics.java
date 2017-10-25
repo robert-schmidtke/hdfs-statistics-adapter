@@ -7,13 +7,8 @@
  */
 package de.zib.sfs.instrument.statistics;
 
-import java.nio.ByteBuffer;
-import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedQueue;
-
 import com.google.flatbuffers.FlatBufferBuilder;
 
-import de.zib.sfs.instrument.statistics.bb.OperationStatisticsBufferBuilder;
 import de.zib.sfs.instrument.statistics.fb.OperationStatisticsFB;
 import de.zib.sfs.instrument.util.MemoryPool;
 
@@ -24,189 +19,219 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
     private static final int REMOTE_DATA_OFFSET = REMOTE_CPU_TIME_OFFSET + 8; // long
     static final int SIZE = REMOTE_DATA_OFFSET + 8;
 
-    private static MemoryPool memory;
-    private static final Queue<ReadDataOperationStatistics> pool = new ConcurrentLinkedQueue<>();
+    private static final int MAX_POOL_SIZE;
+    static {
+        // see super
+        int maxBytes = 536870911;
+        MAX_POOL_SIZE = (maxBytes - (maxBytes % SIZE) - SIZE) / SIZE;
+    }
 
-    public static ReadDataOperationStatistics getReadDataOperationStatistics() {
-        if (memory == null) {
+    public static int getReadDataOperationStatistics() {
+        if (memory[RDOS_OFFSET] == null) {
             synchronized (ReadDataOperationStatistics.class) {
-                if (memory == null) {
-                    memory = new MemoryPool(SIZE * 10485760, SIZE);
+                if (memory[RDOS_OFFSET] == null) {
+                    memory[RDOS_OFFSET] = new MemoryPool(SIZE * MAX_POOL_SIZE,
+                            SIZE);
+                    impl[RDOS_OFFSET] = new ReadDataOperationStatistics();
                 }
             }
         }
 
-        ReadDataOperationStatistics rdos = pool.poll();
-        if (rdos == null) {
-            rdos = new ReadDataOperationStatistics(memory.pool);
+        int address = memory[RDOS_OFFSET].alloc();
+        int newad = address | (RDOS_OFFSET << 29);
+        if ((newad & ADDRESS_MASK) >> 29 >= 3) {
+            System.out.println("newad " + address);
         }
-
-        rdos.setAddress(memory.alloc());
-        return rdos;
+        return newad;
     }
 
-    public static ReadDataOperationStatistics getReadDataOperationStatistics(
-            long count, long timeBin, long cpuTime, OperationSource source,
-            OperationCategory category, int fd, long data, long remoteCount,
-            long remoteCpuTime, long remoteData) {
-        ReadDataOperationStatistics rdos = getReadDataOperationStatistics();
-        getReadDataOperationStatistics(rdos, count, timeBin, cpuTime, source,
-                category, fd, data, remoteCount, remoteCpuTime, remoteData);
-        return rdos;
-    }
-
-    protected static void getReadDataOperationStatistics(
-            ReadDataOperationStatistics rdos, long count, long timeBin,
+    public static int getReadDataOperationStatistics(long count, long timeBin,
             long cpuTime, OperationSource source, OperationCategory category,
             int fd, long data, long remoteCount, long remoteCpuTime,
             long remoteData) {
-        DataOperationStatistics.getDataOperationStatistics(rdos, count, timeBin,
-                cpuTime, source, category, fd, data);
-        rdos.setRemoteCount(remoteCount);
-        rdos.setRemoteCpuTime(remoteCpuTime);
-        rdos.setRemoteData(remoteData);
+        int address = getReadDataOperationStatistics();
+        getReadDataOperationStatistics(getMemoryPool(address),
+                sanitizeAddress(address), count, timeBin, cpuTime, source,
+                category, fd, data, remoteCount, remoteCpuTime, remoteData);
+        return address;
     }
 
-    public static ReadDataOperationStatistics getReadDataOperationStatistics(
-            long timeBinDuration, OperationSource source,
-            OperationCategory category, long startTime, long endTime, int fd,
-            long data, boolean isRemote) {
+    protected static void getReadDataOperationStatistics(MemoryPool mp,
+            int address, long count, long timeBin, long cpuTime,
+            OperationSource source, OperationCategory category, int fd,
+            long data, long remoteCount, long remoteCpuTime, long remoteData) {
+        DataOperationStatistics.getDataOperationStatistics(mp, address, count,
+                timeBin, cpuTime, source, category, fd, data);
+        setRemoteCount(mp, address, remoteCount);
+        setRemoteCpuTime(mp, address, remoteCpuTime);
+        setRemoteData(mp, address, remoteData);
+    }
+
+    public static int getReadDataOperationStatistics(long timeBinDuration,
+            OperationSource source, OperationCategory category, long startTime,
+            long endTime, int fd, long data, boolean isRemote) {
         return getReadDataOperationStatistics(1,
                 startTime - startTime % timeBinDuration, endTime - startTime,
                 source, category, fd, data, isRemote ? 1 : 0,
                 isRemote ? endTime - startTime : 0, isRemote ? data : 0);
     }
 
-    @Override
-    public void returnOperationStatistics() {
-        memory.free(this.address);
-        pool.offer(this);
+    public static long getRemoteCount(int address) {
+        return getRemoteCount(getMemoryPool(address), sanitizeAddress(address));
     }
 
-    protected ReadDataOperationStatistics(ByteBuffer bb) {
-        super(bb);
+    public static long getRemoteCount(MemoryPool mp, int address) {
+        return mp.pool.getLong(address + REMOTE_COUNT_OFFSET);
     }
 
-    public long getRemoteCount() {
-        return this.bb.getLong(this.address + REMOTE_COUNT_OFFSET);
+    public static void setRemoteCount(int address, long remoteCount) {
+        setRemoteCount(getMemoryPool(address), sanitizeAddress(address),
+                remoteCount);
     }
 
-    public void setRemoteCount(long remoteCount) {
-        this.bb.putLong(this.address + REMOTE_COUNT_OFFSET, remoteCount);
+    public static void setRemoteCount(MemoryPool mp, int address,
+            long remoteCount) {
+        mp.pool.putLong(address + REMOTE_COUNT_OFFSET, remoteCount);
     }
 
-    public void incrementRemoteCount(long remoteCount) {
-        long current = this.bb.getLong(this.address + REMOTE_COUNT_OFFSET);
-        this.bb.putLong(this.address + REMOTE_COUNT_OFFSET,
-                current + remoteCount);
+    public static void incrementRemoteCount(int address, long remoteCount) {
+        incrementRemoteCount(getMemoryPool(address), sanitizeAddress(address),
+                remoteCount);
     }
 
-    public long getRemoteCpuTime() {
-        return this.bb.getLong(this.address + REMOTE_CPU_TIME_OFFSET);
+    public static void incrementRemoteCount(MemoryPool mp, int address,
+            long remoteCount) {
+        long current = mp.pool.getLong(address + REMOTE_COUNT_OFFSET);
+        mp.pool.putLong(address + REMOTE_COUNT_OFFSET, current + remoteCount);
     }
 
-    public void setRemoteCpuTime(long remoteCpuTime) {
-        this.bb.putLong(this.address + REMOTE_CPU_TIME_OFFSET, remoteCpuTime);
+    public static long getRemoteCpuTime(int address) {
+        return getRemoteCpuTime(getMemoryPool(address),
+                sanitizeAddress(address));
     }
 
-    public void incrementRemoteCpuTime(long remoteCpuTime) {
-        long current = this.bb.getLong(this.address + REMOTE_CPU_TIME_OFFSET);
-        this.bb.putLong(this.address + REMOTE_CPU_TIME_OFFSET,
+    public static long getRemoteCpuTime(MemoryPool mp, int address) {
+        return mp.pool.getLong(address + REMOTE_CPU_TIME_OFFSET);
+    }
+
+    public static void setRemoteCpuTime(int address, long remoteCpuTime) {
+        setRemoteCpuTime(getMemoryPool(address), sanitizeAddress(address),
+                remoteCpuTime);
+    }
+
+    public static void setRemoteCpuTime(MemoryPool mp, int address,
+            long remoteCpuTime) {
+        mp.pool.putLong(address + REMOTE_CPU_TIME_OFFSET, remoteCpuTime);
+    }
+
+    public static void incrementRemoteCpuTime(int address, long remoteCpuTime) {
+        incrementRemoteCpuTime(getMemoryPool(address), sanitizeAddress(address),
+                remoteCpuTime);
+    }
+
+    public static void incrementRemoteCpuTime(MemoryPool mp, int address,
+            long remoteCpuTime) {
+        long current = mp.pool.getLong(address + REMOTE_CPU_TIME_OFFSET);
+        mp.pool.putLong(address + REMOTE_CPU_TIME_OFFSET,
                 current + remoteCpuTime);
     }
 
-    public long getRemoteData() {
-        return this.bb.getLong(this.address + REMOTE_DATA_OFFSET);
+    public static long getRemoteData(int address) {
+        return getRemoteCount(getMemoryPool(address), sanitizeAddress(address));
     }
 
-    public void setRemoteData(long remoteData) {
-        this.bb.putLong(this.address + REMOTE_DATA_OFFSET, remoteData);
+    public static long getRemoteData(MemoryPool mp, int address) {
+        return mp.pool.getLong(address + REMOTE_DATA_OFFSET);
     }
 
-    public void incrementRemoteData(long remoteData) {
-        long current = this.bb.getLong(this.address + REMOTE_DATA_OFFSET);
-        this.bb.putLong(this.address + REMOTE_DATA_OFFSET,
-                current + remoteData);
+    public static void setRemoteData(int address, long remoteData) {
+        setRemoteData(getMemoryPool(address), sanitizeAddress(address),
+                remoteData);
+    }
+
+    public static void setRemoteData(MemoryPool mp, int address,
+            long remoteData) {
+        mp.pool.putLong(address + REMOTE_DATA_OFFSET, remoteData);
+    }
+
+    public static void incrementRemoteData(int address, long remoteData) {
+        incrementRemoteData(getMemoryPool(address), sanitizeAddress(address),
+                remoteData);
+    }
+
+    public static void incrementRemoteData(MemoryPool mp, int address,
+            long remoteData) {
+        long current = mp.pool.getLong(address + REMOTE_DATA_OFFSET);
+        mp.pool.putLong(address + REMOTE_DATA_OFFSET, current + remoteData);
     }
 
     @Override
-    public ReadDataOperationStatistics aggregate(OperationStatistics other)
-            throws NotAggregatableException {
-        if (!(other instanceof ReadDataOperationStatistics)) {
-            throw new OperationStatistics.NotAggregatableException(
-                    "aggregator must be of type " + getClass().getName());
+    public void doAggregationImpl(MemoryPool mp, int address) {
+        int aggregate = mp.pool.getInt(address + AGGREGATE_OFFSET);
+        if (aggregate < 0) {
+            return;
         }
-        super.aggregate(other);
-        return this;
+
+        // see super for reasoning behind locking mechanism
+        Integer lock = Integer.valueOf(
+                ((aggregate / 2) % INTEGER_CACHE_SIZE) + INTEGER_CACHE_LOW);
+        synchronized (lock) {
+            incrementRemoteCount(mp, aggregate, getRemoteCount(mp, address));
+            incrementRemoteCpuTime(mp, aggregate,
+                    getRemoteCpuTime(mp, address));
+            incrementRemoteData(mp, aggregate, getRemoteData(mp, address));
+            super.doAggregationImpl(mp, address);
+        }
     }
 
     @Override
-    public synchronized void doAggregation() {
-        if (this.aggregate != null) {
-            ReadDataOperationStatistics rdos = (ReadDataOperationStatistics) this.aggregate;
-            incrementRemoteCount(rdos.getRemoteCount());
-            incrementRemoteCpuTime(rdos.getRemoteCpuTime());
-            incrementRemoteData(rdos.getRemoteData());
-            super.doAggregation();
-        }
-    }
-
-    public static void getCsvHeaders(String separator, StringBuilder sb) {
-        DataOperationStatistics.getCsvHeaders(separator, sb);
+    protected void getCsvHeadersImpl(MemoryPool mp, int address,
+            String separator, StringBuilder sb) {
+        super.getCsvHeadersImpl(mp, address, separator, sb);
         sb.append(separator).append("remoteCount");
         sb.append(separator).append("remoteCpuTime");
         sb.append(separator).append("remoteData");
     }
 
     @Override
-    public void toCsv(String separator, StringBuilder sb) {
-        super.toCsv(separator, sb);
-        sb.append(separator).append(getRemoteCount());
-        sb.append(separator).append(getRemoteCpuTime());
-        sb.append(separator).append(getRemoteData());
-    }
-
-    public static void fromCsv(String line, String separator, int off,
-            ReadDataOperationStatistics rdos) {
-        fromCsv(line.split(separator), off, rdos);
-    }
-
-    public static void fromCsv(String[] values, int off,
-            ReadDataOperationStatistics rdos) {
-        DataOperationStatistics.fromCsv(values, off, rdos);
-        rdos.setRemoteCount(Long.parseLong(values[off + 7]));
-        rdos.setRemoteCpuTime(Long.parseLong(values[off + 8]));
-        rdos.setRemoteData(Long.parseLong(values[off + 9]));
+    protected void toCsvImpl(MemoryPool mp, int address, String separator,
+            StringBuilder sb) {
+        super.toCsvImpl(mp, address, separator, sb);
+        sb.append(separator).append(getRemoteCount(mp, address));
+        sb.append(separator).append(getRemoteCpuTime(mp, address));
+        sb.append(separator).append(getRemoteData(mp, address));
     }
 
     @Override
-    protected void toFlatBuffer(FlatBufferBuilder builder) {
-        super.toFlatBuffer(builder);
-        if (getRemoteCount() > 0)
-            OperationStatisticsFB.addRemoteCount(builder, getRemoteCount());
-        if (getRemoteCpuTime() > 0)
-            OperationStatisticsFB.addRemoteCpuTime(builder, getRemoteCpuTime());
-        if (getRemoteData() > 0)
-            OperationStatisticsFB.addRemoteData(builder, getRemoteData());
-    }
-
-    public static void fromFlatBuffer(ByteBuffer buffer,
-            ReadDataOperationStatistics rdos) {
-        fromFlatBuffer(fromFlatBuffer(buffer), rdos);
-    }
-
-    protected static void fromFlatBuffer(OperationStatisticsFB osfb,
-            ReadDataOperationStatistics rdos) {
-        DataOperationStatistics.fromFlatBuffer(osfb, rdos);
-        rdos.setRemoteCount(osfb.remoteCount());
-        rdos.setRemoteCpuTime(osfb.remoteCpuTime());
-        rdos.setRemoteData(osfb.remoteData());
+    protected void fromCsvImpl(String[] values, int off, MemoryPool mp,
+            int address) {
+        super.fromCsvImpl(values, off, mp, address);
+        setRemoteCount(mp, address, Long.parseLong(values[off + 7]));
+        setRemoteCpuTime(mp, address, Long.parseLong(values[off + 8]));
+        setRemoteData(mp, address, Long.parseLong(values[off + 9]));
     }
 
     @Override
-    public void toByteBuffer(ByteBuffer hostname, int pid, ByteBuffer key,
-            ByteBuffer bb) {
-        OperationStatisticsBufferBuilder.serialize(hostname, pid, key, this,
-                bb);
+    protected void toFlatBufferImpl(MemoryPool mp, int address,
+            FlatBufferBuilder builder) {
+        super.toFlatBufferImpl(mp, address, builder);
+        long remoteCount = getRemoteCount(mp, address);
+        if (remoteCount > 0)
+            OperationStatisticsFB.addRemoteCount(builder, remoteCount);
+        long remoteCpuTime = getRemoteCpuTime(mp, address);
+        if (remoteCpuTime > 0)
+            OperationStatisticsFB.addRemoteCpuTime(builder, remoteCpuTime);
+        long remoteData = getRemoteData(mp, address);
+        if (remoteData > 0)
+            OperationStatisticsFB.addRemoteData(builder, remoteData);
+    }
+
+    @Override
+    protected void fromFlatBufferImpl(OperationStatisticsFB osfb, MemoryPool mp,
+            int address) {
+        super.fromFlatBufferImpl(osfb, mp, address);
+        setRemoteCount(mp, address, osfb.remoteCount());
+        setRemoteCpuTime(mp, address, osfb.remoteCpuTime());
+        setRemoteData(mp, address, osfb.remoteData());
     }
 }

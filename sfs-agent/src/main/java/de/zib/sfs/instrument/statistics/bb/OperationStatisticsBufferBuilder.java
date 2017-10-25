@@ -23,12 +23,9 @@ import de.zib.sfs.instrument.statistics.OperationSource;
 import de.zib.sfs.instrument.statistics.OperationStatistics;
 import de.zib.sfs.instrument.statistics.ReadDataOperationStatistics;
 import de.zib.sfs.instrument.statistics.bb.ByteBufferUtil.NumberType;
+import de.zib.sfs.instrument.util.MemoryPool;
 
 public class OperationStatisticsBufferBuilder {
-
-    public static enum OperationStatisticsType {
-        OS, DOS, RDOS;
-    }
 
     private static final ThreadLocal<CharsetDecoder> DECODER = new ThreadLocal<CharsetDecoder>() {
         @Override
@@ -45,7 +42,7 @@ public class OperationStatisticsBufferBuilder {
     };
 
     public static void serialize(ByteBuffer hostnameBb, int pid,
-            ByteBuffer keyBb, OperationStatistics os, ByteBuffer bb) {
+            ByteBuffer keyBb, int address, ByteBuffer bb) {
         ByteBuffer hostname = hostnameBb.slice();
         ByteBuffer key = keyBb.slice();
 
@@ -64,13 +61,12 @@ public class OperationStatisticsBufferBuilder {
         // for the short header
         int size = 2;
 
-        int ost = OperationStatisticsType.OS.ordinal();
-        if (os instanceof ReadDataOperationStatistics) {
-            ost = OperationStatisticsType.RDOS.ordinal();
-        } else if (os instanceof DataOperationStatistics) {
-            ost = OperationStatisticsType.DOS.ordinal();
-        }
+        // 0 = OS, 1 = DOS, 2 = RDOS
+        int ost = OperationStatistics.getOperationStatisticsOffset(address);
         header |= ost << 12;
+
+        MemoryPool mp = OperationStatistics.getMemoryPool(address);
+        address = OperationStatistics.sanitizeAddress(address);
 
         // an additional byte per extended header
         size += ost;
@@ -82,22 +78,25 @@ public class OperationStatisticsBufferBuilder {
             size += ntPid.getSize();
         }
 
-        NumberType ntCount = ByteBufferUtil.getNumberType(os.getCount());
-        if (os.getCount() != 0) {
+        long count = OperationStatistics.getCount(mp, address);
+        NumberType ntCount = ByteBufferUtil.getNumberType(count);
+        if (count != 0) {
             header |= 0b100 << 6;
             header |= ntCount.ordinal() << 6;
             size += ntCount.getSize();
         }
 
-        NumberType ntTime = ByteBufferUtil.getNumberType(os.getCpuTime());
-        if (os.getCpuTime() != 0) {
+        long cpuTime = OperationStatistics.getCpuTime(mp, address);
+        NumberType ntTime = ByteBufferUtil.getNumberType(cpuTime);
+        if (cpuTime != 0) {
             header |= 0b100 << 3;
             header |= ntTime.ordinal() << 3;
             size += ntTime.getSize();
         }
 
-        NumberType ntFd = ByteBufferUtil.getNumberType(os.getFileDescriptor());
-        if (os.getFileDescriptor() != 0) {
+        int fileDescriptor = OperationStatistics.getFileDescriptor(mp, address);
+        NumberType ntFd = ByteBufferUtil.getNumberType(fileDescriptor);
+        if (fileDescriptor != 0) {
             header |= 0b100;
             header |= ntFd.ordinal();
             size += ntFd.getSize();
@@ -106,15 +105,15 @@ public class OperationStatisticsBufferBuilder {
         byte[] extHeader = new byte[ost];
 
         NumberType ntData = null;
-        if (ost > 0) {
+        if (ost >= OperationStatistics.DOS_OFFSET) {
             // see above for 0-15
             // 16: empty
             // 17: hasData
             // 18-19: dataType
             // 20-23: empty
-            DataOperationStatistics dos = (DataOperationStatistics) os;
-            ntData = ByteBufferUtil.getNumberType(dos.getData());
-            if (dos.getData() != 0) {
+            long data = DataOperationStatistics.getData(mp, address);
+            ntData = ByteBufferUtil.getNumberType(data);
+            if (data != 0) {
                 extHeader[0] |= 0b100 << 4;
                 extHeader[0] |= ntData.ordinal() << 4;
                 size += ntData.getSize();
@@ -122,9 +121,9 @@ public class OperationStatisticsBufferBuilder {
         }
 
         NumberType ntRemoteCount = null;
-        NumberType ntRemoteTime = null;
+        NumberType ntRemoteCpuTime = null;
         NumberType ntRemoteData = null;
-        if (ost > 1) {
+        if (ost >= OperationStatistics.RDOS_OFFSET) {
             // see above for 0-19
             // 20: hasRemoteCount
             // 21-22: remoteCountType
@@ -134,25 +133,28 @@ public class OperationStatisticsBufferBuilder {
             // 28: hasRemoteData
             // 29-30: remoteDataType
             // 31: empty
-            ReadDataOperationStatistics rdos = (ReadDataOperationStatistics) os;
-
-            ntRemoteCount = ByteBufferUtil.getNumberType(rdos.getRemoteCount());
-            if (rdos.getRemoteCount() != 0) {
+            long remoteCount = ReadDataOperationStatistics.getRemoteCount(mp,
+                    address);
+            ntRemoteCount = ByteBufferUtil.getNumberType(remoteCount);
+            if (remoteCount != 0) {
                 extHeader[0] |= 0b100 << 1;
                 extHeader[0] |= ntRemoteCount.ordinal() << 1;
                 size += ntRemoteCount.getSize();
             }
 
-            ntRemoteTime = ByteBufferUtil
-                    .getNumberType(rdos.getRemoteCpuTime());
-            if (rdos.getRemoteCpuTime() != 0) {
+            long remoteCpuTime = ReadDataOperationStatistics
+                    .getRemoteCpuTime(mp, address);
+            ntRemoteCpuTime = ByteBufferUtil.getNumberType(remoteCpuTime);
+            if (remoteCpuTime != 0) {
                 extHeader[1] |= 0b100 << 4;
-                extHeader[1] |= ntRemoteTime.ordinal() << 4;
-                size += ntRemoteTime.getSize();
+                extHeader[1] |= ntRemoteCpuTime.ordinal() << 4;
+                size += ntRemoteCpuTime.getSize();
             }
 
-            ntRemoteData = ByteBufferUtil.getNumberType(rdos.getRemoteData());
-            if (rdos.getRemoteData() != 0) {
+            long remoteData = ReadDataOperationStatistics.getRemoteData(mp,
+                    address);
+            ntRemoteData = ByteBufferUtil.getNumberType(remoteData);
+            if (remoteData != 0) {
                 extHeader[1] |= 0b100 << 1;
                 extHeader[1] |= ntRemoteData.ordinal() << 1;
                 size += ntRemoteData.getSize();
@@ -198,37 +200,38 @@ public class OperationStatisticsBufferBuilder {
         bb.put((byte) (keyLength - Byte.MAX_VALUE)).put(key);
 
         // timeBin
-        bb.putLong(os.getTimeBin());
+        bb.putLong(OperationStatistics.getTimeBin(mp, address));
 
         // count
-        ntCount.putLong(bb, os.getCount());
+        ntCount.putLong(bb, count);
 
         // cpuTime
-        ntTime.putLong(bb, os.getCpuTime());
+        ntTime.putLong(bb, cpuTime);
 
         // source
-        bb.put((byte) os.getSource().ordinal());
+        bb.put((byte) OperationStatistics.getSource(mp, address).ordinal());
 
         // category
-        bb.put((byte) os.getCategory().ordinal());
+        bb.put((byte) OperationStatistics.getCategory(mp, address).ordinal());
 
         // file descriptor
-        ntFd.putInt(bb, os.getFileDescriptor());
+        ntFd.putInt(bb, fileDescriptor);
 
-        if (ost > 0) {
-            DataOperationStatistics dos = (DataOperationStatistics) os;
-            ntData.putLong(bb, dos.getData());
+        if (ost >= OperationStatistics.DOS_OFFSET) {
+            ntData.putLong(bb, DataOperationStatistics.getData(mp, address));
         }
 
-        if (ost > 1) {
-            ReadDataOperationStatistics rdos = (ReadDataOperationStatistics) os;
-            ntRemoteCount.putLong(bb, rdos.getRemoteCount());
-            ntRemoteTime.putLong(bb, rdos.getRemoteCpuTime());
-            ntRemoteData.putLong(bb, rdos.getRemoteData());
+        if (ost >= OperationStatistics.RDOS_OFFSET) {
+            ntRemoteCount.putLong(bb,
+                    ReadDataOperationStatistics.getRemoteCount(mp, address));
+            ntRemoteCpuTime.putLong(bb,
+                    ReadDataOperationStatistics.getRemoteCpuTime(mp, address));
+            ntRemoteData.putLong(bb,
+                    ReadDataOperationStatistics.getRemoteData(mp, address));
         }
     }
 
-    public static void deserialize(ByteBuffer bb, OperationStatistics os) {
+    public static void deserialize(ByteBuffer bb, int address) {
         bb.order(ByteOrder.LITTLE_ENDIAN);
 
         short header = bb.getShort();
@@ -260,7 +263,7 @@ public class OperationStatisticsBufferBuilder {
         }
 
         NumberType ntData = null;
-        if (ost > 0) {
+        if (ost >= OperationStatistics.DOS_OFFSET) {
             if ((extHeader[0] & (0b100 << 4)) > 0) {
                 ntData = NumberType.VALUES[(extHeader[0] & (0b011 << 4)) >> 4];
             } else {
@@ -269,9 +272,9 @@ public class OperationStatisticsBufferBuilder {
         }
 
         NumberType ntRemoteCount = null;
-        NumberType ntRemoteTime = null;
+        NumberType ntRemoteCpuTime = null;
         NumberType ntRemoteData = null;
-        if (ost > 1) {
+        if (ost >= OperationStatistics.RDOS_OFFSET) {
             if ((extHeader[0] & (0b100 << 1)) > 0) {
                 ntRemoteCount = NumberType.VALUES[(extHeader[0]
                         & (0b011 << 1)) >> 1];
@@ -280,10 +283,10 @@ public class OperationStatisticsBufferBuilder {
             }
 
             if ((extHeader[1] & (0b100 << 4)) > 0) {
-                ntRemoteTime = NumberType.VALUES[(extHeader[1]
+                ntRemoteCpuTime = NumberType.VALUES[(extHeader[1]
                         & (0b011 << 4)) >> 4];
             } else {
-                ntRemoteTime = NumberType.EMPTY;
+                ntRemoteCpuTime = NumberType.EMPTY;
             }
 
             if ((extHeader[1] & (0b100 << 1)) > 0) {
@@ -360,23 +363,27 @@ public class OperationStatisticsBufferBuilder {
         // file descriptor
         int fd = ntFd.getInt(bb);
 
-        os.setTimeBin(timeBin);
-        os.setCount(count);
-        os.setCpuTime(cpuTime);
-        os.setSource(source);
-        os.setCategory(category);
-        os.setFileDescriptor(fd);
+        MemoryPool mp = OperationStatistics.getMemoryPool(address);
+        address = OperationStatistics.sanitizeAddress(address);
 
-        if (ost > 0) {
-            DataOperationStatistics dos = (DataOperationStatistics) os;
-            dos.setData(ntData.getLong(bb));
+        OperationStatistics.setTimeBin(mp, address, timeBin);
+        OperationStatistics.setCount(mp, address, count);
+        OperationStatistics.setCpuTime(mp, address, cpuTime);
+        OperationStatistics.setSource(mp, address, source);
+        OperationStatistics.setCategory(mp, address, category);
+        OperationStatistics.setFileDescriptor(mp, address, fd);
+
+        if (ost >= OperationStatistics.DOS_OFFSET) {
+            DataOperationStatistics.setData(mp, address, ntData.getLong(bb));
         }
 
-        if (ost > 1) {
-            ReadDataOperationStatistics rdos = (ReadDataOperationStatistics) os;
-            rdos.setRemoteCount(ntRemoteCount.getLong(bb));
-            rdos.setRemoteCpuTime(ntRemoteTime.getLong(bb));
-            rdos.setRemoteData(ntRemoteData.getLong(bb));
+        if (ost >= OperationStatistics.RDOS_OFFSET) {
+            ReadDataOperationStatistics.setRemoteCount(mp, address,
+                    ntRemoteCount.getLong(bb));
+            ReadDataOperationStatistics.setRemoteCpuTime(mp, address,
+                    ntRemoteCpuTime.getLong(bb));
+            ReadDataOperationStatistics.setRemoteData(mp, address,
+                    ntRemoteData.getLong(bb));
         }
     }
 
