@@ -101,10 +101,11 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
         << "  out_fmt=csv|fb|bb" << std::endl
         << "Optional options:" << std::endl
         << "  instr_skip=r|w|o|z or any combination of them (default: empty)"
-        << "  trans_address=trans-host:port (default: empty)"
-        << "  trace_mmap=y|n (default: n)"
-        << "  trace_fds=y|n (default: n)"
-        << "  use_proxy=y|n (default: n)"
+        << std::endl
+        << "  trans_address=trans-host:port (default: empty)" << std::endl
+        << "  trace_mmap=y|n (default: n)" << std::endl
+        << "  trace_fds=y|n (default: n)" << std::endl
+        << "  use_proxy=y|n (default: n)" << std::endl
         << "  verbose=y|n (default: n)" << std::endl;
     return JNI_EINVAL;
   }
