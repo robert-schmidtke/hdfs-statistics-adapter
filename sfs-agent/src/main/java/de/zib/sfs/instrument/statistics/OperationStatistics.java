@@ -361,13 +361,8 @@ public class OperationStatistics {
 
     public static void getCsvHeaders(int address, String separator,
             StringBuilder sb) {
-        getCsvHeaders(getMemoryPool(address), sanitizeAddress(address),
-                separator, sb);
-    }
-
-    public static void getCsvHeaders(MemoryPool mp, int address,
-            String separator, StringBuilder sb) {
-        getImpl(address).getCsvHeadersImpl(mp, address, separator, sb);
+        getImpl(address).getCsvHeadersImpl(getMemoryPool(address),
+                sanitizeAddress(address), separator, sb);
     }
 
     protected void getCsvHeadersImpl(MemoryPool mp, int address,
@@ -381,11 +376,6 @@ public class OperationStatistics {
     }
 
     public static void toCsv(int address, String separator, StringBuilder sb) {
-        toCsv(getMemoryPool(address), sanitizeAddress(address), separator, sb);
-    }
-
-    public static void toCsv(MemoryPool mp, int address, String separator,
-            StringBuilder sb) {
         getImpl(address).toCsvImpl(getMemoryPool(address),
                 sanitizeAddress(address), separator, sb);
     }
@@ -421,12 +411,6 @@ public class OperationStatistics {
 
     public static void toFlatBuffer(int address, String hostname, int pid,
             String key, ByteBuffer bb) {
-        toFlatBuffer(getMemoryPool(address), sanitizeAddress(address), hostname,
-                pid, key, bb);
-    }
-
-    public static void toFlatBuffer(MemoryPool mp, int address, String hostname,
-            int pid, String key, ByteBuffer bb) {
         if (overflowByteBufferFactory == null) {
             overflowByteBufferFactory = new ByteBufferFactory() {
                 @Override
@@ -448,7 +432,10 @@ public class OperationStatistics {
         if (pid > 0)
             OperationStatisticsFB.addPid(builder, pid);
         OperationStatisticsFB.addKey(builder, keyOffset);
-        getImpl(address).toFlatBufferImpl(mp, address, builder);
+
+        getImpl(address).toFlatBufferImpl(getMemoryPool(address),
+                sanitizeAddress(address), builder);
+
         int os = OperationStatisticsFB.endOperationStatisticsFB(builder);
         OperationStatisticsFB
                 .finishSizePrefixedOperationStatisticsFBBuffer(builder, os);
@@ -511,7 +498,7 @@ public class OperationStatistics {
     private String toString(MemoryPool mp, int address) {
         StringBuilder sb = new StringBuilder();
         sb.append("{");
-        toCsv(mp, address, ",", sb);
+        toCsvImpl(mp, address, ",", sb);
         sb.append("}");
         return sb.toString();
     }

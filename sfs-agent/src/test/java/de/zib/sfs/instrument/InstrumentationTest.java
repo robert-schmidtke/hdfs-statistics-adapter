@@ -1522,7 +1522,7 @@ public class InstrumentationTest {
 
             switch (aggregator.getOutputFormat()) {
             case CSV:
-                processFilesCsv(categoryFiles, callback);
+                processFilesCsv(categoryFiles, category, callback);
                 break;
             case FB:
             case BB:
@@ -1591,7 +1591,8 @@ public class InstrumentationTest {
     }
 
     private static void processFilesCsv(File[] files,
-            OperationStatisticsCallback callback) throws IOException {
+            OperationCategory category, OperationStatisticsCallback callback)
+            throws IOException {
         // parse all files into OperationStatistics
         for (File file : files) {
             BufferedReader reader = new BufferedReader(new FileReader(file));
@@ -1601,8 +1602,24 @@ public class InstrumentationTest {
             while ((line = reader.readLine()) != null) {
                 // LiveOperationStatisticsAggregator prepends hostname, pid
                 // and key for each line
-                int operationStatistics = OperationStatistics
-                        .getOperationStatistics();
+                int operationStatistics = -1;
+                switch (category) {
+                case OTHER:
+                    operationStatistics = OperationStatistics
+                            .getOperationStatistics();
+                    break;
+                case WRITE:
+                    operationStatistics = DataOperationStatistics
+                            .getDataOperationStatistics();
+                    break;
+                case READ:
+                case ZIP:
+                    operationStatistics = ReadDataOperationStatistics
+                            .getReadDataOperationStatistics();
+                    break;
+                default:
+                    throw new IllegalArgumentException(category.name());
+                }
                 OperationStatistics.fromCsv(
                         line.split(LiveOperationStatisticsAggregator.instance
                                 .getCsvOutputSeparator()),

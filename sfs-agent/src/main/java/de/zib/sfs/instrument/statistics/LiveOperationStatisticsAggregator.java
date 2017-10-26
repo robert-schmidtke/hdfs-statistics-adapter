@@ -485,10 +485,11 @@ public class LiveOperationStatisticsAggregator {
 
     private void writeCsv(int aggregate) throws IOException {
         MemoryPool mp = OperationStatistics.getMemoryPool(aggregate);
-        aggregate = OperationStatistics.sanitizeAddress(aggregate);
-        OperationSource source = OperationStatistics.getSource(mp, aggregate);
+        int sanitizedAggregate = OperationStatistics.sanitizeAddress(aggregate);
+        OperationSource source = OperationStatistics.getSource(mp,
+                sanitizedAggregate);
         OperationCategory category = OperationStatistics.getCategory(mp,
-                aggregate);
+                sanitizedAggregate);
         int index = getUniqueIndex(source, category);
         synchronized (this.writerLocks[index]) {
             if (this.csvStringBuilders[index] == null) {
@@ -513,7 +514,7 @@ public class LiveOperationStatisticsAggregator {
                             .append(this.csvOutputSeparator).append("key");
                     this.csvStringBuilders[index]
                             .append(this.csvOutputSeparator);
-                    OperationStatistics.getCsvHeaders(mp, aggregate,
+                    OperationStatistics.getCsvHeaders(aggregate,
                             this.csvOutputSeparator,
                             this.csvStringBuilders[index]);
 
@@ -536,7 +537,7 @@ public class LiveOperationStatisticsAggregator {
             this.csvStringBuilders[index].append(this.csvOutputSeparator)
                     .append(this.systemKey);
             this.csvStringBuilders[index].append(this.csvOutputSeparator);
-            OperationStatistics.toCsv(mp, aggregate, this.csvOutputSeparator,
+            OperationStatistics.toCsv(aggregate, this.csvOutputSeparator,
                     this.csvStringBuilders[index]);
 
             this.csvWriters[index]
@@ -596,7 +597,7 @@ public class LiveOperationStatisticsAggregator {
                 try {
                     switch (this.outputFormat) {
                     case FB:
-                        OperationStatistics.toFlatBuffer(mp, sanitizedAggregate,
+                        OperationStatistics.toFlatBuffer(aggregate,
                                 this.systemHostname, this.systemPid,
                                 this.systemKey, this.bbBuffers[index]);
                         // resulting buffer is already 'flipped'
