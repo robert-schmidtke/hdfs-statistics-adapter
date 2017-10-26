@@ -165,7 +165,7 @@ public class LiveOperationStatisticsAggregator {
             throw new IllegalArgumentException(this.systemHostname);
         }
         this.systemHostnameBb = ByteBuffer
-                .allocate(this.systemHostname.length());
+                .allocateDirect(this.systemHostname.length());
         encoder.reset();
         CoderResult cr = encoder.encode(CharBuffer.wrap(this.systemHostname),
                 this.systemHostnameBb, true);
@@ -182,7 +182,7 @@ public class LiveOperationStatisticsAggregator {
         if (this.systemKey.length() - Byte.MAX_VALUE > Byte.MAX_VALUE) {
             throw new IllegalArgumentException(this.systemKey);
         }
-        this.systemKeyBb = ByteBuffer.allocate(this.systemKey.length());
+        this.systemKeyBb = ByteBuffer.allocateDirect(this.systemKey.length());
         encoder.reset();
         cr = encoder.encode(CharBuffer.wrap(this.systemKey), this.systemKeyBb,
                 true);
@@ -560,10 +560,10 @@ public class LiveOperationStatisticsAggregator {
             if (this.bbBuffers[index] == null) {
                 switch (this.outputFormat) {
                 case FB:
-                    this.bbBuffers[index] = ByteBuffer.allocate(256);
+                    this.bbBuffers[index] = ByteBuffer.allocateDirect(256);
                     break;
                 case BB:
-                    this.bbBuffers[index] = ByteBuffer.allocate(64);
+                    this.bbBuffers[index] = ByteBuffer.allocateDirect(64);
                     break;
                 case CSV:
                     // this should not happen
@@ -617,8 +617,8 @@ public class LiveOperationStatisticsAggregator {
                     }
                 } catch (BufferOverflowException e) {
                     overflow = true;
-                    this.bbBuffers[index] = ByteBuffer.allocate(
-                            (int) (this.bbBuffers[index].capacity() * 1.5));
+                    this.bbBuffers[index] = ByteBuffer.allocateDirect(
+                            this.bbBuffers[index].capacity() << 1);
                 }
             } while (overflow);
             this.bbChannels[index].write(this.bbBuffers[index]);
@@ -725,7 +725,7 @@ public class LiveOperationStatisticsAggregator {
                             + this.outputFormat.name().toLowerCase()))
                                     .getChannel();
 
-            ByteBuffer bb = ByteBuffer.allocate(1048576);
+            ByteBuffer bb = ByteBuffer.allocateDirect(1048576);
             bb.order(ByteOrder.LITTLE_ENDIAN);
             bb.mark();
             for (Map.Entry<String, Integer> fd : this.filenameToFd.entrySet()) {

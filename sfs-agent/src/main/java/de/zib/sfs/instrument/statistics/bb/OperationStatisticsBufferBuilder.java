@@ -37,7 +37,7 @@ public class OperationStatisticsBufferBuilder {
     private static final ThreadLocal<CharBuffer> BUFFER = new ThreadLocal<CharBuffer>() {
         @Override
         protected CharBuffer initialValue() {
-            return CharBuffer.allocate(256);
+            return ByteBuffer.allocateDirect(512).asCharBuffer();
         }
     };
 

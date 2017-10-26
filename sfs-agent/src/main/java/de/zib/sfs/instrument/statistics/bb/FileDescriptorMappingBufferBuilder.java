@@ -40,7 +40,7 @@ public class FileDescriptorMappingBufferBuilder {
     private static final ThreadLocal<CharBuffer> BUFFER = new ThreadLocal<CharBuffer>() {
         @Override
         protected CharBuffer initialValue() {
-            return CharBuffer.allocate(256);
+            return ByteBuffer.allocateDirect(512).asCharBuffer();
         }
     };
 
@@ -104,7 +104,7 @@ public class FileDescriptorMappingBufferBuilder {
         CharBuffer cb = BUFFER.get();
         int capacity = cb.capacity();
         if (length > capacity) {
-            cb = CharBuffer.allocate(capacity << 1);
+            cb = ByteBuffer.allocateDirect(capacity << 1).asCharBuffer();
             BUFFER.set(cb);
         }
         cb.put(path);

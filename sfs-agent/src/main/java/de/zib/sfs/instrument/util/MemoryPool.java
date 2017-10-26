@@ -40,7 +40,7 @@ public class MemoryPool {
         this.chunkSize = chunkSize;
         this.pool = ByteBuffer.allocateDirect(this.poolSize);
         this.numAddresses = this.poolSize / this.chunkSize;
-        this.addresses = ByteBuffer.allocateDirect(this.numAddresses * 4);
+        this.addresses = ByteBuffer.allocateDirect(this.numAddresses << 2);
         this.popIndex = new AtomicInteger(0);
         this.pushIndex = new AtomicInteger(this.numAddresses);
 
@@ -48,7 +48,7 @@ public class MemoryPool {
         this.sanitizer = 2L * Integer.MAX_VALUE + 2L;
 
         for (int i = 0; i < this.numAddresses; ++i) {
-            this.addresses.putInt(i * 4, i * this.chunkSize);
+            this.addresses.putInt(i << 2, i * this.chunkSize);
         }
     }
 
@@ -56,7 +56,7 @@ public class MemoryPool {
         int index = this.popIndex.getAndIncrement();
         int address;
         if (this.pushIndex.get() - index > 0) {
-            address = this.addresses.getInt(sanitizeIndex(index) * 4);
+            address = this.addresses.getInt(sanitizeIndex(index) << 2);
         } else {
             throw new OutOfMemoryException();
         }
@@ -70,7 +70,7 @@ public class MemoryPool {
             throw new IllegalAddressException();
         }
 
-        this.addresses.putInt(sanitizeIndex(index) * 4, address);
+        this.addresses.putInt(sanitizeIndex(index) << 2, address);
     }
 
     public int remaining() {
