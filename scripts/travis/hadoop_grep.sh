@@ -23,7 +23,7 @@ export LD_LIBRARY_PATH_EXT="$GRPC_HOME/libs/opt:$GRPC_HOME/third_party/protobuf/
 
 OPTS="-XX:MaxDirectMemorySize=2048M -XX:AutoBoxCacheMax=895"
 OPTS="$OPTS -agentpath:$TRAVIS_BUILD_DIR/sfs-agent/target/libsfs.so=trans_jar=$TRAVIS_BUILD_DIR/sfs-agent/target/sfs-agent.jar,trans_address=0.0.0.0:4242"
-OPTS="$OPTS,bin_duration=1000,cache_size=120,out_dir=/tmp,verbose=n,trace_fds=y"
+OPTS="$OPTS,bin_duration=1000,cache_size=120,out_dir=/tmp,verbose=n,out_fmt=bb,trace_fds=y,trace_mmap=n,instr_skip=n,use_proxy=n"
 export HADOOP_OPTS="$OPTS,key=hdfs"
 export YARN_OPTS="$OPTS,key=yarn"
 export MAP_OPTS="$OPTS,key=map"
