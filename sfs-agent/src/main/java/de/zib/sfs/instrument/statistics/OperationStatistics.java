@@ -18,6 +18,7 @@ import com.google.flatbuffers.FlatBufferBuilder;
 import com.google.flatbuffers.FlatBufferBuilder.ByteBufferFactory;
 
 import de.zib.sfs.instrument.statistics.fb.OperationStatisticsFB;
+import de.zib.sfs.instrument.util.Globals;
 import de.zib.sfs.instrument.util.MemoryPool;
 
 public class OperationStatistics {
@@ -273,47 +274,53 @@ public class OperationStatistics {
 
     public static int aggregate(int address, int other)
             throws NotAggregatableException {
-        if ((address & ADDRESS_MASK) != (other & ADDRESS_MASK)) {
-            throw new NotAggregatableException(
-                    "Memory pools do not match: " + address + ", " + other);
+        if (Globals.STRICT) {
+            if ((address & ADDRESS_MASK) != (other & ADDRESS_MASK)) {
+                throw new NotAggregatableException(
+                        "Memory pools do not match: " + address + ", " + other);
+            }
         }
 
         MemoryPool mp = getMemoryPool(address);
         int sanitizedAddress = sanitizeAddress(address);
         int sanitizedOther = sanitizeAddress(other);
 
-        if (sanitizedAddress == sanitizedOther) {
-            throw new NotAggregatableException("Cannot aggregate self");
-        }
+        if (Globals.STRICT) {
+            if (sanitizedAddress == sanitizedOther) {
+                throw new NotAggregatableException("Cannot aggregate self");
+            }
 
-        long timeBin = getTimeBin(mp, sanitizedAddress);
-        long sanitizedOtherTimeBin = getTimeBin(mp, sanitizedOther);
-        if (sanitizedOtherTimeBin != timeBin) {
-            throw new NotAggregatableException("Time bins do not match: "
-                    + timeBin + ", " + sanitizedOtherTimeBin);
-        }
+            long timeBin = getTimeBin(mp, sanitizedAddress);
+            long sanitizedOtherTimeBin = getTimeBin(mp, sanitizedOther);
+            if (sanitizedOtherTimeBin != timeBin) {
+                throw new NotAggregatableException("Time bins do not match: "
+                        + timeBin + ", " + sanitizedOtherTimeBin);
+            }
 
-        OperationSource source = getSource(mp, sanitizedAddress);
-        OperationSource sanitizedOtherSource = getSource(mp, sanitizedOther);
-        if (!sanitizedOtherSource.equals(source)) {
-            throw new NotAggregatableException("Sources do not match: " + source
-                    + ", " + sanitizedOtherSource);
-        }
+            OperationSource source = getSource(mp, sanitizedAddress);
+            OperationSource sanitizedOtherSource = getSource(mp,
+                    sanitizedOther);
+            if (!sanitizedOtherSource.equals(source)) {
+                throw new NotAggregatableException("Sources do not match: "
+                        + source + ", " + sanitizedOtherSource);
+            }
 
-        OperationCategory category = getCategory(mp, sanitizedAddress);
-        OperationCategory sanitizedOtherCategory = getCategory(mp,
-                sanitizedOther);
-        if (!sanitizedOtherCategory.equals(category)) {
-            throw new NotAggregatableException("Categories do not match: "
-                    + category + ", " + sanitizedOtherCategory);
-        }
+            OperationCategory category = getCategory(mp, sanitizedAddress);
+            OperationCategory sanitizedOtherCategory = getCategory(mp,
+                    sanitizedOther);
+            if (!sanitizedOtherCategory.equals(category)) {
+                throw new NotAggregatableException("Categories do not match: "
+                        + category + ", " + sanitizedOtherCategory);
+            }
 
-        int fileDescriptor = getFileDescriptor(mp, sanitizedAddress);
-        int sanitizedOtherFileDescriptor = getFileDescriptor(mp,
-                sanitizedOther);
-        if (sanitizedOtherFileDescriptor != fileDescriptor) {
-            throw new NotAggregatableException("File descriptors do not match: "
-                    + fileDescriptor + ", " + sanitizedOtherFileDescriptor);
+            int fileDescriptor = getFileDescriptor(mp, sanitizedAddress);
+            int sanitizedOtherFileDescriptor = getFileDescriptor(mp,
+                    sanitizedOther);
+            if (sanitizedOtherFileDescriptor != fileDescriptor) {
+                throw new NotAggregatableException(
+                        "File descriptors do not match: " + fileDescriptor
+                                + ", " + sanitizedOtherFileDescriptor);
+            }
         }
 
         // set a reference to ourselves in the other OperationStatistcs

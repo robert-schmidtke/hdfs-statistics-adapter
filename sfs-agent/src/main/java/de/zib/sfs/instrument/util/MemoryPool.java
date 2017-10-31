@@ -51,22 +51,21 @@ public class MemoryPool {
 
     public int alloc() throws OutOfMemoryException {
         int index = this.allocIndex.getAndIncrement();
-        int address;
-        if (this.freeIndex.get() - index > 0) {
-            address = this.addresses.getInt(sanitizeIndex(index) << 2);
-        } else {
-            throw new OutOfMemoryException();
+        if (Globals.STRICT) {
+            if (this.freeIndex.get() - index <= 0) {
+                throw new OutOfMemoryException();
+            }
         }
-
-        return address;
+        return this.addresses.getInt(sanitizeIndex(index) << 2);
     }
 
     public void free(int address) throws IllegalAddressException {
         int index = this.freeIndex.getAndIncrement();
-        if (index - this.allocIndex.get() >= this.numAddresses) {
-            throw new IllegalAddressException();
+        if (Globals.STRICT) {
+            if (index - this.allocIndex.get() >= this.numAddresses) {
+                throw new IllegalAddressException();
+            }
         }
-
         this.addresses.putInt(sanitizeIndex(index) << 2, address);
     }
 

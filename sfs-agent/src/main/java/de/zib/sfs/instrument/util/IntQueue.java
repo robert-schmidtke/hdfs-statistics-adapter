@@ -67,15 +67,19 @@ public class IntQueue {
     }
 
     public void offer(int value) {
-        if (value == Integer.MIN_VALUE) {
-            throw new IllegalArgumentException("Integer.MIN_VALUE ("
-                    + Integer.MIN_VALUE + ") is a reserved value.");
+        if (Globals.STRICT) {
+            if (value == Integer.MIN_VALUE) {
+                throw new IllegalArgumentException("Integer.MIN_VALUE ("
+                        + Integer.MIN_VALUE + ") is a reserved value.");
+            }
         }
 
         for (;;) {
             int index = this.offerIndex.get();
-            if (index - this.pollIndex.get() >= this.numElements) {
-                throw new OutOfMemoryException();
+            if (Globals.STRICT) {
+                if (index - this.pollIndex.get() >= this.numElements) {
+                    throw new OutOfMemoryException();
+                }
             }
 
             int sanitizedIndex = sanitizeIndex(index);
