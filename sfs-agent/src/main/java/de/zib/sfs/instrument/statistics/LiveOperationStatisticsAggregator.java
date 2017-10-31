@@ -87,7 +87,7 @@ public class LiveOperationStatisticsAggregator {
     FileChannel[] bbChannels;
 
     private final ExecutorService threadPool;
-    final IntQueue taskQueue;
+    IntQueue taskQueue;
 
     // we roll our own file descriptors because the ones issued by the OS can be
     // reused, but won't be if the file is not closed, so we just try and give a
@@ -124,7 +124,6 @@ public class LiveOperationStatisticsAggregator {
         // worker pool that will accept the aggregation tasks
         this.threadPool = Executors
                 .newFixedThreadPool(Runtime.getRuntime().availableProcessors());
-        this.taskQueue = new IntQueue(10 * 1048576);
 
         this.filenameToFd = new ConcurrentHashMap<>();
         this.fdToFd = new ConcurrentHashMap<>();
@@ -222,6 +221,18 @@ public class LiveOperationStatisticsAggregator {
                         : File.separator)
                 + this.systemHostname + "." + this.systemPid + "."
                 + this.systemKey;
+
+        int queueSize = 4 * 10 * 1048576;
+        String sizeString = System.getProperty("de.zib.sfs.queueSize");
+        if (sizeString != null) {
+            try {
+                queueSize = Integer.parseInt(sizeString);
+            } catch (NumberFormatException e) {
+                System.err.println("Invalid number for de.zib.sfs.queueSize: "
+                        + sizeString + ", falling back to " + queueSize + ".");
+            }
+        }
+        this.taskQueue = new IntQueue(queueSize >> 2);
 
         this.initializationTime = System.currentTimeMillis();
         this.initialized = true;

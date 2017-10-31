@@ -45,12 +45,23 @@ public class OperationStatistics {
     protected static final int AGGREGATE_OFFSET = FILE_DESCRIPTOR_OFFSET + 4; // int
     protected static final int SIZE = AGGREGATE_OFFSET + 4;
 
-    private static final int MAX_POOL_SIZE;
-    static {
+    private static final int POOL_SIZE = getPoolSize(
+            "de.zib.sfs.poolSize.operationStatistics", SIZE);
+
+    protected static int getPoolSize(String key, int size) {
         // 2^29 - 1 is the most we can do, because we need the next two higher
         // bits
         int maxBytes = 536870911;
-        MAX_POOL_SIZE = (maxBytes - (maxBytes % SIZE) - SIZE) / SIZE;
+        String sizeString = System.getProperty(key);
+        if (sizeString != null) {
+            try {
+                maxBytes = Math.min(maxBytes, Integer.parseInt(sizeString));
+            } catch (NumberFormatException e) {
+                System.err.println("Invalid number for " + key + ": "
+                        + sizeString + ", falling back to " + maxBytes + ".");
+            }
+        }
+        return (maxBytes - (maxBytes % size) - size) / size;
     }
 
     protected static final Object[] LOCK_CACHE;
@@ -58,12 +69,16 @@ public class OperationStatistics {
     public static final AtomicLong lockWaitTime;
     static {
         int size = 1024;
-        String sizeString = System.getProperty("de.zib.sfs.lockCache.os.size");
+        String sizeString = System
+                .getProperty("de.zib.sfs.lockCacheSize.operationStatistics");
         if (sizeString != null) {
             try {
                 size = Integer.parseInt(sizeString);
             } catch (NumberFormatException e) {
-                // ignore
+                System.err.println(
+                        "Invalid number for de.zib.sfs.lockCacheSize.operationStatistics: "
+                                + sizeString + ", falling back to " + size
+                                + ".");
             }
         }
         LOCK_CACHE = new Object[LOCK_CACHE_SIZE = size];
@@ -114,8 +129,7 @@ public class OperationStatistics {
         if (memory[OS_OFFSET] == null) {
             synchronized (OperationStatistics.class) {
                 if (memory[OS_OFFSET] == null) {
-                    memory[OS_OFFSET] = new MemoryPool(SIZE * MAX_POOL_SIZE,
-                            SIZE);
+                    memory[OS_OFFSET] = new MemoryPool(SIZE * POOL_SIZE, SIZE);
                     impl[OS_OFFSET] = new OperationStatistics();
                 }
             }

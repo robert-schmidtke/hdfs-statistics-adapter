@@ -18,19 +18,14 @@ public class DataOperationStatistics extends OperationStatistics {
     private static final int DATA_OFFSET = OperationStatistics.SIZE; // long
     protected static final int SIZE = DATA_OFFSET + 8;
 
-    private static final int MAX_POOL_SIZE;
-    static {
-        // see super
-        int maxBytes = 536870911;
-        MAX_POOL_SIZE = (maxBytes - (maxBytes % SIZE) - SIZE) / SIZE;
-    }
+    private static final int POOL_SIZE = getPoolSize(
+            "de.zib.sfs.poolSize.dataOperationStatistics", SIZE);
 
     public static int getDataOperationStatistics() {
         if (memory[DOS_OFFSET] == null) {
             synchronized (DataOperationStatistics.class) {
                 if (memory[DOS_OFFSET] == null) {
-                    memory[DOS_OFFSET] = new MemoryPool(SIZE * MAX_POOL_SIZE,
-                            SIZE);
+                    memory[DOS_OFFSET] = new MemoryPool(SIZE * POOL_SIZE, SIZE);
                     impl[DOS_OFFSET] = new DataOperationStatistics();
                 }
             }

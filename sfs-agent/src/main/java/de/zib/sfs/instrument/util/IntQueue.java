@@ -22,12 +22,16 @@ public class IntQueue {
     public static final AtomicLong lockWaitTime;
     static {
         int size = 1024;
-        String sizeString = System.getProperty("de.zib.sfs.lockCache.iq.size");
+        String sizeString = System
+                .getProperty("de.zib.sfs.lockCacheSize.intQueue");
         if (sizeString != null) {
             try {
                 size = Integer.parseInt(sizeString);
             } catch (NumberFormatException e) {
-                // ignore
+                System.err.println(
+                        "Invalid number for de.zib.sfs.lockCacheSize.intQueue: "
+                                + sizeString + ", falling back to " + size
+                                + ".");
             }
         }
         LOCK_CACHE = new Object[LOCK_CACHE_SIZE = size];

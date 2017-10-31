@@ -20,18 +20,14 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
     private static final int REMOTE_DATA_OFFSET = REMOTE_CPU_TIME_OFFSET + 8; // long
     static final int SIZE = REMOTE_DATA_OFFSET + 8;
 
-    private static final int MAX_POOL_SIZE;
-    static {
-        // see super
-        int maxBytes = 536870911;
-        MAX_POOL_SIZE = (maxBytes - (maxBytes % SIZE) - SIZE) / SIZE;
-    }
+    private static final int POOL_SIZE = getPoolSize(
+            "de.zib.sfs.poolSize.readDataOperationStatistics", SIZE);
 
     public static int getReadDataOperationStatistics() {
         if (memory[RDOS_OFFSET] == null) {
             synchronized (ReadDataOperationStatistics.class) {
                 if (memory[RDOS_OFFSET] == null) {
-                    memory[RDOS_OFFSET] = new MemoryPool(SIZE * MAX_POOL_SIZE,
+                    memory[RDOS_OFFSET] = new MemoryPool(SIZE * POOL_SIZE,
                             SIZE);
                     impl[RDOS_OFFSET] = new ReadDataOperationStatistics();
                 }
