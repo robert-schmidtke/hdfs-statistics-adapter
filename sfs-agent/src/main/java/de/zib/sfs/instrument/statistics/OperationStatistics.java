@@ -95,9 +95,6 @@ public class OperationStatistics {
     public static final int OS_OFFSET = 0, DOS_OFFSET = 1, RDOS_OFFSET = 2;
 
     public static MemoryPool getMemoryPool(int address) {
-        if ((address & ADDRESS_MASK) >> 29 >= 3) {
-            System.err.println("oob: " + address);
-        }
         return memory[(address & ADDRESS_MASK) >> 29];
     }
 

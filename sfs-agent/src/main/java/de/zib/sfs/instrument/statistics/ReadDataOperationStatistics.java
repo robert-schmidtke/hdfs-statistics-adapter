@@ -40,9 +40,6 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
 
         int address = memory[RDOS_OFFSET].alloc();
         int newad = address | (RDOS_OFFSET << 29);
-        if ((newad & ADDRESS_MASK) >> 29 >= 3) {
-            System.out.println("newad " + address);
-        }
         return newad;
     }
 

@@ -385,9 +385,9 @@ public class LiveOperationStatisticsAggregator {
 
         if (Globals.LOCK_DIAGNOSTICS) {
             System.err.println("SFS Lock Diagnostics");
-            System.out.println("  - OperationStatistics: "
+            System.err.println("  - OperationStatistics: "
                     + OperationStatistics.lockWaitTime.get() + "ms");
-            System.out.println("  - IntQueue:            "
+            System.err.println("  - IntQueue:            "
                     + IntQueue.lockWaitTime.get() + "ms");
         }
     }
