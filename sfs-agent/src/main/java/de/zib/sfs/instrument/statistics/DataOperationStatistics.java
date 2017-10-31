@@ -7,6 +7,8 @@
  */
 package de.zib.sfs.instrument.statistics;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 import com.google.flatbuffers.FlatBufferBuilder;
 
 import de.zib.sfs.instrument.statistics.fb.OperationStatisticsFB;
@@ -20,6 +22,8 @@ public class DataOperationStatistics extends OperationStatistics {
 
     private static final int POOL_SIZE = getPoolSize(
             "de.zib.sfs.poolSize.dataOperationStatistics", SIZE);
+    public static final AtomicInteger maxPoolSize = Globals.POOL_DIAGNOSTICS
+            ? new AtomicInteger(0) : null;
 
     public static int getDataOperationStatistics() {
         if (memory[DOS_OFFSET] == null) {
@@ -32,6 +36,10 @@ public class DataOperationStatistics extends OperationStatistics {
         }
 
         int address = memory[DOS_OFFSET].alloc();
+        if (Globals.POOL_DIAGNOSTICS) {
+            maxPoolSize.updateAndGet((v) -> Math.max(v,
+                    POOL_SIZE - memory[DOS_OFFSET].remaining()));
+        }
         return address | (DOS_OFFSET << 29);
     }
 

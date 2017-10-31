@@ -11,6 +11,7 @@ import java.nio.BufferOverflowException;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import com.google.flatbuffers.ByteBufferUtil;
@@ -47,6 +48,8 @@ public class OperationStatistics {
 
     private static final int POOL_SIZE = getPoolSize(
             "de.zib.sfs.poolSize.operationStatistics", SIZE);
+    public static final AtomicInteger maxPoolSize = Globals.POOL_DIAGNOSTICS
+            ? new AtomicInteger(0) : null;
 
     protected static int getPoolSize(String key, int size) {
         // 2^29 - 1 is the most we can do, because we need the next two higher
@@ -136,6 +139,10 @@ public class OperationStatistics {
         }
 
         int address = memory[OS_OFFSET].alloc();
+        if (Globals.POOL_DIAGNOSTICS) {
+            maxPoolSize.updateAndGet((v) -> Math.max(v,
+                    POOL_SIZE - memory[OS_OFFSET].remaining()));
+        }
         return address | (OS_OFFSET << 29);
     }
 

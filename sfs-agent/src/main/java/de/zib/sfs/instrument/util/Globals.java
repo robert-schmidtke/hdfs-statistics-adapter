@@ -16,4 +16,7 @@ public class Globals {
     // controls whether lock diagnostics should be collected
     public static final boolean LOCK_DIAGNOSTICS = true;
 
+    // controls whether pool diagnostics should be collected
+    public static final boolean POOL_DIAGNOSTICS = true;
+
 }

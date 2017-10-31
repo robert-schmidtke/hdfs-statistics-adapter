@@ -88,6 +88,8 @@ public class LiveOperationStatisticsAggregator {
 
     private final ExecutorService threadPool;
     IntQueue taskQueue;
+    public static final AtomicInteger maxQueueSize = Globals.POOL_DIAGNOSTICS
+            ? new AtomicInteger(0) : null;
 
     // we roll our own file descriptors because the ones issued by the OS can be
     // reused, but won't be if the file is not closed, so we just try and give a
@@ -297,6 +299,10 @@ public class LiveOperationStatisticsAggregator {
         int os = OperationStatistics.getOperationStatistics(
                 this.timeBinDuration, source, category, startTime, endTime, fd);
         this.taskQueue.offer(os);
+        if (Globals.POOL_DIAGNOSTICS) {
+            maxQueueSize.updateAndGet(
+                    (v) -> Math.max(v, this.taskQueue.remaining()));
+        }
         synchronized (this.taskQueue) {
             this.taskQueue.notify();
         }
@@ -415,6 +421,18 @@ public class LiveOperationStatisticsAggregator {
                     + OperationStatistics.lockWaitTime.get() + "ms");
             System.err.println("  - IntQueue:            "
                     + IntQueue.lockWaitTime.get() + "ms");
+        }
+
+        if (Globals.POOL_DIAGNOSTICS) {
+            System.err.println("SFS Pool Diagnostics");
+            System.err.println("  - OperationStatistics:         "
+                    + OperationStatistics.maxPoolSize.get());
+            System.err.println("  - DataOperationStatistics:     "
+                    + DataOperationStatistics.maxPoolSize.get());
+            System.err.println("  - ReadDataOperationStatistics: "
+                    + ReadDataOperationStatistics.maxPoolSize.get());
+            System.err.println(
+                    "  - TaskQueue:                   " + maxQueueSize.get());
         }
     }
 
