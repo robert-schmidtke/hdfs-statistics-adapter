@@ -67,9 +67,13 @@ public class IntQueueTest {
 
         try {
             this.queue.offer(42);
-            Assert.fail("Expected exception.");
+            if (Globals.STRICT) {
+                Assert.fail("Expected exception.");
+            }
         } catch (OutOfMemoryException e) {
-            // expected
+            if (!Globals.STRICT) {
+                Assert.fail("Did not expect exception.");
+            }
         }
     }
 

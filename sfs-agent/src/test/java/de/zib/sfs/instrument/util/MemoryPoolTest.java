@@ -56,9 +56,13 @@ public class MemoryPoolTest {
 
         try {
             this.pool.alloc();
-            Assert.fail("Expected exception.");
+            if (Globals.STRICT) {
+                Assert.fail("Expected exception.");
+            }
         } catch (OutOfMemoryException e) {
-            // expected
+            if (!Globals.STRICT) {
+                Assert.fail("Did not expect exception.");
+            }
         }
     }
 
@@ -68,9 +72,13 @@ public class MemoryPoolTest {
         this.pool.free(address);
         try {
             this.pool.free(address);
-            Assert.fail("Expected exception.");
+            if (Globals.STRICT) {
+                Assert.fail("Expected exception.");
+            }
         } catch (IllegalAddressException e) {
-            // expected
+            if (!Globals.STRICT) {
+                Assert.fail("Did not expect exception.");
+            }
         }
     }
 
