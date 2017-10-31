@@ -40,6 +40,7 @@ import com.google.flatbuffers.FlatBufferBuilder;
 import de.zib.sfs.instrument.statistics.bb.FileDescriptorMappingBufferBuilder;
 import de.zib.sfs.instrument.statistics.bb.OperationStatisticsBufferBuilder;
 import de.zib.sfs.instrument.statistics.fb.FileDescriptorMappingFB;
+import de.zib.sfs.instrument.util.Globals;
 import de.zib.sfs.instrument.util.IntQueue;
 import de.zib.sfs.instrument.util.MemoryPool;
 
@@ -380,6 +381,14 @@ public class LiveOperationStatisticsAggregator {
         // write out the descriptor mappings
         if (this.traceFileDescriptors) {
             writeFileDescriptorMappings();
+        }
+
+        if (Globals.LOCK_DIAGNOSTICS) {
+            System.err.println("SFS Lock Diagnostics");
+            System.out.println("  - OperationStatistics: "
+                    + OperationStatistics.lockWaitTime.get() + "ms");
+            System.out.println("  - IntQueue:            "
+                    + IntQueue.lockWaitTime.get() + "ms");
         }
     }
 

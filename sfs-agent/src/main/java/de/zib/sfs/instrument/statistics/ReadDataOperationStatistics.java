@@ -10,6 +10,7 @@ package de.zib.sfs.instrument.statistics;
 import com.google.flatbuffers.FlatBufferBuilder;
 
 import de.zib.sfs.instrument.statistics.fb.OperationStatisticsFB;
+import de.zib.sfs.instrument.util.Globals;
 import de.zib.sfs.instrument.util.MemoryPool;
 
 public class ReadDataOperationStatistics extends DataOperationStatistics {
@@ -174,7 +175,16 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
 
         // see super for reasoning behind locking mechanism
         Object lock = LOCK_CACHE[(aggregate >> 1) % LOCK_CACHE_SIZE];
+
+        long startWait;
+        if (Globals.LOCK_DIAGNOSTICS) {
+            startWait = System.currentTimeMillis();
+        }
         synchronized (lock) {
+            if (Globals.LOCK_DIAGNOSTICS) {
+                lockWaitTime.addAndGet(System.currentTimeMillis() - startWait);
+            }
+
             incrementRemoteCount(mp, aggregate, getRemoteCount(mp, address));
             incrementRemoteCpuTime(mp, aggregate,
                     getRemoteCpuTime(mp, address));

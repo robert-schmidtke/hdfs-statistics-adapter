@@ -11,6 +11,7 @@ import java.nio.BufferOverflowException;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.concurrent.atomic.AtomicLong;
 
 import com.google.flatbuffers.ByteBufferUtil;
 import com.google.flatbuffers.Constants;
@@ -54,6 +55,7 @@ public class OperationStatistics {
 
     protected static final Object[] LOCK_CACHE;
     protected static final int LOCK_CACHE_SIZE;
+    public static final AtomicLong lockWaitTime;
     static {
         int size = 1024;
         String sizeString = System.getProperty("de.zib.sfs.lockCache.os.size");
@@ -67,6 +69,12 @@ public class OperationStatistics {
         LOCK_CACHE = new Object[LOCK_CACHE_SIZE = size];
         for (int i = 0; i < LOCK_CACHE_SIZE; ++i) {
             LOCK_CACHE[i] = new Object();
+        }
+
+        if (Globals.LOCK_DIAGNOSTICS) {
+            lockWaitTime = new AtomicLong(0);
+        } else {
+            lockWaitTime = null;
         }
     }
 
@@ -349,7 +357,16 @@ public class OperationStatistics {
         // this is not too bad. aggregate is always a multiple of 2, so divide
         // by two to use full cache range.
         Object lock = LOCK_CACHE[(aggregate >> 1) % LOCK_CACHE_SIZE];
+
+        long startWait;
+        if (Globals.LOCK_DIAGNOSTICS) {
+            startWait = System.currentTimeMillis();
+        }
         synchronized (lock) {
+            if (Globals.LOCK_DIAGNOSTICS) {
+                lockWaitTime.addAndGet(System.currentTimeMillis() - startWait);
+            }
+
             // add ourselves to the aggregate, then free ourselves because we
             // are the short-living instance
             incrementCount(mp, aggregate, getCount(mp, address));

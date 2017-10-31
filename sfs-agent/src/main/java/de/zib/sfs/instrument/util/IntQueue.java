@@ -9,6 +9,7 @@ package de.zib.sfs.instrument.util;
 
 import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class IntQueue {
 
@@ -18,6 +19,7 @@ public class IntQueue {
 
     protected static final Object[] LOCK_CACHE;
     protected static final int LOCK_CACHE_SIZE;
+    public static final AtomicLong lockWaitTime;
     static {
         int size = 1024;
         String sizeString = System.getProperty("de.zib.sfs.lockCache.iq.size");
@@ -31,6 +33,12 @@ public class IntQueue {
         LOCK_CACHE = new Object[LOCK_CACHE_SIZE = size];
         for (int i = 0; i < LOCK_CACHE_SIZE; ++i) {
             LOCK_CACHE[i] = new Object();
+        }
+
+        if (Globals.LOCK_DIAGNOSTICS) {
+            lockWaitTime = new AtomicLong(0);
+        } else {
+            lockWaitTime = null;
         }
     }
 
@@ -56,8 +64,18 @@ public class IntQueue {
         int index = this.pollIndex.get();
         if (this.offerIndex.get() - index > 0) {
             int sanitizedIndex = sanitizeIndex(index);
+
             Object lock = LOCK_CACHE[sanitizedIndex % LOCK_CACHE_SIZE];
+            long startWait;
+            if (Globals.LOCK_DIAGNOSTICS) {
+                startWait = System.currentTimeMillis();
+            }
             synchronized (lock) {
+                if (Globals.LOCK_DIAGNOSTICS) {
+                    lockWaitTime
+                            .addAndGet(System.currentTimeMillis() - startWait);
+                }
+
                 if (this.pollIndex.compareAndSet(index, index + 1)) {
                     return this.queue.getInt(sanitizedIndex << 2);
                 }
@@ -84,7 +102,17 @@ public class IntQueue {
 
             int sanitizedIndex = sanitizeIndex(index);
             Object lock = LOCK_CACHE[sanitizedIndex % LOCK_CACHE_SIZE];
+
+            long startWait;
+            if (Globals.LOCK_DIAGNOSTICS) {
+                startWait = System.currentTimeMillis();
+            }
             synchronized (lock) {
+                if (Globals.LOCK_DIAGNOSTICS) {
+                    lockWaitTime
+                            .addAndGet(System.currentTimeMillis() - startWait);
+                }
+
                 if (this.offerIndex.compareAndSet(index, index + 1)) {
                     this.queue.putInt(sanitizedIndex << 2, value);
                     return;
