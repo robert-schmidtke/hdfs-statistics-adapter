@@ -297,6 +297,9 @@ public class LiveOperationStatisticsAggregator {
         int os = OperationStatistics.getOperationStatistics(
                 this.timeBinDuration, source, category, startTime, endTime, fd);
         this.taskQueue.offer(os);
+        synchronized (this.taskQueue) {
+            this.taskQueue.notify();
+        }
     }
 
     public void aggregateDataOperationStatistics(OperationSource source,
@@ -310,6 +313,9 @@ public class LiveOperationStatisticsAggregator {
                 this.timeBinDuration, source, category, startTime, endTime, fd,
                 data);
         this.taskQueue.offer(dos);
+        synchronized (this.taskQueue) {
+            this.taskQueue.notify();
+        }
     }
 
     public void aggregateReadDataOperationStatistics(OperationSource source,
@@ -323,6 +329,9 @@ public class LiveOperationStatisticsAggregator {
                 this.timeBinDuration, source, category, startTime, endTime, fd,
                 data, isRemote);
         this.taskQueue.offer(rdos);
+        synchronized (this.taskQueue) {
+            this.taskQueue.notify();
+        }
     }
 
     public synchronized void flush() {
@@ -351,6 +360,12 @@ public class LiveOperationStatisticsAggregator {
             this.initialized = false;
         }
         this.threadPool.shutdown();
+
+        // wake up all currently idle worker threads and have them discover that
+        // we're shutting down
+        synchronized (this.taskQueue) {
+            this.taskQueue.notifyAll();
+        }
 
         // wait a bit for all still currently running tasks
         try {
@@ -726,8 +741,8 @@ public class LiveOperationStatisticsAggregator {
             case ZIP:
                 return 6;
             default:
+                throw new IllegalArgumentException(category.name());
             }
-            //$FALL-THROUGH$
         case SFS:
             switch (category) {
             case READ:
@@ -739,12 +754,11 @@ public class LiveOperationStatisticsAggregator {
             case ZIP:
                 return 7;
             default:
+                throw new IllegalArgumentException(category.name());
             }
-            //$FALL-THROUGH$
         default:
+            throw new IllegalArgumentException(source.name());
         }
-        throw new IllegalArgumentException(
-                source.name() + "/" + category.name());
     }
 
     private class AggregationTask implements Runnable {
@@ -759,6 +773,18 @@ public class LiveOperationStatisticsAggregator {
                 int aggregate = LiveOperationStatisticsAggregator.this.taskQueue
                         .poll();
                 if (aggregate == Integer.MIN_VALUE) {
+                    // nothing to do at the moment, wait on the queue to save
+                    // CPU cycles if we're not shutting down at the moment
+                    if (LiveOperationStatisticsAggregator.this.initialized) {
+                        synchronized (LiveOperationStatisticsAggregator.this.taskQueue) {
+                            try {
+                                LiveOperationStatisticsAggregator.this.taskQueue
+                                        .wait();
+                            } catch (InterruptedException e) {
+                                // ignore
+                            }
+                        }
+                    }
                     continue;
                 }
 
