@@ -18,6 +18,8 @@ import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.RandomAccessFile;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.nio.BufferOverflowException;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
@@ -1450,13 +1452,27 @@ public class InstrumentationTest {
     }
 
     private static void assertStatistics() throws IOException {
+        try {
+            // figure out whether the LiveOperationStatisticsAggregator has
+            // already been loaded without initializing it
+            Method findLoadedClass = ClassLoader.class.getDeclaredMethod(
+                    "findLoadedClass", new Class[] { String.class });
+            findLoadedClass.setAccessible(true);
+            if (findLoadedClass.invoke(
+                    InstrumentationTest.class.getClassLoader(),
+                    "de.zib.sfs.instrument.statistics.LiveOperationStatisticsAggregator") == null) {
+                System.err.println(
+                        "No instrumentation detected, not asserting statistics.");
+                return;
+            }
+        } catch (NoSuchMethodException | SecurityException
+                | IllegalAccessException | IllegalArgumentException
+                | InvocationTargetException e) {
+            throw new RuntimeException(e);
+        }
+
         // shutdown the aggregator and read what it has written
         LiveOperationStatisticsAggregator aggregator = LiveOperationStatisticsAggregator.instance;
-
-        if (!aggregator.isInitialized()) {
-            // no instrumentation, we're done here
-            return;
-        }
 
         aggregator.shutdown();
 
