@@ -53,7 +53,6 @@ public class MemoryPoolTest {
             address = this.pool.alloc();
         }
         Assert.assertEquals(0, this.pool.remaining());
-        // Assert.assertEquals((POOL_SIZE - 1) * 8, address);
 
         try {
             this.pool.alloc();
@@ -83,15 +82,22 @@ public class MemoryPoolTest {
         Callable<Long> c = new Callable<Long>() {
             @Override
             public Long call() {
-                int address = MemoryPoolTest.this.pool.alloc();
-                MemoryPoolTest.this.pool.pool.putLong(address, 0);
-                for (long i = 1; i <= COUNT; ++i) {
-                    MemoryPoolTest.this.pool.pool.putLong(address,
-                            MemoryPoolTest.this.pool.pool.getLong(address) + i);
+                try {
+                    int address = MemoryPoolTest.this.pool.alloc();
+                    MemoryPoolTest.this.pool.pool.putLong(address, 0);
+                    for (long i = 1; i <= COUNT; ++i) {
+                        MemoryPoolTest.this.pool.pool.putLong(address,
+                                MemoryPoolTest.this.pool.pool.getLong(address)
+                                        + i);
+                    }
+                    long result = MemoryPoolTest.this.pool.pool
+                            .getLong(address);
+                    MemoryPoolTest.this.pool.free(address);
+                    return result;
+                } catch (Throwable t) {
+                    t.printStackTrace();
+                    throw t;
                 }
-                long result = MemoryPoolTest.this.pool.pool.getLong(address);
-                MemoryPoolTest.this.pool.free(address);
-                return result;
             }
         };
 
@@ -103,7 +109,9 @@ public class MemoryPoolTest {
 
         executor.shutdown();
         try {
-            executor.awaitTermination(10, TimeUnit.SECONDS);
+            if (!executor.awaitTermination(10, TimeUnit.SECONDS)) {
+                Assert.fail("Thread pool did not terminate.");
+            }
         } catch (InterruptedException e) {
             Assert.fail(e.getMessage());
         }
@@ -121,13 +129,13 @@ public class MemoryPoolTest {
 
     @Test
     public void testOverflow() {
-        this.pool.setPopIndex(Integer.MAX_VALUE - POOL_SIZE - 10);
-        this.pool.setPushIndex(Integer.MAX_VALUE - 10);
+        this.pool.setAllocIndex(Integer.MAX_VALUE - POOL_SIZE - 10);
+        this.pool.setFreeIndex(Integer.MAX_VALUE - 10);
         testConcurrency();
         testConcurrency();
 
-        this.pool.setPopIndex(Integer.MAX_VALUE - POOL_SIZE - 10);
-        this.pool.setPushIndex(Integer.MAX_VALUE - 10);
+        this.pool.setAllocIndex(Integer.MAX_VALUE - POOL_SIZE - 10);
+        this.pool.setFreeIndex(Integer.MAX_VALUE - 10);
         testConcurrency();
         testAllocTooMany();
     }

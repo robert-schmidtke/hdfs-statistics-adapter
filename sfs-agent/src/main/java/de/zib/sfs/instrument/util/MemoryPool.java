@@ -20,14 +20,13 @@ public class MemoryPool {
         private static final long serialVersionUID = 7688859608105872482L;
     }
 
-    private final int poolSize, chunkSize;
-
     public final ByteBuffer pool;
 
     private final int numAddresses;
     private final ByteBuffer addresses;
 
-    private final AtomicInteger popIndex, pushIndex;
+    // pointers to the next address that can be allocated/freed
+    protected AtomicInteger allocIndex, freeIndex;
     private final long sanitizer;
 
     public MemoryPool(int poolSize, int chunkSize) {
@@ -36,26 +35,24 @@ public class MemoryPool {
                     "Pool size must be a multiple of chunk size.");
         }
 
-        this.poolSize = poolSize;
-        this.chunkSize = chunkSize;
-        this.pool = ByteBuffer.allocateDirect(this.poolSize);
-        this.numAddresses = this.poolSize / this.chunkSize;
+        this.pool = ByteBuffer.allocateDirect(poolSize);
+        this.numAddresses = poolSize / chunkSize;
         this.addresses = ByteBuffer.allocateDirect(this.numAddresses << 2);
-        this.popIndex = new AtomicInteger(0);
-        this.pushIndex = new AtomicInteger(this.numAddresses);
+        this.allocIndex = new AtomicInteger(0);
+        this.freeIndex = new AtomicInteger(this.numAddresses);
 
         // need this for handling overflow of the indices
         this.sanitizer = 2L * Integer.MAX_VALUE + 2L;
 
         for (int i = 0; i < this.numAddresses; ++i) {
-            this.addresses.putInt(i << 2, i * this.chunkSize);
+            this.addresses.putInt(i << 2, i * chunkSize);
         }
     }
 
     public int alloc() throws OutOfMemoryException {
-        int index = this.popIndex.getAndIncrement();
+        int index = this.allocIndex.getAndIncrement();
         int address;
-        if (this.pushIndex.get() - index > 0) {
+        if (this.freeIndex.get() - index > 0) {
             address = this.addresses.getInt(sanitizeIndex(index) << 2);
         } else {
             throw new OutOfMemoryException();
@@ -65,8 +62,8 @@ public class MemoryPool {
     }
 
     public void free(int address) throws IllegalAddressException {
-        int index = this.pushIndex.getAndIncrement();
-        if (index - this.popIndex.get() >= this.numAddresses) {
+        int index = this.freeIndex.getAndIncrement();
+        if (index - this.allocIndex.get() >= this.numAddresses) {
             throw new IllegalAddressException();
         }
 
@@ -74,7 +71,7 @@ public class MemoryPool {
     }
 
     public int remaining() {
-        return this.pushIndex.get() - this.popIndex.get();
+        return this.freeIndex.get() - this.allocIndex.get();
     }
 
     private int sanitizeIndex(int index) {
@@ -86,24 +83,24 @@ public class MemoryPool {
 
     // methods for testing
 
-    public void setPopIndex(int index) {
+    public void setAllocIndex(int index) {
         boolean callMe = false;
         assert (callMe = true);
         if (!callMe) {
             throw new Error("Only to be called when assertions are enabled.");
         }
 
-        this.popIndex.set(index);
+        this.allocIndex.set(index);
     }
 
-    public void setPushIndex(int index) {
+    public void setFreeIndex(int index) {
         boolean callMe = false;
         assert (callMe = true);
         if (!callMe) {
             throw new Error("Only to be called when assertions are enabled.");
         }
 
-        this.pushIndex.set(index);
+        this.freeIndex.set(index);
     }
 
 }

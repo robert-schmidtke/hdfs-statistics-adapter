@@ -7,7 +7,6 @@
  */
 package de.zib.sfs.instrument.statistics;
 
-import java.lang.reflect.Field;
 import java.nio.BufferOverflowException;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
@@ -52,25 +51,22 @@ public class OperationStatistics {
         MAX_POOL_SIZE = (maxBytes - (maxBytes % SIZE) - SIZE) / SIZE;
     }
 
-    // Figure out the size of the integer cache, because we will use the cached
-    // integers as locks. [-128, 127] is guaranteed (inclusive) by JLS7 5.1.7.
-    protected static final int INTEGER_CACHE_LOW, INTEGER_CACHE_SIZE;
+    protected static final Object[] LOCK_CACHE;
+    protected static final int LOCK_CACHE_SIZE;
     static {
-        // trigger initialization of cache
-        INTEGER_CACHE_LOW = Integer.valueOf(-128);
-        int high;
-        try {
-            Class<?> c = Class.forName("java.lang.Integer$IntegerCache");
-            Field f = c.getDeclaredField("high");
-            f.setAccessible(true);
-            high = f.getInt(null);
-        } catch (Exception e) {
-            System.err.println(
-                    "Error obtaining high value from IntegerCache, using 127 ("
-                            + e.getMessage() + ")");
-            high = 127;
+        int size = 1024;
+        String sizeString = System.getProperty("de.zib.sfs.lockCache.os.size");
+        if (sizeString != null) {
+            try {
+                size = Integer.parseInt(sizeString);
+            } catch (NumberFormatException e) {
+                // ignore
+            }
         }
-        INTEGER_CACHE_SIZE = high - INTEGER_CACHE_LOW + 1;
+        LOCK_CACHE = new Object[LOCK_CACHE_SIZE = size];
+        for (int i = 0; i < LOCK_CACHE_SIZE; ++i) {
+            LOCK_CACHE[i] = new Object();
+        }
     }
 
     protected static final OperationStatistics[] impl = new OperationStatistics[3];
@@ -340,16 +336,12 @@ public class OperationStatistics {
             return;
         }
 
-        // The JVM caches integers [-128, 127] as required per JLS7 5.1.7. We
-        // can use this for 256 different locks without any allocation here.
-        // Naturally this introduces unnecessary synchronization between
-        // unrelated objects, but 256 at the same time should be sufficient. It
-        // is possible to increase the cache with -XX:AutoBoxCacheMax=<size>,
-        // which is why we query the cache size at class loading time. Divide
-        // address by 2 to obtain odd locks as well (works as long as SIZE is a
-        // multiple of 2).
-        Integer lock = Integer.valueOf(
-                ((aggregate / 2) % INTEGER_CACHE_SIZE) + INTEGER_CACHE_LOW);
+        // The JVM has an integer cache that could be used for locking as well,
+        // but we use our own for custom locking. This introduces some
+        // unnecessary synchronization between unrelated tasks, but hopefully
+        // this is not too bad. aggregate is always a multiple of 2, so divide
+        // by two to use full cache range.
+        Object lock = LOCK_CACHE[(aggregate >> 1) % LOCK_CACHE_SIZE];
         synchronized (lock) {
             // add ourselves to the aggregate, then free ourselves because we
             // are the short-living instance

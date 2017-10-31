@@ -27,13 +27,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
-import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.ForkJoinTask;
-import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -43,6 +40,7 @@ import com.google.flatbuffers.FlatBufferBuilder;
 import de.zib.sfs.instrument.statistics.bb.FileDescriptorMappingBufferBuilder;
 import de.zib.sfs.instrument.statistics.bb.OperationStatisticsBufferBuilder;
 import de.zib.sfs.instrument.statistics.fb.FileDescriptorMappingFB;
+import de.zib.sfs.instrument.util.IntQueue;
 import de.zib.sfs.instrument.util.MemoryPool;
 
 public class LiveOperationStatisticsAggregator {
@@ -51,7 +49,9 @@ public class LiveOperationStatisticsAggregator {
         CSV, FB, BB;
     }
 
-    private boolean initializing, initialized;
+    private boolean initializing;
+
+    boolean initialized;
 
     private String systemHostname, systemKey;
     private ByteBuffer systemHostnameBb, systemKeyBb;
@@ -74,11 +74,6 @@ public class LiveOperationStatisticsAggregator {
     // operation statistics for each file
     final List<NavigableMap<Long, NavigableMap<Integer, Integer>>> aggregates;
 
-    // FIXME Not ideal data structure, there are supposedly faster concurrent
-    // queues out there. Plus it may grow quite large in face of high
-    // concurrency.
-    final Queue<Integer> overflowQueue;
-
     // for coordinating writing of statistics
     private final Object[] writerLocks;
 
@@ -90,7 +85,8 @@ public class LiveOperationStatisticsAggregator {
     private ByteBuffer[] bbBuffers;
     FileChannel[] bbChannels;
 
-    private final ForkJoinPool threadPool;
+    private final ExecutorService threadPool;
+    final IntQueue taskQueue;
 
     // we roll our own file descriptors because the ones issued by the OS can be
     // reused, but won't be if the file is not closed, so we just try and give a
@@ -106,8 +102,6 @@ public class LiveOperationStatisticsAggregator {
 
     public static final LiveOperationStatisticsAggregator instance = new LiveOperationStatisticsAggregator();
 
-    static Queue<AggregationTask> taskPool = new ConcurrentLinkedQueue<>();
-
     private LiveOperationStatisticsAggregator() {
         // map each source/category combination, map a time bin to an aggregate
         this.aggregates = new ArrayList<>();
@@ -115,8 +109,6 @@ public class LiveOperationStatisticsAggregator {
                 * OperationCategory.VALUES.length; ++i) {
             this.aggregates.add(new ConcurrentSkipListMap<>());
         }
-
-        this.overflowQueue = new ConcurrentLinkedQueue<>();
 
         // similar for the writer locks
         this.writerLocks = new Object[OperationSource.VALUES.length
@@ -129,9 +121,9 @@ public class LiveOperationStatisticsAggregator {
         }
 
         // worker pool that will accept the aggregation tasks
-        this.threadPool = new ForkJoinPool(
-                Runtime.getRuntime().availableProcessors(),
-                ForkJoinPool.defaultForkJoinWorkerThreadFactory, null, true);
+        this.threadPool = Executors
+                .newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+        this.taskQueue = new IntQueue(10 * 1048576);
 
         this.filenameToFd = new ConcurrentHashMap<>();
         this.fdToFd = new ConcurrentHashMap<>();
@@ -233,6 +225,11 @@ public class LiveOperationStatisticsAggregator {
         this.initializationTime = System.currentTimeMillis();
         this.initialized = true;
         this.initializing = false;
+
+        int processors = Runtime.getRuntime().availableProcessors();
+        for (int i = 0; i < processors; ++i) {
+            this.threadPool.submit(new AggregationTask());
+        }
     }
 
     public String getHostname() {
@@ -279,27 +276,6 @@ public class LiveOperationStatisticsAggregator {
         return this.fdToFd.getOrDefault(fileDescriptor, 0);
     }
 
-    private AggregationTask getTask(int os) {
-        AggregationTask task = taskPool.poll();
-        if (task == null) {
-            task = new AggregationTask();
-        } else {
-            // put the task back if it's not done yet
-            if (task.isCompletedNormally()) {
-                task.reinitialize();
-            } else {
-                returnTask(task);
-                task = new AggregationTask();
-            }
-        }
-        task.setAggregate(os);
-        return task;
-    }
-
-    static void returnTask(AggregationTask task) {
-        taskPool.offer(task);
-    }
-
     public void aggregateOperationStatistics(OperationSource source,
             OperationCategory category, long startTime, long endTime, int fd) {
         if (!this.initialized) {
@@ -308,14 +284,7 @@ public class LiveOperationStatisticsAggregator {
 
         int os = OperationStatistics.getOperationStatistics(
                 this.timeBinDuration, source, category, startTime, endTime, fd);
-        AggregationTask task = getTask(os);
-
-        try {
-            this.threadPool.execute(task);
-        } catch (RejectedExecutionException e) {
-            returnTask(task);
-            this.overflowQueue.add(os);
-        }
+        this.taskQueue.offer(os);
     }
 
     public void aggregateDataOperationStatistics(OperationSource source,
@@ -328,14 +297,7 @@ public class LiveOperationStatisticsAggregator {
         int dos = DataOperationStatistics.getDataOperationStatistics(
                 this.timeBinDuration, source, category, startTime, endTime, fd,
                 data);
-        AggregationTask task = getTask(dos);
-
-        try {
-            this.threadPool.execute(task);
-        } catch (RejectedExecutionException e) {
-            returnTask(task);
-            this.overflowQueue.add(dos);
-        }
+        this.taskQueue.offer(dos);
     }
 
     public void aggregateReadDataOperationStatistics(OperationSource source,
@@ -348,14 +310,7 @@ public class LiveOperationStatisticsAggregator {
         int rdos = ReadDataOperationStatistics.getReadDataOperationStatistics(
                 this.timeBinDuration, source, category, startTime, endTime, fd,
                 data, isRemote);
-        AggregationTask task = getTask(rdos);
-
-        try {
-            this.threadPool.execute(task);
-        } catch (RejectedExecutionException e) {
-            returnTask(task);
-            this.overflowQueue.add(rdos);
-        }
+        this.taskQueue.offer(rdos);
     }
 
     public synchronized void flush() {
@@ -377,29 +332,6 @@ public class LiveOperationStatisticsAggregator {
     }
 
     public void shutdown() {
-        if (!this.initialized) {
-            return;
-        }
-
-        // wait a bit for all currently running threads before submitting the
-        // processing of the overflow queue
-        if (!this.threadPool.awaitQuiescence(30, TimeUnit.SECONDS)) {
-            System.err.println("Thread pool did not quiesce");
-        }
-
-        if (!this.overflowQueue.isEmpty()) {
-            for (int i = 0; i < Runtime.getRuntime()
-                    .availableProcessors(); ++i) {
-                AggregationTask task = getTask(this.overflowQueue.poll());
-                this.threadPool.execute(task);
-            }
-
-            if (!this.threadPool.awaitQuiescence(30, TimeUnit.SECONDS)) {
-                System.err.println("Thread pool did not quiesce");
-            }
-        }
-
-        // stop accepting new tasks
         synchronized (this) {
             if (!this.initialized) {
                 return;
@@ -795,36 +727,24 @@ public class LiveOperationStatisticsAggregator {
                 source.name() + "/" + category.name());
     }
 
-    private class AggregationTask extends ForkJoinTask<Void> {
-
-        private static final long serialVersionUID = -6851294902690575903L;
-
-        private int aggregate;
-
+    private class AggregationTask implements Runnable {
         public AggregationTask() {
         }
 
-        public void setAggregate(int os) {
-            this.aggregate = os;
-        }
-
         @Override
-        public Void getRawResult() {
-            return null;
-        }
+        public void run() {
+            while (LiveOperationStatisticsAggregator.this.initialized
+                    || LiveOperationStatisticsAggregator.this.taskQueue
+                            .remaining() > 0) {
+                int aggregate = LiveOperationStatisticsAggregator.this.taskQueue
+                        .poll();
+                if (aggregate == Integer.MIN_VALUE) {
+                    continue;
+                }
 
-        @Override
-        protected void setRawResult(Void value) {
-            // discard
-        }
-
-        @Override
-        protected boolean exec() {
-            while (this.aggregate >= 0) {
-                MemoryPool mp = OperationStatistics
-                        .getMemoryPool(this.aggregate);
+                MemoryPool mp = OperationStatistics.getMemoryPool(aggregate);
                 int aggregateAddress = OperationStatistics
-                        .sanitizeAddress(this.aggregate);
+                        .sanitizeAddress(aggregate);
 
                 // get the time bin applicable for this operation
                 NavigableMap<Long, NavigableMap<Integer, Integer>> timeBins = LiveOperationStatisticsAggregator.this.aggregates
@@ -842,7 +762,7 @@ public class LiveOperationStatisticsAggregator {
                                 l -> new ConcurrentSkipListMap<>());
 
                 fileDescriptors.merge(OperationStatistics.getFileDescriptor(mp,
-                        aggregateAddress), this.aggregate, (v1, v2) -> {
+                        aggregateAddress), aggregate, (v1, v2) -> {
                             try {
                                 // sets a reference to v1 in v2 and returns v1
                                 return OperationStatistics.aggregate(v1, v2);
@@ -852,11 +772,12 @@ public class LiveOperationStatisticsAggregator {
                             }
                         });
 
-                // Upon successfuly merge, this.aggregate holds a reference to
-                // the OperationStatistics that was already in the map. If there
-                // was no OperationStatistics in the map before, the reference
-                // will be empty. So trigger the aggregation on this.aggregate.
-                OperationStatistics.doAggregation(this.aggregate);
+                // Upon successful merge, this.aggregate holds a reference
+                // to the OperationStatistics that was already in the map.
+                // If there was no OperationStatistics in the map before,
+                // the reference will be empty. So trigger the aggregation
+                // on this.aggregate.
+                OperationStatistics.doAggregation(aggregate);
 
                 // make sure to emit aggregates when the cache is full until
                 // it's half full again to avoid writing every time bin size
@@ -907,16 +828,7 @@ public class LiveOperationStatisticsAggregator {
                     // reset emission in progress state
                     EMISSION_IN_PROGRESS.set(false);
                 }
-
-                Integer nextAggregate = LiveOperationStatisticsAggregator.this.overflowQueue
-                        .poll();
-                this.aggregate = nextAggregate != null ? nextAggregate : -1;
             }
-
-            // at this point, the task is not fully done, so when getting a
-            // task, we have to check whether it has completed fully
-            returnTask(this);
-            return true;
         }
     }
 }

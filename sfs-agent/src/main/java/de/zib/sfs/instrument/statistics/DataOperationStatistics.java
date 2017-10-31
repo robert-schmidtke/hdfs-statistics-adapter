@@ -98,8 +98,7 @@ public class DataOperationStatistics extends OperationStatistics {
         }
 
         // see super for reasoning behind locking mechanism
-        Integer lock = Integer.valueOf(
-                ((aggregate / 2) % INTEGER_CACHE_SIZE) + INTEGER_CACHE_LOW);
+        Object lock = LOCK_CACHE[(aggregate >> 1) % LOCK_CACHE_SIZE];
         synchronized (lock) {
             incrementData(mp, aggregate, getData(mp, address));
             super.doAggregationImpl(mp, address);
