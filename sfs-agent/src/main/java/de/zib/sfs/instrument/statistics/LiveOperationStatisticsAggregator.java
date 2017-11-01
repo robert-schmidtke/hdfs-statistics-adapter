@@ -224,7 +224,7 @@ public class LiveOperationStatisticsAggregator {
                 + this.systemHostname + "." + this.systemPid + "."
                 + this.systemKey;
 
-        int queueSize = 4 * 10 * 1048576;
+        int queueSize = 10 * 1048576;
         String sizeString = System.getProperty("de.zib.sfs.queueSize");
         if (sizeString != null) {
             try {
@@ -234,7 +234,7 @@ public class LiveOperationStatisticsAggregator {
                         + sizeString + ", falling back to " + queueSize + ".");
             }
         }
-        this.taskQueue = new IntQueue(queueSize >> 2);
+        this.taskQueue = new IntQueue(queueSize);
 
         this.initializationTime = System.currentTimeMillis();
         this.initialized = true;

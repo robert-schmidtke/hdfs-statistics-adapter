@@ -54,6 +54,16 @@ static std::string g_output_directory;
 // format of the generated output: csv, fb, bb
 static std::string g_output_format;
 
+// off-heap data structure sizes, as no. of elements in them
+static std::string g_os_pool_size;
+static std::string g_dos_pool_size;
+static std::string g_rdos_pool_size;
+static std::string g_tq_pool_size;
+
+// number of locks to cache for some types
+static std::string g_iq_lock_cache_size;
+static std::string g_os_lock_cache_size;
+
 // whether to trace mmap calls as well
 static bool g_trace_mmap = false;
 
@@ -99,10 +109,20 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
         << "  cache_size=number" << std::endl
         << "  out_dir=/path/to/out/dir" << std::endl
         << "  out_fmt=csv|fb|bb" << std::endl
+        << "  os_pool_size=number" << std::endl
+        << "  dos_pool_size=number" << std::endl
+        << "  rdos_pool_size=number" << std::endl
+        << "  tq_pool_size=number" << std::endl
         << "Optional options:" << std::endl
         << "  instr_skip=r|w|o|z or any combination of them (default: empty)"
         << std::endl
-        << "  trans_address=trans-host:port (default: empty)" << std::endl
+        << "  trans_address=trans-host:port (default: empty)"
+        << std::endl
+        // default in IntQueue.java
+        << "  iq_lock_cache=number (default: 1024)"
+        << std::endl
+        // default in OperationStatistics.java
+        << "  os_lock_cache=number (default: 1024)" << std::endl
         << "  trace_mmap=y|n (default: n)" << std::endl
         << "  trace_fds=y|n (default: n)" << std::endl
         << "  use_proxy=y|n (default: n)" << std::endl
@@ -179,6 +199,12 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
   g_time_bin_cache_size = cli_options.time_bin_cache_size;
   g_output_directory = cli_options.output_directory;
   g_output_format = cli_options.output_format;
+  g_os_pool_size = cli_options.operation_statistics_pool_size;
+  g_dos_pool_size = cli_options.data_operation_statistics_pool_size;
+  g_rdos_pool_size = cli_options.read_data_operation_statistics_pool_size;
+  g_tq_pool_size = cli_options.task_queue_size;
+  g_iq_lock_cache_size = cli_options.int_queue_lock_cache_size;
+  g_os_lock_cache_size = cli_options.operation_statistics_lock_cache_size;
   g_trace_mmap = cli_options.trace_mmap;
   g_trace_fds = cli_options.trace_fds;
 
@@ -555,6 +581,62 @@ static void JNICALL VMInitCallback(jvmtiEnv *jvmti_env, JNIEnv *jni_env,
       system_class, set_property_method_id,
       jni_env->NewStringUTF("de.zib.sfs.output.format"),
       jni_env->NewStringUTF(g_output_format.c_str()));
+
+  // repeat for the operation statistics pool size
+  LOG_VERBOSE("Setting system property '%s'='%s'.\n",
+              std::string("de.zib.sfs.operationStatistics.poolSize").c_str(),
+              g_os_pool_size.c_str());
+  jni_env->CallStaticVoidMethod(
+      system_class, set_property_method_id,
+      jni_env->NewStringUTF("de.zib.sfs.operationStatistics.poolSize"),
+      jni_env->NewStringUTF(g_os_pool_size.c_str()));
+
+  // repeat for the data operation statistics pool size
+  LOG_VERBOSE(
+      "Setting system property '%s'='%s'.\n",
+      std::string("de.zib.sfs.dataOperationStatistics.poolSize").c_str(),
+      g_dos_pool_size.c_str());
+  jni_env->CallStaticVoidMethod(
+      system_class, set_property_method_id,
+      jni_env->NewStringUTF("de.zib.sfs.dataOperationStatistics.poolSize"),
+      jni_env->NewStringUTF(g_dos_pool_size.c_str()));
+
+  // repeat for the read data operation statistics pool size
+  LOG_VERBOSE(
+      "Setting system property '%s'='%s'.\n",
+      std::string("de.zib.sfs.readDataOperationStatistics.poolSize").c_str(),
+      g_rdos_pool_size.c_str());
+  jni_env->CallStaticVoidMethod(
+      system_class, set_property_method_id,
+      jni_env->NewStringUTF("de.zib.sfs.readDataOperationStatistics.poolSize"),
+      jni_env->NewStringUTF(g_rdos_pool_size.c_str()));
+
+  // repeat for the task queue size
+  LOG_VERBOSE("Setting system property '%s'='%s'.\n",
+              std::string("de.zib.sfs.queueSize").c_str(),
+              g_tq_pool_size.c_str());
+  jni_env->CallStaticVoidMethod(system_class, set_property_method_id,
+                                jni_env->NewStringUTF("de.zib.sfs.queueSize"),
+                                jni_env->NewStringUTF(g_tq_pool_size.c_str()));
+
+  // repeat for the IntQueue lock cache size
+  LOG_VERBOSE("Setting system property '%s'='%s'.\n",
+              std::string("de.zib.sfs.intQueue.lockCacheSize").c_str(),
+              g_iq_lock_cache_size.c_str());
+  jni_env->CallStaticVoidMethod(
+      system_class, set_property_method_id,
+      jni_env->NewStringUTF("de.zib.sfs.intQueue.lockCacheSize"),
+      jni_env->NewStringUTF(g_iq_lock_cache_size.c_str()));
+
+  // repeat for the OperationStatistics lock cache size
+  LOG_VERBOSE(
+      "Setting system property '%s'='%s'.\n",
+      std::string("de.zib.sfs.operationStatistics.lockCacheSize").c_str(),
+      g_os_lock_cache_size.c_str());
+  jni_env->CallStaticVoidMethod(
+      system_class, set_property_method_id,
+      jni_env->NewStringUTF("de.zib.sfs.operationStatistics.lockCacheSize"),
+      jni_env->NewStringUTF(g_os_lock_cache_size.c_str()));
 
   // repeat for the tracing of mmap calls
   LOG_VERBOSE("Setting system property '%s'='%s'.\n",
