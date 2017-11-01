@@ -50,6 +50,12 @@ struct CliOptions {
   std::string output_directory;
   std::string output_format;
   std::string instrumentation_skip;
+  std::string operation_statistics_pool_size;
+  std::string data_operation_statistics_pool_size;
+  std::string read_data_operation_statistics_pool_size;
+  std::string task_queue_size;
+  std::string int_queue_lock_cache_size;
+  std::string operation_statistics_lock_cache_size;
   bool trace_mmap;
   bool trace_fds;
   bool use_proxy;
@@ -87,8 +93,8 @@ static bool parse_options(char *command_line_options, CliOptions *cli_options) {
   cli_options->key = std::string("");
   cli_options->transformer_address = std::string("");
   cli_options->transformer_jar_path = std::string("");
-  cli_options->time_bin_duration = -1;
-  cli_options->time_bin_cache_size = -1;
+  cli_options->time_bin_duration = std::string("");
+  cli_options->time_bin_cache_size = std::string("");
   cli_options->output_directory = std::string("");
   cli_options->output_format = std::string("");
   cli_options->instrumentation_skip = std::string("");
@@ -103,6 +109,10 @@ static bool parse_options(char *command_line_options, CliOptions *cli_options) {
   bool time_bin_cache_size_set = false;
   bool output_directory_set = false;
   bool output_format_set = false;
+  bool os_pool_set = false;
+  bool dos_pool_set = false;
+  bool rdos_pool_set = false;
+  bool tq_pool_set = false;
 
   while (*options) {
     char option[16];
@@ -143,6 +153,37 @@ static bool parse_options(char *command_line_options, CliOptions *cli_options) {
           cli_options->output_format = std::string(suboption);
           output_format_set = true;
         }
+      } else if (strcmp(option, "os_pool_size") == 0) {
+        if (get_tok(&options, suboption, (int)sizeof(suboption), ',')) {
+          cli_options->operation_statistics_pool_size = std::string(suboption);
+          os_pool_set = true;
+        }
+      } else if (strcmp(option, "dos_pool_size") == 0) {
+        if (get_tok(&options, suboption, (int)sizeof(suboption), ',')) {
+          cli_options->data_operation_statistics_pool_size =
+              std::string(suboption);
+          dos_pool_set = true;
+        }
+      } else if (strcmp(option, "rdos_pool_size") == 0) {
+        if (get_tok(&options, suboption, (int)sizeof(suboption), ',')) {
+          cli_options->read_data_operation_statistics_pool_size =
+              std::string(suboption);
+          rdos_pool_set = true;
+        }
+      } else if (strcmp(option, "tq_pool_size") == 0) {
+        if (get_tok(&options, suboption, (int)sizeof(suboption), ',')) {
+          cli_options->task_queue_size = std::string(suboption);
+          tq_pool_set = true;
+        }
+      } else if (strcmp(option, "iq_lock_cache") == 0) {
+        if (get_tok(&options, suboption, (int)sizeof(suboption), ',')) {
+          cli_options->int_queue_lock_cache_size = std::string(suboption);
+        }
+      } else if (strcmp(option, "os_lock_cache") == 0) {
+        if (get_tok(&options, suboption, (int)sizeof(suboption), ',')) {
+          cli_options->operation_statistics_lock_cache_size =
+              std::string(suboption);
+        }
       } else if (strcmp(option, "instr_skip") == 0) {
         if (get_tok(&options, suboption, (int)sizeof(suboption), ',')) {
           cli_options->instrumentation_skip = std::string(suboption);
@@ -176,7 +217,8 @@ static bool parse_options(char *command_line_options, CliOptions *cli_options) {
   delete[] all_options;
 
   return tx_jar_path_set && key_set && time_bin_duration_set &&
-         time_bin_cache_size_set && output_directory_set && output_format_set;
+         time_bin_cache_size_set && output_directory_set && output_format_set &&
+         os_pool_set && dos_pool_set && rdos_pool_set && tq_pool_set;
 }
 
 #endif // CLI_OPTIONS_H

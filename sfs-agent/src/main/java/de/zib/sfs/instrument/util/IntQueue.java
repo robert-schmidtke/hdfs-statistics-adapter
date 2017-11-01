@@ -23,13 +23,13 @@ public class IntQueue {
     static {
         int size = 1024;
         String sizeString = System
-                .getProperty("de.zib.sfs.lockCacheSize.intQueue");
+                .getProperty("de.zib.sfs.intQueue.lockCacheSize");
         if (sizeString != null) {
             try {
                 size = Integer.parseInt(sizeString);
             } catch (NumberFormatException e) {
                 System.err.println(
-                        "Invalid number for de.zib.sfs.lockCacheSize.intQueue: "
+                        "Invalid number for de.zib.sfs.intQueue.lockCacheSize: "
                                 + sizeString + ", falling back to " + size
                                 + ".");
             }

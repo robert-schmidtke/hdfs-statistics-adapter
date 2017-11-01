@@ -21,7 +21,7 @@ public class DataOperationStatistics extends OperationStatistics {
     protected static final int SIZE = DATA_OFFSET + 8;
 
     private static final int POOL_SIZE = getPoolSize(
-            "de.zib.sfs.poolSize.dataOperationStatistics", SIZE);
+            "de.zib.sfs.dataOperationStatistics.poolSize", SIZE);
     public static final AtomicInteger maxPoolSize = Globals.POOL_DIAGNOSTICS
             ? new AtomicInteger(0) : null;
 

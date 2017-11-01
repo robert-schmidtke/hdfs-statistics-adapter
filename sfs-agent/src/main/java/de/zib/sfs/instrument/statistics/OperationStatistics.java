@@ -47,24 +47,26 @@ public class OperationStatistics {
     protected static final int SIZE = AGGREGATE_OFFSET + 4;
 
     private static final int POOL_SIZE = getPoolSize(
-            "de.zib.sfs.poolSize.operationStatistics", SIZE);
+            "de.zib.sfs.operationStatistics.poolSize", SIZE);
     public static final AtomicInteger maxPoolSize = Globals.POOL_DIAGNOSTICS
             ? new AtomicInteger(0) : null;
 
     protected static int getPoolSize(String key, int size) {
-        // 2^29 - 1 is the most we can do, because we need the next two higher
-        // bits
-        int maxBytes = 536870911;
+        // 2^29 - 1 = 536870911 bytes is the most we can do, because we need the
+        // next two higher bits
+        int maxElements = (536870911 - (536870911 % size) - size) / size;
         String sizeString = System.getProperty(key);
         if (sizeString != null) {
             try {
-                maxBytes = Math.min(maxBytes, Integer.parseInt(sizeString));
+                maxElements = Math.min(maxElements,
+                        Integer.parseInt(sizeString));
             } catch (NumberFormatException e) {
-                System.err.println("Invalid number for " + key + ": "
-                        + sizeString + ", falling back to " + maxBytes + ".");
+                System.err
+                        .println("Invalid number for " + key + ": " + sizeString
+                                + ", falling back to " + maxElements + ".");
             }
         }
-        return (maxBytes - (maxBytes % size) - size) / size;
+        return maxElements;
     }
 
     protected static final Object[] LOCK_CACHE;
@@ -73,13 +75,13 @@ public class OperationStatistics {
     static {
         int size = 1024;
         String sizeString = System
-                .getProperty("de.zib.sfs.lockCacheSize.operationStatistics");
+                .getProperty("de.zib.sfs.operationStatistics.lockCacheSize");
         if (sizeString != null) {
             try {
                 size = Integer.parseInt(sizeString);
             } catch (NumberFormatException e) {
                 System.err.println(
-                        "Invalid number for de.zib.sfs.lockCacheSize.operationStatistics: "
+                        "Invalid number for de.zib.sfs.operationStatistics.lockCacheSize: "
                                 + sizeString + ", falling back to " + size
                                 + ".");
             }

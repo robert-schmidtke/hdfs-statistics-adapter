@@ -23,7 +23,7 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
     static final int SIZE = REMOTE_DATA_OFFSET + 8;
 
     private static final int POOL_SIZE = getPoolSize(
-            "de.zib.sfs.poolSize.readDataOperationStatistics", SIZE);
+            "de.zib.sfs.readDataOperationStatistics.poolSize", SIZE);
     public static final AtomicInteger maxPoolSize = Globals.POOL_DIAGNOSTICS
             ? new AtomicInteger(0) : null;
 
