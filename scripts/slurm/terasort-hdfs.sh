@@ -257,6 +257,10 @@ srun -N$SLURM_JOB_NUM_NODES $dump_xfs_stats_script
 rm $dump_xfs_stats_script
 echo "$(date): Dumping file system counters done"
 
+# set options for client as well
+export _JAVA_OPTIONS="$_JAVA_OPTIONS $CLIENT_OPTS"
+export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$LD_LIBRARY_PATH_EXT"
+
 echo "$(date): Generating TeraSort data on HDFS"
 $HADOOP_HOME/bin/hadoop jar \
   $HADOOP_HOME/share/hadoop/mapreduce/hadoop-mapreduce-examples-${HADOOP_VERSION}.jar teragen \
@@ -336,7 +340,7 @@ echo "$(date): Dumping file system counters done"
 
 echo "$(date): Stopping HDFS"
 cp ./stop-hdfs-slurm.sh $HADOOP_HOME/sbin
-srun --nodelist=$MASTER --nodes=1-1 --chdir=$HADOOP_HOME/sbin ./stop-hdfs-slurm.sh --colocate-datanode-with-namenode
+srun $SRUN_STANDARD_OPTS $HADOOP_HOME/sbin/stop-hdfs-slurm.sh --colocate-datanode-with-namenode
 echo "$(date): Stopping HDFS done"
 
 if [ -z "$NO_SFS" ]; then
