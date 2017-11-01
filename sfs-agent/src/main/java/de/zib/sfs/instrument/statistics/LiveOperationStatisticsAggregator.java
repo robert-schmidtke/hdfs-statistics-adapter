@@ -319,6 +319,10 @@ public class LiveOperationStatisticsAggregator {
                 this.timeBinDuration, source, category, startTime, endTime, fd,
                 data);
         this.taskQueue.offer(dos);
+        if (Globals.POOL_DIAGNOSTICS) {
+            maxQueueSize.updateAndGet(
+                    (v) -> Math.max(v, this.taskQueue.remaining()));
+        }
         synchronized (this.taskQueue) {
             this.taskQueue.notify();
         }
@@ -335,6 +339,10 @@ public class LiveOperationStatisticsAggregator {
                 this.timeBinDuration, source, category, startTime, endTime, fd,
                 data, isRemote);
         this.taskQueue.offer(rdos);
+        if (Globals.POOL_DIAGNOSTICS) {
+            maxQueueSize.updateAndGet(
+                    (v) -> Math.max(v, this.taskQueue.remaining()));
+        }
         synchronized (this.taskQueue) {
             this.taskQueue.notify();
         }
