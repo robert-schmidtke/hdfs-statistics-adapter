@@ -17,6 +17,7 @@ import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicLong;
 
 // greatly reduced and int-int-specialized version
+@SuppressWarnings("restriction")
 public class ConcurrentIntIntSkipListMap {
 
     public static interface IntBiFunction {
@@ -24,7 +25,7 @@ public class ConcurrentIntIntSkipListMap {
     }
 
     static final class Node {
-        final int key; // currently, never detached
+        final int key;
         int val;
         Node next;
 
@@ -36,7 +37,7 @@ public class ConcurrentIntIntSkipListMap {
     }
 
     static final class Index {
-        final Node node; // currently, never detached
+        final Node node;
         final Index down;
         Index right;
 
@@ -48,39 +49,34 @@ public class ConcurrentIntIntSkipListMap {
     }
 
     public final class ValueIterator {
-        /** the last node returned by next() */
         Node lastReturned;
-        /** the next node to return from next(); */
         Node next;
-        /** Cache of next value field to maintain weak consistency */
         int nextValue;
 
-        /** Initializes ascending iterator for entire range. */
         ValueIterator() {
             advance(baseHead());
         }
 
         public final boolean hasNext() {
-            return next != null;
+            return this.next != null;
         }
 
-        /** Advances next to higher entry. */
         final void advance(Node b) {
             Node n = null;
             int v = Integer.MIN_VALUE;
-            if ((lastReturned = b) != null) {
+            if ((this.lastReturned = b) != null) {
                 while ((n = b.next) != null && (v = n.val) == Integer.MIN_VALUE)
                     b = n;
             }
-            nextValue = v;
-            next = n;
+            this.nextValue = v;
+            this.next = n;
         }
 
         public int next() {
             int v;
-            if ((v = nextValue) == Integer.MIN_VALUE)
+            if ((v = this.nextValue) == Integer.MIN_VALUE)
                 throw new NoSuchElementException();
-            advance(next);
+            advance(this.next);
             return v;
         }
     }
@@ -120,10 +116,9 @@ public class ConcurrentIntIntSkipListMap {
         Node z;
         int key;
         if (x != null && (z = x.node) != null
-                && (key = z.key) != Integer.MIN_VALUE && q != null) { // hoist
-                                                                      // checks
+                && (key = z.key) != Integer.MIN_VALUE && q != null) {
             boolean retrying = false;
-            for (;;) { // find splice point
+            for (;;) {
                 Index r, d;
                 int c;
                 if ((r = q.right) != null) {
@@ -131,13 +126,12 @@ public class ConcurrentIntIntSkipListMap {
                     int k;
                     if ((p = r.node) == null || (k = p.key) == Integer.MIN_VALUE
                             || p.val == Integer.MIN_VALUE) {
-                        boolean cas = U.compareAndSwapObject(q, RIGHT, r,
-                                r.right);
+                        U.compareAndSwapObject(q, RIGHT, r, r.right);
                         c = 0;
                     } else if ((c = key > k ? 1 : (key < k ? -1 : 0)) > 0)
                         q = r;
                     else if (c == 0)
-                        break; // stale
+                        break;
                 } else
                     c = -1;
 
@@ -152,8 +146,7 @@ public class ConcurrentIntIntSkipListMap {
                         x.right = r;
                         if (U.compareAndSwapObject(q, RIGHT, r, x))
                             return true;
-                        else
-                            retrying = true; // re-find splice point
+                        retrying = true;
                     }
                 }
             }
@@ -164,7 +157,7 @@ public class ConcurrentIntIntSkipListMap {
     final Node baseHead() {
         Index h;
         U.loadFence();
-        return ((h = head) == null) ? null : h.node;
+        return ((h = this.head) == null) ? null : h.node;
     }
 
     private int doPut(int key, int value, boolean onlyIfAbsent) {
@@ -174,22 +167,21 @@ public class ConcurrentIntIntSkipListMap {
             Index h;
             Node b;
             U.loadFence();
-            int levels = 0; // number of levels descended
-            if ((h = head) == null) { // try to initialize
+            int levels = 0;
+            if ((h = this.head) == null) {
                 Node base = new Node(Integer.MIN_VALUE, Integer.MIN_VALUE,
                         null);
                 h = new Index(base, null, null);
                 b = (U.compareAndSwapObject(this, HEAD, null, h)) ? base : null;
             } else {
-                for (Index q = h, r, d;;) { // count while descending
+                for (Index q = h, r, d;;) {
                     while ((r = q.right) != null) {
                         Node p;
                         int k;
                         if ((p = r.node) == null
                                 || (k = p.key) == Integer.MIN_VALUE
                                 || p.val == Integer.MIN_VALUE) {
-                            boolean cas = U.compareAndSwapObject(q, RIGHT, r,
-                                    r.right);
+                            U.compareAndSwapObject(q, RIGHT, r, r.right);
                         } else if (key > k)
                             q = r;
                         else
@@ -205,16 +197,14 @@ public class ConcurrentIntIntSkipListMap {
                 }
             }
             if (b != null) {
-                Node z = null; // new node, if inserted
-                for (;;) { // find insertion point
+                Node z = null;
+                for (;;) {
                     Node n, p;
                     int k, v, c;
                     if ((n = b.next) == null) {
-                        /* if (b.key == null)       // if empty, type check key now
-                            cpr(cmp, key, key); */
                         c = -1;
                     } else if ((k = n.key) == Integer.MIN_VALUE)
-                        break; // can't append; restart
+                        break;
                     else if ((v = n.val) == Integer.MIN_VALUE) {
                         unlinkNode(b, n);
                         c = 1;
@@ -233,32 +223,25 @@ public class ConcurrentIntIntSkipListMap {
 
                 if (z != null) {
                     int lr = nextSecondarySeed();
-                    if ((lr & 0x3) == 0) { // add indices with 1/4 prob
+                    if ((lr & 0x3) == 0) {
                         int hr = nextSecondarySeed();
-                        long rnd = ((long) hr << 32)
-                                | ((long) lr & 0xffffffffL);
-                        int skips = levels; // levels to descend before add
+                        long rnd = ((long) hr << 32) | (lr & 0xffffffffL);
+                        int skips = levels;
                         Index x = null;
-                        for (;;) { // create at most 62 indices
+                        for (;;) {
                             x = new Index(z, x, null);
                             if (rnd >= 0L || --skips < 0)
                                 break;
-                            else
-                                rnd <<= 1;
+                            rnd <<= 1;
                         }
-                        if (addIndices(h, skips, x) && skips < 0 && head == h) { // try
-                                                                                 // to
-                                                                                 // add
-                                                                                 // new
-                                                                                 // level
+                        if (addIndices(h, skips, x) && skips < 0
+                                && this.head == h) {
                             Index hx = new Index(z, x, null);
                             Index nh = new Index(h.node, h, hx);
-                            boolean cas = U.compareAndSwapObject(this, HEAD, h,
-                                    nh);
+                            U.compareAndSwapObject(this, HEAD, h, nh);
                         }
-                        if (z.val == Integer.MIN_VALUE) // deleted while adding
-                                                        // indices
-                            findPredecessor(key); // clean
+                        if (z.val == Integer.MIN_VALUE)
+                            findPredecessor(key);
                     }
                     return Integer.MIN_VALUE;
                 }
@@ -291,7 +274,7 @@ public class ConcurrentIntIntSkipListMap {
                 else if (U.compareAndSwapInt(n, VAL, v, Integer.MIN_VALUE)) {
                     result = v;
                     unlinkNode(b, n);
-                    break; // loop to clean up
+                    break;
                 }
             }
         }
@@ -303,18 +286,18 @@ public class ConcurrentIntIntSkipListMap {
 
     private Node findNode(int key) {
         if (key == Integer.MIN_VALUE)
-            throw new NullPointerException(); // don't postpone errors
+            throw new NullPointerException();
         Node b;
         outer: while ((b = findPredecessor(key)) != null) {
             for (;;) {
                 Node n;
-                int k, v, c;
+                int k, c;
                 if ((n = b.next) == null)
-                    break outer; // empty
+                    break outer;
                 else if ((k = n.key) == Integer.MIN_VALUE)
-                    break; // b is deleted
-                else if ((v = n.val) == Integer.MIN_VALUE)
-                    unlinkNode(b, n); // n is deleted
+                    break;
+                else if (n.val == Integer.MIN_VALUE)
+                    unlinkNode(b, n);
                 else if ((c = key > k ? 1 : (key < k ? -1 : 0)) > 0)
                     b = n;
                 else if (c == 0)
@@ -329,39 +312,34 @@ public class ConcurrentIntIntSkipListMap {
     private Node findPredecessor(int key) {
         Index q;
         U.loadFence();
-        if ((q = head) == null || key == Integer.MIN_VALUE)
+        if ((q = this.head) == null || key == Integer.MIN_VALUE)
             return null;
-        else {
-            for (Index r, d;;) {
-                while ((r = q.right) != null) {
-                    Node p;
-                    int k;
-                    if ((p = r.node) == null || (k = p.key) == Integer.MIN_VALUE
-                            || p.val == Integer.MIN_VALUE) { // unlink index to
-                                                             // deleted node
-                        boolean cas = U.compareAndSwapObject(q, RIGHT, r,
-                                r.right);
-                    } else if (key > k)
-                        q = r;
-                    else
-                        break;
-                }
-                if ((d = q.down) != null)
-                    q = d;
+        for (Index r, d;;) {
+            while ((r = q.right) != null) {
+                Node p;
+                int k;
+                if ((p = r.node) == null || (k = p.key) == Integer.MIN_VALUE
+                        || p.val == Integer.MIN_VALUE) {
+                    U.compareAndSwapObject(q, RIGHT, r, r.right);
+                } else if (key > k)
+                    q = r;
                 else
-                    return q.node;
+                    break;
             }
+            if ((d = q.down) != null)
+                q = d;
+            else
+                return q.node;
         }
     }
 
     private void tryReduceLevel() {
         Index h, d, e;
-        if ((h = head) != null && h.right == null && (d = h.down) != null
+        if ((h = this.head) != null && h.right == null && (d = h.down) != null
                 && d.right == null && (e = d.down) != null && e.right == null
                 && U.compareAndSwapObject(this, HEAD, h, d)
-                && h.right != null) { // recheck
-            boolean cas = U.compareAndSwapObject(this, HEAD, d, h); // try to
-                                                                    // backout
+                && h.right != null) {
+            U.compareAndSwapObject(this, HEAD, d, h);
         }
     }
 
@@ -370,15 +348,15 @@ public class ConcurrentIntIntSkipListMap {
             Node f, p;
             for (;;) {
                 if ((f = n.next) != null && f.key == Integer.MIN_VALUE) {
-                    p = f.next; // already marked
+                    p = f.next;
                     break;
                 } else if (U.compareAndSwapObject(n, NEXT, f,
                         new Node(Integer.MIN_VALUE, Integer.MIN_VALUE, f))) {
-                    p = f; // add marker
+                    p = f;
                     break;
                 }
             }
-            boolean cas = U.compareAndSwapObject(b, NEXT, n, p);
+            U.compareAndSwapObject(b, NEXT, n, p);
         }
     }
 
@@ -400,16 +378,15 @@ public class ConcurrentIntIntSkipListMap {
         int r;
         Thread t = Thread.currentThread();
         if ((r = U.getInt(t, SECONDARY)) != 0) {
-            r ^= r << 13; // xorshift
+            r ^= r << 13;
             r ^= r >>> 17;
             r ^= r << 5;
         } else if ((r = mix32(seeder.getAndAdd(0xbb67ae8584caa73bL))) == 0)
-            r = 1; // avoid zero
+            r = 1;
         U.putInt(t, SECONDARY, r);
         return r;
     }
 
-    // Unsafe mechanics
     private static final sun.misc.Unsafe U;
     private static final long HEAD;
     private static final long NEXT;

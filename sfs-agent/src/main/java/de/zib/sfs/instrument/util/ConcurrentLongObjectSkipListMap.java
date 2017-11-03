@@ -17,6 +17,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAdder;
 
 // greatly reduced and long-Object-specialized version
+@SuppressWarnings("restriction")
 public class ConcurrentLongObjectSkipListMap<V> {
 
     public static interface LongObjectFunction<V> {
@@ -24,7 +25,7 @@ public class ConcurrentLongObjectSkipListMap<V> {
     }
 
     static final class Node<V> {
-        final long key; // currently, never detached
+        final long key;
         V val;
         Node<V> next;
 
@@ -36,7 +37,7 @@ public class ConcurrentLongObjectSkipListMap<V> {
     }
 
     static final class Index<V> {
-        final Node<V> node; // currently, never detached
+        final Node<V> node;
         final Index<V> down;
         Index<V> right;
 
@@ -75,7 +76,7 @@ public class ConcurrentLongObjectSkipListMap<V> {
                     unlinkNode(b, n);
                     if (v != null) {
                         tryReduceLevel();
-                        findPredecessor(k); // clean index
+                        findPredecessor(k);
                         addCount(-1L);
                         return v;
                     }
@@ -95,8 +96,9 @@ public class ConcurrentLongObjectSkipListMap<V> {
     private void addCount(long c) {
         LongAdder a;
         do {
-        } while ((a = adder) == null && !U.compareAndSwapObject(this, ADDER,
-                null, a = new LongAdder()));
+            // retry
+        } while ((a = this.adder) == null && !U.compareAndSwapObject(this,
+                ADDER, null, a = new LongAdder()));
         a.add(c);
     }
 
@@ -104,9 +106,9 @@ public class ConcurrentLongObjectSkipListMap<V> {
         Node<V> z;
         long key;
         if (x != null && (z = x.node) != null && (key = z.key) != Long.MIN_VALUE
-                && q != null) { // hoist checks
+                && q != null) {
             boolean retrying = false;
-            for (;;) { // find splice point
+            for (;;) {
                 Index<V> r, d;
                 int c;
                 if ((r = q.right) != null) {
@@ -114,13 +116,12 @@ public class ConcurrentLongObjectSkipListMap<V> {
                     long k;
                     if ((p = r.node) == null || (k = p.key) == Long.MIN_VALUE
                             || p.val == null) {
-                        boolean cas = U.compareAndSwapObject(q, RIGHT, r,
-                                r.right);
+                        U.compareAndSwapObject(q, RIGHT, r, r.right);
                         c = 0;
                     } else if ((c = key > k ? 1 : (key < k ? -1 : 0)) > 0)
                         q = r;
                     else if (c == 0)
-                        break; // stale
+                        break;
                 } else
                     c = -1;
 
@@ -135,8 +136,7 @@ public class ConcurrentLongObjectSkipListMap<V> {
                         x.right = r;
                         if (U.compareAndSwapObject(q, RIGHT, r, x))
                             return true;
-                        else
-                            retrying = true; // re-find splice point
+                        retrying = true;
                     }
                 }
             }
@@ -147,7 +147,7 @@ public class ConcurrentLongObjectSkipListMap<V> {
     final Node<V> baseHead() {
         Index<V> h;
         U.loadFence();
-        return ((h = head) == null) ? null : h.node;
+        return ((h = this.head) == null) ? null : h.node;
     }
 
     private V doGet(long key) {
@@ -156,7 +156,7 @@ public class ConcurrentLongObjectSkipListMap<V> {
         if (key == Long.MIN_VALUE)
             throw new NullPointerException();
         V result = null;
-        if ((q = head) != null) {
+        if ((q = this.head) != null) {
             outer: for (Index<V> r, d;;) {
                 while ((r = q.right) != null) {
                     Node<V> p;
@@ -165,8 +165,7 @@ public class ConcurrentLongObjectSkipListMap<V> {
                     int c;
                     if ((p = r.node) == null || (k = p.key) == Long.MIN_VALUE
                             || (v = p.val) == null) {
-                        boolean cas = U.compareAndSwapObject(q, RIGHT, r,
-                                r.right);
+                        U.compareAndSwapObject(q, RIGHT, r, r.right);
                     } else if ((c = key > k ? 1 : (key < k ? -1 : 0)) > 0)
                         q = r;
                     else if (c == 0) {
@@ -209,21 +208,20 @@ public class ConcurrentLongObjectSkipListMap<V> {
             Index<V> h;
             Node<V> b;
             U.loadFence();
-            int levels = 0; // number of levels descended
-            if ((h = head) == null) { // try to initialize
-                Node<V> base = new Node<V>(Long.MIN_VALUE, null, null);
-                h = new Index<V>(base, null, null);
+            int levels = 0;
+            if ((h = this.head) == null) {
+                Node<V> base = new Node<>(Long.MIN_VALUE, null, null);
+                h = new Index<>(base, null, null);
                 b = (U.compareAndSwapObject(this, HEAD, null, h)) ? base : null;
             } else {
-                for (Index<V> q = h, r, d;;) { // count while descending
+                for (Index<V> q = h, r, d;;) {
                     while ((r = q.right) != null) {
                         Node<V> p;
                         long k;
                         if ((p = r.node) == null
                                 || (k = p.key) == Long.MIN_VALUE
                                 || p.val == null) {
-                            boolean cas = U.compareAndSwapObject(q, RIGHT, r,
-                                    r.right);
+                            U.compareAndSwapObject(q, RIGHT, r, r.right);
                         } else if (key > k)
                             q = r;
                         else
@@ -239,18 +237,16 @@ public class ConcurrentLongObjectSkipListMap<V> {
                 }
             }
             if (b != null) {
-                Node<V> z = null; // new node, if inserted
-                for (;;) { // find insertion point
+                Node<V> z = null;
+                for (;;) {
                     Node<V> n, p;
                     long k;
                     V v;
                     int c;
                     if ((n = b.next) == null) {
-                        /* if (b.key == null)       // if empty, type check key now
-                            cpr(cmp, key, key); */
                         c = -1;
                     } else if ((k = n.key) == Long.MIN_VALUE)
-                        break; // can't append; restart
+                        break;
                     else if ((v = n.val) == null) {
                         unlinkNode(b, n);
                         c = 1;
@@ -261,7 +257,7 @@ public class ConcurrentLongObjectSkipListMap<V> {
                         return v;
 
                     if (c < 0 && U.compareAndSwapObject(b, NEXT, n,
-                            p = new Node<V>(key, value, n))) {
+                            p = new Node<>(key, value, n))) {
                         z = p;
                         break;
                     }
@@ -269,31 +265,25 @@ public class ConcurrentLongObjectSkipListMap<V> {
 
                 if (z != null) {
                     int lr = nextSecondarySeed();
-                    if ((lr & 0x3) == 0) { // add indices with 1/4 prob
+                    if ((lr & 0x3) == 0) {
                         int hr = nextSecondarySeed();
-                        long rnd = ((long) hr << 32)
-                                | ((long) lr & 0xffffffffL);
-                        int skips = levels; // levels to descend before add
+                        long rnd = ((long) hr << 32) | (lr & 0xffffffffL);
+                        int skips = levels;
                         Index<V> x = null;
-                        for (;;) { // create at most 62 indices
-                            x = new Index<V>(z, x, null);
+                        for (;;) {
+                            x = new Index<>(z, x, null);
                             if (rnd >= 0L || --skips < 0)
                                 break;
-                            else
-                                rnd <<= 1;
+                            rnd <<= 1;
                         }
-                        if (addIndices(h, skips, x) && skips < 0 && head == h) { // try
-                                                                                 // to
-                                                                                 // add
-                                                                                 // new
-                                                                                 // level
-                            Index<V> hx = new Index<V>(z, x, null);
-                            Index<V> nh = new Index<V>(h.node, h, hx);
-                            boolean cas = U.compareAndSwapObject(this, HEAD, h,
-                                    nh);
+                        if (addIndices(h, skips, x) && skips < 0
+                                && this.head == h) {
+                            Index<V> hx = new Index<>(z, x, null);
+                            Index<V> nh = new Index<>(h.node, h, hx);
+                            U.compareAndSwapObject(this, HEAD, h, nh);
                         }
-                        if (z.val == null) // deleted while adding indices
-                            findPredecessor(key); // clean
+                        if (z.val == null)
+                            findPredecessor(key);
                     }
                     addCount(1L);
                     return null;
@@ -305,27 +295,24 @@ public class ConcurrentLongObjectSkipListMap<V> {
     private Node<V> findPredecessor(long key) {
         Index<V> q;
         U.loadFence();
-        if ((q = head) == null || key == Long.MIN_VALUE)
+        if ((q = this.head) == null || key == Long.MIN_VALUE)
             return null;
-        else {
-            for (Index<V> r, d;;) {
-                while ((r = q.right) != null) {
-                    Node<V> p;
-                    long k;
-                    if ((p = r.node) == null || (k = p.key) == Long.MIN_VALUE
-                            || p.val == null) { // unlink index to deleted node
-                        boolean cas = U.compareAndSwapObject(q, RIGHT, r,
-                                r.right);
-                    } else if (key > k)
-                        q = r;
-                    else
-                        break;
-                }
-                if ((d = q.down) != null)
-                    q = d;
+        for (Index<V> r, d;;) {
+            while ((r = q.right) != null) {
+                Node<V> p;
+                long k;
+                if ((p = r.node) == null || (k = p.key) == Long.MIN_VALUE
+                        || p.val == null) {
+                    U.compareAndSwapObject(q, RIGHT, r, r.right);
+                } else if (key > k)
+                    q = r;
                 else
-                    return q.node;
+                    break;
             }
+            if ((d = q.down) != null)
+                q = d;
+            else
+                return q.node;
         }
     }
 
@@ -333,19 +320,19 @@ public class ConcurrentLongObjectSkipListMap<V> {
         LongAdder a;
         long c;
         do {
-        } while ((a = adder) == null && !U.compareAndSwapObject(this, ADDER,
-                null, a = new LongAdder()));
-        return ((c = a.sum()) <= 0L) ? 0L : c; // ignore transient negatives
+            // retry
+        } while ((a = this.adder) == null && !U.compareAndSwapObject(this,
+                ADDER, null, a = new LongAdder()));
+        return ((c = a.sum()) <= 0L) ? 0L : c;
     }
 
     private void tryReduceLevel() {
         Index<V> h, d, e;
-        if ((h = head) != null && h.right == null && (d = h.down) != null
+        if ((h = this.head) != null && h.right == null && (d = h.down) != null
                 && d.right == null && (e = d.down) != null && e.right == null
                 && U.compareAndSwapObject(this, HEAD, h, d)
-                && h.right != null) { // recheck
-            boolean cas = U.compareAndSwapObject(this, HEAD, d, h); // try to
-                                                                    // backout
+                && h.right != null) {
+            U.compareAndSwapObject(this, HEAD, d, h);
         }
     }
 
@@ -357,12 +344,12 @@ public class ConcurrentLongObjectSkipListMap<V> {
                     p = f.next; // already marked
                     break;
                 } else if (U.compareAndSwapObject(n, NEXT, f,
-                        new Node<V>(Long.MIN_VALUE, null, f))) {
+                        new Node<>(Long.MIN_VALUE, null, f))) {
                     p = f; // add marker
                     break;
                 }
             }
-            boolean cas = U.compareAndSwapObject(b, NEXT, n, p);
+            U.compareAndSwapObject(b, NEXT, n, p);
         }
     }
 
@@ -384,16 +371,15 @@ public class ConcurrentLongObjectSkipListMap<V> {
         int r;
         Thread t = Thread.currentThread();
         if ((r = U.getInt(t, SECONDARY)) != 0) {
-            r ^= r << 13; // xorshift
+            r ^= r << 13;
             r ^= r >>> 17;
             r ^= r << 5;
         } else if ((r = mix32(seeder.getAndAdd(0xbb67ae8584caa73bL))) == 0)
-            r = 1; // avoid zero
+            r = 1;
         U.putInt(t, SECONDARY, r);
         return r;
     }
 
-    // Unsafe mechanics
     private static final sun.misc.Unsafe U;
     private static final long HEAD;
     private static final long ADDER;
