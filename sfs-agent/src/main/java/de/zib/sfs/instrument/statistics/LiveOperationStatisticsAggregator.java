@@ -26,9 +26,7 @@ import java.nio.charset.CoderResult;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.NavigableMap;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -40,6 +38,8 @@ import com.google.flatbuffers.FlatBufferBuilder;
 import de.zib.sfs.instrument.statistics.bb.FileDescriptorMappingBufferBuilder;
 import de.zib.sfs.instrument.statistics.bb.OperationStatisticsBufferBuilder;
 import de.zib.sfs.instrument.statistics.fb.FileDescriptorMappingFB;
+import de.zib.sfs.instrument.util.ConcurrentIntIntSkipListMap;
+import de.zib.sfs.instrument.util.ConcurrentLongObjectSkipListMap;
 import de.zib.sfs.instrument.util.Globals;
 import de.zib.sfs.instrument.util.IntQueue;
 import de.zib.sfs.instrument.util.MemoryPool;
@@ -73,7 +73,7 @@ public class LiveOperationStatisticsAggregator {
 
     // for each source/category combination, map a time bin to an aggregate
     // operation statistics for each file
-    final List<NavigableMap<Long, NavigableMap<Integer, Integer>>> aggregates;
+    final List<ConcurrentLongObjectSkipListMap<ConcurrentIntIntSkipListMap>> aggregates;
 
     // for coordinating writing of statistics
     private final Object[] writerLocks;
@@ -110,7 +110,7 @@ public class LiveOperationStatisticsAggregator {
         this.aggregates = new ArrayList<>();
         for (int i = 0; i < OperationSource.VALUES.length
                 * OperationCategory.VALUES.length; ++i) {
-            this.aggregates.add(new ConcurrentSkipListMap<>());
+            this.aggregates.add(new ConcurrentLongObjectSkipListMap<>());
         }
 
         // similar for the writer locks
@@ -350,14 +350,15 @@ public class LiveOperationStatisticsAggregator {
 
     public synchronized void flush() {
         this.aggregates.forEach(v -> {
-            Map.Entry<Long, NavigableMap<Integer, Integer>> entry = v
-                    .pollFirstEntry();
+            ConcurrentIntIntSkipListMap entry = v.poll();
             while (entry != null) {
                 try {
-                    for (Integer os : entry.getValue().values())
-                        write(os);
+                    ConcurrentIntIntSkipListMap.ValueIterator vi = entry
+                            .values();
+                    while (vi.hasNext())
+                        write(vi.next());
 
-                    entry = v.pollFirstEntry();
+                    entry = v.poll();
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -819,7 +820,7 @@ public class LiveOperationStatisticsAggregator {
                         .sanitizeAddress(aggregate);
 
                 // get the time bin applicable for this operation
-                NavigableMap<Long, NavigableMap<Integer, Integer>> timeBins = LiveOperationStatisticsAggregator.this.aggregates
+                ConcurrentLongObjectSkipListMap<ConcurrentIntIntSkipListMap> timeBins = LiveOperationStatisticsAggregator.this.aggregates
                         .get(getUniqueIndex(
                                 OperationStatistics.getSource(mp,
                                         aggregateAddress),
@@ -827,11 +828,11 @@ public class LiveOperationStatisticsAggregator {
                                         aggregateAddress)));
 
                 // get the file descriptor applicable for this operation
-                NavigableMap<Integer, Integer> fileDescriptors = timeBins
+                ConcurrentIntIntSkipListMap fileDescriptors = timeBins
                         .computeIfAbsent(
                                 OperationStatistics.getTimeBin(mp,
                                         aggregateAddress),
-                                l -> new ConcurrentSkipListMap<>());
+                                l -> new ConcurrentIntIntSkipListMap());
 
                 fileDescriptors.merge(OperationStatistics.getFileDescriptor(mp,
                         aggregateAddress), aggregate, (v1, v2) -> {
@@ -855,17 +856,21 @@ public class LiveOperationStatisticsAggregator {
                 // it's half full again to avoid writing every time bin size
                 // from now on, only have one thread do the emission check
                 if (!EMISSION_IN_PROGRESS.getAndSet(true)) {
-                    // emission was not in progress, all other threads now see
+                    // emission was not in progress, all other threads now
+                    // see
                     // it as in progress and skip this
                     int size = timeBins.size();
                     if (size > LiveOperationStatisticsAggregator.this.timeBinCacheSize) {
                         for (int i = size / 2; i > 0; --i) {
                             try {
-                                Map.Entry<Long, NavigableMap<Integer, Integer>> entry = timeBins
-                                        .pollFirstEntry();
+                                ConcurrentIntIntSkipListMap entry = timeBins
+                                        .poll();
                                 if (entry != null) {
-                                    for (Integer os : entry.getValue().values())
-                                        write(os);
+                                    ConcurrentIntIntSkipListMap.ValueIterator vi = entry
+                                            .values();
+                                    while (vi.hasNext()) {
+                                        write(vi.next());
+                                    }
                                 } else {
                                     break;
                                 }
