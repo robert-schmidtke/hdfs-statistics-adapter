@@ -190,6 +190,9 @@ public class OperationStatisticsBufferBuilder {
             bb.put(b);
         }
 
+        // mark for GC
+        extHeader = null;
+
         // hostname
         bb.put((byte) (hostnameLength - Byte.MAX_VALUE)).put(hostname);
 
