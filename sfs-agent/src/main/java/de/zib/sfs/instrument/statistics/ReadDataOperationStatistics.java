@@ -43,8 +43,7 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
             maxPoolSize.updateAndGet((v) -> Math.max(v,
                     POOL_SIZE - memory[RDOS_OFFSET].remaining()));
         }
-        int newad = address | (RDOS_OFFSET << 29);
-        return newad;
+        return address | (RDOS_OFFSET << 29);
     }
 
     public static int getReadDataOperationStatistics(long count, long timeBin,
