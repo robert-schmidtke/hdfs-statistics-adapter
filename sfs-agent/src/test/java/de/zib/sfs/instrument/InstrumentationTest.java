@@ -1934,7 +1934,6 @@ public class InstrumentationTest {
                     assert (!path.startsWith(
                             LiveOperationStatisticsAggregator.instance
                                     .getLogFilePrefix())) : path;
-                    System.err.println(path);
                     if (path.endsWith("tmp")) {
                         exactData += e.getValue();
                     }
