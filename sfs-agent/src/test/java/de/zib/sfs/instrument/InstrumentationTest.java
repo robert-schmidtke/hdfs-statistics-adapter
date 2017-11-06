@@ -1929,8 +1929,15 @@ public class InstrumentationTest {
             long exactData = 0;
             for (Map.Entry<Integer, Long> e : operationDataPerFd.entrySet()) {
                 String path = fileDescriptorMappings.get(e.getKey());
-                if (path != null && path.endsWith("tmp")) {
-                    exactData += e.getValue();
+                if (path != null) {
+                    // no data should be recorded for the aggregator's log files
+                    assert (!path.startsWith(
+                            LiveOperationStatisticsAggregator.instance
+                                    .getLogFilePrefix())) : path;
+                    System.err.println(path);
+                    if (path.endsWith("tmp")) {
+                        exactData += e.getValue();
+                    }
                 }
             }
             if (exactData != exact) {

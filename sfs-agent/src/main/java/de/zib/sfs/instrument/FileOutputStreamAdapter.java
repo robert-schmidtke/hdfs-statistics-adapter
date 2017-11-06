@@ -60,8 +60,7 @@ public class FileOutputStreamAdapter extends AbstractSfsAdapter {
                     "writeCallback", null, resultDiscarder);
 
             // have the byte array put on top of the stack, then pass its length
-            // to
-            // the callback
+            // to the callback
             wrapMethod(Opcodes.ACC_PUBLIC, "write", Type.VOID_TYPE,
                     new Type[] { Type.getType(byte[].class) }, null,
                     new String[] { Type.getInternalName(IOException.class) },
