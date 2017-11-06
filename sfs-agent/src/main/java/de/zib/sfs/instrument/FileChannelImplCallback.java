@@ -17,6 +17,9 @@ import sun.nio.ch.FileChannelImpl;
 @SuppressWarnings("restriction")
 public class FileChannelImplCallback extends AbstractSfsCallback {
 
+    // set to true if write calls made to this callback should be discarded
+    private boolean discard = false;
+
     /**
      * @param fci
      */
@@ -25,8 +28,13 @@ public class FileChannelImplCallback extends AbstractSfsCallback {
     }
 
     public void openCallback(FileDescriptor fileDescriptor) {
-        this.fd = LiveOperationStatisticsAggregator.instance
-                .getFileDescriptor(fileDescriptor);
+        // see FileOutputStreamCallback
+        this.discard = LiveOperationStatisticsAggregator.instance
+                .isDiscardedFileDescriptor(fileDescriptor);
+        if (!this.discard) {
+            this.fd = LiveOperationStatisticsAggregator.instance
+                    .getFileDescriptor(fileDescriptor);
+        }
     }
 
     public void readCallback(long startTime, long endTime, int readResult) {
@@ -64,10 +72,12 @@ public class FileChannelImplCallback extends AbstractSfsCallback {
     }
 
     public void writeCallback(long startTime, long endTime, int writeResult) {
-        LiveOperationStatisticsAggregator.instance
-                .aggregateDataOperationStatistics(OperationSource.JVM,
-                        OperationCategory.WRITE, startTime, endTime, this.fd,
-                        writeResult);
+        if (!this.discard) {
+            LiveOperationStatisticsAggregator.instance
+                    .aggregateDataOperationStatistics(OperationSource.JVM,
+                            OperationCategory.WRITE, startTime, endTime,
+                            this.fd, writeResult);
+        }
     }
 
     public static void writeCallback(FileDescriptor fileDescriptor,
@@ -81,10 +91,12 @@ public class FileChannelImplCallback extends AbstractSfsCallback {
     }
 
     public void writeCallback(long startTime, long endTime, long writeResult) {
-        LiveOperationStatisticsAggregator.instance
-                .aggregateDataOperationStatistics(OperationSource.JVM,
-                        OperationCategory.WRITE, startTime, endTime, this.fd,
-                        writeResult);
+        if (!this.discard) {
+            LiveOperationStatisticsAggregator.instance
+                    .aggregateDataOperationStatistics(OperationSource.JVM,
+                            OperationCategory.WRITE, startTime, endTime,
+                            this.fd, writeResult);
+        }
     }
 
     public static void writeCallback(FileDescriptor fileDescriptor,

@@ -16,8 +16,8 @@ import de.zib.sfs.instrument.statistics.OperationSource;
 
 public class FileOutputStreamCallback extends AbstractSfsCallback {
 
-    // the LiveOperationStatisticsAggregator uses FileOutputStream to write its
-    // logs
+    // the LiveOperationStatisticsAggregator uses FileOutputStream or
+    // FileChannels obtained from FileOutputStreams to write its logs
     private static String LOG_FILE_PREFIX = null;
 
     // set to true if all calls made to this callback should be discarded
@@ -56,6 +56,15 @@ public class FileOutputStreamCallback extends AbstractSfsCallback {
                         .aggregateOperationStatistics(OperationSource.JVM,
                                 OperationCategory.OTHER, startTime, endTime,
                                 this.fd);
+            }
+        } else {
+            try {
+                // useful for FileChannelImplCallback
+                LiveOperationStatisticsAggregator.instance
+                        .discardFileDescriptor(this.fos.getFD());
+                this.fos = null;
+            } catch (IOException e) {
+                throw new RuntimeException(e);
             }
         }
     }

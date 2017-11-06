@@ -26,6 +26,7 @@ import java.nio.charset.CoderResult;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -101,6 +102,8 @@ public class LiveOperationStatisticsAggregator {
     private final Map<FileDescriptor, Integer> fdToFd;
     private boolean traceFileDescriptors;
 
+    private final Set<FileDescriptor> discardedFileDescriptors;
+
     private long initializationTime;
 
     public static final LiveOperationStatisticsAggregator instance = new LiveOperationStatisticsAggregator();
@@ -130,6 +133,8 @@ public class LiveOperationStatisticsAggregator {
         this.filenameToFd = new ConcurrentHashMap<>();
         this.fdToFd = new ConcurrentHashMap<>();
         this.currentFileDescriptor = new AtomicInteger(0);
+
+        this.discardedFileDescriptors = ConcurrentHashMap.newKeySet();
 
         this.initializing = false;
         this.initialized = false;
@@ -288,6 +293,14 @@ public class LiveOperationStatisticsAggregator {
         }
 
         return this.fdToFd.getOrDefault(fileDescriptor, 0);
+    }
+
+    public void discardFileDescriptor(FileDescriptor fileDescriptor) {
+        this.discardedFileDescriptors.add(fileDescriptor);
+    }
+
+    public boolean isDiscardedFileDescriptor(FileDescriptor fileDescriptor) {
+        return this.discardedFileDescriptors.contains(fileDescriptor);
     }
 
     public void aggregateOperationStatistics(OperationSource source,
