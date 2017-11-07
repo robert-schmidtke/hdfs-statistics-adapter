@@ -1487,7 +1487,7 @@ public class InstrumentationTest {
                 .getParentFile();
 
         // for each category, read all log files
-        for (OperationCategory category : OperationCategory.VALUES) {
+        for (final OperationCategory category : OperationCategory.VALUES) {
             File[] categoryFiles = outputDirectory
                     .listFiles(new FilenameFilter() {
                         @Override
@@ -1507,6 +1507,8 @@ public class InstrumentationTest {
                 // JVM must be the only source, no SFS involved
                 assert (OperationSource.JVM.equals(
                         OperationStatistics.getSource(operationStatistics)));
+                assert (category.equals(
+                        OperationStatistics.getCategory(operationStatistics)));
 
                 NavigableMap<Long, NavigableMap<Integer, Integer>> timeBins = aggregates
                         .get(LiveOperationStatisticsAggregator.getUniqueIndex(
