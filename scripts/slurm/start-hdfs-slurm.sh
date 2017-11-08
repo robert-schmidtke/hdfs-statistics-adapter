@@ -457,7 +457,7 @@ mkdir -p /local/${HDFS_LOCAL_DIR}/tmp
 # mkdir -p /local_ssd/${HDFS_LOCAL_DIR}/tmp
 mkdir -p /local/$HDFS_LOCAL_LOG_DIR
 
-export HADOOP_OPTS=$HADOOP_OPTS
+export HADOOP_OPTS="$HADOOP_OPTS"
 export HADOOP_HEAPSIZE=2000
 export LD_LIBRARY_PATH="\$LD_LIBRARY_PATH:$LD_LIBRARY_PATH_EXT"
 export HADOOP_USER_CLASSPATH_FIRST="YES"
@@ -493,7 +493,7 @@ nodemanager_script=$(dirname $0)/${SLURM_JOB_ID}-${datanode}-start-nodemanager.s
 #!/bin/bash
 
 # same as for resource manager
-export YARN_OPTS=$YARN_OPTS
+export YARN_OPTS="$YARN_OPTS"
 export YARN_HEAPSIZE=2000
 export LD_LIBRARY_PATH="\$LD_LIBRARY_PATH:$LD_LIBRARY_PATH_EXT"
 export YARN_USER_CLASSPATH="$YARN_USER_CLASSPATH:$HADOOP_CONF_DIR/$datanode"

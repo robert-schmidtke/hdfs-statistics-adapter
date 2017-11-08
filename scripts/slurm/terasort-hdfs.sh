@@ -261,6 +261,7 @@ rm $dump_xfs_stats_script
 echo "$(date): Dumping file system counters done"
 
 # set options for client as well
+OLD_JAVA_OPTIONS="$_JAVA_OPTIONS"
 export _JAVA_OPTIONS="$_JAVA_OPTIONS $CLIENT_OPTS"
 export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$LD_LIBRARY_PATH_EXT"
 
@@ -324,6 +325,9 @@ case $ENGINE in
 esac
 RET_CODE=$?
 echo "$(date): Running TeraSort done: $RET_CODE"
+
+# restore _JAVA_OPTIONS
+export _JAVA_OPTIONS="$OLD_JAVA_OPTIONS"
 
 echo "$(date): Dumping file system counters"
 ssh cumulus cat /sys/fs/xfs/sda1/stats/stats > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-cumulus.xfs.root.post
