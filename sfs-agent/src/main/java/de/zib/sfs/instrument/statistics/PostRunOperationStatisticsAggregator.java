@@ -100,6 +100,9 @@ public class PostRunOperationStatisticsAggregator {
                                 String header = reader.readLine();
                                 if (header == null) {
                                     // empty file, skip
+                                    if (deleteFiles) {
+                                        f.delete();
+                                    }
                                     continue;
                                 }
 
@@ -183,6 +186,9 @@ public class PostRunOperationStatisticsAggregator {
                     try {
                         String header = reader.readLine();
                         if (header == null) {
+                            if (deleteFiles) {
+                                f.delete();
+                            }
                             continue;
                         }
 
