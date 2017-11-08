@@ -153,12 +153,12 @@ LD_LIBRARY_PATH_EXT="$GRPC_HOME/libs/opt:$GRPC_HOME/third_party/protobuf/src/.li
 if [ -z "$NO_SFS" ]; then
   # configure some additional options for SFS
   OPTS="-agentpath:$SFS_DIRECTORY/sfs-agent/target/libsfs.so=trans_jar=$SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar,trans_address=0.0.0.0:4242"
-  OPTS="$OPTS,bin_duration=1000,cache_size=60,out_dir=/local_ssd/$USER/sfs,out_fmt=bb,trace_mmap=n,verbose=n,instr_skip=o,trace_fds=y,os_pool_size=1024,tq_pool_size=1024,iq_lock_cache=1024,os_lock_cache=1024"
-  CLIENT_OPTS="$OPTS,dos_pool_size=1024,rdos_pool_size=1024,key=client"
-  HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --hadoop-opts $OPTS,dos_pool_size=4096,rdos_pool_size=8192,key=hdfs"
-  HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --map-opts $OPTS,dos_pool_size=131072,rdos_pool_size=131072,key=map"
-  HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --reduce-opts $OPTS,dos_pool_size=131072,rdos_pool_size=131072,key=reduce"
-  HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --yarn-opts $OPTS,dos_pool_size=4096,rdos_pool_size=8192,key=yarn"
+  OPTS="$OPTS,bin_duration=1000,cache_size=60,out_dir=/local_ssd/$USER/sfs,out_fmt=bb,trace_mmap=n,verbose=n,instr_skip=o,trace_fds=y,os_pool_size=1024,iq_lock_cache=1024,os_lock_cache=1024"
+  CLIENT_OPTS="$OPTS,dos_pool_size=1024,rdos_pool_size=65536,tq_pool_size=65536,key=client"
+  HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --hadoop-opts $OPTS,dos_pool_size=4096,rdos_pool_size=8196,tq_pool_size=4096,key=hdfs"
+  HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --map-opts $OPTS,dos_pool_size=262144,rdos_pool_size=262144,tq_pool_size=262144,key=map"
+  HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --reduce-opts $OPTS,dos_pool_size=262144,rdos_pool_size=262144,tq_pool_size=262144,key=reduce"
+  HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --yarn-opts $OPTS,dos_pool_size=4096,rdos_pool_size=65536,tq_pool_size=8192,key=yarn"
   HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --ld-library-path $LD_LIBRARY_PATH_EXT"
   SFS_STANDARD_OPTS="--sfs-wrapped-scheme hdfs --sfs-instrumentation-skip o --sfs-output-directory /local_ssd/$USER/sfs --sfs-output-format bb --sfs-trace-fds true"
   cp $SFS_DIRECTORY/sfs-adapter/target/sfs-adapter.jar $FLINK_HOME/lib/sfs-adapter.jar
