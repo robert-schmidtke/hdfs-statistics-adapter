@@ -13,7 +13,6 @@ import java.io.FileDescriptor;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.Writer;
 import java.nio.BufferOverflowException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -69,8 +68,8 @@ public class LiveOperationStatisticsAggregator {
     private String csvOutputSeparator;
     private String logFilePrefix;
 
-    // only have one thread emit from the aggregates
-    static final AtomicBoolean EMISSION_IN_PROGRESS = new AtomicBoolean(false);
+    // only have one thread per source/category emit from the aggregates
+    final AtomicBoolean[] emissionInProgress;
 
     // for each source/category combination, map a time bin to an aggregate
     // operation statistics for each file
@@ -124,6 +123,12 @@ public class LiveOperationStatisticsAggregator {
                 this.writerLocks[getUniqueIndex(source,
                         category)] = new Object();
             }
+        }
+
+        this.emissionInProgress = new AtomicBoolean[OperationSource.VALUES.length
+                * OperationCategory.VALUES.length];
+        for (int i = 0; i < this.emissionInProgress.length; ++i) {
+            this.emissionInProgress[i] = new AtomicBoolean(false);
         }
 
         // worker pool that will accept the aggregation tasks
@@ -377,7 +382,36 @@ public class LiveOperationStatisticsAggregator {
                 }
             }
         });
+    }
 
+    void flushWriter(int index) {
+        try {
+            switch (LiveOperationStatisticsAggregator.this.outputFormat) {
+            case CSV:
+                if (LiveOperationStatisticsAggregator.this.csvWriters[index] != null) {
+                    synchronized (this.writerLocks[index]) {
+                        LiveOperationStatisticsAggregator.this.csvWriters[index]
+                                .flush();
+                    }
+                }
+                break;
+            case FB:
+            case BB:
+                if (LiveOperationStatisticsAggregator.this.bbChannels[index] != null) {
+                    synchronized (this.writerLocks[index]) {
+                        LiveOperationStatisticsAggregator.this.bbChannels[index]
+                                .force(false);
+                    }
+                }
+                break;
+            default:
+                throw new IllegalArgumentException(
+                        LiveOperationStatisticsAggregator.this.outputFormat
+                                .name());
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public void shutdown() {
@@ -390,7 +424,7 @@ public class LiveOperationStatisticsAggregator {
         this.threadPool.shutdown();
 
         // wake up all currently idle worker threads and have them discover that
-        // we're shutting down
+        // we're shutting down so they empty the aggregates
         synchronized (this.taskQueue) {
             this.taskQueue.notifyAll();
         }
@@ -403,9 +437,6 @@ public class LiveOperationStatisticsAggregator {
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-
-        // write remaining aggregates
-        flush();
 
         // finally close all writers
         switch (this.outputFormat) {
@@ -833,12 +864,11 @@ public class LiveOperationStatisticsAggregator {
                         .sanitizeAddress(aggregate);
 
                 // get the time bin applicable for this operation
+                int index = getUniqueIndex(
+                        OperationStatistics.getSource(mp, aggregateAddress),
+                        OperationStatistics.getCategory(mp, aggregateAddress));
                 ConcurrentLongObjectSkipListMap<ConcurrentIntIntSkipListMap> timeBins = LiveOperationStatisticsAggregator.this.aggregates
-                        .get(getUniqueIndex(
-                                OperationStatistics.getSource(mp,
-                                        aggregateAddress),
-                                OperationStatistics.getCategory(mp,
-                                        aggregateAddress)));
+                        .get(index);
 
                 // get the file descriptor applicable for this operation
                 ConcurrentIntIntSkipListMap fileDescriptors = timeBins
@@ -867,10 +897,11 @@ public class LiveOperationStatisticsAggregator {
 
                 // make sure to emit aggregates when the cache is full until
                 // it's half full again to avoid writing every time bin size
-                // from now on, only have one thread do the emission check
-                if (!EMISSION_IN_PROGRESS.getAndSet(true)) {
-                    // emission was not in progress, all other threads now
-                    // see
+                // from now on, only have one thread do the emission check per
+                // source/category
+                if (!LiveOperationStatisticsAggregator.this.emissionInProgress[index]
+                        .getAndSet(true)) {
+                    // emission was not in progress, all other threads now see
                     // it as in progress and skip this
                     int size = timeBins.size();
                     if (size > LiveOperationStatisticsAggregator.this.timeBinCacheSize) {
@@ -892,32 +923,37 @@ public class LiveOperationStatisticsAggregator {
                             }
                         }
 
+                        flushWriter(index);
+                    }
+
+                    // reset emission in progress state
+                    LiveOperationStatisticsAggregator.this.emissionInProgress[index]
+                            .set(false);
+                }
+            }
+
+            // taskQueue is empty and we're shutting down, so write the
+            // remaining aggregates
+            int size = LiveOperationStatisticsAggregator.this.aggregates.size();
+            for (int i = 0; i < size; ++i) {
+                ConcurrentLongObjectSkipListMap<ConcurrentIntIntSkipListMap> timeBins = LiveOperationStatisticsAggregator.this.aggregates
+                        .get(i);
+                ConcurrentIntIntSkipListMap fileDescriptors;
+                while ((fileDescriptors = timeBins.poll()) != null) {
+                    // fileDescriptors is exclusive to this thread, so it's safe
+                    // to iterate over the values
+                    ConcurrentIntIntSkipListMap.ValueIterator vi = fileDescriptors
+                            .values();
+                    while (vi.hasNext()) {
                         try {
-                            switch (LiveOperationStatisticsAggregator.this.outputFormat) {
-                            case CSV:
-                                for (Writer w : LiveOperationStatisticsAggregator.this.csvWriters)
-                                    if (w != null)
-                                        w.flush();
-                                break;
-                            case FB:
-                            case BB:
-                                for (FileChannel fc : LiveOperationStatisticsAggregator.this.bbChannels)
-                                    if (fc != null)
-                                        fc.force(false);
-                                break;
-                            default:
-                                throw new IllegalArgumentException(
-                                        LiveOperationStatisticsAggregator.this.outputFormat
-                                                .name());
-                            }
+                            write(vi.next());
                         } catch (IOException e) {
                             throw new RuntimeException(e);
                         }
                     }
-
-                    // reset emission in progress state
-                    EMISSION_IN_PROGRESS.set(false);
                 }
+
+                flushWriter(i);
             }
         }
     }
