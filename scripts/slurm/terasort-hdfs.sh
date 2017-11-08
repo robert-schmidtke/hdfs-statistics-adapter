@@ -60,6 +60,8 @@ else
   exit 1
 fi
 
+OUT_FMT=bb
+
 DATA_GB=${DATA_GB:-1024}
 
 export HOSTNAME=$(hostname)
@@ -153,14 +155,14 @@ LD_LIBRARY_PATH_EXT="$GRPC_HOME/libs/opt:$GRPC_HOME/third_party/protobuf/src/.li
 if [ -z "$NO_SFS" ]; then
   # configure some additional options for SFS
   OPTS="-agentpath:$SFS_DIRECTORY/sfs-agent/target/libsfs.so=trans_jar=$SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar,trans_address=0.0.0.0:4242"
-  OPTS="$OPTS,bin_duration=1000,cache_size=60,out_dir=/local_ssd/$USER/sfs,out_fmt=bb,trace_mmap=n,verbose=n,instr_skip=o,trace_fds=y,os_pool_size=1024,iq_lock_cache=1024,os_lock_cache=1024"
+  OPTS="$OPTS,bin_duration=1000,cache_size=60,out_dir=/local_ssd/$USER/sfs,out_fmt=$OUT_FMT,trace_mmap=n,verbose=n,instr_skip=o,trace_fds=y,os_pool_size=1024,iq_lock_cache=1024,os_lock_cache=1024"
   CLIENT_OPTS="$OPTS,dos_pool_size=1024,rdos_pool_size=65536,tq_pool_size=65536,key=client"
   HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --hadoop-opts $OPTS,dos_pool_size=4096,rdos_pool_size=8196,tq_pool_size=4096,key=hdfs"
   HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --map-opts $OPTS,dos_pool_size=262144,rdos_pool_size=262144,tq_pool_size=262144,key=map"
   HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --reduce-opts $OPTS,dos_pool_size=262144,rdos_pool_size=262144,tq_pool_size=262144,key=reduce"
   HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --yarn-opts $OPTS,dos_pool_size=4096,rdos_pool_size=65536,tq_pool_size=8192,key=yarn"
   HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --ld-library-path $LD_LIBRARY_PATH_EXT"
-  SFS_STANDARD_OPTS="--sfs-wrapped-scheme hdfs --sfs-instrumentation-skip o --sfs-output-directory /local_ssd/$USER/sfs --sfs-output-format bb --sfs-trace-fds true"
+  SFS_STANDARD_OPTS="--sfs-wrapped-scheme hdfs --sfs-instrumentation-skip o --sfs-output-directory /local_ssd/$USER/sfs --sfs-output-format $OUT_FMT --sfs-trace-fds true"
   cp $SFS_DIRECTORY/sfs-adapter/target/sfs-adapter.jar $FLINK_HOME/lib/sfs-adapter.jar
   cp $SFS_DIRECTORY/sfs-adapter/target/sfs-adapter.jar $HADOOP_HOME/share/hadoop/common/sfs-adapter.jar
 
@@ -395,16 +397,12 @@ du -c -h /local_ssd/$USER/sfs
 # java -cp $SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar de.zib.sfs.instrument.statistics.PostRunOperationStatisticsAggregator --path /local_ssd/$USER/sfs --prefix "\$(hostname)-" --suffix "-concat"
 
 cd /local_ssd/$USER/sfs
-# for file in \$(ls *-concat.csv); do
-#   # this includes SFS and JVM logs, as well as the file descriptor mappings
-#   cp \$file $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$file
-# done
-for file in \$(ls *.bb); do
+for file in \$(find . -name "*.$OUT_FMT"); do
   # this includes SFS and JVM logs, as well as the file descriptor mappings
   cp \$file $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$file
 done
 cd /local_ssd/$USER/
-for file in \$(ls *-metrics.out); do
+for file in \$(find . -name "*-metrics.out"); do
   cp \$file $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname)-\$file
 done
 EOF
@@ -416,12 +414,12 @@ fi
 
 # pack the results
 
-# put the BB files in a separate, uncompressed archive
+# put the files in a separate, uncompressed archive
 cd $SFS_TARGET_DIRECTORY
-find . -name '*.bb' > bb.files
-tar cf bb.tar --files-from bb.files
-rm bb.files
-find . -name '*.bb' | xargs rm
+find . -name "*.$OUT_FMT" > $OUT_FMT.files
+tar cf $OUT_FMT.tar --files-from $OUT_FMT.files
+rm $OUT_FMT.files
+find . -name "*.$OUT_FMT" | xargs rm
 
 tar czf $SFS_DIRECTORY/$SLURM_JOB_ID-$ENGINE-terasort-results.tar.gz $SFS_TARGET_DIRECTORY
 
