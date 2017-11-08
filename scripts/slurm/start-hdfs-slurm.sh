@@ -99,7 +99,7 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     *)
-      echo "Invalid argument detected."
+      echo "Invalid argument detected: $key"
       usage
       exit 1
   esac
@@ -371,6 +371,10 @@ cat > $HADOOP_CONF_DIR/yarn-site.xml << EOF
   <property>
     <name>yarn.nodemanager.aux-services.mapreduce_shuffle.class</name>
     <value>org.apache.hadoop.mapred.ShuffleHandler</value>
+  </property>
+  <property>
+    <name>yarn.nodemanager.pmem-check-enabled</name>
+    <value>false</value>
   </property>
   <property>
     <name>yarn.nodemanager.vmem-check-enabled</name>
