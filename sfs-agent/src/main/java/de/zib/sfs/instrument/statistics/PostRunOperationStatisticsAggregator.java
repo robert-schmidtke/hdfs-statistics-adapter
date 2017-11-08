@@ -21,6 +21,7 @@ public class PostRunOperationStatisticsAggregator {
     public static void main(String[] args) {
 
         int pathIndex = -1, prefixIndex = -1, suffixIndex = -1;
+        boolean delete = false;
         for (int i = 0; i < args.length; ++i) {
             switch (args[i]) {
             case "--path":
@@ -31,6 +32,9 @@ public class PostRunOperationStatisticsAggregator {
                 break;
             case "--suffix":
                 suffixIndex = ++i;
+                break;
+            case "--delete":
+                delete = true;
                 break;
             default:
                 System.err.println("Unexpected argument: " + args[i]);
@@ -51,6 +55,7 @@ public class PostRunOperationStatisticsAggregator {
 
         final String prefix = prefixIndex == -1 ? "" : args[prefixIndex];
         final String suffix = suffixIndex == -1 ? "" : args[suffixIndex];
+        final boolean deleteFiles = delete;
 
         // for each source/category combination, create a thread that will
         // aggregate the relevant files, additional thread for file descriptor
@@ -81,9 +86,9 @@ public class PostRunOperationStatisticsAggregator {
                         BufferedWriter writer = null;
                         for (String csvFileName : csvFileNames) {
                             BufferedReader reader = null;
+                            File f = new File(path, csvFileName);
                             try {
-                                reader = new BufferedReader(new FileReader(
-                                        new File(path, csvFileName)));
+                                reader = new BufferedReader(new FileReader(f));
                             } catch (FileNotFoundException e) {
                                 e.printStackTrace();
                                 continue;
@@ -126,6 +131,10 @@ public class PostRunOperationStatisticsAggregator {
 
                                 reader.close();
                                 reader = null;
+
+                                if (deleteFiles) {
+                                    f.delete();
+                                }
                             } catch (IOException e) {
                                 e.printStackTrace();
                                 continue;
@@ -161,9 +170,9 @@ public class PostRunOperationStatisticsAggregator {
                 BufferedWriter writer = null;
                 for (String fileDescriptorMappingFileName : fileDescriptorMappingFileNames) {
                     BufferedReader reader = null;
+                    File f = new File(path, fileDescriptorMappingFileName);
                     try {
-                        reader = new BufferedReader(new FileReader(
-                                new File(path, fileDescriptorMappingFileName)));
+                        reader = new BufferedReader(new FileReader(f));
                     } catch (FileNotFoundException e) {
                         e.printStackTrace();
                         continue;
@@ -191,6 +200,10 @@ public class PostRunOperationStatisticsAggregator {
                         writer.flush();
                         reader.close();
                         reader = null;
+
+                        if (deleteFiles) {
+                            f.delete();
+                        }
                     } catch (IOException e) {
                         e.printStackTrace();
                         continue;
