@@ -415,6 +415,14 @@ EOF
 fi
 
 # pack the results
+
+# put the BB files in a separate, uncompressed archive
+cd $SFS_TARGET_DIRECTORY
+find . -name '*.bb' > bb.files
+tar cf bb.tar --files-from bb.files
+rm bb.files
+find . -name '*.bb' | xargs rm
+
 tar czf $SFS_DIRECTORY/$SLURM_JOB_ID-$ENGINE-terasort-results.tar.gz $SFS_TARGET_DIRECTORY
 
 if [ "$RET_CODE" -eq "0" ]; then
