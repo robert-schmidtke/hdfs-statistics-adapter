@@ -63,6 +63,10 @@ public class PostRunOperationStatisticsAggregator {
         Thread[] aggregatorThreads = new Thread[OperationSource.VALUES.length
                 * OperationCategory.VALUES.length + 1];
         int threadId = 0;
+
+        // list all files before we add the aggregated ones to them
+        final String[] csvFileNames = path.list();
+
         for (final OperationSource source : OperationSource.VALUES) {
             for (final OperationCategory category : OperationCategory.VALUES) {
                 aggregatorThreads[threadId++] = new Thread(new Runnable() {
@@ -72,19 +76,17 @@ public class PostRunOperationStatisticsAggregator {
                         // combination
                         String sourceName = source.name().toLowerCase();
                         String categoryName = category.name().toLowerCase();
-                        String[] csvFileNames = path.list(new FilenameFilter() {
-                            @Override
-                            public boolean accept(File dir, String name) {
-                                return name.contains(sourceName)
-                                        && name.contains(categoryName);
-                            }
-                        });
 
                         // 1 MB read buffer for copying log files
                         char[] readBuf = new char[1024 * 1024];
 
                         BufferedWriter writer = null;
                         for (String csvFileName : csvFileNames) {
+                            if (!csvFileName.contains(sourceName)
+                                    || !csvFileName.contains(categoryName)) {
+                                continue;
+                            }
+
                             BufferedReader reader = null;
                             File f = new File(path, csvFileName);
                             try {
