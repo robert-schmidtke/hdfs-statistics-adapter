@@ -78,6 +78,9 @@ public class RandomAccessFileCallback extends AbstractSfsCallback {
         }
 
         try {
+            if (this.raf == null) {
+                return;
+            }
             synchronized (this) {
                 if (this.raf == null) {
                     return;

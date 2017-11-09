@@ -60,7 +60,11 @@ public class FileInputStreamCallback extends AbstractSfsCallback {
         if (this.fd != -1) {
             return;
         }
+
         try {
+            if (this.fis == null) {
+                return;
+            }
             synchronized (this) {
                 if (this.fis == null) {
                     return;

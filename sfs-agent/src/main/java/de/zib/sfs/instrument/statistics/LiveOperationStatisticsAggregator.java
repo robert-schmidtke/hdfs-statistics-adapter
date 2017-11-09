@@ -79,11 +79,11 @@ public class LiveOperationStatisticsAggregator {
     private final Object[] writerLocks;
 
     // for CSV output
-    private StringBuilder[] csvStringBuilders;
+    private ThreadLocal<StringBuilder> csvStringBuilder;
     BufferedWriter[] csvWriters;
 
     // for FlatBuffer/ByteBuffer output
-    private ByteBuffer[] bbBuffers;
+    private ThreadLocal<ByteBuffer> bbBuffer;
     FileChannel[] bbChannels;
 
     private final ExecutorService threadPool;
@@ -209,15 +209,15 @@ public class LiveOperationStatisticsAggregator {
                 System.getProperty("de.zib.sfs.output.format").toUpperCase());
         switch (this.outputFormat) {
         case CSV:
-            this.csvStringBuilders = new StringBuilder[OperationSource.VALUES.length
-                    * OperationCategory.VALUES.length];
+            this.csvStringBuilder = ThreadLocal
+                    .withInitial(() -> new StringBuilder(256));
             this.csvWriters = new BufferedWriter[OperationSource.VALUES.length
                     * OperationCategory.VALUES.length];
             break;
         case FB:
         case BB:
-            this.bbBuffers = new ByteBuffer[OperationSource.VALUES.length
-                    * OperationCategory.VALUES.length];
+            this.bbBuffer = ThreadLocal
+                    .withInitial(() -> ByteBuffer.allocateDirect(256));
             this.bbChannels = new FileChannel[OperationSource.VALUES.length
                     * OperationCategory.VALUES.length];
             break;
@@ -373,32 +373,6 @@ public class LiveOperationStatisticsAggregator {
         }
     }
 
-    void flushWriter(int index) {
-        try {
-            switch (this.outputFormat) {
-            case CSV:
-                if (this.csvWriters[index] != null) {
-                    synchronized (this.writerLocks[index]) {
-                        this.csvWriters[index].flush();
-                    }
-                }
-                break;
-            case FB:
-            case BB:
-                if (this.bbChannels[index] != null) {
-                    synchronized (this.writerLocks[index]) {
-                        this.bbChannels[index].force(false);
-                    }
-                }
-                break;
-            default:
-                throw new IllegalArgumentException(this.outputFormat.name());
-            }
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
     public void shutdown() {
         synchronized (this) {
             if (!this.initialized) {
@@ -527,57 +501,56 @@ public class LiveOperationStatisticsAggregator {
         OperationCategory category = OperationStatistics.getCategory(mp,
                 sanitizedAggregate);
         int index = getUniqueIndex(source, category);
-        synchronized (this.writerLocks[index]) {
-            if (this.csvStringBuilders[index] == null) {
-                this.csvStringBuilders[index] = new StringBuilder(256);
-            } else {
-                this.csvStringBuilders[index].setLength(0);
-            }
 
-            if (this.csvWriters[index] == null) {
-                String filename = getLogFilePrefix() + "."
-                        + source.name().toLowerCase() + "."
-                        + category.name().toLowerCase() + "."
-                        + this.initializationTime + "."
-                        + this.outputFormat.name().toLowerCase();
+        StringBuilder sb = this.csvStringBuilder.get();
+        sb.setLength(0);
 
-                File file = new File(filename);
-                if (!file.exists()) {
-                    this.csvStringBuilders[index].append("hostname");
-                    this.csvStringBuilders[index]
-                            .append(this.csvOutputSeparator).append("pid");
-                    this.csvStringBuilders[index]
-                            .append(this.csvOutputSeparator).append("key");
-                    this.csvStringBuilders[index]
-                            .append(this.csvOutputSeparator);
-                    OperationStatistics.getCsvHeaders(aggregate,
-                            this.csvOutputSeparator,
-                            this.csvStringBuilders[index]);
+        if (this.csvWriters[index] == null) {
+            synchronized (this.writerLocks[index]) {
+                if (this.csvWriters[index] == null) {
+                    String filename = getLogFilePrefix() + "."
+                            + source.name().toLowerCase() + "."
+                            + category.name().toLowerCase() + "."
+                            + this.initializationTime + "."
+                            + this.outputFormat.name().toLowerCase();
 
-                    // we will receive writes to this file as well
-                    this.csvWriters[index] = new BufferedWriter(
-                            new FileWriter(file));
-                    this.csvWriters[index]
-                            .write(this.csvStringBuilders[index].toString());
-                    this.csvWriters[index].newLine();
+                    File file = new File(filename);
+                    if (!file.exists()) {
+                        sb.append("hostname");
+                        sb.append(this.csvOutputSeparator).append("pid");
+                        sb.append(this.csvOutputSeparator).append("key");
+                        sb.append(this.csvOutputSeparator);
+                        OperationStatistics.getCsvHeaders(aggregate,
+                                this.csvOutputSeparator, sb);
 
-                    this.csvStringBuilders[index].setLength(0);
-                } else {
-                    throw new IOException(filename + " already exists");
+                        // we will receive writes to this file as well
+                        @SuppressWarnings("resource") // is closed during
+                                                      // shutdown
+                        BufferedWriter bw = new BufferedWriter(
+                                new FileWriter(file));
+                        bw.write(sb.toString());
+                        bw.newLine();
+
+                        sb.setLength(0);
+
+                        // must be the last instruction in this synchronized
+                        // block
+                        this.csvWriters[index] = bw;
+                    } else {
+                        throw new IOException(filename + " already exists");
+                    }
                 }
             }
+        }
 
-            this.csvStringBuilders[index].append(this.systemHostname);
-            this.csvStringBuilders[index].append(this.csvOutputSeparator)
-                    .append(this.systemPid);
-            this.csvStringBuilders[index].append(this.csvOutputSeparator)
-                    .append(this.systemKey);
-            this.csvStringBuilders[index].append(this.csvOutputSeparator);
-            OperationStatistics.toCsv(aggregate, this.csvOutputSeparator,
-                    this.csvStringBuilders[index]);
+        sb.append(this.systemHostname);
+        sb.append(this.csvOutputSeparator).append(this.systemPid);
+        sb.append(this.csvOutputSeparator).append(this.systemKey);
+        sb.append(this.csvOutputSeparator);
+        OperationStatistics.toCsv(aggregate, this.csvOutputSeparator, sb);
 
-            this.csvWriters[index]
-                    .write(this.csvStringBuilders[index].toString());
+        synchronized (this.writerLocks[index]) {
+            this.csvWriters[index].write(sb.toString());
             this.csvWriters[index].newLine();
         }
     }
@@ -592,14 +565,47 @@ public class LiveOperationStatisticsAggregator {
         OperationCategory category = OperationStatistics.getCategory(mp,
                 sanitizedAggregate);
         int index = getUniqueIndex(source, category);
-        synchronized (this.writerLocks[index]) {
-            if (this.bbBuffers[index] == null) {
+
+        if (this.bbChannels[index] == null) {
+            synchronized (this.writerLocks[index]) {
+                if (this.bbChannels[index] == null) {
+                    String filename = getLogFilePrefix() + "."
+                            + source.name().toLowerCase() + "."
+                            + category.name().toLowerCase() + "."
+                            + this.initializationTime + "."
+                            + this.outputFormat.name().toLowerCase();
+
+                    File file = new File(filename);
+                    if (!file.exists()) {
+                        // must be the last instruction in this synchronized
+                        // block
+                        this.bbChannels[index] = new FileOutputStream(file)
+                                .getChannel();
+                    } else {
+                        throw new IOException(filename + " already exists");
+                    }
+                }
+            }
+        }
+
+        ByteBuffer bb = this.bbBuffer.get();
+        bb.clear();
+        boolean overflow;
+        do {
+            overflow = false;
+            try {
                 switch (this.outputFormat) {
                 case FB:
-                    this.bbBuffers[index] = ByteBuffer.allocateDirect(256);
+                    OperationStatistics.toFlatBuffer(aggregate,
+                            this.systemHostname, this.systemPid, this.systemKey,
+                            bb);
+                    // resulting buffer is already 'flipped'
                     break;
                 case BB:
-                    this.bbBuffers[index] = ByteBuffer.allocateDirect(64);
+                    OperationStatisticsBufferBuilder.serialize(
+                            this.systemHostnameBb, this.systemPid,
+                            this.systemKeyBb, aggregate, bb);
+                    bb.flip();
                     break;
                 case CSV:
                     // this should not happen
@@ -607,57 +613,15 @@ public class LiveOperationStatisticsAggregator {
                     throw new IllegalArgumentException(
                             this.outputFormat.name());
                 }
-            } else {
-                this.bbBuffers[index].clear();
+            } catch (BufferOverflowException e) {
+                overflow = true;
+                bb = ByteBuffer.allocateDirect(bb.capacity() << 1);
+                this.bbBuffer.set(bb);
             }
+        } while (overflow);
 
-            if (this.bbChannels[index] == null) {
-                String filename = getLogFilePrefix() + "."
-                        + source.name().toLowerCase() + "."
-                        + category.name().toLowerCase() + "."
-                        + this.initializationTime + "."
-                        + this.outputFormat.name().toLowerCase();
-
-                File file = new File(filename);
-                if (!file.exists()) {
-                    this.bbChannels[index] = new FileOutputStream(file)
-                            .getChannel();
-                } else {
-                    throw new IOException(filename + " already exists");
-                }
-            }
-
-            boolean overflow;
-            do {
-                overflow = false;
-                try {
-                    switch (this.outputFormat) {
-                    case FB:
-                        OperationStatistics.toFlatBuffer(aggregate,
-                                this.systemHostname, this.systemPid,
-                                this.systemKey, this.bbBuffers[index]);
-                        // resulting buffer is already 'flipped'
-                        break;
-                    case BB:
-                        OperationStatisticsBufferBuilder.serialize(
-                                this.systemHostnameBb, this.systemPid,
-                                this.systemKeyBb, aggregate,
-                                this.bbBuffers[index]);
-                        this.bbBuffers[index].flip();
-                        break;
-                    case CSV:
-                        // this should not happen
-                    default:
-                        throw new IllegalArgumentException(
-                                this.outputFormat.name());
-                    }
-                } catch (BufferOverflowException e) {
-                    overflow = true;
-                    this.bbBuffers[index] = ByteBuffer.allocateDirect(
-                            this.bbBuffers[index].capacity() << 1);
-                }
-            } while (overflow);
-            this.bbChannels[index].write(this.bbBuffers[index]);
+        synchronized (this.writerLocks[index]) {
+            this.bbChannels[index].write(bb);
         }
     }
 
@@ -920,8 +884,6 @@ public class LiveOperationStatisticsAggregator {
                                 throw new RuntimeException(e);
                             }
                         }
-
-                        flushWriter(index);
                     }
 
                     // reset emission in progress state
@@ -950,8 +912,6 @@ public class LiveOperationStatisticsAggregator {
                         }
                     }
                 }
-
-                flushWriter(i);
             }
         }
     }

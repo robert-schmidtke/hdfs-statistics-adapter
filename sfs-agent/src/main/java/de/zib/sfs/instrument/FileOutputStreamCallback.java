@@ -95,6 +95,9 @@ public class FileOutputStreamCallback extends AbstractSfsCallback {
         }
 
         try {
+            if (this.fos == null) {
+                return;
+            }
             synchronized (this) {
                 if (this.fos == null) {
                     return;
