@@ -390,9 +390,11 @@ public class LiveOperationStatisticsAggregator {
 
         // wait a bit for all still currently running tasks
         long shutdownWait = 0;
+        int taskQueueSize = 0;
         try {
             long startWait;
             if (Globals.SHUTDOWN_DIAGNOSTICS) {
+                taskQueueSize = this.taskQueue.remaining();
                 startWait = System.currentTimeMillis();
             }
             if (!this.threadPool.awaitTermination(30, TimeUnit.SECONDS)) {
@@ -457,6 +459,7 @@ public class LiveOperationStatisticsAggregator {
 
         if (Globals.SHUTDOWN_DIAGNOSTICS) {
             System.err.println("SFS Shutdown Diagnostics");
+            System.err.println("  - TaskQueue:   " + taskQueueSize);
             System.err.println("  - Thread pool: " + shutdownWait + "ms");
         }
     }
