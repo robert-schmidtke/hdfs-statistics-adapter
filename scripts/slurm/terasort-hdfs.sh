@@ -180,7 +180,8 @@ while IFS= read -r datanode; do HADOOP_DATANODES=(${HADOOP_DATANODES[@]} $datano
 # wait until all datanodes are connected
 CONNECTED_DATANODES=0
 while [ $CONNECTED_DATANODES -lt ${#HADOOP_DATANODES[@]} ]; do
-  CONNECTED_DATANODES=$(srun --nodelist=$MASTER --nodes=1-1 grep -E "processReport( [[:alnum:]]+)?: from storage [[:alnum:]\-]+ node DatanodeRegistration" /local/$HDFS_LOCAL_LOG_DIR/namenode-$MASTER.log | wc -l)
+#   CONNECTED_DATANODES=$(srun --nodelist=$MASTER --nodes=1-1 grep -E "processReport( [[:alnum:]]+)?: from storage [[:alnum:]\-]+ node DatanodeRegistration" /local/$HDFS_LOCAL_LOG_DIR/namenode-$MASTER.log | wc -l)
+  CONNECTED_DATANODES=$(srun --nodelist=$MASTER --nodes=1-1 grep -E "processReport( [[:alnum:]]+)?: from storage [[:alnum:]\-]+ node DatanodeRegistration" /local_ssd/$HDFS_LOCAL_LOG_DIR/namenode-$MASTER.log | wc -l)
   echo "$CONNECTED_DATANODES of ${#HADOOP_DATANODES[@]} DataNodes connected ..."
   sleep 1s
 done
@@ -196,7 +197,8 @@ case $ENGINE in
     sed -i "/^# taskmanager\.network\.numberOfBuffers/c\taskmanager.network.numberOfBuffers: $(($TASK_SLOTS * $TASK_SLOTS * ${#HADOOP_DATANODES[@]} * 4))" $FLINK_HOME/conf/flink-conf.yaml
     sed -i "/^# fs\.hdfs\.hadoopconf/c\fs.hdfs.hadoopconf: $HADOOP_HOME/etc/hadoop" $FLINK_HOME/conf/flink-conf.yaml
     cat >> $FLINK_HOME/conf/flink-conf.yaml << EOF
-blob.storage.directory: /local/$USER/flink
+# blob.storage.directory: /local/$USER/flink
+blob.storage.directory: /local_ssd/$USER/flink
 taskmanager.memory.off-heap: true
 akka.ask.timeout: 600 s
 EOF
@@ -398,7 +400,7 @@ echo "Size of files in /local_ssd/$USER/sfs on \$(hostname):"
 du -c -h /local_ssd/$USER/sfs
 
 # execute postrun aggregation
-# java -cp $SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar de.zib.sfs.instrument.statistics.PostRunOperationStatisticsAggregator --path /local_ssd/$USER/sfs --prefix "\$(hostname)-" --suffix "-concat"
+# java -cp $SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar de.zib.sfs.instrument.statistics.PostRunOperationStatisticsAggregator --path /local_ssd/$USER/sfs --prefix "\$(hostname)-" --suffix "-concat" --delete
 
 cd /local_ssd/$USER/sfs
 for file in \$(find . -name "*.$OUT_FMT"); do

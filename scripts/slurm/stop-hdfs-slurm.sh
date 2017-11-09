@@ -47,7 +47,8 @@ echo "Stopping Hadoop NameNode on '$HADOOP_NAMENODE' and DataNode(s) on '${HADOO
 mkdir -p $HADOOP_PREFIX/log-$SLURM_JOB_ID
 
 echo "$(date): Stopping NameNode."
-pidfile=/local/$HDFS_LOCAL_DIR/namenode-$(hostname).pid
+# pidfile=/local/$HDFS_LOCAL_DIR/namenode-$(hostname).pid
+pidfile=/local_ssd/$HDFS_LOCAL_DIR/namenode-$(hostname).pid
 if [ -f $pidfile ]; then
   pid=`cat $pidfile`
   if kill -0 $pid > /dev/null 2>&1; then
@@ -56,7 +57,8 @@ if [ -f $pidfile ]; then
       echo "Sending SIGTERM to NameNode $pid"
       kill $pid
       sleep 5s
-      grep "RECEIVED SIGNAL 15: SIGTERM" /local/$HDFS_LOCAL_LOG_DIR/namenode-$(hostname).log > /dev/null 2>&1
+#       grep "RECEIVED SIGNAL 15: SIGTERM" /local/$HDFS_LOCAL_LOG_DIR/namenode-$(hostname).log > /dev/null 2>&1
+      grep "RECEIVED SIGNAL 15: SIGTERM" /local_ssd/$HDFS_LOCAL_LOG_DIR/namenode-$(hostname).log > /dev/null 2>&1
       received_signal=$?
     done
 
@@ -67,7 +69,8 @@ if [ -f $pidfile ]; then
     echo "NameNode $pid is not running"
   fi
   rm $pidfile
-  cp /local/$HDFS_LOCAL_LOG_DIR/namenode-$(hostname).log $HADOOP_PREFIX/log-$SLURM_JOB_ID/namenode-$(hostname).log
+#   cp /local/$HDFS_LOCAL_LOG_DIR/namenode-$(hostname).log $HADOOP_PREFIX/log-$SLURM_JOB_ID/namenode-$(hostname).log
+  cp /local_ssd/$HDFS_LOCAL_LOG_DIR/namenode-$(hostname).log $HADOOP_PREFIX/log-$SLURM_JOB_ID/namenode-$(hostname).log
 else
   echo "NameNode PID file $pidfile does not exist."
 fi
@@ -80,7 +83,8 @@ for datanode in ${HADOOP_DATANODES[@]}; do
   cat > $datanode_script << EOF
 #!/bin/bash
 
-pidfile=/local/$HDFS_LOCAL_DIR/datanode-$datanode.pid
+# pidfile=/local/$HDFS_LOCAL_DIR/datanode-$datanode.pid
+pidfile=/local_ssd/$HDFS_LOCAL_DIR/datanode-$datanode.pid
 if [ -f \$pidfile ]; then
   pid=\$(cat \$pidfile)
   if kill -0 \$pid > /dev/null 2>&1; then
@@ -89,7 +93,8 @@ if [ -f \$pidfile ]; then
       echo "Sending SIGTERM to DataNode \$pid"
       kill \$pid
       sleep 5s
-      grep "RECEIVED SIGNAL 15: SIGTERM" /local/$HDFS_LOCAL_LOG_DIR/datanode-\$(hostname).log > /dev/null 2>&1
+#       grep "RECEIVED SIGNAL 15: SIGTERM" /local/$HDFS_LOCAL_LOG_DIR/datanode-\$(hostname).log > /dev/null 2>&1
+      grep "RECEIVED SIGNAL 15: SIGTERM" /local_ssd/$HDFS_LOCAL_LOG_DIR/datanode-\$(hostname).log > /dev/null 2>&1
       received_signal=\$?
     done
 
@@ -100,7 +105,8 @@ if [ -f \$pidfile ]; then
     echo "DataNode \$pid is not running"
   fi
   rm \$pidfile
-  cp /local/$HDFS_LOCAL_LOG_DIR/datanode-$datanode.log $HADOOP_PREFIX/log-$SLURM_JOB_ID/datanode-$datanode.log
+#   cp /local/$HDFS_LOCAL_LOG_DIR/datanode-$datanode.log $HADOOP_PREFIX/log-$SLURM_JOB_ID/datanode-$datanode.log
+  cp /local_ssd/$HDFS_LOCAL_LOG_DIR/datanode-$datanode.log $HADOOP_PREFIX/log-$SLURM_JOB_ID/datanode-$datanode.log
 else
   echo "DataNode PID file \$pidfile does not exist."
 fi
@@ -133,7 +139,8 @@ for datanode in ${HADOOP_DATANODES[@]}; do
 done
 
 echo "$(date): Stopping ResourceManager."
-pidfile=/local/$HDFS_LOCAL_DIR/resourcemanager-$(hostname).pid
+# pidfile=/local/$HDFS_LOCAL_DIR/resourcemanager-$(hostname).pid
+pidfile=/local_ssd/$HDFS_LOCAL_DIR/resourcemanager-$(hostname).pid
 if [ -f $pidfile ]; then
   pid=`cat $pidfile`
   if kill -0 $pid > /dev/null 2>&1; then
@@ -142,7 +149,8 @@ if [ -f $pidfile ]; then
       echo "Sending SIGTERM to ResourceManager $pid"
       kill $pid
       sleep 5s
-      grep "RECEIVED SIGNAL 15: SIGTERM" /local/$HDFS_LOCAL_LOG_DIR/resourcemanager-$(hostname).log > /dev/null 2>&1
+#       grep "RECEIVED SIGNAL 15: SIGTERM" /local/$HDFS_LOCAL_LOG_DIR/resourcemanager-$(hostname).log > /dev/null 2>&1
+      grep "RECEIVED SIGNAL 15: SIGTERM" /local_ssd/$HDFS_LOCAL_LOG_DIR/resourcemanager-$(hostname).log > /dev/null 2>&1
       received_signal=$?
     done
 
@@ -153,14 +161,16 @@ if [ -f $pidfile ]; then
     echo "ResourceManager $pid is not running"
   fi
   rm $pidfile
-  cp /local/$HDFS_LOCAL_LOG_DIR/resourcemanager-$(hostname).log $HADOOP_PREFIX/log-$SLURM_JOB_ID/resourcemanager-$(hostname).log
+#   cp /local/$HDFS_LOCAL_LOG_DIR/resourcemanager-$(hostname).log $HADOOP_PREFIX/log-$SLURM_JOB_ID/resourcemanager-$(hostname).log
+  cp /local_ssd/$HDFS_LOCAL_LOG_DIR/resourcemanager-$(hostname).log $HADOOP_PREFIX/log-$SLURM_JOB_ID/resourcemanager-$(hostname).log
 else
   echo "PID file $pidfile does not exist."
 fi
 echo "Stopping ResourceManager done."
 
 echo "$(date): Stopping JobHistory Server."
-pidfile=/local/$HDFS_LOCAL_DIR/jobhistory_server-$(hostname).pid
+# pidfile=/local/$HDFS_LOCAL_DIR/jobhistory_server-$(hostname).pid
+pidfile=/local_ssd/$HDFS_LOCAL_DIR/jobhistory_server-$(hostname).pid
 if [ -f $pidfile ]; then
   pid=`cat $pidfile`
   if kill -0 $pid > /dev/null 2>&1; then
@@ -169,7 +179,8 @@ if [ -f $pidfile ]; then
       echo "Sending SIGTERM to JobHistory Server $pid"
       kill $pid
       sleep 5s
-      grep "RECEIVED SIGNAL 15: SIGTERM" /local/$HDFS_LOCAL_LOG_DIR/jobhistory_server-$(hostname).log > /dev/null 2>&1
+#       grep "RECEIVED SIGNAL 15: SIGTERM" /local/$HDFS_LOCAL_LOG_DIR/jobhistory_server-$(hostname).log > /dev/null 2>&1
+      grep "RECEIVED SIGNAL 15: SIGTERM" /local_ssd/$HDFS_LOCAL_LOG_DIR/jobhistory_server-$(hostname).log > /dev/null 2>&1
       received_signal=$?
     done
 
@@ -180,7 +191,8 @@ if [ -f $pidfile ]; then
     echo "JobHistory Server $pid is not running"
   fi
   rm $pidfile
-  cp /local/$HDFS_LOCAL_LOG_DIR/jobhistory_server-$(hostname).log $HADOOP_PREFIX/log-$SLURM_JOB_ID/jobhistory_server-$(hostname).log
+#   cp /local/$HDFS_LOCAL_LOG_DIR/jobhistory_server-$(hostname).log $HADOOP_PREFIX/log-$SLURM_JOB_ID/jobhistory_server-$(hostname).log
+  cp /local_ssd/$HDFS_LOCAL_LOG_DIR/jobhistory_server-$(hostname).log $HADOOP_PREFIX/log-$SLURM_JOB_ID/jobhistory_server-$(hostname).log
 else
   echo "PID file $pidfile does not exist."
 fi
@@ -193,7 +205,8 @@ for datanode in ${HADOOP_DATANODES[@]}; do
   cat > $nodemanager_script << EOF
 #!/bin/bash
 
-pidfile=/local/$HDFS_LOCAL_DIR/nodemanager-$datanode.pid
+# pidfile=/local/$HDFS_LOCAL_DIR/nodemanager-$datanode.pid
+pidfile=/local_ssd/$HDFS_LOCAL_DIR/nodemanager-$datanode.pid
 if [ -f \$pidfile ]; then
   pid=\$(cat \$pidfile)
   if kill -0 \$pid > /dev/null 2>&1; then
@@ -202,7 +215,8 @@ if [ -f \$pidfile ]; then
       echo "Sending SIGTERM to NodeManager \$pid"
       kill \$pid
       sleep 5s
-      grep "RECEIVED SIGNAL 15: SIGTERM" /local/$HDFS_LOCAL_LOG_DIR/nodemanager-\$(hostname).log > /dev/null 2>&1
+#       grep "RECEIVED SIGNAL 15: SIGTERM" /local/$HDFS_LOCAL_LOG_DIR/nodemanager-\$(hostname).log > /dev/null 2>&1
+      grep "RECEIVED SIGNAL 15: SIGTERM" /local_ssd/$HDFS_LOCAL_LOG_DIR/nodemanager-\$(hostname).log > /dev/null 2>&1
       received_signal=\$?
     done
 
@@ -213,8 +227,10 @@ if [ -f \$pidfile ]; then
     echo "NodeManager \$pid is not running"
   fi
   rm \$pidfile
-  cp /local/$HDFS_LOCAL_LOG_DIR/nodemanager-$datanode.log $HADOOP_PREFIX/log-$SLURM_JOB_ID/nodemanager-$datanode.log
+#   cp /local/$HDFS_LOCAL_LOG_DIR/nodemanager-$datanode.log $HADOOP_PREFIX/log-$SLURM_JOB_ID/nodemanager-$datanode.log
+  cp /local_ssd/$HDFS_LOCAL_LOG_DIR/nodemanager-$datanode.log $HADOOP_PREFIX/log-$SLURM_JOB_ID/nodemanager-$datanode.log
   rm -rf /local/$HDFS_LOCAL_LOG_DIR
+  rm -rf /local_ssd/$HDFS_LOCAL_LOG_DIR
   rm -rf /local/$HDFS_LOCAL_DIR
   rm -rf /local_ssd/$HDFS_LOCAL_DIR
 else
@@ -250,6 +266,7 @@ for datanode in ${HADOOP_DATANODES[@]}; do
 done
 
 rm -rf /local/$HDFS_LOCAL_LOG_DIR
+rm -rf /local_ssd/$HDFS_LOCAL_LOG_DIR
 rm -rf /local/$HDFS_LOCAL_DIR
 rm -rf /local_ssd/$HDFS_LOCAL_DIR
 
