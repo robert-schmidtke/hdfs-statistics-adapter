@@ -246,6 +246,13 @@ public class LiveOperationStatisticsAggregator {
         }
         this.taskQueue = new IntQueue(queueSize);
 
+        Runtime.getRuntime().addShutdownHook(new Thread() {
+            @Override
+            public void run() {
+                LiveOperationStatisticsAggregator.this.shutdown();
+            }
+        });
+
         this.initializationTime = System.currentTimeMillis();
         this.initialized = true;
         this.initializing = false;
