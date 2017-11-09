@@ -19,4 +19,7 @@ public class Globals {
     // controls whether pool diagnostics should be collected
     public static final boolean POOL_DIAGNOSTICS = true;
 
+    // controls whether shutdown diagnostics should be collected
+    public static final boolean SHUTDOWN_DIAGNOSTICS = true;
+
 }

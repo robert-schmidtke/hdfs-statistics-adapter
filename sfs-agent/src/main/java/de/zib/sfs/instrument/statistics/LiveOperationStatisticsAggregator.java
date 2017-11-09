@@ -373,48 +373,26 @@ public class LiveOperationStatisticsAggregator {
         }
     }
 
-    public synchronized void flush() {
-        this.aggregates.forEach(v -> {
-            ConcurrentIntIntSkipListMap entry = v.poll();
-            while (entry != null) {
-                try {
-                    ConcurrentIntIntSkipListMap.ValueIterator vi = entry
-                            .values();
-                    while (vi.hasNext())
-                        write(vi.next());
-
-                    entry = v.poll();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-        });
-    }
-
     void flushWriter(int index) {
         try {
-            switch (LiveOperationStatisticsAggregator.this.outputFormat) {
+            switch (this.outputFormat) {
             case CSV:
-                if (LiveOperationStatisticsAggregator.this.csvWriters[index] != null) {
+                if (this.csvWriters[index] != null) {
                     synchronized (this.writerLocks[index]) {
-                        LiveOperationStatisticsAggregator.this.csvWriters[index]
-                                .flush();
+                        this.csvWriters[index].flush();
                     }
                 }
                 break;
             case FB:
             case BB:
-                if (LiveOperationStatisticsAggregator.this.bbChannels[index] != null) {
+                if (this.bbChannels[index] != null) {
                     synchronized (this.writerLocks[index]) {
-                        LiveOperationStatisticsAggregator.this.bbChannels[index]
-                                .force(false);
+                        this.bbChannels[index].force(false);
                     }
                 }
                 break;
             default:
-                throw new IllegalArgumentException(
-                        LiveOperationStatisticsAggregator.this.outputFormat
-                                .name());
+                throw new IllegalArgumentException(this.outputFormat.name());
             }
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -437,9 +415,17 @@ public class LiveOperationStatisticsAggregator {
         }
 
         // wait a bit for all still currently running tasks
+        long shutdownWait = 0;
         try {
+            long startWait;
+            if (Globals.SHUTDOWN_DIAGNOSTICS) {
+                startWait = System.currentTimeMillis();
+            }
             if (!this.threadPool.awaitTermination(30, TimeUnit.SECONDS)) {
                 System.err.println("Thread pool did not shut down");
+            }
+            if (Globals.SHUTDOWN_DIAGNOSTICS) {
+                shutdownWait = System.currentTimeMillis() - startWait;
             }
         } catch (InterruptedException e) {
             e.printStackTrace();
@@ -493,6 +479,11 @@ public class LiveOperationStatisticsAggregator {
                     + ReadDataOperationStatistics.maxPoolSize.get());
             System.err.println(
                     "  - TaskQueue:                   " + maxQueueSize.get());
+        }
+
+        if (Globals.SHUTDOWN_DIAGNOSTICS) {
+            System.err.println("SFS Shutdown Diagnostics");
+            System.err.println("  - Thread pool: " + shutdownWait + "ms");
         }
     }
 
