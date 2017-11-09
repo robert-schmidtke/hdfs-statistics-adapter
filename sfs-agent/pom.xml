@@ -402,11 +402,11 @@
                     <executable>java</executable>
                     <arguments>
                       <argument>-Xmx20M</argument>
-                      <!-- 307M for all four pools, plus some extra for direct write buffers (3MB * no. of processors to be safe) -->
-                      <argument>-XX:MaxDirectMemorySize=404M</argument>
+                      <!-- 347M for all four pools, plus some extra for direct write buffers (3MB * no. of processors to be safe) -->
+                      <argument>-XX:MaxDirectMemorySize=444M</argument>
                       <!-- <argument>-verbose:gc</argument>
                       <argument>-XX:+PrintGCDetails</argument> -->
-                      <argument>-agentpath:${project.build.directory}/${libsfs.name}=trans_jar=${project.build.directory}/sfs-agent.jar,key=test,bin_duration=1000,cache_size=120,out_dir=${project.build.directory},out_fmt=bb,os_pool_size=100,dos_pool_size=1000000,rdos_pool_size=4000000,tq_pool_size=4000000,iq_lock_cache=1024,os_lock_cache=1024,verbose=n,trace_mmap=n,instr_skip=n,trace_fds=y,use_proxy=n</argument>
+                      <argument>-agentpath:${project.build.directory}/${libsfs.name}=trans_jar=${project.build.directory}/sfs-agent.jar,key=test,bin_duration=1000,cache_size=120,out_dir=${project.build.directory},out_fmt=bb,os_pool_size=100,dos_pool_size=2000000,rdos_pool_size=4000000,tq_pool_size=4000000,iq_lock_cache=1024,os_lock_cache=1024,verbose=n,trace_mmap=n,instr_skip=n,trace_fds=y,use_proxy=n</argument>
                       <!-- <argument>-agentlib:hprof=heap=sites,file=${project.build.directory}/@item@.txt</argument> -->
                       <argument>-ea</argument>
                       <argument>-esa</argument>
