@@ -487,6 +487,9 @@ public class InstrumentationTest {
             numsWritten.add(executor.submit(new Callable<Long>() {
                 @Override
                 public Long call() throws Exception {
+                    // may cause temporary DirectByteBuffers to be created
+                    // internally, so make sure to have sufficient
+                    // -XX:MaxDirectMemorySize
                     long n = fco.write(wrappedWriteBuffer.duplicate(), offset);
                     n += fco.write(allocatedWriteBuffer.duplicate(),
                             offset + BUFFER_SIZE);
