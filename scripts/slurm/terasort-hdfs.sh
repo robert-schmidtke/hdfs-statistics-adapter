@@ -157,7 +157,7 @@ if [ -z "$NO_SFS" ]; then
   OPTS="-agentpath:$SFS_DIRECTORY/sfs-agent/target/libsfs.so=trans_jar=$SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar,trans_address=0.0.0.0:4242"
   OPTS="$OPTS,bin_duration=1000,cache_size=60,out_dir=/local_ssd/$USER/sfs,out_fmt=$OUT_FMT,trace_mmap=n,verbose=n,instr_skip=o,trace_fds=y,os_pool_size=1024,iq_lock_cache=4096,os_lock_cache=4096"
   CLIENT_OPTS="$OPTS,dos_pool_size=1024,rdos_pool_size=65536,tq_pool_size=65536,key=client"
-  HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --hadoop-opts $OPTS,dos_pool_size=4096,rdos_pool_size=8196,tq_pool_size=4096,key=hdfs"
+  HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --hadoop-opts $OPTS,dos_pool_size=8192,rdos_pool_size=8196,tq_pool_size=4096,key=hdfs"
   HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --map-opts $OPTS,dos_pool_size=262144,rdos_pool_size=262144,tq_pool_size=262144,key=map"
   HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --reduce-opts $OPTS,dos_pool_size=262144,rdos_pool_size=262144,tq_pool_size=262144,key=reduce"
   HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --yarn-opts $OPTS,dos_pool_size=4096,rdos_pool_size=65536,tq_pool_size=8192,key=yarn"
