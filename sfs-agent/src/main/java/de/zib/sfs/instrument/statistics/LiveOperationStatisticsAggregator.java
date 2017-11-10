@@ -65,7 +65,6 @@ public class LiveOperationStatisticsAggregator {
 
     OutputFormat outputFormat;
 
-    private String csvOutputSeparator;
     private String logFilePrefix;
 
     // only have one thread per source/category emit from the aggregates
@@ -78,9 +77,21 @@ public class LiveOperationStatisticsAggregator {
     // for coordinating writing of statistics
     private final Object[] writerLocks;
 
+    // size in bytes of the output buffer to use
+    private static final int OUTPUT_BUFFER_CAPACITY = 256 * 1024;
+
+    // threshold in bytes after which the output buffer is spilled and cleared
+    private static final int OUTPUT_BUFFER_SPILL_THRESHOLD = OUTPUT_BUFFER_CAPACITY
+            - 1024;
+
     // for CSV output
     private ThreadLocal<StringBuilder> csvStringBuilder;
     BufferedWriter[] csvWriters;
+    private String csvOutputSeparator;
+    private String csvNewLine;
+
+    // CSV StringBuilder counts in chars, so divide by 2
+    private static final int CSV_OUTPUT_BUFFER_SPILL_THRESHOLD = OUTPUT_BUFFER_SPILL_THRESHOLD >> 1;
 
     // for FlatBuffer/ByteBuffer output
     private ThreadLocal<ByteBuffer> bbBuffer;
@@ -153,51 +164,10 @@ public class LiveOperationStatisticsAggregator {
             this.initializing = true;
         }
 
-        this.csvOutputSeparator = ",";
-
-        // guard against weird hostnames
-        this.systemHostname = System.getProperty("de.zib.sfs.hostname")
-                .replaceAll(this.csvOutputSeparator, "");
+        this.systemHostname = System.getProperty("de.zib.sfs.hostname");
 
         this.systemPid = Integer.parseInt(System.getProperty("de.zib.sfs.pid"));
         this.systemKey = System.getProperty("de.zib.sfs.key");
-
-        CharsetEncoder encoder = Charset.forName("US-ASCII").newEncoder();
-
-        // pre-encode hostname
-        if (this.systemHostname.length() - Byte.MAX_VALUE > Byte.MAX_VALUE) {
-            throw new IllegalArgumentException(this.systemHostname);
-        }
-        this.systemHostnameBb = ByteBuffer
-                .allocateDirect(this.systemHostname.length());
-        encoder.reset();
-        CoderResult cr = encoder.encode(CharBuffer.wrap(this.systemHostname),
-                this.systemHostnameBb, true);
-        if (cr.isError()) {
-            try {
-                cr.throwException();
-            } catch (CharacterCodingException e) {
-                throw new IllegalArgumentException(this.systemHostname, e);
-            }
-        }
-        this.systemHostnameBb.flip();
-
-        // same with key
-        if (this.systemKey.length() - Byte.MAX_VALUE > Byte.MAX_VALUE) {
-            throw new IllegalArgumentException(this.systemKey);
-        }
-        this.systemKeyBb = ByteBuffer.allocateDirect(this.systemKey.length());
-        encoder.reset();
-        cr = encoder.encode(CharBuffer.wrap(this.systemKey), this.systemKeyBb,
-                true);
-        if (cr.isError()) {
-            try {
-                cr.throwException();
-            } catch (CharacterCodingException e) {
-                throw new IllegalArgumentException(this.systemKey, e);
-            }
-        }
-        this.systemKeyBb.flip();
 
         this.timeBinDuration = Long
                 .parseLong(System.getProperty("de.zib.sfs.timeBin.duration"));
@@ -205,19 +175,69 @@ public class LiveOperationStatisticsAggregator {
                 .parseInt(System.getProperty("de.zib.sfs.timeBin.cacheSize"));
         String outputDirectory = System
                 .getProperty("de.zib.sfs.output.directory");
+
+        // output format specifics
         this.outputFormat = OutputFormat.valueOf(
                 System.getProperty("de.zib.sfs.output.format").toUpperCase());
         switch (this.outputFormat) {
         case CSV:
-            this.csvStringBuilder = ThreadLocal
-                    .withInitial(() -> new StringBuilder(256));
+            this.csvOutputSeparator = ",";
+            this.csvNewLine = System.lineSeparator();
+
+            // guard against weird hostnames in CSV output
+            this.systemHostname = this.systemHostname
+                    .replaceAll(this.csvOutputSeparator, "");
+
+            // StringBuilder capacity is in chars, so divide by 2
+            this.csvStringBuilder = ThreadLocal.withInitial(
+                    () -> new StringBuilder(OUTPUT_BUFFER_CAPACITY >> 1));
             this.csvWriters = new BufferedWriter[OperationSource.VALUES.length
                     * OperationCategory.VALUES.length];
             break;
         case FB:
         case BB:
-            this.bbBuffer = ThreadLocal
-                    .withInitial(() -> ByteBuffer.allocateDirect(256));
+            CharsetEncoder encoder = Charset.forName("US-ASCII").newEncoder();
+
+            // pre-encode hostname
+            if (this.systemHostname.length()
+                    - Byte.MAX_VALUE > Byte.MAX_VALUE) {
+                throw new IllegalArgumentException(this.systemHostname);
+            }
+            this.systemHostnameBb = ByteBuffer
+                    .allocateDirect(this.systemHostname.length());
+            encoder.reset();
+            CoderResult cr = encoder.encode(
+                    CharBuffer.wrap(this.systemHostname), this.systemHostnameBb,
+                    true);
+            if (cr.isError()) {
+                try {
+                    cr.throwException();
+                } catch (CharacterCodingException e) {
+                    throw new IllegalArgumentException(this.systemHostname, e);
+                }
+            }
+            this.systemHostnameBb.flip();
+
+            // same with key
+            if (this.systemKey.length() - Byte.MAX_VALUE > Byte.MAX_VALUE) {
+                throw new IllegalArgumentException(this.systemKey);
+            }
+            this.systemKeyBb = ByteBuffer
+                    .allocateDirect(this.systemKey.length());
+            encoder.reset();
+            cr = encoder.encode(CharBuffer.wrap(this.systemKey),
+                    this.systemKeyBb, true);
+            if (cr.isError()) {
+                try {
+                    cr.throwException();
+                } catch (CharacterCodingException e) {
+                    throw new IllegalArgumentException(this.systemKey, e);
+                }
+            }
+            this.systemKeyBb.flip();
+
+            this.bbBuffer = ThreadLocal.withInitial(
+                    () -> ByteBuffer.allocateDirect(OUTPUT_BUFFER_CAPACITY));
             this.bbChannels = new FileChannel[OperationSource.VALUES.length
                     * OperationCategory.VALUES.length];
             break;
@@ -487,151 +507,213 @@ public class LiveOperationStatisticsAggregator {
         return this.initialized;
     }
 
-    void write(int aggregate) throws IOException {
+    void write(ConcurrentIntIntSkipListMap.ValueIterator vi,
+            OperationSource source, OperationCategory category, int index)
+            throws IOException {
         switch (this.outputFormat) {
         case CSV:
-            writeCsv(aggregate);
+            writeCsv(vi, source, category, index);
             break;
         case FB:
         case BB:
-            writeBinary(aggregate);
+            writeBinary(vi, source, category, index);
             break;
         default:
             throw new IllegalArgumentException(this.outputFormat.name());
         }
-
-        OperationStatistics.returnOperationStatistics(aggregate);
     }
 
-    private void writeCsv(int aggregate) throws IOException {
-        MemoryPool mp = OperationStatistics.getMemoryPool(aggregate);
-        int sanitizedAggregate = OperationStatistics.sanitizeAddress(aggregate);
-        OperationSource source = OperationStatistics.getSource(mp,
-                sanitizedAggregate);
-        OperationCategory category = OperationStatistics.getCategory(mp,
-                sanitizedAggregate);
-        int index = getUniqueIndex(source, category);
-
+    private void writeCsv(ConcurrentIntIntSkipListMap.ValueIterator vi,
+            OperationSource source, OperationCategory category, int index)
+            throws IOException {
         StringBuilder sb = this.csvStringBuilder.get();
         sb.setLength(0);
 
-        if (this.csvWriters[index] == null) {
-            synchronized (this.writerLocks[index]) {
-                if (this.csvWriters[index] == null) {
-                    String filename = getLogFilePrefix() + "."
-                            + source.name().toLowerCase() + "."
-                            + category.name().toLowerCase() + "."
-                            + this.initializationTime + "."
-                            + this.outputFormat.name().toLowerCase();
+        boolean first = true;
+        while (vi.hasNext()) {
+            int aggregate = vi.next();
 
-                    File file = new File(filename);
-                    if (!file.exists()) {
-                        sb.append("hostname");
-                        sb.append(this.csvOutputSeparator).append("pid");
-                        sb.append(this.csvOutputSeparator).append("key");
-                        sb.append(this.csvOutputSeparator);
-                        OperationStatistics.getCsvHeaders(aggregate,
-                                this.csvOutputSeparator, sb);
+            // only check on first iteration
+            if (first && this.csvWriters[index] == null) {
+                synchronized (this.writerLocks[index]) {
+                    // first thread to initialize writer also writes the headers
+                    if (this.csvWriters[index] == null) {
+                        String filename = getLogFilePrefix() + "."
+                                + source.name().toLowerCase() + "."
+                                + category.name().toLowerCase() + "."
+                                + this.initializationTime + "."
+                                + this.outputFormat.name().toLowerCase();
 
-                        // we will receive writes to this file as well
-                        @SuppressWarnings("resource") // is closed during
-                                                      // shutdown
-                        BufferedWriter bw = new BufferedWriter(
-                                new FileWriter(file));
-                        bw.write(sb.toString());
-                        bw.newLine();
+                        File file = new File(filename);
+                        if (!file.exists()) {
+                            sb.append("hostname");
+                            sb.append(this.csvOutputSeparator).append("pid");
+                            sb.append(this.csvOutputSeparator).append("key");
+                            sb.append(this.csvOutputSeparator);
+                            OperationStatistics.getCsvHeaders(aggregate,
+                                    this.csvOutputSeparator, sb);
+                            sb.append(this.csvNewLine);
 
-                        sb.setLength(0);
+                            // we will receive writes to this file as well in
+                            // FileOutputStreamCallback
+                            // bw is closed in shutdown
+                            @SuppressWarnings("resource")
+                            BufferedWriter bw = new BufferedWriter(
+                                    new FileWriter(file));
+                            bw.write(sb.toString());
+                            sb.setLength(0);
 
-                        // must be the last instruction in this synchronized
-                        // block
-                        this.csvWriters[index] = bw;
-                    } else {
-                        throw new IOException(filename + " already exists");
+                            // this must be the last instruction in this
+                            // synchronized block since other threads try to
+                            // bail out early without obtaining the lock
+                            this.csvWriters[index] = bw;
+                        } else {
+                            throw new IOException(filename + " already exists");
+                        }
                     }
                 }
             }
+
+            // at this point, the writer is initialized and the headers have
+            // been written
+            first = false;
+
+            // thread-local StringBuilder does not need to be synchronized
+            sb.append(this.systemHostname);
+            sb.append(this.csvOutputSeparator).append(this.systemPid);
+            sb.append(this.csvOutputSeparator).append(this.systemKey);
+            sb.append(this.csvOutputSeparator);
+            OperationStatistics.toCsv(aggregate, this.csvOutputSeparator, sb);
+            OperationStatistics.returnOperationStatistics(aggregate);
+            sb.append(this.csvNewLine);
+
+            // synchronized spill to source/category specific log file if the
+            // buffer is full enough
+            if (sb.length() >= CSV_OUTPUT_BUFFER_SPILL_THRESHOLD) {
+                String csv = sb.toString();
+                synchronized (this.writerLocks[index]) {
+                    this.csvWriters[index].write(csv);
+                }
+                sb.setLength(0);
+            }
         }
 
-        sb.append(this.systemHostname);
-        sb.append(this.csvOutputSeparator).append(this.systemPid);
-        sb.append(this.csvOutputSeparator).append(this.systemKey);
-        sb.append(this.csvOutputSeparator);
-        OperationStatistics.toCsv(aggregate, this.csvOutputSeparator, sb);
-
-        synchronized (this.writerLocks[index]) {
-            this.csvWriters[index].write(sb.toString());
-            this.csvWriters[index].newLine();
+        // write remains
+        if (sb.length() > 0) {
+            String csv = sb.toString();
+            synchronized (this.writerLocks[index]) {
+                this.csvWriters[index].write(csv);
+            }
         }
     }
 
     @SuppressWarnings("resource") // we close the channels on shutdown
-    private void writeBinary(int aggregate) throws IOException {
-        MemoryPool mp = OperationStatistics.getMemoryPool(aggregate);
-        int sanitizedAggregate = OperationStatistics.sanitizeAddress(aggregate);
-
-        OperationSource source = OperationStatistics.getSource(mp,
-                sanitizedAggregate);
-        OperationCategory category = OperationStatistics.getCategory(mp,
-                sanitizedAggregate);
-        int index = getUniqueIndex(source, category);
-
-        if (this.bbChannels[index] == null) {
-            synchronized (this.writerLocks[index]) {
-                if (this.bbChannels[index] == null) {
-                    String filename = getLogFilePrefix() + "."
-                            + source.name().toLowerCase() + "."
-                            + category.name().toLowerCase() + "."
-                            + this.initializationTime + "."
-                            + this.outputFormat.name().toLowerCase();
-
-                    File file = new File(filename);
-                    if (!file.exists()) {
-                        // must be the last instruction in this synchronized
-                        // block
-                        this.bbChannels[index] = new FileOutputStream(file)
-                                .getChannel();
-                    } else {
-                        throw new IOException(filename + " already exists");
-                    }
-                }
-            }
-        }
+    private void writeBinary(ConcurrentIntIntSkipListMap.ValueIterator vi,
+            OperationSource source, OperationCategory category, int index)
+            throws IOException {
+        /* approach similar to writeCsv, see over there for comments */
 
         ByteBuffer bb = this.bbBuffer.get();
         bb.clear();
-        boolean overflow;
-        do {
-            overflow = false;
-            try {
-                switch (this.outputFormat) {
-                case FB:
-                    OperationStatistics.toFlatBuffer(aggregate,
-                            this.systemHostname, this.systemPid, this.systemKey,
-                            bb);
-                    // resulting buffer is already 'flipped'
-                    break;
-                case BB:
-                    OperationStatisticsBufferBuilder.serialize(
-                            this.systemHostnameBb, this.systemPid,
-                            this.systemKeyBb, aggregate, bb);
-                    bb.flip();
-                    break;
-                case CSV:
-                    // this should not happen
-                default:
-                    throw new IllegalArgumentException(
-                            this.outputFormat.name());
-                }
-            } catch (BufferOverflowException e) {
-                overflow = true;
-                bb = ByteBuffer.allocateDirect(bb.capacity() << 1);
-                this.bbBuffer.set(bb);
-            }
-        } while (overflow);
 
-        synchronized (this.writerLocks[index]) {
-            this.bbChannels[index].write(bb);
+        boolean first = true;
+        while (vi.hasNext()) {
+            int aggregate = vi.next();
+
+            if (first && this.bbChannels[index] == null) {
+                synchronized (this.writerLocks[index]) {
+                    if (this.bbChannels[index] == null) {
+                        String filename = getLogFilePrefix() + "."
+                                + source.name().toLowerCase() + "."
+                                + category.name().toLowerCase() + "."
+                                + this.initializationTime + "."
+                                + this.outputFormat.name().toLowerCase();
+
+                        File file = new File(filename);
+                        if (!file.exists()) {
+                            this.bbChannels[index] = new FileOutputStream(file)
+                                    .getChannel();
+                        } else {
+                            throw new IOException(filename + " already exists");
+                        }
+                    }
+                }
+            }
+
+            first = false;
+
+            boolean spill = false;
+            switch (this.outputFormat) {
+            case FB:
+                // FlatBuffers are built from the back, so create a slice with
+                // slice.capacity() == bb.remaining()
+                ByteBuffer slice = bb.slice(); // implicit new: bad!
+
+                // after this, slice's position points to the start of
+                // aggregate, so slice.remaining() is aggregate's size in slice
+                OperationStatistics.toFlatBuffer(aggregate, this.systemHostname,
+                        this.systemPid, this.systemKey, slice);
+
+                // decrease bb's limit by aggregate's size to reduce
+                // bb.capacity() while leaving its position at 0
+                bb.limit(bb.limit() - slice.remaining());
+
+                // capacity minus limit now indicates the total amount of data
+                // written to bb
+                if ((spill = bb.capacity() - bb
+                        .limit() >= OUTPUT_BUFFER_SPILL_THRESHOLD) == true) {
+                    // custom 'flip' for reading
+                    bb.position(bb.limit());
+                    bb.limit(bb.capacity());
+                }
+                break;
+            case BB:
+                OperationStatisticsBufferBuilder.serialize(
+                        this.systemHostnameBb, this.systemPid, this.systemKeyBb,
+                        aggregate, bb);
+                if ((spill = bb
+                        .position() >= OUTPUT_BUFFER_SPILL_THRESHOLD) == true) {
+                    // flip for reading
+                    bb.flip();
+                }
+                break;
+            case CSV:
+                // this should not happen
+            default:
+                throw new IllegalArgumentException(this.outputFormat.name());
+            }
+
+            if (spill) {
+                // bb is already flipped
+                synchronized (this.writerLocks[index]) {
+                    this.bbChannels[index].write(bb);
+                }
+                bb.clear();
+            }
+        }
+
+        switch (this.outputFormat) {
+        case FB:
+            if (bb.capacity() - bb.limit() > 0) {
+                bb.position(bb.limit());
+                bb.limit(bb.capacity());
+                synchronized (this.writerLocks[index]) {
+                    this.bbChannels[index].write(bb);
+                }
+            }
+            break;
+        case BB:
+            if (bb.position() > 0) {
+                bb.flip();
+                synchronized (this.writerLocks[index]) {
+                    this.bbChannels[index].write(bb);
+                }
+            }
+            break;
+        case CSV:
+            // this should not happen
+        default:
+            throw new IllegalArgumentException(this.outputFormat.name());
         }
     }
 
@@ -804,6 +886,42 @@ public class LiveOperationStatisticsAggregator {
         }
     }
 
+    static OperationSource getSource(int index) {
+        switch (index) {
+        case 0:
+        case 1:
+        case 2:
+        case 6:
+            return OperationSource.JVM;
+        case 3:
+        case 4:
+        case 5:
+        case 7:
+            return OperationSource.SFS;
+        default:
+            throw new IllegalArgumentException(Integer.toString(index));
+        }
+    }
+
+    static OperationCategory getCategory(int index) {
+        switch (index) {
+        case 0:
+        case 3:
+            return OperationCategory.READ;
+        case 1:
+        case 4:
+            return OperationCategory.WRITE;
+        case 2:
+        case 5:
+            return OperationCategory.OTHER;
+        case 6:
+        case 7:
+            return OperationCategory.ZIP;
+        default:
+            throw new IllegalArgumentException(Integer.toString(index));
+        }
+    }
+
     private class AggregationTask implements Runnable {
         public AggregationTask() {
         }
@@ -836,9 +954,11 @@ public class LiveOperationStatisticsAggregator {
                         .sanitizeAddress(aggregate);
 
                 // get the time bin applicable for this operation
-                int index = getUniqueIndex(
-                        OperationStatistics.getSource(mp, aggregateAddress),
-                        OperationStatistics.getCategory(mp, aggregateAddress));
+                OperationSource source = OperationStatistics.getSource(mp,
+                        aggregateAddress);
+                OperationCategory category = OperationStatistics.getCategory(mp,
+                        aggregateAddress);
+                int index = getUniqueIndex(source, category);
                 ConcurrentLongObjectSkipListMap<ConcurrentIntIntSkipListMap> timeBins = LiveOperationStatisticsAggregator.this.aggregates
                         .get(index);
 
@@ -879,14 +999,11 @@ public class LiveOperationStatisticsAggregator {
                     if (size > LiveOperationStatisticsAggregator.this.timeBinCacheSize) {
                         for (int i = size / 2; i > 0; --i) {
                             try {
-                                ConcurrentIntIntSkipListMap entry = timeBins
+                                ConcurrentIntIntSkipListMap fds = timeBins
                                         .poll();
-                                if (entry != null) {
-                                    ConcurrentIntIntSkipListMap.ValueIterator vi = entry
-                                            .values();
-                                    while (vi.hasNext()) {
-                                        write(vi.next());
-                                    }
+                                if (fds != null) {
+                                    write(fds.values(), source, category,
+                                            index);
                                 } else {
                                     break;
                                 }
@@ -912,14 +1029,11 @@ public class LiveOperationStatisticsAggregator {
                 while ((fileDescriptors = timeBins.poll()) != null) {
                     // fileDescriptors is exclusive to this thread, so it's safe
                     // to iterate over the values
-                    ConcurrentIntIntSkipListMap.ValueIterator vi = fileDescriptors
-                            .values();
-                    while (vi.hasNext()) {
-                        try {
-                            write(vi.next());
-                        } catch (IOException e) {
-                            throw new RuntimeException(e);
-                        }
+                    try {
+                        write(fileDescriptors.values(), getSource(i),
+                                getCategory(i), i);
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
                     }
                 }
             }
