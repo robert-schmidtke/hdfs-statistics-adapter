@@ -399,8 +399,10 @@ if [ -z "$NO_SFS" ]; then
 echo "Size of files in /local_ssd/$USER/sfs on \$(hostname):"
 du -c -h /local_ssd/$USER/sfs
 
-# execute postrun aggregation
-# java -cp $SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar de.zib.sfs.instrument.statistics.PostRunOperationStatisticsAggregator --path /local_ssd/$USER/sfs --prefix "\$(hostname)-" --suffix "-concat" --delete
+# execute postrun aggregation for CSVs
+if [ "$OUT_FMT" == "csv" ]; then
+  java -cp $SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar de.zib.sfs.instrument.statistics.PostRunOperationStatisticsAggregator --path /local_ssd/$USER/sfs --prefix "\$(hostname)-" --suffix "-concat" --delete
+fi
 
 cd /local_ssd/$USER/sfs
 for file in \$(find . -name "*.$OUT_FMT"); do
@@ -418,15 +420,16 @@ EOF
   echo "$(date): Copying logs done"
 fi
 
+# put the files in a separate, uncompressed archive for BBs
+if [ "$OUT_FMT" == "bb" ]; then
+  cd $SFS_TARGET_DIRECTORY
+  find . -name "*.$OUT_FMT" > $OUT_FMT.files
+  tar cf $OUT_FMT.tar --files-from $OUT_FMT.files
+  rm $OUT_FMT.files
+  find . -name "*.$OUT_FMT" | xargs rm
+fi
+
 # pack the results
-
-# put the files in a separate, uncompressed archive
-cd $SFS_TARGET_DIRECTORY
-find . -name "*.$OUT_FMT" > $OUT_FMT.files
-tar cf $OUT_FMT.tar --files-from $OUT_FMT.files
-rm $OUT_FMT.files
-find . -name "*.$OUT_FMT" | xargs rm
-
 tar czf $SFS_DIRECTORY/$SLURM_JOB_ID-$ENGINE-terasort-results.tar.gz $SFS_TARGET_DIRECTORY
 
 if [ "$RET_CODE" -eq "0" ]; then
