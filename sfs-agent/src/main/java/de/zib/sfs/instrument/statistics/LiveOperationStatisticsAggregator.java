@@ -653,6 +653,7 @@ public class LiveOperationStatisticsAggregator {
                 // aggregate, so slice.remaining() is aggregate's size in slice
                 OperationStatistics.toFlatBuffer(aggregate, this.systemHostname,
                         this.systemPid, this.systemKey, slice);
+                OperationStatistics.returnOperationStatistics(aggregate);
 
                 // decrease bb's limit by aggregate's size to reduce
                 // bb.capacity() while leaving its position at 0
@@ -671,6 +672,8 @@ public class LiveOperationStatisticsAggregator {
                 OperationStatisticsBufferBuilder.serialize(
                         this.systemHostnameBb, this.systemPid, this.systemKeyBb,
                         aggregate, bb);
+                OperationStatistics.returnOperationStatistics(aggregate);
+
                 if ((spill = bb
                         .position() >= OUTPUT_BUFFER_SPILL_THRESHOLD) == true) {
                     // flip for reading
