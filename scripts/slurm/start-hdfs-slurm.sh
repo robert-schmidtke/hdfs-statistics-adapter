@@ -379,6 +379,10 @@ cat > $HADOOP_CONF_DIR/yarn-site.xml << EOF
     <value>org.apache.hadoop.mapred.ShuffleHandler</value>
   </property>
   <property>
+    <name>yarn.nodemanager.sleep-delay-before-sigkill.ms</name>
+    <value>5000</value>
+  </property>
+  <property>
     <name>yarn.nodemanager.pmem-check-enabled</name>
     <value>false</value>
   </property>
