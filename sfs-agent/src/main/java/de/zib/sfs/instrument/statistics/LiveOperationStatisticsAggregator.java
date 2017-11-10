@@ -392,16 +392,15 @@ public class LiveOperationStatisticsAggregator {
         long shutdownWait = 0;
         int taskQueueSize = 0;
         try {
-            long startWait;
             if (Globals.SHUTDOWN_DIAGNOSTICS) {
                 taskQueueSize = this.taskQueue.remaining();
-                startWait = System.currentTimeMillis();
+                shutdownWait = System.currentTimeMillis();
             }
             if (!this.threadPool.awaitTermination(30, TimeUnit.SECONDS)) {
                 System.err.println("Thread pool did not shut down");
             }
             if (Globals.SHUTDOWN_DIAGNOSTICS) {
-                shutdownWait = System.currentTimeMillis() - startWait;
+                shutdownWait = System.currentTimeMillis() - shutdownWait;
             }
         } catch (InterruptedException e) {
             e.printStackTrace();
@@ -433,8 +432,15 @@ public class LiveOperationStatisticsAggregator {
         }
 
         // write out the descriptor mappings
+        long fdWait = 0;
         if (this.traceFileDescriptors) {
+            if (Globals.SHUTDOWN_DIAGNOSTICS) {
+                fdWait = System.currentTimeMillis();
+            }
             writeFileDescriptorMappings();
+            if (Globals.SHUTDOWN_DIAGNOSTICS) {
+                fdWait = System.currentTimeMillis() - fdWait;
+            }
         }
 
         if (Globals.LOCK_DIAGNOSTICS) {
@@ -459,8 +465,9 @@ public class LiveOperationStatisticsAggregator {
 
         if (Globals.SHUTDOWN_DIAGNOSTICS) {
             System.err.println("SFS Shutdown Diagnostics");
-            System.err.println("  - TaskQueue:   " + taskQueueSize);
-            System.err.println("  - Thread pool: " + shutdownWait + "ms");
+            System.err.println("  - TaskQueue:        " + taskQueueSize);
+            System.err.println("  - Thread pool:      " + shutdownWait + "ms");
+            System.err.println("  - File Descriptors: " + fdWait + "ms");
         }
     }
 
