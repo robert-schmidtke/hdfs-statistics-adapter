@@ -11,6 +11,7 @@ usage() {
   echo "  -a|--map-opts the JVM Options to pass to each mapper (default: not specified)"
   echo "  -e|--reduce-opts the JVM Options to pass to each reducer (default: not specified)"
   echo "  -y|--yarn-opts the YARN_OPTS to set (default: not specified)"
+  echo "  -p|--mrappmaster-opts the JVM Options to pass to each MRAppMaster (default: not specified)"
   echo "  -l|--ld-library-path the LD_LIBRARY_PATH to set (default: not specified)"
   echo "  -c|--colocate-datanode-with-namenode (default: not specified/false)"
   echo "SFS specific options (default: not specified/do not use SFS):"
@@ -68,6 +69,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     -y|--yarn-opts)
       YARN_OPTS="$2"
+      shift
+      ;;
+    -p|--mrappmaster-opts)
+      MRAPPMASTER_OPTS="$2"
       shift
       ;;
     -l|--ld-library-path)
@@ -329,6 +334,14 @@ cat > $HADOOP_CONF_DIR/mapred-site.xml << EOF
   <property>
     <name>mapreduce.task.io.sort.mb</name>
     <value>1024</value>
+  </property>
+  <property>
+    <name>yarn.app.mapreduce.am.command-opts</name>
+    <value>-Xmx1024M $MRAPPMASTER_OPTS</value>
+  </property>
+  <property>
+    <name>yarn.app.mapreduce.am.env</name>
+    <value>LD_LIBRARY_PATH=\${LD_LIBRARY_PATH}:${LD_LIBRARY_PATH_EXT}</value>
   </property>
 <!--
   <property>
