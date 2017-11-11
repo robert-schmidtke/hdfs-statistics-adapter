@@ -1662,12 +1662,16 @@ public class InstrumentationTest {
         for (File file : files) {
             @SuppressWarnings("resource") // we close the channel
             FileChannel bbChannel = new FileInputStream(file).getChannel();
-            ByteBuffer buffer = ByteBuffer.allocate((int) file.length());
+            ByteBuffer buffer = ByteBuffer.allocate((int) file.length())
+                    .order(ByteOrder.LITTLE_ENDIAN);
             while (buffer.remaining() > 0) {
                 bbChannel.read(buffer);
             }
             bbChannel.close();
             buffer.flip();
+
+            // first long contains number of elements
+            long expectedCount = buffer.getLong(), actualCount = 0;
 
             while (buffer.remaining() > 0) {
                 int operationStatistics = -1;
@@ -1721,8 +1725,12 @@ public class InstrumentationTest {
                     throw new IllegalArgumentException();
                 }
 
+                ++actualCount;
                 callback.call(operationStatistics);
             }
+
+            assert (expectedCount == actualCount) : expectedCount + " vs. "
+                    + actualCount + " elements";
 
             // remove statistics file at the end to avoid counting it twice
             // in future test runs

@@ -32,6 +32,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 import com.google.flatbuffers.FlatBufferBuilder;
 
@@ -96,6 +97,9 @@ public class LiveOperationStatisticsAggregator {
     // for FlatBuffer/ByteBuffer output
     private ThreadLocal<ByteBuffer> bbBuffer;
     FileChannel[] bbChannels;
+
+    // to keep track of the number of operation statistics
+    private AtomicLong[] counters;
 
     private final ExecutorService threadPool;
     IntQueue taskQueue;
@@ -240,6 +244,12 @@ public class LiveOperationStatisticsAggregator {
                     () -> ByteBuffer.allocateDirect(OUTPUT_BUFFER_CAPACITY));
             this.bbChannels = new FileChannel[OperationSource.VALUES.length
                     * OperationCategory.VALUES.length];
+
+            this.counters = new AtomicLong[OperationSource.VALUES.length
+                    * OperationCategory.VALUES.length];
+            for (int i = 0; i < this.counters.length; ++i) {
+                this.counters[i] = new AtomicLong(0);
+            }
             break;
         default:
             throw new IllegalArgumentException(this.outputFormat.name());
@@ -439,13 +449,22 @@ public class LiveOperationStatisticsAggregator {
             break;
         case FB:
         case BB:
-            for (FileChannel channel : this.bbChannels)
+            ByteBuffer bbCount = ByteBuffer.allocate(8)
+                    .order(ByteOrder.LITTLE_ENDIAN);
+            for (int i = 0; i < this.bbChannels.length; ++i) {
+                FileChannel channel = this.bbChannels[i];
                 if (channel != null)
                     try {
+                        // prepend the number of elements in the channel
+                        bbCount.putLong(0, this.counters[i].get());
+                        channel.write(bbCount, 0L);
+                        bbCount.position(0);
+
                         channel.close();
                     } catch (IOException e) {
                         throw new RuntimeException(e);
                     }
+            }
             break;
         default:
             throw new IllegalArgumentException(this.outputFormat.name());
@@ -616,11 +635,11 @@ public class LiveOperationStatisticsAggregator {
         ByteBuffer bb = this.bbBuffer.get();
         bb.clear();
 
-        boolean first = true;
+        long count = 0;
         while (vi.hasNext()) {
             int aggregate = vi.next();
 
-            if (first && this.bbChannels[index] == null) {
+            if (count == 0 && this.bbChannels[index] == null) {
                 synchronized (this.writerLocks[index]) {
                     if (this.bbChannels[index] == null) {
                         String filename = getLogFilePrefix() + "."
@@ -631,8 +650,18 @@ public class LiveOperationStatisticsAggregator {
 
                         File file = new File(filename);
                         if (!file.exists()) {
-                            this.bbChannels[index] = new FileOutputStream(file)
+                            FileChannel fc = new FileOutputStream(file)
                                     .getChannel();
+
+                            // leave space for prepending the number of elements
+                            // later
+                            ByteBuffer bbCount = ByteBuffer.allocate(8)
+                                    .order(ByteOrder.LITTLE_ENDIAN);
+                            bbCount.putLong(0, 0L);
+                            fc.write(bbCount);
+                            bbCount = null;
+
+                            this.bbChannels[index] = fc;
                         } else {
                             throw new IOException(filename + " already exists");
                         }
@@ -640,7 +669,7 @@ public class LiveOperationStatisticsAggregator {
                 }
             }
 
-            first = false;
+            ++count;
 
             boolean spill = false;
             switch (this.outputFormat) {
@@ -694,6 +723,8 @@ public class LiveOperationStatisticsAggregator {
                 bb.clear();
             }
         }
+
+        this.counters[index].addAndGet(count);
 
         switch (this.outputFormat) {
         case FB:
