@@ -554,7 +554,7 @@ done
 export JOBHISTORY_SERVER_LOG=/local_ssd/$HDFS_LOCAL_LOG_DIR/jobhistory_server-$(hostname).log
 
 echo "$(date): Starting JobHistory Server on $(hostname)."
-nohup $HADOOP_PREFIX/sbin/mr-jobhistory-daemon.sh --config $HADOOP_CONF_DIR start historyserver >> $JOBHISTORY_SERVER_LOG 2>&1 &
+nohup $HADOOP_PREFIX/bin/mapred --config $HADOOP_CONF_DIR historyserver >> $JOBHISTORY_SERVER_LOG 2>&1 &
 # echo $! > /local/$HDFS_LOCAL_DIR/jobhistory_server-$(hostname).pid
 echo $! > /local_ssd/$HDFS_LOCAL_DIR/jobhistory_server-$(hostname).pid
 # echo "$(date): Starting JobHistory Server done (PID file /local/$HDFS_LOCAL_DIR/jobhistory_server-$(hostname).pid)."
