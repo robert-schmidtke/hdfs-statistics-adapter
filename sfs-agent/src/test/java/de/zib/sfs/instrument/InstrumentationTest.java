@@ -1794,6 +1794,9 @@ public class InstrumentationTest {
             channel.close();
             bb.flip();
 
+            // first int contains number of elements
+            int expectedCount = bb.getInt(), actualCount = 0;
+
             // keep track of file descriptors
             boolean[] fileDescriptors = new boolean[32];
 
@@ -1819,7 +1822,12 @@ public class InstrumentationTest {
                 }
 
                 out.put(fdm.getFd(), fdm.getPath());
+
+                ++actualCount;
             }
+
+            assert (expectedCount == actualCount) : expectedCount + " vs. "
+                    + actualCount + " elements";
 
             // 0 is not handed out
             assert (!fileDescriptors[0]);

@@ -853,8 +853,14 @@ public class LiveOperationStatisticsAggregator {
 
             ByteBuffer bb = ByteBuffer.allocateDirect(1048576);
             bb.order(ByteOrder.LITTLE_ENDIAN);
+
+            // prepend the number of file descriptor mappings
+            Set<Map.Entry<String, Integer>> fileDescriptorMappings = this.filenameToFd
+                    .entrySet();
+            bb.putInt(fileDescriptorMappings.size());
+
             bb.mark();
-            for (Map.Entry<String, Integer> fd : this.filenameToFd.entrySet()) {
+            for (Map.Entry<String, Integer> fd : fileDescriptorMappings) {
                 try {
                     FileDescriptorMappingBufferBuilder.serialize(fd.getValue(),
                             fd.getKey(), this.systemHostnameBb, this.systemPid,
