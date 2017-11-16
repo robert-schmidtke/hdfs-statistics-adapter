@@ -351,9 +351,34 @@ public class LiveOperationStatisticsAggregator {
             return;
         }
 
-        int os = OperationStatistics.getOperationStatistics(
-                this.timeBinDuration, source, category, startTime, endTime, fd);
-        this.taskQueue.offer(os);
+        // stretch request proportionally over time bins
+        long startTimeBin = startTime - startTime % this.timeBinDuration;
+        long endTimeBin = endTime - endTime % this.timeBinDuration;
+
+        if (startTimeBin == endTimeBin) {
+            int os = OperationStatistics.getOperationStatistics(1, startTimeBin,
+                    endTime - startTime, source, category, fd);
+            this.taskQueue.offer(os);
+        } else {
+            // start from the last time bin and proceed to the second one
+            for (long tb = endTimeBin; tb > startTimeBin; tb -= this.timeBinDuration) {
+                // for tb > startTimeBin, endTime > tb
+                long currentDuration = endTime - tb;
+
+                // set endTime to the current timeBin
+                endTime = tb;
+
+                int os = OperationStatistics.getOperationStatistics(0, tb,
+                        currentDuration, source, category, fd);
+                this.taskQueue.offer(os);
+            }
+
+            // only the first timeBin remains now
+            int os = OperationStatistics.getOperationStatistics(1, startTimeBin,
+                    endTime - startTime, source, category, fd);
+            this.taskQueue.offer(os);
+        }
+
         if (Globals.POOL_DIAGNOSTICS) {
             maxQueueSize.updateAndGet(
                     (v) -> Math.max(v, this.taskQueue.remaining()));
@@ -370,10 +395,35 @@ public class LiveOperationStatisticsAggregator {
             return;
         }
 
-        int dos = DataOperationStatistics.getDataOperationStatistics(
-                this.timeBinDuration, source, category, startTime, endTime, fd,
-                data);
-        this.taskQueue.offer(dos);
+        long startTimeBin = startTime - startTime % this.timeBinDuration;
+        long endTimeBin = endTime - endTime % this.timeBinDuration;
+        long duration = endTime - startTime;
+
+        if (startTimeBin == endTimeBin) {
+            int dos = DataOperationStatistics.getDataOperationStatistics(1,
+                    startTimeBin, duration, source, category, fd, data);
+            this.taskQueue.offer(dos);
+        } else {
+            long remainingData = data;
+            for (long tb = endTimeBin; tb > startTimeBin; tb -= this.timeBinDuration) {
+                long currentDuration = endTime - tb;
+                endTime = tb;
+
+                long currentData = (long) ((float) currentDuration / duration
+                        * data);
+                remainingData -= currentData;
+
+                int dos = DataOperationStatistics.getDataOperationStatistics(0,
+                        tb, currentDuration, source, category, fd, currentData);
+                this.taskQueue.offer(dos);
+            }
+
+            int dos = DataOperationStatistics.getDataOperationStatistics(1,
+                    startTimeBin, endTime - startTime, source, category, fd,
+                    remainingData);
+            this.taskQueue.offer(dos);
+        }
+
         if (Globals.POOL_DIAGNOSTICS) {
             maxQueueSize.updateAndGet(
                     (v) -> Math.max(v, this.taskQueue.remaining()));
@@ -390,10 +440,43 @@ public class LiveOperationStatisticsAggregator {
             return;
         }
 
-        int rdos = ReadDataOperationStatistics.getReadDataOperationStatistics(
-                this.timeBinDuration, source, category, startTime, endTime, fd,
-                data, isRemote);
-        this.taskQueue.offer(rdos);
+        long startTimeBin = startTime - startTime % this.timeBinDuration;
+        long endTimeBin = endTime - endTime % this.timeBinDuration;
+        long duration = endTime - startTime;
+
+        if (startTimeBin == endTimeBin) {
+            int rdos = ReadDataOperationStatistics
+                    .getReadDataOperationStatistics(1, startTimeBin, duration,
+                            source, category, fd, data, isRemote ? 1 : 0,
+                            isRemote ? duration : 0, isRemote ? data : 0);
+            this.taskQueue.offer(rdos);
+        } else {
+            long remainingData = data;
+            for (long tb = endTimeBin; tb > startTimeBin; tb -= this.timeBinDuration) {
+                long currentDuration = endTime - tb;
+                endTime = tb;
+
+                long currentData = (long) ((float) currentDuration / duration
+                        * data);
+                remainingData -= currentData;
+
+                int rdos = ReadDataOperationStatistics
+                        .getReadDataOperationStatistics(0, tb, currentDuration,
+                                source, category, fd, currentData, 0,
+                                isRemote ? currentDuration : 0,
+                                isRemote ? currentData : 0);
+                this.taskQueue.offer(rdos);
+            }
+
+            int rdos = ReadDataOperationStatistics
+                    .getReadDataOperationStatistics(1, startTimeBin,
+                            endTime - startTime, source, category, fd,
+                            remainingData, 0,
+                            isRemote ? endTime - startTime : 0,
+                            isRemote ? remainingData : 0);
+            this.taskQueue.offer(rdos);
+        }
+
         if (Globals.POOL_DIAGNOSTICS) {
             maxQueueSize.updateAndGet(
                     (v) -> Math.max(v, this.taskQueue.remaining()));
