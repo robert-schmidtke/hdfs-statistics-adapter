@@ -934,7 +934,8 @@ public class LiveOperationStatisticsAggregator {
                             + this.outputFormat.name().toLowerCase()))
                                     .getChannel();
 
-            ByteBuffer bb = ByteBuffer.allocateDirect(1048576);
+            ByteBuffer bb = this.bbBuffer.get();
+            bb.clear();
             bb.order(ByteOrder.LITTLE_ENDIAN);
 
             // prepend the number of file descriptor mappings
@@ -942,33 +943,25 @@ public class LiveOperationStatisticsAggregator {
                     .entrySet();
             bb.putInt(fileDescriptorMappings.size());
 
-            bb.mark();
             for (Map.Entry<String, Integer> fd : fileDescriptorMappings) {
-                try {
-                    FileDescriptorMappingBufferBuilder.serialize(fd.getValue(),
-                            fd.getKey(), this.systemHostnameBb, this.systemPid,
-                            this.systemKeyBb, bb);
+                FileDescriptorMappingBufferBuilder.serialize(fd.getValue(),
+                        fd.getKey(), this.systemHostnameBb, this.systemPid,
+                        this.systemKeyBb, bb);
 
-                    // remember last good position
-                    bb.mark();
-                } catch (BufferOverflowException e) {
-                    // reset to last good position
-                    bb.reset();
-
-                    // prepare for reading
+                // buffer reached write threshold
+                if (bb.position() >= OUTPUT_BUFFER_SPILL_THRESHOLD) {
                     bb.flip();
-
-                    // flush buffer
                     fileDescriptorMappingsChannel.write(bb);
-
-                    // empty and reset buffer
                     bb.clear();
                 }
             }
 
             // write remains
-            bb.flip();
-            fileDescriptorMappingsChannel.write(bb);
+            if (bb.position() > 0) {
+                bb.flip();
+                fileDescriptorMappingsChannel.write(bb);
+            }
+
             fileDescriptorMappingsChannel.close();
         } catch (IOException e) {
             throw new RuntimeException(e);
