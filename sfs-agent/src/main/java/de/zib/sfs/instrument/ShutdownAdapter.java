@@ -53,7 +53,7 @@ public class ShutdownAdapter extends ClassVisitor {
                             LiveOperationStatisticsAggregator.class));
 
             // make the call to shutdown blocking
-            this.mv.visitLdcInsn(Opcodes.ICONST_1);
+            this.mv.visitInsn(Opcodes.ICONST_1);
             this.mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
                     liveOperationStatisticsAggregatorInternalName, "shutdown",
                     Type.getMethodDescriptor(Type.VOID_TYPE, Type.BOOLEAN_TYPE),
