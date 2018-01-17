@@ -53,7 +53,8 @@ public class LiveOperationStatisticsAggregator {
     private boolean initializing;
 
     boolean initialized;
-    boolean shutDown;
+
+    private boolean shutDown;
 
     private String systemHostname, systemKey;
     private ByteBuffer systemHostnameBb, systemKeyBb;
@@ -497,7 +498,7 @@ public class LiveOperationStatisticsAggregator {
                 // block this call until we are truly shut down
                 while (block && !this.shutDown) {
                     try {
-                        Thread.sleep(100);
+                        wait(60000);
                     } catch (InterruptedException e) {
                         throw new RuntimeException(
                                 "Interrupted during blocking shutdown");
@@ -607,6 +608,9 @@ public class LiveOperationStatisticsAggregator {
         }
 
         this.shutDown = true;
+        synchronized (this) {
+            notifyAll();
+        }
     }
 
     public String getLogFilePrefix() {
