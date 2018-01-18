@@ -13,6 +13,7 @@ import java.io.FileDescriptor;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.BufferOverflowException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.CharBuffer;
@@ -53,7 +54,6 @@ public class LiveOperationStatisticsAggregator {
     private boolean initializing;
 
     boolean initialized;
-    boolean shutDown;
 
     private String systemHostname, systemKey;
     private ByteBuffer systemHostnameBb, systemKeyBb;
@@ -158,7 +158,6 @@ public class LiveOperationStatisticsAggregator {
 
         this.initializing = false;
         this.initialized = false;
-        this.shutDown = false;
     }
 
     public void initialize() {
@@ -488,21 +487,8 @@ public class LiveOperationStatisticsAggregator {
     }
 
     public void shutdown() {
-        shutdown(false);
-    }
-
-    public void shutdown(boolean block) {
         synchronized (this) {
             if (!this.initialized) {
-                // block this call until we are truly shut down
-                while (block && !this.shutDown) {
-                    try {
-                        Thread.sleep(100);
-                    } catch (InterruptedException e) {
-                        throw new RuntimeException(
-                                "Interrupted during blocking shutdown");
-                    }
-                }
                 return;
             }
             this.initialized = false;
@@ -605,8 +591,6 @@ public class LiveOperationStatisticsAggregator {
             System.err.println("  - Thread pool:      " + shutdownWait + "ms");
             System.err.println("  - File Descriptors: " + fdWait + "ms");
         }
-
-        this.shutDown = true;
     }
 
     public String getLogFilePrefix() {

@@ -51,13 +51,9 @@ public class ShutdownAdapter extends ClassVisitor {
                     liveOperationStatisticsAggregatorInternalName, "instance",
                     Type.getDescriptor(
                             LiveOperationStatisticsAggregator.class));
-
-            // make the call to shutdown blocking
-            this.mv.visitLdcInsn(Opcodes.ICONST_1);
             this.mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
                     liveOperationStatisticsAggregatorInternalName, "shutdown",
-                    Type.getMethodDescriptor(Type.VOID_TYPE, Type.BOOLEAN_TYPE),
-                    false);
+                    Type.getMethodDescriptor(Type.VOID_TYPE), false);
         }
 
     }
