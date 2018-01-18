@@ -495,16 +495,15 @@ public class LiveOperationStatisticsAggregator {
     public void shutdown(boolean block) {
         synchronized (this) {
             if (!this.initialized) {
-                // block this call until we are hopefully shut down
-                if (!this.shutDown && block) {
+                // block this call until we are truly shut down
+                while (block && !this.shutDown) {
                     try {
-                        this.wait(60000);
+                        wait(60000);
                     } catch (InterruptedException e) {
                         throw new RuntimeException(
                                 "Interrupted during blocking shutdown");
                     }
                 }
-
                 return;
             }
             this.initialized = false;
@@ -610,7 +609,7 @@ public class LiveOperationStatisticsAggregator {
 
         this.shutDown = true;
         synchronized (this) {
-            this.notifyAll();
+            notifyAll();
         }
     }
 
