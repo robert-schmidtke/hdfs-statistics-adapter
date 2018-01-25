@@ -23,9 +23,10 @@ public class DataOperationStatistics extends OperationStatistics {
     private static final int POOL_SIZE = getPoolSize(
             "de.zib.sfs.dataOperationStatistics.poolSize", SIZE);
     public static final AtomicInteger maxPoolSize = Globals.POOL_DIAGNOSTICS
-            ? new AtomicInteger(0) : null;
+            ? new AtomicInteger(0)
+            : null;
 
-    public static int getDataOperationStatistics() {
+    public static long getDataOperationStatistics() {
         if (memory[DOS_OFFSET] == null) {
             synchronized (DataOperationStatistics.class) {
                 if (memory[DOS_OFFSET] == null) {
@@ -40,13 +41,13 @@ public class DataOperationStatistics extends OperationStatistics {
             maxPoolSize.updateAndGet((v) -> Math.max(v,
                     POOL_SIZE - memory[DOS_OFFSET].remaining()));
         }
-        return address | (DOS_OFFSET << 29);
+        return address | ((long) DOS_OFFSET << 61);
     }
 
-    public static int getDataOperationStatistics(long count, long timeBin,
+    public static long getDataOperationStatistics(long count, long timeBin,
             long cpuTime, OperationSource source, OperationCategory category,
             int fd, long data) {
-        int address = getDataOperationStatistics();
+        long address = getDataOperationStatistics();
         getDataOperationStatistics(getMemoryPool(address),
                 sanitizeAddress(address), count, timeBin, cpuTime, source,
                 category, fd, data);
@@ -61,7 +62,7 @@ public class DataOperationStatistics extends OperationStatistics {
         setData(mp, address, data);
     }
 
-    public static int getDataOperationStatistics(long timeBinDuration,
+    public static long getDataOperationStatistics(long timeBinDuration,
             OperationSource source, OperationCategory category, long startTime,
             long endTime, int fd, long data) {
         return getDataOperationStatistics(1,
@@ -69,7 +70,7 @@ public class DataOperationStatistics extends OperationStatistics {
                 source, category, fd, data);
     }
 
-    public static long getData(int address) {
+    public static long getData(long address) {
         return getData(getMemoryPool(address), sanitizeAddress(address));
     }
 
@@ -77,7 +78,7 @@ public class DataOperationStatistics extends OperationStatistics {
         return mp.pool.getLong(address + DATA_OFFSET);
     }
 
-    public static void setData(int address, long data) {
+    public static void setData(long address, long data) {
         setData(getMemoryPool(address), sanitizeAddress(address), data);
     }
 
@@ -85,7 +86,7 @@ public class DataOperationStatistics extends OperationStatistics {
         mp.pool.putLong(address + DATA_OFFSET, data);
     }
 
-    public static void incrementData(int address, long data) {
+    public static void incrementData(long address, long data) {
         incrementData(getMemoryPool(address), sanitizeAddress(address), data);
     }
 

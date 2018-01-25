@@ -54,7 +54,7 @@ struct CliOptions {
   std::string data_operation_statistics_pool_size;
   std::string read_data_operation_statistics_pool_size;
   std::string task_queue_size;
-  std::string int_queue_lock_cache_size;
+  std::string long_queue_lock_cache_size;
   std::string operation_statistics_lock_cache_size;
   bool trace_mmap;
   bool trace_fds;
@@ -175,9 +175,9 @@ static bool parse_options(char *command_line_options, CliOptions *cli_options) {
           cli_options->task_queue_size = std::string(suboption);
           tq_pool_set = true;
         }
-      } else if (strcmp(option, "iq_lock_cache") == 0) {
+      } else if (strcmp(option, "lq_lock_cache") == 0) {
         if (get_tok(&options, suboption, (int)sizeof(suboption), ',')) {
-          cli_options->int_queue_lock_cache_size = std::string(suboption);
+          cli_options->long_queue_lock_cache_size = std::string(suboption);
         }
       } else if (strcmp(option, "os_lock_cache") == 0) {
         if (get_tok(&options, suboption, (int)sizeof(suboption), ',')) {

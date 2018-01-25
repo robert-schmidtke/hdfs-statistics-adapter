@@ -11,7 +11,7 @@ import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
-public class IntQueue {
+public class LongQueue {
 
     public static class OutOfMemoryException extends RuntimeException {
         private static final long serialVersionUID = 4987025963701460798L;
@@ -23,13 +23,13 @@ public class IntQueue {
     static {
         int size = 1024;
         String sizeString = System
-                .getProperty("de.zib.sfs.intQueue.lockCacheSize");
+                .getProperty("de.zib.sfs.longQueue.lockCacheSize");
         if (sizeString != null) {
             try {
                 size = Integer.parseInt(sizeString);
             } catch (NumberFormatException e) {
                 System.err.println(
-                        "Invalid number for de.zib.sfs.intQueue.lockCacheSize: "
+                        "Invalid number for de.zib.sfs.longQueue.lockCacheSize: "
                                 + sizeString + ", falling back to " + size
                                 + ".");
             }
@@ -50,12 +50,12 @@ public class IntQueue {
 
     private final int numElements;
 
-    // pointers to the next int that can be polled/offered
+    // pointers to the next long that can be polled/offered
     private final AtomicInteger pollIndex, offerIndex;
     private final long sanitizer;
 
-    public IntQueue(int queueSize) {
-        this.queue = ByteBuffer.allocateDirect(queueSize << 2);
+    public LongQueue(int queueSize) {
+        this.queue = ByteBuffer.allocateDirect(queueSize << 3);
         this.numElements = queueSize;
         this.pollIndex = new AtomicInteger(0);
         this.offerIndex = new AtomicInteger(0);
@@ -64,7 +64,7 @@ public class IntQueue {
         this.sanitizer = 2L * Integer.MAX_VALUE + 2L;
     }
 
-    public int poll() {
+    public long poll() {
         int index = this.pollIndex.get();
         if (this.offerIndex.get() - index > 0) {
             int sanitizedIndex = sanitizeIndex(index);
@@ -81,18 +81,18 @@ public class IntQueue {
                 }
 
                 if (this.pollIndex.compareAndSet(index, index + 1)) {
-                    return this.queue.getInt(sanitizedIndex << 2);
+                    return this.queue.getLong(sanitizedIndex << 3);
                 }
             }
         }
-        return Integer.MIN_VALUE;
+        return Long.MIN_VALUE;
     }
 
-    public void offer(int value) {
+    public void offer(long value) {
         if (Globals.STRICT) {
-            if (value == Integer.MIN_VALUE) {
-                throw new IllegalArgumentException("Integer.MIN_VALUE ("
-                        + Integer.MIN_VALUE + ") is a reserved value.");
+            if (value == Long.MIN_VALUE) {
+                throw new IllegalArgumentException("Long.MIN_VALUE ("
+                        + Long.MIN_VALUE + ") is a reserved value.");
             }
         }
 
@@ -118,7 +118,7 @@ public class IntQueue {
                 }
 
                 if (this.offerIndex.compareAndSet(index, index + 1)) {
-                    this.queue.putInt(sanitizedIndex << 2, value);
+                    this.queue.putLong(sanitizedIndex << 3, value);
                     return;
                 }
             }

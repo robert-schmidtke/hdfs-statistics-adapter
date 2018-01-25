@@ -16,17 +16,17 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import de.zib.sfs.instrument.util.IntQueue.OutOfMemoryException;
+import de.zib.sfs.instrument.util.LongQueue.OutOfMemoryException;
 
-public class IntQueueTest {
+public class LongQueueTest {
 
     private static final int QUEUE_SIZE = 1024;
 
-    IntQueue queue;
+    LongQueue queue;
 
     @Before
     public void setUp() {
-        this.queue = new IntQueue(QUEUE_SIZE);
+        this.queue = new LongQueue(QUEUE_SIZE);
     }
 
     @Test
@@ -52,10 +52,10 @@ public class IntQueueTest {
 
     @Test
     public void testPollTooMany() {
-        Assert.assertEquals(Integer.MIN_VALUE, this.queue.poll());
+        Assert.assertEquals(Long.MIN_VALUE, this.queue.poll());
         this.queue.offer(42);
         Assert.assertEquals(42, this.queue.poll());
-        Assert.assertEquals(Integer.MIN_VALUE, this.queue.poll());
+        Assert.assertEquals(Long.MIN_VALUE, this.queue.poll());
     }
 
     @Test
@@ -95,15 +95,15 @@ public class IntQueueTest {
             public Void call() {
                 try {
                     for (int i = 1; i <= QUEUE_SIZE; ++i) {
-                        int index;
+                        long index;
                         do {
-                            index = IntQueueTest.this.queue.poll();
-                        } while (index == Integer.MIN_VALUE);
+                            index = LongQueueTest.this.queue.poll();
+                        } while (index == Long.MIN_VALUE);
 
                         // non-atomic add should reveal concurrency issues
-                        values[index] += i;
+                        values[(int) index] += i;
 
-                        IntQueueTest.this.queue.offer(index);
+                        LongQueueTest.this.queue.offer(index);
                     }
                 } catch (Throwable t) {
                     t.printStackTrace();
@@ -149,11 +149,11 @@ public class IntQueueTest {
             public Void call() {
                 try {
                     for (int i = 1; i <= QUEUE_SIZE; ++i) {
-                        IntQueueTest.this.queue.offer(i);
-                        int v;
+                        LongQueueTest.this.queue.offer(i);
+                        long v;
                         do {
-                            v = IntQueueTest.this.queue.poll();
-                        } while (v == Integer.MIN_VALUE);
+                            v = LongQueueTest.this.queue.poll();
+                        } while (v == Long.MIN_VALUE);
 
                         Assert.assertTrue(v >= 1 && v <= QUEUE_SIZE);
                     }

@@ -99,7 +99,8 @@ public class InstrumentationTest {
         boolean useThreading = Boolean.parseBoolean(arguments[1]);
 
         int numProcessors = useThreading
-                ? Runtime.getRuntime().availableProcessors() : 1;
+                ? Runtime.getRuntime().availableProcessors()
+                : 1;
         ExecutorService executor = Executors.newFixedThreadPool(numProcessors);
         System.err.println("Running on " + numProcessors + " cores");
 
@@ -1479,7 +1480,7 @@ public class InstrumentationTest {
 
         aggregator.shutdown();
 
-        List<NavigableMap<Long, NavigableMap<Integer, Integer>>> aggregates = new ArrayList<>();
+        List<NavigableMap<Long, NavigableMap<Integer, Long>>> aggregates = new ArrayList<>();
         for (int i = 0; i < OperationSource.VALUES.length
                 * OperationCategory.VALUES.length; ++i) {
             aggregates.add(new ConcurrentSkipListMap<>());
@@ -1513,7 +1514,7 @@ public class InstrumentationTest {
                 assert (category.equals(
                         OperationStatistics.getCategory(operationStatistics)));
 
-                NavigableMap<Long, NavigableMap<Integer, Integer>> timeBins = aggregates
+                NavigableMap<Long, NavigableMap<Integer, Long>> timeBins = aggregates
                         .get(LiveOperationStatisticsAggregator.getUniqueIndex(
                                 OperationStatistics
                                         .getSource(operationStatistics),
@@ -1521,7 +1522,7 @@ public class InstrumentationTest {
                                         .getCategory(operationStatistics)));
 
                 // get the file descriptor applicable for this operation
-                NavigableMap<Integer, Integer> fileDescriptors = timeBins
+                NavigableMap<Integer, Long> fileDescriptors = timeBins
                         .computeIfAbsent(
                                 OperationStatistics
                                         .getTimeBin(operationStatistics),
@@ -1608,7 +1609,7 @@ public class InstrumentationTest {
     }
 
     private static interface OperationStatisticsCallback {
-        public void call(int os);
+        public void call(long os);
     }
 
     private static void processFilesCsv(File[] files,
@@ -1623,7 +1624,7 @@ public class InstrumentationTest {
             while ((line = reader.readLine()) != null) {
                 // LiveOperationStatisticsAggregator prepends hostname, pid
                 // and key for each line
-                int operationStatistics = -1;
+                long operationStatistics = -1;
                 switch (category) {
                 case OTHER:
                     operationStatistics = OperationStatistics
@@ -1674,7 +1675,7 @@ public class InstrumentationTest {
             long expectedCount = buffer.getLong(), actualCount = 0;
 
             while (buffer.remaining() > 0) {
-                int operationStatistics = -1;
+                long operationStatistics = -1;
                 switch (LiveOperationStatisticsAggregator.instance
                         .getOutputFormat()) {
                 case FB:
@@ -1907,14 +1908,14 @@ public class InstrumentationTest {
     }
 
     private static void assertOperationCount(
-            List<NavigableMap<Long, NavigableMap<Integer, Integer>>> aggregates,
+            List<NavigableMap<Long, NavigableMap<Integer, Long>>> aggregates,
             OperationSource source, OperationCategory category, long atLeast) {
-        Map<Long, NavigableMap<Integer, Integer>> timeBins = aggregates
+        Map<Long, NavigableMap<Integer, Long>> timeBins = aggregates
                 .get(LiveOperationStatisticsAggregator.getUniqueIndex(source,
                         category));
         long operationCount = 0;
-        for (Map<Integer, Integer> fds : timeBins.values()) {
-            for (Integer os : fds.values()) {
+        for (Map<Integer, Long> fds : timeBins.values()) {
+            for (Long os : fds.values()) {
                 operationCount += OperationStatistics.getCount(os);
             }
         }
@@ -1924,16 +1925,16 @@ public class InstrumentationTest {
     }
 
     private static void assertOperationData(
-            List<NavigableMap<Long, NavigableMap<Integer, Integer>>> aggregates,
+            List<NavigableMap<Long, NavigableMap<Integer, Long>>> aggregates,
             Map<Integer, String> fileDescriptorMappings, OperationSource source,
             OperationCategory category, long exact, long atMost) {
-        Map<Long, NavigableMap<Integer, Integer>> timeBins = aggregates
+        Map<Long, NavigableMap<Integer, Long>> timeBins = aggregates
                 .get(LiveOperationStatisticsAggregator.getUniqueIndex(source,
                         category));
         Map<Integer, Long> operationDataPerFd = new HashMap<>();
         long allData = 0;
-        for (Map<Integer, Integer> fds : timeBins.values()) {
-            for (Integer os : fds.values()) {
+        for (Map<Integer, Long> fds : timeBins.values()) {
+            for (Long os : fds.values()) {
                 assert (OperationStatistics.getOperationStatisticsOffset(
                         os) >= OperationStatistics.DOS_OFFSET) : os;
                 long data = DataOperationStatistics.getData(os);

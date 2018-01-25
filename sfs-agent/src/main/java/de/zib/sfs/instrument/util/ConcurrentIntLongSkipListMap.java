@@ -16,20 +16,20 @@ import java.lang.reflect.Constructor;
 import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicLong;
 
-// greatly reduced and int-int-specialized version
+// greatly reduced and int-long-specialized version
 @SuppressWarnings("restriction")
-public class ConcurrentIntIntSkipListMap {
+public class ConcurrentIntLongSkipListMap {
 
-    public static interface IntBiFunction {
-        public int apply(int a, int b);
+    public static interface LongBiFunction {
+        public long apply(long a, long b);
     }
 
     static final class Node {
         final int key;
-        int val;
+        long val;
         Node next;
 
-        Node(int key, int value, Node next) {
+        Node(int key, long value, Node next) {
             this.key = key;
             this.val = value;
             this.next = next;
@@ -51,7 +51,7 @@ public class ConcurrentIntIntSkipListMap {
     public final class ValueIterator {
         Node lastReturned;
         Node next;
-        int nextValue;
+        long nextValue;
 
         ValueIterator() {
             advance(baseHead());
@@ -63,18 +63,18 @@ public class ConcurrentIntIntSkipListMap {
 
         final void advance(Node b) {
             Node n = null;
-            int v = Integer.MIN_VALUE;
+            long v = Long.MIN_VALUE;
             if ((this.lastReturned = b) != null) {
-                while ((n = b.next) != null && (v = n.val) == Integer.MIN_VALUE)
+                while ((n = b.next) != null && (v = n.val) == Long.MIN_VALUE)
                     b = n;
             }
             this.nextValue = v;
             this.next = n;
         }
 
-        public int next() {
-            int v;
-            if ((v = this.nextValue) == Integer.MIN_VALUE)
+        public long next() {
+            long v;
+            if ((v = this.nextValue) == Long.MIN_VALUE)
                 throw new NoSuchElementException();
             advance(this.next);
             return v;
@@ -86,24 +86,23 @@ public class ConcurrentIntIntSkipListMap {
     private static final AtomicLong seeder = new AtomicLong(
             mix64(System.currentTimeMillis()) ^ mix64(System.nanoTime()));
 
-    public int merge(int key, int value, IntBiFunction remappingFunction) {
-        if (key == Integer.MIN_VALUE || value == Integer.MIN_VALUE
+    public long merge(int key, long value, LongBiFunction remappingFunction) {
+        if (key == Integer.MIN_VALUE || value == Long.MIN_VALUE
                 || remappingFunction == null)
             throw new NullPointerException();
         for (;;) {
             Node n;
-            int v, r;
+            long v, r;
             if ((n = findNode(key)) == null) {
-                if (doPut(key, value, true) == Integer.MIN_VALUE)
+                if (doPut(key, value, true) == Long.MIN_VALUE)
                     return value;
-            } else if ((v = n.val) != Integer.MIN_VALUE) {
-                if ((r = remappingFunction.apply(v,
-                        value)) != Integer.MIN_VALUE) {
-                    if (U.compareAndSwapInt(n, VAL, v, r)) {
+            } else if ((v = n.val) != Long.MIN_VALUE) {
+                if ((r = remappingFunction.apply(v, value)) != Long.MIN_VALUE) {
+                    if (U.compareAndSwapLong(n, VAL, v, r)) {
                         return r;
                     }
-                } else if (doRemove(key, v) != Integer.MIN_VALUE)
-                    return Integer.MIN_VALUE;
+                } else if (doRemove(key, v) != Long.MIN_VALUE)
+                    return Long.MIN_VALUE;
             }
         }
     }
@@ -125,7 +124,7 @@ public class ConcurrentIntIntSkipListMap {
                     Node p;
                     int k;
                     if ((p = r.node) == null || (k = p.key) == Integer.MIN_VALUE
-                            || p.val == Integer.MIN_VALUE) {
+                            || p.val == Long.MIN_VALUE) {
                         U.compareAndSwapObject(q, RIGHT, r, r.right);
                         c = 0;
                     } else if ((c = key > k ? 1 : (key < k ? -1 : 0)) > 0)
@@ -160,7 +159,7 @@ public class ConcurrentIntIntSkipListMap {
         return ((h = this.head) == null) ? null : h.node;
     }
 
-    private int doPut(int key, int value, boolean onlyIfAbsent) {
+    private long doPut(int key, long value, boolean onlyIfAbsent) {
         if (key == Integer.MIN_VALUE)
             throw new NullPointerException();
         for (;;) {
@@ -169,8 +168,7 @@ public class ConcurrentIntIntSkipListMap {
             U.loadFence();
             int levels = 0;
             if ((h = this.head) == null) {
-                Node base = new Node(Integer.MIN_VALUE, Integer.MIN_VALUE,
-                        null);
+                Node base = new Node(Integer.MIN_VALUE, Long.MIN_VALUE, null);
                 h = new Index(base, null, null);
                 b = (U.compareAndSwapObject(this, HEAD, null, h)) ? base : null;
             } else {
@@ -180,7 +178,7 @@ public class ConcurrentIntIntSkipListMap {
                         int k;
                         if ((p = r.node) == null
                                 || (k = p.key) == Integer.MIN_VALUE
-                                || p.val == Integer.MIN_VALUE) {
+                                || p.val == Long.MIN_VALUE) {
                             U.compareAndSwapObject(q, RIGHT, r, r.right);
                         } else if (key > k)
                             q = r;
@@ -200,18 +198,19 @@ public class ConcurrentIntIntSkipListMap {
                 Node z = null;
                 for (;;) {
                     Node n, p;
-                    int k, v, c;
+                    int k, c;
+                    long v;
                     if ((n = b.next) == null) {
                         c = -1;
                     } else if ((k = n.key) == Integer.MIN_VALUE)
                         break;
-                    else if ((v = n.val) == Integer.MIN_VALUE) {
+                    else if ((v = n.val) == Long.MIN_VALUE) {
                         unlinkNode(b, n);
                         c = 1;
                     } else if ((c = key > k ? 1 : (key < k ? -1 : 0)) > 0)
                         b = n;
                     else if (c == 0 && (onlyIfAbsent
-                            || U.compareAndSwapInt(n, VAL, v, value)))
+                            || U.compareAndSwapLong(n, VAL, v, value)))
                         return v;
 
                     if (c < 0 && U.compareAndSwapObject(b, NEXT, n,
@@ -240,45 +239,46 @@ public class ConcurrentIntIntSkipListMap {
                             Index nh = new Index(h.node, h, hx);
                             U.compareAndSwapObject(this, HEAD, h, nh);
                         }
-                        if (z.val == Integer.MIN_VALUE)
+                        if (z.val == Long.MIN_VALUE)
                             findPredecessor(key);
                     }
-                    return Integer.MIN_VALUE;
+                    return Long.MIN_VALUE;
                 }
             }
         }
     }
 
-    final int doRemove(int key, int value) {
+    final long doRemove(int key, long value) {
         if (key == Integer.MIN_VALUE)
             throw new NullPointerException();
-        int result = Integer.MIN_VALUE;
+        long result = Long.MIN_VALUE;
         Node b;
         outer: while ((b = findPredecessor(key)) != null
-                && result == Integer.MIN_VALUE) {
+                && result == Long.MIN_VALUE) {
             for (;;) {
                 Node n;
-                int k, v, c;
+                int k, c;
+                long v;
                 if ((n = b.next) == null)
                     break outer;
                 else if ((k = n.key) == Integer.MIN_VALUE)
                     break;
-                else if ((v = n.val) == Integer.MIN_VALUE)
+                else if ((v = n.val) == Long.MIN_VALUE)
                     unlinkNode(b, n);
                 else if ((c = key > k ? 1 : (key < k ? -1 : 0)) > 0)
                     b = n;
                 else if (c < 0)
                     break outer;
-                else if (value != Integer.MIN_VALUE && value != v)
+                else if (value != Long.MIN_VALUE && value != v)
                     break outer;
-                else if (U.compareAndSwapInt(n, VAL, v, Integer.MIN_VALUE)) {
+                else if (U.compareAndSwapLong(n, VAL, v, Long.MIN_VALUE)) {
                     result = v;
                     unlinkNode(b, n);
                     break;
                 }
             }
         }
-        if (result != Integer.MIN_VALUE) {
+        if (result != Long.MIN_VALUE) {
             tryReduceLevel();
         }
         return result;
@@ -296,7 +296,7 @@ public class ConcurrentIntIntSkipListMap {
                     break outer;
                 else if ((k = n.key) == Integer.MIN_VALUE)
                     break;
-                else if (n.val == Integer.MIN_VALUE)
+                else if (n.val == Long.MIN_VALUE)
                     unlinkNode(b, n);
                 else if ((c = key > k ? 1 : (key < k ? -1 : 0)) > 0)
                     b = n;
@@ -319,7 +319,7 @@ public class ConcurrentIntIntSkipListMap {
                 Node p;
                 int k;
                 if ((p = r.node) == null || (k = p.key) == Integer.MIN_VALUE
-                        || p.val == Integer.MIN_VALUE) {
+                        || p.val == Long.MIN_VALUE) {
                     U.compareAndSwapObject(q, RIGHT, r, r.right);
                 } else if (key > k)
                     q = r;
@@ -351,7 +351,7 @@ public class ConcurrentIntIntSkipListMap {
                     p = f.next;
                     break;
                 } else if (U.compareAndSwapObject(n, NEXT, f,
-                        new Node(Integer.MIN_VALUE, Integer.MIN_VALUE, f))) {
+                        new Node(Integer.MIN_VALUE, Long.MIN_VALUE, f))) {
                     p = f;
                     break;
                 }
@@ -399,8 +399,8 @@ public class ConcurrentIntIntSkipListMap {
                     .getDeclaredConstructor();
             unsafeConstructor.setAccessible(true);
             U = unsafeConstructor.newInstance();
-            HEAD = U.objectFieldOffset(
-                    ConcurrentIntIntSkipListMap.class.getDeclaredField("head"));
+            HEAD = U.objectFieldOffset(ConcurrentIntLongSkipListMap.class
+                    .getDeclaredField("head"));
             NEXT = U.objectFieldOffset(Node.class.getDeclaredField("next"));
             VAL = U.objectFieldOffset(Node.class.getDeclaredField("val"));
             RIGHT = U.objectFieldOffset(Index.class.getDeclaredField("right"));

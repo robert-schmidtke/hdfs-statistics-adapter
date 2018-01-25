@@ -49,12 +49,13 @@ public class OperationStatistics {
     private static final int POOL_SIZE = getPoolSize(
             "de.zib.sfs.operationStatistics.poolSize", SIZE);
     public static final AtomicInteger maxPoolSize = Globals.POOL_DIAGNOSTICS
-            ? new AtomicInteger(0) : null;
+            ? new AtomicInteger(0)
+            : null;
 
     protected static int getPoolSize(String key, int size) {
-        // 2^29 - 1 = 536870911 bytes is the most we can do, because we need the
-        // next two higher bits
-        int maxElements = (536870911 - (536870911 % size) - size) / size;
+        // we can only allocate Integer.MAX_VALUE bytes in one pool
+        int maxElements = (Integer.MAX_VALUE - (Integer.MAX_VALUE % size)
+                - size) / size;
         String sizeString = System.getProperty(key);
         if (sizeString != null) {
             try {
@@ -65,6 +66,9 @@ public class OperationStatistics {
                         .println("Invalid number for " + key + ": " + sizeString
                                 + ", falling back to " + maxElements + ".");
             }
+        } else {
+            // calculate roughly 10 MiB worth
+            return (10485760 - (10485760 % size) - size) / size;
         }
         return maxElements;
     }
@@ -109,28 +113,29 @@ public class OperationStatistics {
     protected static final MemoryPool[] memory = new MemoryPool[3];
 
     // mask to extract the top two bits of each address
-    protected static final int ADDRESS_MASK = 0b11 << 29;
+    protected static final long ADDRESS_MASK = 0b11L << 61;
 
     // offsets into the above array
     public static final int OS_OFFSET = 0, DOS_OFFSET = 1, RDOS_OFFSET = 2;
 
-    public static MemoryPool getMemoryPool(int address) {
-        return memory[(address & ADDRESS_MASK) >> 29];
+    public static MemoryPool getMemoryPool(long address) {
+        return memory[(int) ((address & ADDRESS_MASK) >> 61)];
     }
 
-    public static OperationStatistics getImpl(int address) {
-        return impl[(address & ADDRESS_MASK) >> 29];
+    public static OperationStatistics getImpl(long address) {
+        return impl[(int) ((address & ADDRESS_MASK) >> 61)];
     }
 
-    public static int sanitizeAddress(int address) {
-        return address & ~ADDRESS_MASK;
+    public static int sanitizeAddress(long address) {
+        // sanitized address within a memory pool is always an integer
+        return (int) (address & ~ADDRESS_MASK);
     }
 
-    public static int getOperationStatisticsOffset(int address) {
-        return (address & ADDRESS_MASK) >> 29;
+    public static int getOperationStatisticsOffset(long address) {
+        return (int) ((address & ADDRESS_MASK) >> 61);
     }
 
-    public static int getOperationStatistics() {
+    public static long getOperationStatistics() {
         if (memory[OS_OFFSET] == null) {
             synchronized (OperationStatistics.class) {
                 if (memory[OS_OFFSET] == null) {
@@ -145,13 +150,13 @@ public class OperationStatistics {
             maxPoolSize.updateAndGet((v) -> Math.max(v,
                     POOL_SIZE - memory[OS_OFFSET].remaining()));
         }
-        return address | (OS_OFFSET << 29);
+        return address | ((long) OS_OFFSET << 61);
     }
 
-    public static int getOperationStatistics(long count, long timeBin,
+    public static long getOperationStatistics(long count, long timeBin,
             long cpuTime, OperationSource source, OperationCategory category,
             int fd) {
-        int address = getOperationStatistics();
+        long address = getOperationStatistics();
         getOperationStatistics(getMemoryPool(address), sanitizeAddress(address),
                 count, timeBin, cpuTime, source, category, fd);
         return address;
@@ -169,7 +174,7 @@ public class OperationStatistics {
         mp.pool.putInt(address + AGGREGATE_OFFSET, -1);
     }
 
-    public static int getOperationStatistics(long timeBinDuration,
+    public static long getOperationStatistics(long timeBinDuration,
             OperationSource source, OperationCategory category, long startTime,
             long endTime, int fd) {
         return getOperationStatistics(1,
@@ -177,11 +182,11 @@ public class OperationStatistics {
                 source, category, fd);
     }
 
-    public static void returnOperationStatistics(int address) {
+    public static void returnOperationStatistics(long address) {
         getMemoryPool(address).free(sanitizeAddress(address));
     }
 
-    public static long getCount(int address) {
+    public static long getCount(long address) {
         return getCount(getMemoryPool(address), sanitizeAddress(address));
     }
 
@@ -189,7 +194,7 @@ public class OperationStatistics {
         return mp.pool.getLong(address + COUNT_OFFSET);
     }
 
-    public static void setCount(int address, long count) {
+    public static void setCount(long address, long count) {
         setCount(getMemoryPool(address), sanitizeAddress(address), count);
     }
 
@@ -197,7 +202,7 @@ public class OperationStatistics {
         mp.pool.putLong(address + COUNT_OFFSET, count);
     }
 
-    public static void incrementCount(int address, long count) {
+    public static void incrementCount(long address, long count) {
         incrementCount(getMemoryPool(address), sanitizeAddress(address), count);
     }
 
@@ -206,7 +211,7 @@ public class OperationStatistics {
         mp.pool.putLong(address + COUNT_OFFSET, current + count);
     }
 
-    public static long getTimeBin(int address) {
+    public static long getTimeBin(long address) {
         return getTimeBin(getMemoryPool(address), sanitizeAddress(address));
     }
 
@@ -214,7 +219,7 @@ public class OperationStatistics {
         return mp.pool.getLong(address + TIME_BIN_OFFSET);
     }
 
-    public static void setTimeBin(int address, long timeBin) {
+    public static void setTimeBin(long address, long timeBin) {
         setTimeBin(getMemoryPool(address), sanitizeAddress(address), timeBin);
     }
 
@@ -222,7 +227,7 @@ public class OperationStatistics {
         mp.pool.putLong(address + TIME_BIN_OFFSET, timeBin);
     }
 
-    public static long getCpuTime(int address) {
+    public static long getCpuTime(long address) {
         return getCpuTime(getMemoryPool(address), sanitizeAddress(address));
     }
 
@@ -230,7 +235,7 @@ public class OperationStatistics {
         return mp.pool.getLong(address + CPU_TIME_OFFSET);
     }
 
-    public static void setCpuTime(int address, long cpuTime) {
+    public static void setCpuTime(long address, long cpuTime) {
         setCpuTime(getMemoryPool(address), sanitizeAddress(address), cpuTime);
     }
 
@@ -238,7 +243,7 @@ public class OperationStatistics {
         mp.pool.putLong(address + CPU_TIME_OFFSET, cpuTime);
     }
 
-    public static void incrementCpuTime(int address, long cpuTime) {
+    public static void incrementCpuTime(long address, long cpuTime) {
         incrementCpuTime(getMemoryPool(address), sanitizeAddress(address),
                 cpuTime);
     }
@@ -249,7 +254,7 @@ public class OperationStatistics {
         mp.pool.putLong(address + CPU_TIME_OFFSET, current + cpuTime);
     }
 
-    public static OperationSource getSource(int address) {
+    public static OperationSource getSource(long address) {
         return getSource(getMemoryPool(address), sanitizeAddress(address));
     }
 
@@ -257,7 +262,7 @@ public class OperationStatistics {
         return OperationSource.VALUES[mp.pool.get(address + SOURCE_OFFSET)];
     }
 
-    public static void setSource(int address, OperationSource source) {
+    public static void setSource(long address, OperationSource source) {
         setSource(getMemoryPool(address), sanitizeAddress(address), source);
     }
 
@@ -266,7 +271,7 @@ public class OperationStatistics {
         mp.pool.put(address + SOURCE_OFFSET, (byte) source.ordinal());
     }
 
-    public static OperationCategory getCategory(int address) {
+    public static OperationCategory getCategory(long address) {
         return getCategory(getMemoryPool(address), sanitizeAddress(address));
     }
 
@@ -274,7 +279,7 @@ public class OperationStatistics {
         return OperationCategory.VALUES[mp.pool.get(address + CATEGORY_OFFSET)];
     }
 
-    public static void setCategory(int address, OperationCategory category) {
+    public static void setCategory(long address, OperationCategory category) {
         setCategory(getMemoryPool(address), sanitizeAddress(address), category);
     }
 
@@ -283,7 +288,7 @@ public class OperationStatistics {
         mp.pool.put(address + CATEGORY_OFFSET, (byte) category.ordinal());
     }
 
-    public static int getFileDescriptor(int address) {
+    public static int getFileDescriptor(long address) {
         return getFileDescriptor(getMemoryPool(address),
                 sanitizeAddress(address));
     }
@@ -292,7 +297,7 @@ public class OperationStatistics {
         return mp.pool.getInt(address + FILE_DESCRIPTOR_OFFSET);
     }
 
-    public static void setFileDescriptor(int address, int fd) {
+    public static void setFileDescriptor(long address, int fd) {
         setFileDescriptor(getMemoryPool(address), sanitizeAddress(address), fd);
     }
 
@@ -300,7 +305,7 @@ public class OperationStatistics {
         mp.pool.putInt(address + FILE_DESCRIPTOR_OFFSET, fd);
     }
 
-    public static int aggregate(int address, int other)
+    public static long aggregate(long address, long other)
             throws NotAggregatableException {
         if (Globals.STRICT) {
             if ((address & ADDRESS_MASK) != (other & ADDRESS_MASK)) {
@@ -358,7 +363,7 @@ public class OperationStatistics {
         return address;
     }
 
-    public static void doAggregation(int address) {
+    public static void doAggregation(long address) {
         getImpl(address).doAggregationImpl(getMemoryPool(address),
                 sanitizeAddress(address));
     }
@@ -395,7 +400,7 @@ public class OperationStatistics {
         }
     }
 
-    public static void getCsvHeaders(int address, String separator,
+    public static void getCsvHeaders(long address, String separator,
             StringBuilder sb) {
         getImpl(address).getCsvHeadersImpl(getMemoryPool(address),
                 sanitizeAddress(address), separator, sb);
@@ -411,7 +416,7 @@ public class OperationStatistics {
         sb.append(separator).append("fileDescriptor");
     }
 
-    public static void toCsv(int address, String separator, StringBuilder sb) {
+    public static void toCsv(long address, String separator, StringBuilder sb) {
         getImpl(address).toCsvImpl(getMemoryPool(address),
                 sanitizeAddress(address), separator, sb);
     }
@@ -428,7 +433,7 @@ public class OperationStatistics {
         sb.append(separator).append(getFileDescriptor(mp, address));
     }
 
-    public static void fromCsv(String[] values, int off, int address) {
+    public static void fromCsv(String[] values, int off, long address) {
         getImpl(address).fromCsvImpl(values, off, getMemoryPool(address),
                 sanitizeAddress(address));
     }
@@ -445,7 +450,7 @@ public class OperationStatistics {
         setFileDescriptor(mp, address, Integer.parseInt(values[off + 5]));
     }
 
-    public static void toFlatBuffer(int address, String hostname, int pid,
+    public static void toFlatBuffer(long address, String hostname, int pid,
             String key, ByteBuffer bb) {
         if (overflowByteBufferFactory == null) {
             overflowByteBufferFactory = new ByteBufferFactory() {
@@ -497,7 +502,7 @@ public class OperationStatistics {
             OperationStatisticsFB.addFileDescriptor(builder, fileDescriptor);
     }
 
-    public static void fromFlatBuffer(ByteBuffer buffer, int address) {
+    public static void fromFlatBuffer(ByteBuffer buffer, long address) {
         buffer.order(ByteOrder.LITTLE_ENDIAN);
 
         int length = Constants.SIZE_PREFIX_LENGTH;
@@ -526,7 +531,7 @@ public class OperationStatistics {
         setFileDescriptor(mp, address, osfb.fileDescriptor());
     }
 
-    public static String toString(int address) {
+    public static String toString(long address) {
         return getImpl(address).toString(getMemoryPool(address),
                 sanitizeAddress(address));
     }

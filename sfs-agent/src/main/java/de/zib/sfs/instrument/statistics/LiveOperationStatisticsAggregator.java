@@ -13,7 +13,6 @@ import java.io.FileDescriptor;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.nio.BufferOverflowException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.CharBuffer;
@@ -39,10 +38,10 @@ import com.google.flatbuffers.FlatBufferBuilder;
 import de.zib.sfs.instrument.statistics.bb.FileDescriptorMappingBufferBuilder;
 import de.zib.sfs.instrument.statistics.bb.OperationStatisticsBufferBuilder;
 import de.zib.sfs.instrument.statistics.fb.FileDescriptorMappingFB;
-import de.zib.sfs.instrument.util.ConcurrentIntIntSkipListMap;
+import de.zib.sfs.instrument.util.ConcurrentIntLongSkipListMap;
 import de.zib.sfs.instrument.util.ConcurrentLongObjectSkipListMap;
 import de.zib.sfs.instrument.util.Globals;
-import de.zib.sfs.instrument.util.IntQueue;
+import de.zib.sfs.instrument.util.LongQueue;
 import de.zib.sfs.instrument.util.MemoryPool;
 
 public class LiveOperationStatisticsAggregator {
@@ -73,7 +72,7 @@ public class LiveOperationStatisticsAggregator {
 
     // for each source/category combination, map a time bin to an aggregate
     // operation statistics for each file
-    final List<ConcurrentLongObjectSkipListMap<ConcurrentIntIntSkipListMap>> aggregates;
+    final List<ConcurrentLongObjectSkipListMap<ConcurrentIntLongSkipListMap>> aggregates;
 
     // for coordinating writing of statistics
     private final Object[] writerLocks;
@@ -102,9 +101,10 @@ public class LiveOperationStatisticsAggregator {
     private AtomicLong[] counters;
 
     private final ExecutorService threadPool;
-    IntQueue taskQueue;
+    LongQueue taskQueue;
     public static final AtomicInteger maxQueueSize = Globals.POOL_DIAGNOSTICS
-            ? new AtomicInteger(0) : null;
+            ? new AtomicInteger(0)
+            : null;
 
     // we roll our own file descriptors because the ones issued by the OS can be
     // reused, but won't be if the file is not closed, so we just try and give a
@@ -264,7 +264,7 @@ public class LiveOperationStatisticsAggregator {
                 + this.systemHostname + "." + this.systemPid + "."
                 + this.systemKey;
 
-        int queueSize = 10 * 1048576;
+        int queueSize = 1310720; // 10 MiB worth of tasks
         String sizeString = System.getProperty("de.zib.sfs.queueSize");
         if (sizeString != null) {
             try {
@@ -274,7 +274,7 @@ public class LiveOperationStatisticsAggregator {
                         + sizeString + ", falling back to " + queueSize + ".");
             }
         }
-        this.taskQueue = new IntQueue(queueSize);
+        this.taskQueue = new LongQueue(queueSize);
 
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
@@ -356,8 +356,8 @@ public class LiveOperationStatisticsAggregator {
         long endTimeBin = endTime - endTime % this.timeBinDuration;
 
         if (startTimeBin == endTimeBin) {
-            int os = OperationStatistics.getOperationStatistics(1, startTimeBin,
-                    endTime - startTime, source, category, fd);
+            long os = OperationStatistics.getOperationStatistics(1,
+                    startTimeBin, endTime - startTime, source, category, fd);
             this.taskQueue.offer(os);
         } else {
             // start from the last time bin and proceed to the second one
@@ -368,14 +368,14 @@ public class LiveOperationStatisticsAggregator {
                 // set endTime to the current timeBin
                 endTime = tb;
 
-                int os = OperationStatistics.getOperationStatistics(0, tb,
+                long os = OperationStatistics.getOperationStatistics(0, tb,
                         currentDuration, source, category, fd);
                 this.taskQueue.offer(os);
             }
 
             // only the first timeBin remains now
-            int os = OperationStatistics.getOperationStatistics(1, startTimeBin,
-                    endTime - startTime, source, category, fd);
+            long os = OperationStatistics.getOperationStatistics(1,
+                    startTimeBin, endTime - startTime, source, category, fd);
             this.taskQueue.offer(os);
         }
 
@@ -400,7 +400,7 @@ public class LiveOperationStatisticsAggregator {
         long duration = endTime - startTime;
 
         if (startTimeBin == endTimeBin) {
-            int dos = DataOperationStatistics.getDataOperationStatistics(1,
+            long dos = DataOperationStatistics.getDataOperationStatistics(1,
                     startTimeBin, duration, source, category, fd, data);
             this.taskQueue.offer(dos);
         } else {
@@ -413,12 +413,12 @@ public class LiveOperationStatisticsAggregator {
                         * data);
                 remainingData -= currentData;
 
-                int dos = DataOperationStatistics.getDataOperationStatistics(0,
+                long dos = DataOperationStatistics.getDataOperationStatistics(0,
                         tb, currentDuration, source, category, fd, currentData);
                 this.taskQueue.offer(dos);
             }
 
-            int dos = DataOperationStatistics.getDataOperationStatistics(1,
+            long dos = DataOperationStatistics.getDataOperationStatistics(1,
                     startTimeBin, endTime - startTime, source, category, fd,
                     remainingData);
             this.taskQueue.offer(dos);
@@ -445,7 +445,7 @@ public class LiveOperationStatisticsAggregator {
         long duration = endTime - startTime;
 
         if (startTimeBin == endTimeBin) {
-            int rdos = ReadDataOperationStatistics
+            long rdos = ReadDataOperationStatistics
                     .getReadDataOperationStatistics(1, startTimeBin, duration,
                             source, category, fd, data, isRemote ? 1 : 0,
                             isRemote ? duration : 0, isRemote ? data : 0);
@@ -460,7 +460,7 @@ public class LiveOperationStatisticsAggregator {
                         * data);
                 remainingData -= currentData;
 
-                int rdos = ReadDataOperationStatistics
+                long rdos = ReadDataOperationStatistics
                         .getReadDataOperationStatistics(0, tb, currentDuration,
                                 source, category, fd, currentData, 0,
                                 isRemote ? currentDuration : 0,
@@ -468,7 +468,7 @@ public class LiveOperationStatisticsAggregator {
                 this.taskQueue.offer(rdos);
             }
 
-            int rdos = ReadDataOperationStatistics
+            long rdos = ReadDataOperationStatistics
                     .getReadDataOperationStatistics(1, startTimeBin,
                             endTime - startTime, source, category, fd,
                             remainingData, 0,
@@ -570,7 +570,7 @@ public class LiveOperationStatisticsAggregator {
             System.err.println("  - OperationStatistics: "
                     + OperationStatistics.lockWaitTime.get() + "ms");
             System.err.println("  - IntQueue:            "
-                    + IntQueue.lockWaitTime.get() + "ms");
+                    + LongQueue.lockWaitTime.get() + "ms");
         }
 
         if (Globals.POOL_DIAGNOSTICS) {
@@ -609,7 +609,7 @@ public class LiveOperationStatisticsAggregator {
         return this.initialized;
     }
 
-    void write(ConcurrentIntIntSkipListMap.ValueIterator vi,
+    void write(ConcurrentIntLongSkipListMap.ValueIterator vi,
             OperationSource source, OperationCategory category, int index)
             throws IOException {
         switch (this.outputFormat) {
@@ -625,7 +625,7 @@ public class LiveOperationStatisticsAggregator {
         }
     }
 
-    private void writeCsv(ConcurrentIntIntSkipListMap.ValueIterator vi,
+    private void writeCsv(ConcurrentIntLongSkipListMap.ValueIterator vi,
             OperationSource source, OperationCategory category, int index)
             throws IOException {
         StringBuilder sb = this.csvStringBuilder.get();
@@ -633,7 +633,7 @@ public class LiveOperationStatisticsAggregator {
 
         boolean first = true;
         while (vi.hasNext()) {
-            int aggregate = vi.next();
+            long aggregate = vi.next();
 
             // only check on first iteration
             if (first && this.csvWriters[index] == null) {
@@ -710,7 +710,7 @@ public class LiveOperationStatisticsAggregator {
     }
 
     @SuppressWarnings("resource") // we close the channels on shutdown
-    private void writeBinary(ConcurrentIntIntSkipListMap.ValueIterator vi,
+    private void writeBinary(ConcurrentIntLongSkipListMap.ValueIterator vi,
             OperationSource source, OperationCategory category, int index)
             throws IOException {
         /* approach similar to writeCsv, see over there for comments */
@@ -720,7 +720,7 @@ public class LiveOperationStatisticsAggregator {
 
         long count = 0;
         while (vi.hasNext()) {
-            int aggregate = vi.next();
+            long aggregate = vi.next();
 
             if (count == 0 && this.bbChannels[index] == null) {
                 synchronized (this.writerLocks[index]) {
@@ -1047,9 +1047,9 @@ public class LiveOperationStatisticsAggregator {
             while (LiveOperationStatisticsAggregator.this.initialized
                     || LiveOperationStatisticsAggregator.this.taskQueue
                             .remaining() > 0) {
-                int aggregate = LiveOperationStatisticsAggregator.this.taskQueue
+                long aggregate = LiveOperationStatisticsAggregator.this.taskQueue
                         .poll();
-                if (aggregate == Integer.MIN_VALUE) {
+                if (aggregate == Long.MIN_VALUE) {
                     // nothing to do at the moment, wait on the queue to save
                     // CPU cycles if we're not shutting down at the moment
                     if (LiveOperationStatisticsAggregator.this.initialized) {
@@ -1075,15 +1075,15 @@ public class LiveOperationStatisticsAggregator {
                 OperationCategory category = OperationStatistics.getCategory(mp,
                         aggregateAddress);
                 int index = getUniqueIndex(source, category);
-                ConcurrentLongObjectSkipListMap<ConcurrentIntIntSkipListMap> timeBins = LiveOperationStatisticsAggregator.this.aggregates
+                ConcurrentLongObjectSkipListMap<ConcurrentIntLongSkipListMap> timeBins = LiveOperationStatisticsAggregator.this.aggregates
                         .get(index);
 
                 // get the file descriptor applicable for this operation
-                ConcurrentIntIntSkipListMap fileDescriptors = timeBins
+                ConcurrentIntLongSkipListMap fileDescriptors = timeBins
                         .computeIfAbsent(
                                 OperationStatistics.getTimeBin(mp,
                                         aggregateAddress),
-                                l -> new ConcurrentIntIntSkipListMap());
+                                l -> new ConcurrentIntLongSkipListMap());
 
                 fileDescriptors.merge(OperationStatistics.getFileDescriptor(mp,
                         aggregateAddress), aggregate, (v1, v2) -> {
@@ -1115,7 +1115,7 @@ public class LiveOperationStatisticsAggregator {
                     if (size > LiveOperationStatisticsAggregator.this.timeBinCacheSize) {
                         for (int i = size / 2; i > 0; --i) {
                             try {
-                                ConcurrentIntIntSkipListMap fds = timeBins
+                                ConcurrentIntLongSkipListMap fds = timeBins
                                         .poll();
                                 if (fds != null) {
                                     write(fds.values(), source, category,
@@ -1139,9 +1139,9 @@ public class LiveOperationStatisticsAggregator {
             // remaining aggregates
             int size = LiveOperationStatisticsAggregator.this.aggregates.size();
             for (int i = 0; i < size; ++i) {
-                ConcurrentLongObjectSkipListMap<ConcurrentIntIntSkipListMap> timeBins = LiveOperationStatisticsAggregator.this.aggregates
+                ConcurrentLongObjectSkipListMap<ConcurrentIntLongSkipListMap> timeBins = LiveOperationStatisticsAggregator.this.aggregates
                         .get(i);
-                ConcurrentIntIntSkipListMap fileDescriptors;
+                ConcurrentIntLongSkipListMap fileDescriptors;
                 while ((fileDescriptors = timeBins.poll()) != null) {
                     // fileDescriptors is exclusive to this thread, so it's safe
                     // to iterate over the values

@@ -25,9 +25,10 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
     private static final int POOL_SIZE = getPoolSize(
             "de.zib.sfs.readDataOperationStatistics.poolSize", SIZE);
     public static final AtomicInteger maxPoolSize = Globals.POOL_DIAGNOSTICS
-            ? new AtomicInteger(0) : null;
+            ? new AtomicInteger(0)
+            : null;
 
-    public static int getReadDataOperationStatistics() {
+    public static long getReadDataOperationStatistics() {
         if (memory[RDOS_OFFSET] == null) {
             synchronized (ReadDataOperationStatistics.class) {
                 if (memory[RDOS_OFFSET] == null) {
@@ -43,14 +44,14 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
             maxPoolSize.updateAndGet((v) -> Math.max(v,
                     POOL_SIZE - memory[RDOS_OFFSET].remaining()));
         }
-        return address | (RDOS_OFFSET << 29);
+        return address | ((long) RDOS_OFFSET << 61);
     }
 
-    public static int getReadDataOperationStatistics(long count, long timeBin,
+    public static long getReadDataOperationStatistics(long count, long timeBin,
             long cpuTime, OperationSource source, OperationCategory category,
             int fd, long data, long remoteCount, long remoteCpuTime,
             long remoteData) {
-        int address = getReadDataOperationStatistics();
+        long address = getReadDataOperationStatistics();
         getReadDataOperationStatistics(getMemoryPool(address),
                 sanitizeAddress(address), count, timeBin, cpuTime, source,
                 category, fd, data, remoteCount, remoteCpuTime, remoteData);
@@ -68,7 +69,7 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
         setRemoteData(mp, address, remoteData);
     }
 
-    public static int getReadDataOperationStatistics(long timeBinDuration,
+    public static long getReadDataOperationStatistics(long timeBinDuration,
             OperationSource source, OperationCategory category, long startTime,
             long endTime, int fd, long data, boolean isRemote) {
         return getReadDataOperationStatistics(1,
@@ -77,7 +78,7 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
                 isRemote ? endTime - startTime : 0, isRemote ? data : 0);
     }
 
-    public static long getRemoteCount(int address) {
+    public static long getRemoteCount(long address) {
         return getRemoteCount(getMemoryPool(address), sanitizeAddress(address));
     }
 
@@ -85,7 +86,7 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
         return mp.pool.getLong(address + REMOTE_COUNT_OFFSET);
     }
 
-    public static void setRemoteCount(int address, long remoteCount) {
+    public static void setRemoteCount(long address, long remoteCount) {
         setRemoteCount(getMemoryPool(address), sanitizeAddress(address),
                 remoteCount);
     }
@@ -95,7 +96,7 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
         mp.pool.putLong(address + REMOTE_COUNT_OFFSET, remoteCount);
     }
 
-    public static void incrementRemoteCount(int address, long remoteCount) {
+    public static void incrementRemoteCount(long address, long remoteCount) {
         incrementRemoteCount(getMemoryPool(address), sanitizeAddress(address),
                 remoteCount);
     }
@@ -106,7 +107,7 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
         mp.pool.putLong(address + REMOTE_COUNT_OFFSET, current + remoteCount);
     }
 
-    public static long getRemoteCpuTime(int address) {
+    public static long getRemoteCpuTime(long address) {
         return getRemoteCpuTime(getMemoryPool(address),
                 sanitizeAddress(address));
     }
@@ -115,7 +116,7 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
         return mp.pool.getLong(address + REMOTE_CPU_TIME_OFFSET);
     }
 
-    public static void setRemoteCpuTime(int address, long remoteCpuTime) {
+    public static void setRemoteCpuTime(long address, long remoteCpuTime) {
         setRemoteCpuTime(getMemoryPool(address), sanitizeAddress(address),
                 remoteCpuTime);
     }
@@ -125,7 +126,8 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
         mp.pool.putLong(address + REMOTE_CPU_TIME_OFFSET, remoteCpuTime);
     }
 
-    public static void incrementRemoteCpuTime(int address, long remoteCpuTime) {
+    public static void incrementRemoteCpuTime(long address,
+            long remoteCpuTime) {
         incrementRemoteCpuTime(getMemoryPool(address), sanitizeAddress(address),
                 remoteCpuTime);
     }
@@ -137,7 +139,7 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
                 current + remoteCpuTime);
     }
 
-    public static long getRemoteData(int address) {
+    public static long getRemoteData(long address) {
         return getRemoteCount(getMemoryPool(address), sanitizeAddress(address));
     }
 
@@ -145,7 +147,7 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
         return mp.pool.getLong(address + REMOTE_DATA_OFFSET);
     }
 
-    public static void setRemoteData(int address, long remoteData) {
+    public static void setRemoteData(long address, long remoteData) {
         setRemoteData(getMemoryPool(address), sanitizeAddress(address),
                 remoteData);
     }
@@ -155,7 +157,7 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
         mp.pool.putLong(address + REMOTE_DATA_OFFSET, remoteData);
     }
 
-    public static void incrementRemoteData(int address, long remoteData) {
+    public static void incrementRemoteData(long address, long remoteData) {
         incrementRemoteData(getMemoryPool(address), sanitizeAddress(address),
                 remoteData);
     }
