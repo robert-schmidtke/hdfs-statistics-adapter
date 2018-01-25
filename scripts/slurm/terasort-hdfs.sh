@@ -8,6 +8,7 @@ usage() {
   echo "Usage: sbatch --nodes=<NODES> terasort-hdfs.sh"
   echo "  -e|--engine <flink|spark|hadoop> (default: not specified)"
   echo "  -n|--no-sfs (default: disabled)"
+  echo "  -c|--collectl (default: disabled)"
   echo "  -d|--data <gigabytes> (default: 1024)"
   echo "     --hadoop-tasks <tasks> (default: automatic)"
 }
@@ -21,6 +22,9 @@ while [[ $# -gt 0 ]]; do
       ;;
     -n|--no-sfs)
       NO_SFS="true"
+      ;;
+    -c|--collectl)
+      COLLECTL="true"
       ;;
     -d|--data)
       DATA_GB="$2"
@@ -106,20 +110,22 @@ srun -N$SLURM_JOB_NUM_NODES mkdir -p /local/$USER/hdfs
 srun -N$SLURM_JOB_NUM_NODES mkdir -p /local_ssd/$USER/sfs
 srun -N$SLURM_JOB_NUM_NODES mkdir -p /tmp/$USER/sfs
 srun -N$SLURM_JOB_NUM_NODES mkdir -p /local/$USER/flink
-#srun -N$SLURM_JOB_NUM_NODES mkdir -p /local_ssd/$USER/collectl
+srun -N$SLURM_JOB_NUM_NODES mkdir -p /local_ssd/$USER/collectl
 echo "$(date): Creating local folders done"
 
-#echo "$(date): Starting collectl"
-#start_collectl_script="${SLURM_JOB_ID}-start-collectl.sh"
-#cat >> $start_collectl_script << EOF
-##!/bin/bash
-#nohup collectl -P -f /local_ssd/$USER/collectl -s cCdDmMnNZ > /local_ssd/$USER/collectl/collectl.log 2>&1 &
-#echo \$! > /local_ssd/$USER/collectl/collectl.pid
-#EOF
-#chmod +x $start_collectl_script
-#srun -N$SLURM_JOB_NUM_NODES $start_collectl_script
-#rm $start_collectl_script
-#echo "$(date): Starting collectl done"
+if [ "$COLLECTL" = "true" ]; then
+  echo "$(date): Starting collectl"
+  start_collectl_script="${SLURM_JOB_ID}-start-collectl.sh"
+  cat >> $start_collectl_script << EOF
+#!/bin/bash
+nohup collectl -P -f /local_ssd/$USER/collectl -s cCdDmMnNZ > /local_ssd/$USER/collectl/collectl.log 2>&1 &
+echo \$! > /local_ssd/$USER/collectl/collectl.pid
+EOF
+  chmod +x $start_collectl_script
+  srun -N$SLURM_JOB_NUM_NODES $start_collectl_script
+  rm $start_collectl_script
+  echo "$(date): Starting collectl done"
+fi
 
 if [ -z "$NO_SFS" ]; then
   echo "$(date): Starting transformer JVMs"
@@ -157,7 +163,7 @@ if [ -z "$NO_SFS" ]; then
   OPTS="-agentpath:$SFS_DIRECTORY/sfs-agent/target/libsfs.so=trans_jar=$SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar,trans_address=0.0.0.0:4242"
   OPTS="$OPTS,bin_duration=1000,cache_size=60,out_dir=/local_ssd/$USER/sfs,out_fmt=$OUT_FMT,trace_mmap=n,verbose=n,instr_skip=o,trace_fds=y,os_pool_size=1024,iq_lock_cache=4096,os_lock_cache=4096"
   CLIENT_OPTS="$OPTS,dos_pool_size=1024,rdos_pool_size=65536,tq_pool_size=65536,key=client"
-  HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --hadoop-opts $OPTS,dos_pool_size=8192,rdos_pool_size=8196,tq_pool_size=4096,key=hdfs"
+  HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --hadoop-opts $OPTS,dos_pool_size=8192,rdos_pool_size=8192,tq_pool_size=4096,key=hdfs"
   HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --map-opts $OPTS,dos_pool_size=262144,rdos_pool_size=262144,tq_pool_size=262144,key=map"
   HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --reduce-opts $OPTS,dos_pool_size=262144,rdos_pool_size=262144,tq_pool_size=262144,key=reduce"
   HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --yarn-opts $OPTS,dos_pool_size=4096,rdos_pool_size=65536,tq_pool_size=8192,key=yarn"
@@ -206,7 +212,7 @@ EOF
 
     if [ -z "$NO_SFS" ]; then
       cat >> $FLINK_HOME/conf/flink-conf.yaml << EOF
-env.java.opts: $OPTS,key=flink
+env.java.opts: $OPTS,dos_pool_size=262144,rdos_pool_size=8388608,tq_pool_size=8388608,key=flink
 EOF
     fi
     echo "$(date): Configuring Flink for TeraSort done"
@@ -218,9 +224,9 @@ EOF
 spark.network.timeout 600s
 EOF
     if [ -z "$NO_SFS" ]; then
-      sed -i "/^# spark\.executor\.extraJavaOptions/c\spark.executor.extraJavaOptions $OPTS,key=spark" $SPARK_HOME/conf/spark-defaults.conf
+      sed -i "/^# spark\.executor\.extraJavaOptions/c\spark.executor.extraJavaOptions $OPTS,dos_pool_size=262144,rdos_pool_size=262144,tq_pool_size=262144,key=spark" $SPARK_HOME/conf/spark-defaults.conf
       cat >> $SPARK_HOME/conf/spark-defaults.conf << EOF
-spark.driver.extraJavaOptions $OPTS,key=spark
+spark.driver.extraJavaOptions $OPTS,dos_pool_size=262144,rdos_pool_size=262144,tq_pool_size=262144,key=spark
 EOF
     fi
     echo "$(date): Configuring Spark for TeraSort done"
@@ -370,23 +376,25 @@ EOF
   echo "$(date): Stopping transformer JVMs done"
 fi
 
-#mkdir -p $SFS_DIRECTORY/$SLURM_JOB_ID-$ENGINE-terasort-collectl
-#echo "$(date): Stopping collectl"
-#stop_collectl_script="${SLURM_JOB_ID}-stop-collectl.sh"
-#cat >> $stop_collectl_script << EOF
-##!/bin/bash
-#pid=\$(</local_ssd/$USER/collectl/collectl.pid)
-#kill \$pid
-#while [ -e /proc/\$pid ]; do sleep 1s; done
+if [ "$COLLECTL" = "true" ]; then
+  mkdir -p $SFS_DIRECTORY/$SLURM_JOB_ID-$ENGINE-terasort-collectl
+  echo "$(date): Stopping collectl"
+  stop_collectl_script="${SLURM_JOB_ID}-stop-collectl.sh"
+  cat >> $stop_collectl_script << EOF
+#!/bin/bash
+pid=\$(</local_ssd/$USER/collectl/collectl.pid)
+kill \$pid
+while [ -e /proc/\$pid ]; do sleep 1s; done
 
-#rm /local_ssd/$USER/collectl/collectl.pid
-#rm /local_ssd/$USER/collectl/collectl.log
-#cp /local_ssd/$USER/collectl/*.gz $SFS_DIRECTORY/$SLURM_JOB_ID-$ENGINE-terasort-collectl
-#EOF
-#chmod +x $stop_collectl_script
-#srun $stop_collectl_script
-#rm $stop_collectl_script
-#echo "$(date): Stopping collectl done"
+rm /local_ssd/$USER/collectl/collectl.pid
+rm /local_ssd/$USER/collectl/collectl.log
+cp /local_ssd/$USER/collectl/*.gz $SFS_DIRECTORY/$SLURM_JOB_ID-$ENGINE-terasort-collectl
+EOF
+  chmod +x $stop_collectl_script
+  srun $stop_collectl_script
+  rm $stop_collectl_script
+  echo "$(date): Stopping collectl done"
+fi
 
 echo "$(date): Cleaning Java processes"
 srun -N$SLURM_JOB_NUM_NODES killall -sSIGKILL java
@@ -438,7 +446,7 @@ if [ "$RET_CODE" -eq "0" ]; then
   srun -N$SLURM_JOB_NUM_NODES rm -rf /local/$USER
   srun -N$SLURM_JOB_NUM_NODES rm -rf /local_ssd/$USER
   srun -N$SLURM_JOB_NUM_NODES rm -rf /tmp/$USER
-#  srun -N$SLURM_JOB_NUM_NODES rm -rf /local/$USER/collectl
+  srun -N$SLURM_JOB_NUM_NODES rm -rf /local/$USER/collectl
   echo "$(date): Cleaning local directories done"
 else
   echo "$(date): Some task did not run successfully, not cleaning local directories."
