@@ -569,7 +569,7 @@ public class LiveOperationStatisticsAggregator {
             System.err.println("SFS Lock Diagnostics");
             System.err.println("  - OperationStatistics: "
                     + OperationStatistics.lockWaitTime.get() + "ms");
-            System.err.println("  - IntQueue:            "
+            System.err.println("  - LongQueue:            "
                     + LongQueue.lockWaitTime.get() + "ms");
         }
 
