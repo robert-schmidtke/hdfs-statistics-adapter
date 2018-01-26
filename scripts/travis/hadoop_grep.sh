@@ -22,7 +22,7 @@ sed -i "${line}s/.*/    <value>file<\/value>/" $HADOOP_HOME/etc/hadoop/core-site
 export LD_LIBRARY_PATH_EXT="$GRPC_HOME/libs/opt:$GRPC_HOME/third_party/protobuf/src/.lib"
 
 OPTS="-agentpath:$TRAVIS_BUILD_DIR/sfs-agent/target/libsfs.so=trans_jar=$TRAVIS_BUILD_DIR/sfs-agent/target/sfs-agent.jar,trans_address=0.0.0.0:4242"
-OPTS="$OPTS,bin_duration=1000,cache_size=120,out_dir=/tmp,verbose=n,out_fmt=bb,os_pool_size=1000,dos_pool_size=1000,rdos_pool_size=1000,tq_pool_size=1000,iq_lock_cache=1024,os_lock_cache=1024,trace_fds=y,trace_mmap=n,instr_skip=n,use_proxy=n"
+OPTS="$OPTS,bin_duration=1000,cache_size=120,out_dir=/tmp,verbose=n,out_fmt=bb,os_pool_size=1024,dos_pool_size=1024,rdos_pool_size=1024,tq_pool_size=1024,iq_lock_cache=1024,os_lock_cache=1024,trace_fds=y,trace_mmap=n,instr_skip=n,use_proxy=n"
 export HADOOP_OPTS="$OPTS,key=hdfs"
 export YARN_OPTS="$OPTS,key=yarn"
 export MAP_OPTS="$OPTS,key=map"
