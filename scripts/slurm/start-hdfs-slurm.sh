@@ -150,6 +150,8 @@ echo "$(date): Creating configuration in '$HADOOP_CONF_DIR'."
 
 printf "%s\n" "${HADOOP_DATANODES[@]}" > "${HADOOP_CONF_DIR}/slaves"
 
+LOCAL=/local_ssd
+
 # core configuration
 cat > $HADOOP_CONF_DIR/core-site.xml << EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -167,10 +169,7 @@ cat > $HADOOP_CONF_DIR/core-site.xml << EOF
 -->
   <property>
     <name>hadoop.tmp.dir</name>
-<!--
-    <value>/local/${HDFS_LOCAL_DIR}/tmp</value>
--->
-    <value>/local_ssd/${HDFS_LOCAL_DIR}/tmp</value>
+    <value>$LOCAL/${HDFS_LOCAL_DIR}/tmp</value>
   </property>
 EOF
 
@@ -234,14 +233,15 @@ cat >> $HADOOP_NAMENODE_HDFS_SITE << EOF
   </property>
   <property>
     <name>dfs.namenode.name.dir</name>
-<!--
-    <value>file:///local/${HDFS_LOCAL_DIR}/name</value>
--->
-    <value>file:///local_ssd/${HDFS_LOCAL_DIR}/name</value>
+    <value>file://$LOCAL/${HDFS_LOCAL_DIR}/name</value>
   </property>
   <property>
     <name>dfs.blocksize</name>
     <value>${BLOCKSIZE}</value>
+  </property>
+  <property>
+    <name>dfs.namenode.fs-limits.min-block-size</name>
+    <value>1</value>
   </property>
   <property>
     <name>dfs.replication</name>
@@ -273,10 +273,7 @@ for datanode in ${HADOOP_DATANODES[@]}; do
   </property>
   <property>
     <name>dfs.datanode.data.dir</name>
-<!--
-    <value>file:///local/${HDFS_LOCAL_DIR}/data</value>
--->
-    <value>file:///local_ssd/${HDFS_LOCAL_DIR}/data</value>
+    <value>file://$LOCAL/${HDFS_LOCAL_DIR}/data</value>
   </property>
   <property>
     <name>dfs.datanode.transferTo.allowed</name>
@@ -331,10 +328,12 @@ cat > $HADOOP_CONF_DIR/mapred-site.xml << EOF
     <name>mapreduce.reduce.env</name>
     <value>LD_LIBRARY_PATH=\${LD_LIBRARY_PATH}:${LD_LIBRARY_PATH_EXT}</value>
   </property>
+<!-- -->
   <property>
     <name>mapreduce.task.io.sort.mb</name>
     <value>1024</value>
   </property>
+<!-- -->
   <property>
     <name>yarn.app.mapreduce.am.command-opts</name>
     <value>-Xmx1024M $MRAPPMASTER_OPTS</value>
@@ -357,6 +356,7 @@ cat > $HADOOP_CONF_DIR/mapred-site.xml << EOF
     <value>81920</value>
   </property>
 -->
+<!-- -->
   <property>
     <name>mapreduce.reduce.merge.inmem.threshold</name>
     <value>0</value>
@@ -365,6 +365,7 @@ cat > $HADOOP_CONF_DIR/mapred-site.xml << EOF
     <name>mapreduce.reduce.input.buffer.percent</name>
     <value>0.5</value>
   </property>
+<!-- -->
 <!--
   <property>
     <name>mapreduce.map.speculative</name>
@@ -384,6 +385,10 @@ cat > $HADOOP_CONF_DIR/yarn-site.xml << EOF
 <?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
 <configuration>
   <property>
+    <name>yarn.am.liveness-monitor.expiry-interval-ms</name>
+    <value>60000</value>
+  </property>
+  <property>
     <name>yarn.nodemanager.aux-services</name>
     <value>mapreduce_shuffle</value>
   </property>
@@ -393,7 +398,7 @@ cat > $HADOOP_CONF_DIR/yarn-site.xml << EOF
   </property>
   <property>
     <name>yarn.nodemanager.sleep-delay-before-sigkill.ms</name>
-    <value>5000</value>
+    <value>60000</value>
   </property>
   <property>
     <name>yarn.nodemanager.pmem-check-enabled</name>
@@ -456,8 +461,8 @@ mkdir -p /local_ssd/$HDFS_LOCAL_LOG_DIR
 export HADOOP_USER_CLASSPATH_FIRST="YES"
 export HADOOP_CLASSPATH="$HADOOP_CONF_DIR/$HADOOP_NAMENODE:$HADOOP_CLASSPATH"
 
-# export HDFS_NAMENODE_LOG=/local/$HDFS_LOCAL_LOG_DIR/namenode-$(hostname).log
-export HDFS_NAMENODE_LOG=/local_ssd/$HDFS_LOCAL_LOG_DIR/namenode-$(hostname).log
+export HDFS_NAMENODE_LOG=$LOCAL/$HDFS_LOCAL_LOG_DIR/namenode-$(hostname).log
+# export HDFS_NAMENODE_LOG=/local_ssd/$HDFS_LOCAL_LOG_DIR/namenode-$(hostname).log
 
 echo "$(date): Formatting NameNode."
 ulimit -c unlimited
@@ -469,10 +474,10 @@ echo "$(date): Formatting NameNode done."
 
 echo "$(date): Starting NameNode on $(hostname)."
 nohup $HADOOP_PREFIX/bin/hdfs --config $HADOOP_CONF_DIR namenode >> $HDFS_NAMENODE_LOG 2>&1 &
-# echo $! > /local/$HDFS_LOCAL_DIR/namenode-$(hostname).pid
-echo $! > /local_ssd/$HDFS_LOCAL_DIR/namenode-$(hostname).pid
-# echo "$(date): Starting NameNode done (PID file: /local/$HDFS_LOCAL_DIR/namenode-$(hostname).pid)."
-echo "$(date): Starting NameNode done (PID file: /local_ssd/$HDFS_LOCAL_DIR/namenode-$(hostname).pid)."
+echo $! > $LOCAL/$HDFS_LOCAL_DIR/namenode-$(hostname).pid
+# echo $! > /local_ssd/$HDFS_LOCAL_DIR/namenode-$(hostname).pid
+echo "$(date): Starting NameNode done (PID file: $LOCAL/$HDFS_LOCAL_DIR/namenode-$(hostname).pid)."
+# echo "$(date): Starting NameNode done (PID file: /local_ssd/$HDFS_LOCAL_DIR/namenode-$(hostname).pid)."
 
 for datanode in ${HADOOP_DATANODES[@]}; do
   datanode_script=$(dirname $0)/${SLURM_JOB_ID}-${datanode}-start-datanode.sh
@@ -492,14 +497,14 @@ export HADOOP_HEAPSIZE=2000
 export LD_LIBRARY_PATH="\$LD_LIBRARY_PATH:$LD_LIBRARY_PATH_EXT"
 export HADOOP_USER_CLASSPATH_FIRST="YES"
 export HADOOP_CLASSPATH="$HADOOP_CONF_DIR/$datanode:$HADOOP_CLASSPATH"
-# export HDFS_DATANODE_LOG=/local/$HDFS_LOCAL_LOG_DIR/datanode-$datanode.log
-export HDFS_DATANODE_LOG=/local_ssd/$HDFS_LOCAL_LOG_DIR/datanode-$datanode.log
+export HDFS_DATANODE_LOG=$LOCAL/$HDFS_LOCAL_LOG_DIR/datanode-$datanode.log
+# export HDFS_DATANODE_LOG=/local_ssd/$HDFS_LOCAL_LOG_DIR/datanode-$datanode.log
 #export JSTAT_LOG=/local/$HDFS_LOCAL_LOG_DIR/datanode-jstat-$datanode.log
 
 nohup $HADOOP_PREFIX/bin/hdfs --config $HADOOP_CONF_DIR datanode >> \$HDFS_DATANODE_LOG 2>&1 &
 pid=\$!
-# echo \$pid > /local/$HDFS_LOCAL_DIR/datanode-$datanode.pid
-echo \$pid > /local_ssd/$HDFS_LOCAL_DIR/datanode-$datanode.pid
+echo \$pid > $LOCAL/$HDFS_LOCAL_DIR/datanode-$datanode.pid
+# echo \$pid > /local_ssd/$HDFS_LOCAL_DIR/datanode-$datanode.pid
 #nohup jstat -gcutil \$pid 5000 >> \$JSTAT_LOG 2>&1 &
 #echo \$! > /local/$HDFS_LOCAL_DIR/datanode-jstat-$datanode.pid
 EOF
@@ -512,15 +517,15 @@ done
 
 # start resource manager
 export YARN_USER_CLASSPATH="$YARN_USER_CLASSPATH:$HADOOP_CONF_DIR/$(hostname)"
-# export YARN_RESOURCEMANAGER_LOG=/local/$HDFS_LOCAL_LOG_DIR/resourcemanager-$(hostname).log
-export YARN_RESOURCEMANAGER_LOG=/local_ssd/$HDFS_LOCAL_LOG_DIR/resourcemanager-$(hostname).log
+export YARN_RESOURCEMANAGER_LOG=$LOCAL/$HDFS_LOCAL_LOG_DIR/resourcemanager-$(hostname).log
+# export YARN_RESOURCEMANAGER_LOG=/local_ssd/$HDFS_LOCAL_LOG_DIR/resourcemanager-$(hostname).log
 
 echo "$(date): Starting ResourceManager on $(hostname)."
 nohup $HADOOP_PREFIX/bin/yarn --config $HADOOP_CONF_DIR resourcemanager >> $YARN_RESOURCEMANAGER_LOG 2>&1 &
-# echo $! > /local/$HDFS_LOCAL_DIR/resourcemanager-$(hostname).pid
-echo $! > /local_ssd/$HDFS_LOCAL_DIR/resourcemanager-$(hostname).pid
-# echo "$(date): Starting ResourceManager done (PID file /local/$HDFS_LOCAL_DIR/resourcemanager-$(hostname).pid)."
-echo "$(date): Starting ResourceManager done (PID file /local_ssd/$HDFS_LOCAL_DIR/resourcemanager-$(hostname).pid)."
+echo $! > $LOCAL/$HDFS_LOCAL_DIR/resourcemanager-$(hostname).pid
+# echo $! > /local_ssd/$HDFS_LOCAL_DIR/resourcemanager-$(hostname).pid
+echo "$(date): Starting ResourceManager done (PID file $LOCAL/$HDFS_LOCAL_DIR/resourcemanager-$(hostname).pid)."
+# echo "$(date): Starting ResourceManager done (PID file /local_ssd/$HDFS_LOCAL_DIR/resourcemanager-$(hostname).pid)."
 
 for datanode in ${HADOOP_DATANODES[@]}; do
 nodemanager_script=$(dirname $0)/${SLURM_JOB_ID}-${datanode}-start-nodemanager.sh
@@ -532,14 +537,14 @@ export YARN_OPTS="$YARN_OPTS"
 export YARN_HEAPSIZE=2000
 export LD_LIBRARY_PATH="\$LD_LIBRARY_PATH:$LD_LIBRARY_PATH_EXT"
 export YARN_USER_CLASSPATH="$YARN_USER_CLASSPATH:$HADOOP_CONF_DIR/$datanode"
-# export YARN_NODEMANAGER_LOG=/local/$HDFS_LOCAL_LOG_DIR/nodemanager-$datanode.log
-export YARN_NODEMANAGER_LOG=/local_ssd/$HDFS_LOCAL_LOG_DIR/nodemanager-$datanode.log
+export YARN_NODEMANAGER_LOG=$LOCAL/$HDFS_LOCAL_LOG_DIR/nodemanager-$datanode.log
+# export YARN_NODEMANAGER_LOG=/local_ssd/$HDFS_LOCAL_LOG_DIR/nodemanager-$datanode.log
 #export JSTAT_LOG=/local/$HDFS_LOCAL_LOG_DIR/nodemanager-jstat-$datanode.log
 
 nohup $HADOOP_PREFIX/bin/yarn --config $HADOOP_CONF_DIR nodemanager >> \$YARN_NODEMANAGER_LOG 2>&1 &
 pid=\$!
-# echo \$pid > /local/$HDFS_LOCAL_DIR/nodemanager-$datanode.pid
-echo \$pid > /local_ssd/$HDFS_LOCAL_DIR/nodemanager-$datanode.pid
+echo \$pid > $LOCAL/$HDFS_LOCAL_DIR/nodemanager-$datanode.pid
+# echo \$pid > /local_ssd/$HDFS_LOCAL_DIR/nodemanager-$datanode.pid
 #nohup jstat -gcutil \$pid 5000 >> \$JSTAT_LOG 2>&1 &
 #echo \$! > /local/$HDFS_LOCAL_DIR/nodemanager-jstat-$datanode.pid
 EOF
@@ -550,14 +555,14 @@ EOF
   rm $nodemanager_script
 done
 
-# export JOBHISTORY_SERVER_LOG=/local/$HDFS_LOCAL_LOG_DIR/jobhistory_server-$(hostname).log
-export JOBHISTORY_SERVER_LOG=/local_ssd/$HDFS_LOCAL_LOG_DIR/jobhistory_server-$(hostname).log
+export JOBHISTORY_SERVER_LOG=$LOCAL/$HDFS_LOCAL_LOG_DIR/jobhistory_server-$(hostname).log
+# export JOBHISTORY_SERVER_LOG=/local_ssd/$HDFS_LOCAL_LOG_DIR/jobhistory_server-$(hostname).log
 
 echo "$(date): Starting JobHistory Server on $(hostname)."
 nohup $HADOOP_PREFIX/bin/mapred --config $HADOOP_CONF_DIR historyserver >> $JOBHISTORY_SERVER_LOG 2>&1 &
-# echo $! > /local/$HDFS_LOCAL_DIR/jobhistory_server-$(hostname).pid
-echo $! > /local_ssd/$HDFS_LOCAL_DIR/jobhistory_server-$(hostname).pid
-# echo "$(date): Starting JobHistory Server done (PID file /local/$HDFS_LOCAL_DIR/jobhistory_server-$(hostname).pid)."
-echo "$(date): Starting JobHistory Server done (PID file /local_ssd/$HDFS_LOCAL_DIR/jobhistory_server-$(hostname).pid)."
+echo $! > $LOCAL/$HDFS_LOCAL_DIR/jobhistory_server-$(hostname).pid
+# echo $! > /local_ssd/$HDFS_LOCAL_DIR/jobhistory_server-$(hostname).pid
+echo "$(date): Starting JobHistory Server done (PID file $LOCAL/$HDFS_LOCAL_DIR/jobhistory_server-$(hostname).pid)."
+# echo "$(date): Starting JobHistory Server done (PID file /local_ssd/$HDFS_LOCAL_DIR/jobhistory_server-$(hostname).pid)."
 
 echo "$(date): Starting Hadoop done."
