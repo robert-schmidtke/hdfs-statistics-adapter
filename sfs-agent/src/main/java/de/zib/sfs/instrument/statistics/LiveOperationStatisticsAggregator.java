@@ -13,7 +13,6 @@ import java.io.FileDescriptor;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.nio.BufferOverflowException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.CharBuffer;
@@ -104,7 +103,8 @@ public class LiveOperationStatisticsAggregator {
     private final ExecutorService threadPool;
     IntQueue taskQueue;
     public static final AtomicInteger maxQueueSize = Globals.POOL_DIAGNOSTICS
-            ? new AtomicInteger(0) : null;
+            ? new AtomicInteger(0)
+            : null;
 
     // we roll our own file descriptors because the ones issued by the OS can be
     // reused, but won't be if the file is not closed, so we just try and give a
@@ -264,7 +264,7 @@ public class LiveOperationStatisticsAggregator {
                 + this.systemHostname + "." + this.systemPid + "."
                 + this.systemKey;
 
-        int queueSize = 10 * 1048576;
+        int queueSize = 1048576;
         String sizeString = System.getProperty("de.zib.sfs.queueSize");
         if (sizeString != null) {
             try {

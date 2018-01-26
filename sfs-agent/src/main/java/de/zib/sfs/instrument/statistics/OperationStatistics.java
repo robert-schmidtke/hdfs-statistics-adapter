@@ -49,7 +49,8 @@ public class OperationStatistics {
     private static final int POOL_SIZE = getPoolSize(
             "de.zib.sfs.operationStatistics.poolSize", SIZE);
     public static final AtomicInteger maxPoolSize = Globals.POOL_DIAGNOSTICS
-            ? new AtomicInteger(0) : null;
+            ? new AtomicInteger(0)
+            : null;
 
     protected static int getPoolSize(String key, int size) {
         // 2^29 - 1 = 536870911 bytes is the most we can do, because we need the
@@ -65,7 +66,11 @@ public class OperationStatistics {
                         .println("Invalid number for " + key + ": " + sizeString
                                 + ", falling back to " + maxElements + ".");
             }
+        } else {
+            // return somewhat reasonable (power of two) number of elements
+            maxElements = 131072;
         }
+
         return maxElements;
     }
 
@@ -84,6 +89,11 @@ public class OperationStatistics {
                         "Invalid number for de.zib.sfs.operationStatistics.lockCacheSize: "
                                 + sizeString + ", falling back to " + size
                                 + ".");
+            }
+
+            if (Integer.bitCount(size) != 1) {
+                throw new IllegalArgumentException(
+                        "Lock cache size is not a power of two.");
             }
         }
         LOCK_CACHE = new Object[LOCK_CACHE_SIZE = size];
@@ -376,7 +386,7 @@ public class OperationStatistics {
         // unnecessary synchronization between unrelated tasks, but hopefully
         // this is not too bad. aggregate is always a multiple of 2, so divide
         // by two to use full cache range.
-        Object lock = LOCK_CACHE[(aggregate >> 1) % LOCK_CACHE_SIZE];
+        Object lock = LOCK_CACHE[(aggregate >> 1) & (LOCK_CACHE_SIZE - 1)];
 
         long startWait;
         if (Globals.LOCK_DIAGNOSTICS) {

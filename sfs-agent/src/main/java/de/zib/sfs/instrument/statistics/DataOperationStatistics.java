@@ -23,7 +23,8 @@ public class DataOperationStatistics extends OperationStatistics {
     private static final int POOL_SIZE = getPoolSize(
             "de.zib.sfs.dataOperationStatistics.poolSize", SIZE);
     public static final AtomicInteger maxPoolSize = Globals.POOL_DIAGNOSTICS
-            ? new AtomicInteger(0) : null;
+            ? new AtomicInteger(0)
+            : null;
 
     public static int getDataOperationStatistics() {
         if (memory[DOS_OFFSET] == null) {
@@ -102,7 +103,7 @@ public class DataOperationStatistics extends OperationStatistics {
         }
 
         // see super for reasoning behind locking mechanism
-        Object lock = LOCK_CACHE[(aggregate >> 1) % LOCK_CACHE_SIZE];
+        Object lock = LOCK_CACHE[(aggregate >> 1) & (LOCK_CACHE_SIZE - 1)];
 
         long startWait;
         if (Globals.LOCK_DIAGNOSTICS) {
