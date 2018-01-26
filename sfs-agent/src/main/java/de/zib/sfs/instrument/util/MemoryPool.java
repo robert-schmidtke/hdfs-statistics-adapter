@@ -35,8 +35,13 @@ public class MemoryPool {
                     "Pool size must be a multiple of chunk size.");
         }
 
-        this.pool = ByteBuffer.allocateDirect(poolSize);
         this.numAddresses = poolSize / chunkSize;
+        if (Integer.bitCount(this.numAddresses) != 1) {
+            throw new IllegalArgumentException(
+                    "Number of elements is not a power of two.");
+        }
+
+        this.pool = ByteBuffer.allocateDirect(poolSize);
         this.addresses = ByteBuffer.allocateDirect(this.numAddresses << 2);
         this.allocIndex = new AtomicInteger(0);
         this.freeIndex = new AtomicInteger(this.numAddresses);
@@ -75,9 +80,9 @@ public class MemoryPool {
 
     private int sanitizeIndex(int index) {
         if (index >= 0) {
-            return index % this.numAddresses;
+            return index & (this.numAddresses - 1);
         }
-        return (int) ((this.sanitizer + index) % this.numAddresses);
+        return (int) ((this.sanitizer + index) & (this.numAddresses - 1));
     }
 
     // methods for testing

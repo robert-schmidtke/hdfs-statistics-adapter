@@ -103,7 +103,7 @@ public class DataOperationStatistics extends OperationStatistics {
         }
 
         // see super for reasoning behind locking mechanism
-        Object lock = LOCK_CACHE[(aggregate >> 1) % LOCK_CACHE_SIZE];
+        Object lock = LOCK_CACHE[(aggregate >> 1) & (LOCK_CACHE_SIZE - 1)];
 
         long startWait;
         if (Globals.LOCK_DIAGNOSTICS) {

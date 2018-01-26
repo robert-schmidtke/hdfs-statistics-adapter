@@ -67,9 +67,10 @@ public class OperationStatistics {
                                 + ", falling back to " + maxElements + ".");
             }
         } else {
-            // calculate roughly 10 MiB worth
-            return (10485760 - (10485760 % size) - size) / size;
+            // return somewhat reasonable (power of two) number of elements
+            maxElements = 131072;
         }
+
         return maxElements;
     }
 
@@ -88,6 +89,11 @@ public class OperationStatistics {
                         "Invalid number for de.zib.sfs.operationStatistics.lockCacheSize: "
                                 + sizeString + ", falling back to " + size
                                 + ".");
+            }
+
+            if (Integer.bitCount(size) != 1) {
+                throw new IllegalArgumentException(
+                        "Lock cache size is not a power of two.");
             }
         }
         LOCK_CACHE = new Object[LOCK_CACHE_SIZE = size];
@@ -381,7 +387,7 @@ public class OperationStatistics {
         // unnecessary synchronization between unrelated tasks, but hopefully
         // this is not too bad. aggregate is always a multiple of 2, so divide
         // by two to use full cache range.
-        Object lock = LOCK_CACHE[(aggregate >> 1) % LOCK_CACHE_SIZE];
+        Object lock = LOCK_CACHE[(aggregate >> 1) & (LOCK_CACHE_SIZE - 1)];
 
         long startWait;
         if (Globals.LOCK_DIAGNOSTICS) {

@@ -33,6 +33,11 @@ public class LongQueue {
                                 + sizeString + ", falling back to " + size
                                 + ".");
             }
+
+            if (Integer.bitCount(size) != 1) {
+                throw new IllegalArgumentException(
+                        "Lock cache size is not a power of two.");
+            }
         }
         LOCK_CACHE = new Object[LOCK_CACHE_SIZE = size];
         for (int i = 0; i < LOCK_CACHE_SIZE; ++i) {
@@ -55,8 +60,13 @@ public class LongQueue {
     private final long sanitizer;
 
     public LongQueue(int queueSize) {
-        this.queue = ByteBuffer.allocateDirect(queueSize << 3);
         this.numElements = queueSize;
+        if (Integer.bitCount(this.numElements) != 1) {
+            throw new IllegalArgumentException(
+                    "Queue size is not a power of two.");
+        }
+
+        this.queue = ByteBuffer.allocateDirect(this.numElements << 3);
         this.pollIndex = new AtomicInteger(0);
         this.offerIndex = new AtomicInteger(0);
 
@@ -69,7 +79,7 @@ public class LongQueue {
         if (this.offerIndex.get() - index > 0) {
             int sanitizedIndex = sanitizeIndex(index);
 
-            Object lock = LOCK_CACHE[sanitizedIndex % LOCK_CACHE_SIZE];
+            Object lock = LOCK_CACHE[sanitizedIndex & (LOCK_CACHE_SIZE - 1)];
             long startWait;
             if (Globals.LOCK_DIAGNOSTICS) {
                 startWait = System.currentTimeMillis();
@@ -105,7 +115,7 @@ public class LongQueue {
             }
 
             int sanitizedIndex = sanitizeIndex(index);
-            Object lock = LOCK_CACHE[sanitizedIndex % LOCK_CACHE_SIZE];
+            Object lock = LOCK_CACHE[sanitizedIndex & (LOCK_CACHE_SIZE - 1)];
 
             long startWait;
             if (Globals.LOCK_DIAGNOSTICS) {
@@ -131,9 +141,9 @@ public class LongQueue {
 
     private int sanitizeIndex(int index) {
         if (index >= 0) {
-            return index % this.numElements;
+            return index & (this.numElements - 1);
         }
-        return (int) ((this.sanitizer + index) % this.numElements);
+        return (int) ((this.sanitizer + index) & (this.numElements - 1));
     }
 
     // methods for testing

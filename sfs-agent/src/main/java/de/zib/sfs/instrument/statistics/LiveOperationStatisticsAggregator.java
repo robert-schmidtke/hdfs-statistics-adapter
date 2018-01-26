@@ -264,7 +264,7 @@ public class LiveOperationStatisticsAggregator {
                 + this.systemHostname + "." + this.systemPid + "."
                 + this.systemKey;
 
-        int queueSize = 1310720; // 10 MiB worth of tasks
+        int queueSize = 1048576;
         String sizeString = System.getProperty("de.zib.sfs.queueSize");
         if (sizeString != null) {
             try {
