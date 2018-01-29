@@ -155,4 +155,15 @@ public class DataOperationStatistics extends OperationStatistics {
         super.fromFlatBufferImpl(osfb, mp, address);
         setData(mp, address, osfb.data());
     }
+
+    public static void assertPoolEmpty() {
+        boolean callMe = false;
+        assert (callMe = true);
+        if (!callMe) {
+            throw new Error("Only to be called when assertions are enabled.");
+        }
+
+        int r = memory[DOS_OFFSET].remaining();
+        assert (r == POOL_SIZE) : r + " actual vs. " + POOL_SIZE + " expected";
+    }
 }

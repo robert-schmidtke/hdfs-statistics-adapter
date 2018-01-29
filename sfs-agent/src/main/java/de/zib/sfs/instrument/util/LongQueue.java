@@ -139,6 +139,10 @@ public class LongQueue {
         return this.offerIndex.get() - this.pollIndex.get();
     }
 
+    public int capacity() {
+        return this.numElements;
+    }
+
     private int sanitizeIndex(int index) {
         if (index >= 0) {
             return index & (this.numElements - 1);

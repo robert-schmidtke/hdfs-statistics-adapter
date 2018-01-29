@@ -1155,4 +1155,15 @@ public class LiveOperationStatisticsAggregator {
             }
         }
     }
+
+    public void assertQueueEmpty() {
+        boolean callMe = false;
+        assert (callMe = true);
+        if (!callMe) {
+            throw new Error("Only to be called when assertions are enabled.");
+        }
+
+        int r = this.taskQueue.remaining();
+        assert (r == 0) : r + " actual vs. 0 expected";
+    }
 }

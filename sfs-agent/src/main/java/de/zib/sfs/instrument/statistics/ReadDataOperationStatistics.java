@@ -245,4 +245,15 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
         setRemoteCpuTime(mp, address, osfb.remoteCpuTime());
         setRemoteData(mp, address, osfb.remoteData());
     }
+
+    public static void assertPoolEmpty() {
+        boolean callMe = false;
+        assert (callMe = true);
+        if (!callMe) {
+            throw new Error("Only to be called when assertions are enabled.");
+        }
+
+        int r = memory[RDOS_OFFSET].remaining();
+        assert (r == POOL_SIZE) : r + " actual vs. " + POOL_SIZE + " expected";
+    }
 }

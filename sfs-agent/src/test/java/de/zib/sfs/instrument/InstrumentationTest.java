@@ -1480,6 +1480,11 @@ public class InstrumentationTest {
 
         aggregator.shutdown();
 
+        aggregator.assertQueueEmpty();
+        OperationStatistics.assertPoolEmpty();
+        DataOperationStatistics.assertPoolEmpty();
+        ReadDataOperationStatistics.assertPoolEmpty();
+
         List<NavigableMap<Long, NavigableMap<Integer, Long>>> aggregates = new ArrayList<>();
         for (int i = 0; i < OperationSource.VALUES.length
                 * OperationCategory.VALUES.length; ++i) {
