@@ -15,6 +15,10 @@ public class LongQueue {
 
     public static class OutOfMemoryException extends RuntimeException {
         private static final long serialVersionUID = 4987025963701460798L;
+
+        public OutOfMemoryException(String message) {
+            super(message);
+        }
     }
 
     protected static final Object[] LOCK_CACHE;
@@ -109,8 +113,10 @@ public class LongQueue {
         for (;;) {
             int index = this.offerIndex.get();
             if (Globals.STRICT) {
-                if (index - this.pollIndex.get() >= this.numElements) {
-                    throw new OutOfMemoryException();
+                int pi = this.pollIndex.get();
+                if (index - pi >= this.numElements) {
+                    throw new OutOfMemoryException(
+                            index + ", " + pi + ", " + this.numElements);
                 }
             }
 

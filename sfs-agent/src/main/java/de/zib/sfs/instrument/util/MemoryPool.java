@@ -14,10 +14,18 @@ public class MemoryPool {
 
     public static class OutOfMemoryException extends RuntimeException {
         private static final long serialVersionUID = 4987025963701460798L;
+
+        public OutOfMemoryException(String message) {
+            super(message);
+        }
     }
 
     public static class IllegalAddressException extends RuntimeException {
         private static final long serialVersionUID = 7688859608105872482L;
+
+        public IllegalAddressException(String message) {
+            super(message);
+        }
     }
 
     public final ByteBuffer pool;
@@ -57,8 +65,9 @@ public class MemoryPool {
     public int alloc() throws OutOfMemoryException {
         int index = this.allocIndex.getAndIncrement();
         if (Globals.STRICT) {
-            if (this.freeIndex.get() - index <= 0) {
-                throw new OutOfMemoryException();
+            int fi = this.freeIndex.get();
+            if (fi - index <= 0) {
+                throw new OutOfMemoryException(fi + ", " + index);
             }
         }
         return this.addresses.getInt(sanitizeIndex(index) << 2);
@@ -67,8 +76,10 @@ public class MemoryPool {
     public void free(int address) throws IllegalAddressException {
         int index = this.freeIndex.getAndIncrement();
         if (Globals.STRICT) {
-            if (index - this.allocIndex.get() >= this.numAddresses) {
-                throw new IllegalAddressException();
+            int ai = this.allocIndex.get();
+            if (index - ai >= this.numAddresses) {
+                throw new IllegalAddressException(
+                        index + ", " + ai + ", " + this.numAddresses);
             }
         }
         this.addresses.putInt(sanitizeIndex(index) << 2, address);
