@@ -7,6 +7,7 @@
  */
 package de.zib.sfs.instrument;
 
+import java.io.FileDescriptor;
 import java.io.FileInputStream;
 import java.io.IOException;
 
@@ -15,6 +16,9 @@ import de.zib.sfs.instrument.statistics.OperationCategory;
 import de.zib.sfs.instrument.statistics.OperationSource;
 
 public class FileInputStreamCallback extends AbstractSfsCallback {
+
+    // set to true if all calls made to this callback should be discarded
+    private boolean discard = false;
 
     private FileInputStream fis;
 
@@ -41,23 +45,27 @@ public class FileInputStreamCallback extends AbstractSfsCallback {
 
     public void readCallback(long startTime, long endTime, int readResult) {
         getFileDescriptor();
-        LiveOperationStatisticsAggregator.instance
-                .aggregateReadDataOperationStatistics(OperationSource.JVM,
-                        OperationCategory.READ, startTime, endTime, this.fd,
-                        readResult == -1 ? 0 : 1, false);
+        if (!this.discard) {
+            LiveOperationStatisticsAggregator.instance
+                    .aggregateReadDataOperationStatistics(OperationSource.JVM,
+                            OperationCategory.READ, startTime, endTime, this.fd,
+                            readResult == -1 ? 0 : 1, false);
+        }
     }
 
     public void readBytesCallback(long startTime, long endTime,
             int readResult) {
         getFileDescriptor();
-        LiveOperationStatisticsAggregator.instance
-                .aggregateReadDataOperationStatistics(OperationSource.JVM,
-                        OperationCategory.READ, startTime, endTime, this.fd,
-                        readResult == -1 ? 0 : readResult, false);
+        if (!this.discard) {
+            LiveOperationStatisticsAggregator.instance
+                    .aggregateReadDataOperationStatistics(OperationSource.JVM,
+                            OperationCategory.READ, startTime, endTime, this.fd,
+                            readResult == -1 ? 0 : readResult, false);
+        }
     }
 
     private void getFileDescriptor() {
-        if (this.fd != -1) {
+        if (this.fd != -1 || this.discard) {
             return;
         }
 
@@ -70,8 +78,10 @@ public class FileInputStreamCallback extends AbstractSfsCallback {
                     return;
                 }
 
+                FileDescriptor fileDescriptor = this.fis.getFD();
+                this.discard = FileDescriptor.in.equals(fileDescriptor);
                 this.fd = LiveOperationStatisticsAggregator.instance
-                        .getFileDescriptor(this.fis.getFD());
+                        .getFileDescriptor(fileDescriptor);
                 this.fis = null;
             }
         } catch (IOException e) {

@@ -7,6 +7,7 @@
  */
 package de.zib.sfs.instrument;
 
+import java.io.FileDescriptor;
 import java.io.FileOutputStream;
 import java.io.IOException;
 
@@ -70,8 +71,8 @@ public class FileOutputStreamCallback extends AbstractSfsCallback {
     }
 
     public void writeCallback(long startTime, long endTime) {
+        getFileDescriptor();
         if (!this.discard) {
-            getFileDescriptor();
             LiveOperationStatisticsAggregator.instance
                     .aggregateDataOperationStatistics(OperationSource.JVM,
                             OperationCategory.WRITE, startTime, endTime,
@@ -80,8 +81,8 @@ public class FileOutputStreamCallback extends AbstractSfsCallback {
     }
 
     public void writeBytesCallback(long startTime, long endTime, int len) {
+        getFileDescriptor();
         if (!this.discard) {
-            getFileDescriptor();
             LiveOperationStatisticsAggregator.instance
                     .aggregateDataOperationStatistics(OperationSource.JVM,
                             OperationCategory.WRITE, startTime, endTime,
@@ -90,7 +91,7 @@ public class FileOutputStreamCallback extends AbstractSfsCallback {
     }
 
     private void getFileDescriptor() {
-        if (this.fd != -1) {
+        if (this.fd != -1 || this.discard) {
             return;
         }
 
@@ -103,8 +104,11 @@ public class FileOutputStreamCallback extends AbstractSfsCallback {
                     return;
                 }
 
+                FileDescriptor fileDescriptor = this.fos.getFD();
+                this.discard |= FileDescriptor.out.equals(fileDescriptor)
+                        || FileDescriptor.err.equals(fileDescriptor);
                 this.fd = LiveOperationStatisticsAggregator.instance
-                        .getFileDescriptor(this.fos.getFD());
+                        .getFileDescriptor(fileDescriptor);
                 this.fos = null;
             }
         } catch (IOException e) {
