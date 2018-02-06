@@ -22,6 +22,8 @@ public class DataOperationStatistics extends OperationStatistics {
     private static final int DATA_OFFSET = OperationStatistics.SIZE; // long
     protected static final int SIZE = DATA_OFFSET + 8;
 
+    private static int memoryCount = 0;
+
     private static final int POOL_SIZE = getPoolSize(
             "de.zib.sfs.dataOperationStatistics.poolSize", SIZE);
     public static final AtomicInteger maxPoolSize = Globals.POOL_DIAGNOSTICS
@@ -34,6 +36,7 @@ public class DataOperationStatistics extends OperationStatistics {
                 if (memory.get(DOS_OFFSET) == null) {
                     List<MemoryPool> memoryList = new ArrayList<>();
                     memoryList.add(new MemoryPool(SIZE * POOL_SIZE, SIZE));
+                    memoryCount = 1;
                     memory.set(DOS_OFFSET, memoryList);
                     impl[DOS_OFFSET] = new DataOperationStatistics();
                 }
@@ -42,7 +45,7 @@ public class DataOperationStatistics extends OperationStatistics {
 
         int address = -1, listIndex = -1;
         final List<MemoryPool> memoryList = memory.get(DOS_OFFSET);
-        for (int i = memoryList.size() - 1; i >= 0 && address == -1; --i) {
+        for (int i = memoryCount - 1; i >= 0 && address == -1; --i) {
             address = memoryList.get(i).alloc();
             listIndex = i;
         }
@@ -52,7 +55,8 @@ public class DataOperationStatistics extends OperationStatistics {
             address = mp.alloc();
             synchronized (memoryList) {
                 memoryList.add(mp);
-                listIndex = memoryList.size() - 1;
+                ++memoryCount;
+                listIndex = memoryCount - 1;
                 if (listIndex > MEMORY_POOL_MASK) {
                     throw new OutOfMemoryError();
                 }

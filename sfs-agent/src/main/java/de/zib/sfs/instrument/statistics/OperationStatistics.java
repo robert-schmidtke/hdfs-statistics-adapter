@@ -124,6 +124,7 @@ public class OperationStatistics {
         memory.add(null); // DataOperationStatistics
         memory.add(null); // ReadDataOperationStatistics
     }
+    private static int memoryCount = 0;
 
     // mask to extract the top two bits of each address (excluding sign bit)
     protected static final long OS_OFFSET_MASK = 0x60000000L << 32;
@@ -158,6 +159,7 @@ public class OperationStatistics {
                 if (memory.get(OS_OFFSET) == null) {
                     List<MemoryPool> memoryList = new ArrayList<>();
                     memoryList.add(new MemoryPool(SIZE * POOL_SIZE, SIZE));
+                    memoryCount = 1;
                     memory.set(OS_OFFSET, memoryList);
                     impl[OS_OFFSET] = new OperationStatistics();
                 }
@@ -166,7 +168,7 @@ public class OperationStatistics {
 
         int address = -1, listIndex = -1;
         final List<MemoryPool> memoryList = memory.get(OS_OFFSET);
-        for (int i = memoryList.size() - 1; i >= 0 && address == -1; --i) {
+        for (int i = memoryCount - 1; i >= 0 && address == -1; --i) {
             // returns -1 if exhausted
             address = memoryList.get(i).alloc();
             listIndex = i;
@@ -179,7 +181,8 @@ public class OperationStatistics {
             address = mp.alloc();
             synchronized (memoryList) {
                 memoryList.add(mp);
-                listIndex = memoryList.size() - 1;
+                ++memoryCount;
+                listIndex = memoryCount - 1;
                 if (listIndex > MEMORY_POOL_MASK) {
                     // too many memory pools allocated
                     throw new OutOfMemoryError();
