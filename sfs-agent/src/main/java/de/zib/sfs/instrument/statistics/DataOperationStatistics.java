@@ -7,6 +7,8 @@
  */
 package de.zib.sfs.instrument.statistics;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import com.google.flatbuffers.FlatBufferBuilder;
@@ -27,21 +29,42 @@ public class DataOperationStatistics extends OperationStatistics {
             : null;
 
     public static long getDataOperationStatistics() {
-        if (memory[DOS_OFFSET] == null) {
+        if (memory.get(DOS_OFFSET) == null) {
             synchronized (DataOperationStatistics.class) {
-                if (memory[DOS_OFFSET] == null) {
-                    memory[DOS_OFFSET] = new MemoryPool(SIZE * POOL_SIZE, SIZE);
+                if (memory.get(DOS_OFFSET) == null) {
+                    List<MemoryPool> memoryList = new ArrayList<>();
+                    memoryList.add(new MemoryPool(SIZE * POOL_SIZE, SIZE));
+                    memory.set(DOS_OFFSET, memoryList);
                     impl[DOS_OFFSET] = new DataOperationStatistics();
                 }
             }
         }
 
-        int address = memory[DOS_OFFSET].alloc();
+        int address = -1, listIndex = -1;
+        final List<MemoryPool> memoryList = memory.get(DOS_OFFSET);
+        for (int i = memoryList.size() - 1; i >= 0 && address == -1; --i) {
+            address = memoryList.get(i).alloc();
+            listIndex = i;
+        }
+
+        if (address == -1) {
+            MemoryPool mp = new MemoryPool(SIZE * POOL_SIZE, SIZE);
+            address = mp.alloc();
+            synchronized (memoryList) {
+                memoryList.add(mp);
+                listIndex = memoryList.size() - 1;
+                if (listIndex > MEMORY_POOL_MASK) {
+                    throw new OutOfMemoryError();
+                }
+            }
+        }
+
         if (Globals.POOL_DIAGNOSTICS) {
             maxPoolSize.updateAndGet((v) -> Math.max(v,
-                    POOL_SIZE - memory[DOS_OFFSET].remaining()));
+                    memoryList.stream().map((mp) -> POOL_SIZE - mp.remaining())
+                            .reduce(0, (x, y) -> x + y)));
         }
-        return address | ((long) DOS_OFFSET << 61);
+        return address | ((long) DOS_OFFSET << 61) | ((long) listIndex << 32);
     }
 
     public static long getDataOperationStatistics(long count, long timeBin,
@@ -97,13 +120,17 @@ public class DataOperationStatistics extends OperationStatistics {
 
     @Override
     protected void doAggregationImpl(MemoryPool mp, int address) {
-        int aggregate = mp.pool.getInt(address + AGGREGATE_OFFSET);
+        long aggregate = mp.pool.getLong(address + AGGREGATE_OFFSET);
         if (aggregate < 0) {
             return;
         }
 
+        MemoryPool mpAggregate = getMemoryPool(aggregate);
+        int sanitizedAggregate = sanitizeAddress(aggregate);
+
         // see super for reasoning behind locking mechanism
-        Object lock = LOCK_CACHE[(aggregate >> 1) & (LOCK_CACHE_SIZE - 1)];
+        Object lock = LOCK_CACHE[(sanitizedAggregate >> 1)
+                & (LOCK_CACHE_SIZE - 1)];
 
         long startWait;
         if (Globals.LOCK_DIAGNOSTICS) {
@@ -114,7 +141,8 @@ public class DataOperationStatistics extends OperationStatistics {
                 lockWaitTime.addAndGet(System.currentTimeMillis() - startWait);
             }
 
-            incrementData(mp, aggregate, getData(mp, address));
+            incrementData(mpAggregate, sanitizedAggregate,
+                    getData(mp, address));
             super.doAggregationImpl(mp, address);
         }
     }
@@ -163,7 +191,9 @@ public class DataOperationStatistics extends OperationStatistics {
             throw new Error("Only to be called when assertions are enabled.");
         }
 
-        int r = memory[DOS_OFFSET].remaining();
-        assert (r == POOL_SIZE) : r + " actual vs. " + POOL_SIZE + " expected";
+        int r = memory.get(DOS_OFFSET).stream().map((mp) -> mp.remaining())
+                .reduce(0, (x, y) -> x + y);
+        int p = memory.get(DOS_OFFSET).size() * POOL_SIZE;
+        assert (r == p) : r + " actual vs. " + p + " expected";
     }
 }

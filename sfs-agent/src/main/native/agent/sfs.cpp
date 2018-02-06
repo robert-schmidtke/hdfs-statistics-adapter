@@ -62,6 +62,7 @@ static std::string g_tq_pool_size;
 
 // number of locks to cache for some types
 static std::string g_lq_lock_cache_size;
+static std::string g_mp_lock_cache_size;
 static std::string g_os_lock_cache_size;
 
 // whether to trace mmap calls as well
@@ -120,6 +121,9 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
         << std::endl
         // default in LongQueue.java
         << "  lq_lock_cache=number (default: 1024)"
+        << std::endl
+        // default in MemoryPool.java
+        << "  mp_lock_cache=number (default: 1024)"
         << std::endl
         // default in OperationStatistics.java
         << "  os_lock_cache=number (default: 1024)" << std::endl
@@ -204,6 +208,7 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
   g_rdos_pool_size = cli_options.read_data_operation_statistics_pool_size;
   g_tq_pool_size = cli_options.task_queue_size;
   g_lq_lock_cache_size = cli_options.long_queue_lock_cache_size;
+  g_mp_lock_cache_size = cli_options.memory_pool_lock_cache_size;
   g_os_lock_cache_size = cli_options.operation_statistics_lock_cache_size;
   g_trace_mmap = cli_options.trace_mmap;
   g_trace_fds = cli_options.trace_fds;
@@ -627,6 +632,15 @@ static void JNICALL VMInitCallback(jvmtiEnv *jvmti_env, JNIEnv *jni_env,
       system_class, set_property_method_id,
       jni_env->NewStringUTF("de.zib.sfs.longQueue.lockCacheSize"),
       jni_env->NewStringUTF(g_lq_lock_cache_size.c_str()));
+
+  // repeat for the MemoryPool lock cache size
+  LOG_VERBOSE("Setting system property '%s'='%s'.\n",
+              std::string("de.zib.sfs.memoryPool.lockCacheSize").c_str(),
+              g_mp_lock_cache_size.c_str());
+  jni_env->CallStaticVoidMethod(
+      system_class, set_property_method_id,
+      jni_env->NewStringUTF("de.zib.sfs.memoryPool.lockCacheSize"),
+      jni_env->NewStringUTF(g_mp_lock_cache_size.c_str()));
 
   // repeat for the OperationStatistics lock cache size
   LOG_VERBOSE(

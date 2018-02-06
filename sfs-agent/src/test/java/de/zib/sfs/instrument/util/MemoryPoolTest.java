@@ -20,9 +20,6 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import de.zib.sfs.instrument.util.MemoryPool.IllegalAddressException;
-import de.zib.sfs.instrument.util.MemoryPool.OutOfMemoryException;
-
 public class MemoryPoolTest {
 
     private static final int POOL_SIZE = 1024;
@@ -54,16 +51,8 @@ public class MemoryPoolTest {
         }
         Assert.assertEquals(0, this.pool.remaining());
 
-        try {
-            this.pool.alloc();
-            if (Globals.STRICT) {
-                Assert.fail("Expected exception.");
-            }
-        } catch (OutOfMemoryException e) {
-            if (!Globals.STRICT) {
-                Assert.fail("Did not expect exception.");
-            }
-        }
+        address = this.pool.alloc();
+        Assert.assertEquals(-1, address);
     }
 
     @Test
@@ -75,7 +64,7 @@ public class MemoryPoolTest {
             if (Globals.STRICT) {
                 Assert.fail("Expected exception.");
             }
-        } catch (IllegalAddressException e) {
+        } catch (IllegalArgumentException e) {
             if (!Globals.STRICT) {
                 Assert.fail("Did not expect exception.");
             }
@@ -87,21 +76,27 @@ public class MemoryPoolTest {
         final int COUNT = 1048576;
         final long SUM = COUNT * (COUNT + 1L) / 2L;
 
-        Callable<Long> c = new Callable<Long>() {
+        for (int i = 0; i < POOL_SIZE; ++i) {
+            this.pool.pool.putLong(i * 8, 0L);
+        }
+
+        Callable<Void> c = new Callable<Void>() {
             @Override
-            public Long call() {
+            public Void call() {
                 try {
-                    int address = MemoryPoolTest.this.pool.alloc();
-                    MemoryPoolTest.this.pool.pool.putLong(address, 0);
+                    long result = 0L;
                     for (long i = 1; i <= COUNT; ++i) {
-                        MemoryPoolTest.this.pool.pool.putLong(address,
-                                MemoryPoolTest.this.pool.pool.getLong(address)
-                                        + i);
+                        int address = -1;
+                        while (address == -1) {
+                            address = MemoryPoolTest.this.pool.alloc();
+                        }
+                        result = MemoryPoolTest.this.pool.pool.getLong(address)
+                                + i;
+                        MemoryPoolTest.this.pool.pool.putLong(address, result);
+                        MemoryPoolTest.this.pool.free(address);
                     }
-                    long result = MemoryPoolTest.this.pool.pool
-                            .getLong(address);
-                    MemoryPoolTest.this.pool.free(address);
-                    return result;
+
+                    return null;
                 } catch (Throwable t) {
                     t.printStackTrace();
                     throw t;
@@ -110,8 +105,8 @@ public class MemoryPoolTest {
         };
 
         ExecutorService executor = Executors.newCachedThreadPool();
-        List<Future<Long>> futures = new ArrayList<>(POOL_SIZE);
-        for (int i = 0; i < POOL_SIZE; ++i) {
+        List<Future<Void>> futures = new ArrayList<>(POOL_SIZE);
+        for (int i = 0; i < 4; ++i) {
             futures.add(executor.submit(c));
         }
 
@@ -124,14 +119,19 @@ public class MemoryPoolTest {
             Assert.fail(e.getMessage());
         }
 
-        for (Future<Long> future : futures) {
+        for (Future<Void> future : futures) {
             try {
-                Assert.assertEquals(SUM, future.get().longValue());
+                future.get();
             } catch (InterruptedException | ExecutionException e) {
                 Assert.fail(e.getMessage());
             }
         }
 
+        long result = 0;
+        for (int i = 0; i < POOL_SIZE; ++i) {
+            result += this.pool.pool.getLong(i * 8);
+        }
+        Assert.assertEquals(4 * SUM, result);
         Assert.assertEquals(POOL_SIZE, this.pool.remaining());
     }
 

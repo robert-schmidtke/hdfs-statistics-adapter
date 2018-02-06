@@ -55,6 +55,7 @@ struct CliOptions {
   std::string read_data_operation_statistics_pool_size;
   std::string task_queue_size;
   std::string long_queue_lock_cache_size;
+  std::string memory_pool_lock_cache_size;
   std::string operation_statistics_lock_cache_size;
   bool trace_mmap;
   bool trace_fds;
@@ -98,6 +99,13 @@ static bool parse_options(char *command_line_options, CliOptions *cli_options) {
   cli_options->output_directory = std::string("");
   cli_options->output_format = std::string("");
   cli_options->instrumentation_skip = std::string("");
+  cli_options->operation_statistics_pool_size = std::string("");
+  cli_options->data_operation_statistics_pool_size = std::string("");
+  cli_options->read_data_operation_statistics_pool_size = std::string("");
+  cli_options->task_queue_size = std::string("");
+  cli_options->long_queue_lock_cache_size = std::string("");
+  cli_options->memory_pool_lock_cache_size = std::string("");
+  cli_options->operation_statistics_lock_cache_size = std::string("");
   cli_options->trace_mmap = false;
   cli_options->trace_fds = false;
   cli_options->use_proxy = false;
@@ -178,6 +186,10 @@ static bool parse_options(char *command_line_options, CliOptions *cli_options) {
       } else if (strcmp(option, "lq_lock_cache") == 0) {
         if (get_tok(&options, suboption, (int)sizeof(suboption), ',')) {
           cli_options->long_queue_lock_cache_size = std::string(suboption);
+        }
+      } else if (strcmp(option, "mp_lock_cache") == 0) {
+        if (get_tok(&options, suboption, (int)sizeof(suboption), ',')) {
+          cli_options->memory_pool_lock_cache_size = std::string(suboption);
         }
       } else if (strcmp(option, "os_lock_cache") == 0) {
         if (get_tok(&options, suboption, (int)sizeof(suboption), ',')) {

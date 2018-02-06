@@ -7,6 +7,8 @@
  */
 package de.zib.sfs.instrument.statistics;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import com.google.flatbuffers.FlatBufferBuilder;
@@ -29,22 +31,42 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
             : null;
 
     public static long getReadDataOperationStatistics() {
-        if (memory[RDOS_OFFSET] == null) {
+        if (memory.get(RDOS_OFFSET) == null) {
             synchronized (ReadDataOperationStatistics.class) {
-                if (memory[RDOS_OFFSET] == null) {
-                    memory[RDOS_OFFSET] = new MemoryPool(SIZE * POOL_SIZE,
-                            SIZE);
+                if (memory.get(RDOS_OFFSET) == null) {
+                    List<MemoryPool> memoryList = new ArrayList<>();
+                    memoryList.add(new MemoryPool(SIZE * POOL_SIZE, SIZE));
+                    memory.set(RDOS_OFFSET, memoryList);
                     impl[RDOS_OFFSET] = new ReadDataOperationStatistics();
                 }
             }
         }
 
-        int address = memory[RDOS_OFFSET].alloc();
+        int address = -1, listIndex = -1;
+        final List<MemoryPool> memoryList = memory.get(RDOS_OFFSET);
+        for (int i = memoryList.size() - 1; i >= 0 && address == -1; --i) {
+            address = memoryList.get(i).alloc();
+            listIndex = i;
+        }
+
+        if (address == -1) {
+            MemoryPool mp = new MemoryPool(SIZE * POOL_SIZE, SIZE);
+            address = mp.alloc();
+            synchronized (memoryList) {
+                memoryList.add(mp);
+                listIndex = memoryList.size() - 1;
+                if (listIndex > MEMORY_POOL_MASK) {
+                    throw new OutOfMemoryError();
+                }
+            }
+        }
+
         if (Globals.POOL_DIAGNOSTICS) {
             maxPoolSize.updateAndGet((v) -> Math.max(v,
-                    POOL_SIZE - memory[RDOS_OFFSET].remaining()));
+                    memoryList.stream().map((mp) -> POOL_SIZE - mp.remaining())
+                            .reduce(0, (x, y) -> x + y)));
         }
-        return address | ((long) RDOS_OFFSET << 61);
+        return address | ((long) RDOS_OFFSET << 61) | ((long) listIndex << 32);
     }
 
     public static long getReadDataOperationStatistics(long count, long timeBin,
@@ -140,7 +162,7 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
     }
 
     public static long getRemoteData(long address) {
-        return getRemoteCount(getMemoryPool(address), sanitizeAddress(address));
+        return getRemoteData(getMemoryPool(address), sanitizeAddress(address));
     }
 
     public static long getRemoteData(MemoryPool mp, int address) {
@@ -169,14 +191,18 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
     }
 
     @Override
-    public void doAggregationImpl(MemoryPool mp, int address) {
-        int aggregate = mp.pool.getInt(address + AGGREGATE_OFFSET);
+    protected void doAggregationImpl(MemoryPool mp, int address) {
+        long aggregate = mp.pool.getLong(address + AGGREGATE_OFFSET);
         if (aggregate < 0) {
             return;
         }
 
+        MemoryPool mpAggregate = getMemoryPool(aggregate);
+        int sanitizedAggregate = sanitizeAddress(aggregate);
+
         // see super for reasoning behind locking mechanism
-        Object lock = LOCK_CACHE[(aggregate >> 1) & (LOCK_CACHE_SIZE - 1)];
+        Object lock = LOCK_CACHE[(sanitizedAggregate >> 1)
+                & (LOCK_CACHE_SIZE - 1)];
 
         long startWait;
         if (Globals.LOCK_DIAGNOSTICS) {
@@ -187,10 +213,12 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
                 lockWaitTime.addAndGet(System.currentTimeMillis() - startWait);
             }
 
-            incrementRemoteCount(mp, aggregate, getRemoteCount(mp, address));
-            incrementRemoteCpuTime(mp, aggregate,
+            incrementRemoteCount(mpAggregate, sanitizedAggregate,
+                    getRemoteCount(mp, address));
+            incrementRemoteCpuTime(mpAggregate, sanitizedAggregate,
                     getRemoteCpuTime(mp, address));
-            incrementRemoteData(mp, aggregate, getRemoteData(mp, address));
+            incrementRemoteData(mpAggregate, sanitizedAggregate,
+                    getRemoteData(mp, address));
             super.doAggregationImpl(mp, address);
         }
     }
@@ -253,7 +281,9 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
             throw new Error("Only to be called when assertions are enabled.");
         }
 
-        int r = memory[RDOS_OFFSET].remaining();
-        assert (r == POOL_SIZE) : r + " actual vs. " + POOL_SIZE + " expected";
+        int r = memory.get(RDOS_OFFSET).stream().map((mp) -> mp.remaining())
+                .reduce(0, (x, y) -> x + y);
+        int p = memory.get(RDOS_OFFSET).size() * POOL_SIZE;
+        assert (r == p) : r + " actual vs. " + p + " expected";
     }
 }

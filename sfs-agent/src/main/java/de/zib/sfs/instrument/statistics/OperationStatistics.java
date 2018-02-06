@@ -11,6 +11,8 @@ import java.nio.BufferOverflowException;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -43,8 +45,8 @@ public class OperationStatistics {
     protected static final int SOURCE_OFFSET = CPU_TIME_OFFSET + 8; // byte
     protected static final int CATEGORY_OFFSET = SOURCE_OFFSET + 1; // byte
     protected static final int FILE_DESCRIPTOR_OFFSET = CATEGORY_OFFSET + 1; // int
-    protected static final int AGGREGATE_OFFSET = FILE_DESCRIPTOR_OFFSET + 4; // int
-    protected static final int SIZE = AGGREGATE_OFFSET + 4;
+    protected static final int AGGREGATE_OFFSET = FILE_DESCRIPTOR_OFFSET + 4; // long
+    protected static final int SIZE = AGGREGATE_OFFSET + 8;
 
     private static final int POOL_SIZE = getPoolSize(
             "de.zib.sfs.operationStatistics.poolSize", SIZE);
@@ -115,48 +117,82 @@ public class OperationStatistics {
     // OperationStatistics, DataOperationStatistics and
     // ReadDataOperationStatistics
     // top two bits (excluding sign bit) in each returned address determine
-    // index into this array
-    protected static final MemoryPool[] memory = new MemoryPool[3];
+    // index into this list of lists
+    protected static final List<List<MemoryPool>> memory = new ArrayList<>(3);
+    static {
+        memory.add(null); // OperationStatistics
+        memory.add(null); // DataOperationStatistics
+        memory.add(null); // ReadDataOperationStatistics
+    }
 
-    // mask to extract the top two bits of each address
-    protected static final long ADDRESS_MASK = 0b11L << 61;
+    // mask to extract the top two bits of each address (excluding sign bit)
+    protected static final long OS_OFFSET_MASK = 0x60000000L << 32;
 
-    // offsets into the above array
+    // offsets into the above array list
     public static final int OS_OFFSET = 0, DOS_OFFSET = 1, RDOS_OFFSET = 2;
 
+    // mask to extract the next 29 bits of each address
+    protected static final long MEMORY_POOL_MASK = 0x1FFFFFFFL << 32;
+
     public static MemoryPool getMemoryPool(long address) {
-        return memory[(int) ((address & ADDRESS_MASK) >> 61)];
+        return memory.get((int) ((address & OS_OFFSET_MASK) >> 61))
+                .get((int) ((address & MEMORY_POOL_MASK) >> 32));
     }
 
     public static OperationStatistics getImpl(long address) {
-        return impl[(int) ((address & ADDRESS_MASK) >> 61)];
+        return impl[(int) ((address & OS_OFFSET_MASK) >> 61)];
     }
 
     public static int sanitizeAddress(long address) {
         // sanitized address within a memory pool is always an integer
-        return (int) (address & ~ADDRESS_MASK);
+        return (int) (address & 0xFFFFFFFFL);
     }
 
     public static int getOperationStatisticsOffset(long address) {
-        return (int) ((address & ADDRESS_MASK) >> 61);
+        return (int) ((address & OS_OFFSET_MASK) >> 61);
     }
 
     public static long getOperationStatistics() {
-        if (memory[OS_OFFSET] == null) {
+        if (memory.get(OS_OFFSET) == null) {
             synchronized (OperationStatistics.class) {
-                if (memory[OS_OFFSET] == null) {
-                    memory[OS_OFFSET] = new MemoryPool(SIZE * POOL_SIZE, SIZE);
+                if (memory.get(OS_OFFSET) == null) {
+                    List<MemoryPool> memoryList = new ArrayList<>();
+                    memoryList.add(new MemoryPool(SIZE * POOL_SIZE, SIZE));
+                    memory.set(OS_OFFSET, memoryList);
                     impl[OS_OFFSET] = new OperationStatistics();
                 }
             }
         }
 
-        int address = memory[OS_OFFSET].alloc();
+        int address = -1, listIndex = -1;
+        final List<MemoryPool> memoryList = memory.get(OS_OFFSET);
+        for (int i = memoryList.size() - 1; i >= 0 && address == -1; --i) {
+            // returns -1 if exhausted
+            address = memoryList.get(i).alloc();
+            listIndex = i;
+        }
+
+        // all pools are exhausted, append a new one
+        if (address == -1) {
+            // we may add multiple pools concurrently here
+            MemoryPool mp = new MemoryPool(SIZE * POOL_SIZE, SIZE);
+            address = mp.alloc();
+            synchronized (memoryList) {
+                memoryList.add(mp);
+                listIndex = memoryList.size() - 1;
+                if (listIndex > MEMORY_POOL_MASK) {
+                    // too many memory pools allocated
+                    throw new OutOfMemoryError();
+                }
+            }
+        }
+
         if (Globals.POOL_DIAGNOSTICS) {
             maxPoolSize.updateAndGet((v) -> Math.max(v,
-                    POOL_SIZE - memory[OS_OFFSET].remaining()));
+                    memoryList.stream().map((mp) -> POOL_SIZE - mp.remaining())
+                            .reduce(0, (x, y) -> x + y)));
         }
-        return address | ((long) OS_OFFSET << 61);
+        return address | ((long) OS_OFFSET << 61) | ((long) listIndex << 32);
     }
 
     public static long getOperationStatistics(long count, long timeBin,
@@ -177,7 +213,7 @@ public class OperationStatistics {
         setSource(mp, address, source);
         setCategory(mp, address, category);
         setFileDescriptor(mp, address, fd);
-        mp.pool.putInt(address + AGGREGATE_OFFSET, -1);
+        mp.pool.putLong(address + AGGREGATE_OFFSET, -1);
     }
 
     public static long getOperationStatistics(long timeBinDuration,
@@ -314,46 +350,49 @@ public class OperationStatistics {
     public static long aggregate(long address, long other)
             throws NotAggregatableException {
         if (Globals.STRICT) {
-            if ((address & ADDRESS_MASK) != (other & ADDRESS_MASK)) {
+            if ((address & OS_OFFSET_MASK) != (other & OS_OFFSET_MASK)) {
                 throw new NotAggregatableException(
                         "Memory pools do not match: " + address + ", " + other);
             }
         }
 
-        MemoryPool mp = getMemoryPool(address);
+        MemoryPool mpAddress = getMemoryPool(address);
         int sanitizedAddress = sanitizeAddress(address);
+        MemoryPool mpOther = getMemoryPool(other);
         int sanitizedOther = sanitizeAddress(other);
 
         if (Globals.STRICT) {
-            if (sanitizedAddress == sanitizedOther) {
-                throw new NotAggregatableException("Cannot aggregate self");
+            if (address == other) {
+                throw new NotAggregatableException(
+                        "Cannot aggregate self: " + address + ", " + other);
             }
 
-            long timeBin = getTimeBin(mp, sanitizedAddress);
-            long sanitizedOtherTimeBin = getTimeBin(mp, sanitizedOther);
+            long timeBin = getTimeBin(mpAddress, sanitizedAddress);
+            long sanitizedOtherTimeBin = getTimeBin(mpOther, sanitizedOther);
             if (sanitizedOtherTimeBin != timeBin) {
                 throw new NotAggregatableException("Time bins do not match: "
                         + timeBin + ", " + sanitizedOtherTimeBin);
             }
 
-            OperationSource source = getSource(mp, sanitizedAddress);
-            OperationSource sanitizedOtherSource = getSource(mp,
+            OperationSource source = getSource(mpAddress, sanitizedAddress);
+            OperationSource sanitizedOtherSource = getSource(mpOther,
                     sanitizedOther);
             if (!sanitizedOtherSource.equals(source)) {
                 throw new NotAggregatableException("Sources do not match: "
                         + source + ", " + sanitizedOtherSource);
             }
 
-            OperationCategory category = getCategory(mp, sanitizedAddress);
-            OperationCategory sanitizedOtherCategory = getCategory(mp,
+            OperationCategory category = getCategory(mpAddress,
+                    sanitizedAddress);
+            OperationCategory sanitizedOtherCategory = getCategory(mpOther,
                     sanitizedOther);
             if (!sanitizedOtherCategory.equals(category)) {
                 throw new NotAggregatableException("Categories do not match: "
                         + category + ", " + sanitizedOtherCategory);
             }
 
-            int fileDescriptor = getFileDescriptor(mp, sanitizedAddress);
-            int sanitizedOtherFileDescriptor = getFileDescriptor(mp,
+            int fileDescriptor = getFileDescriptor(mpAddress, sanitizedAddress);
+            int sanitizedOtherFileDescriptor = getFileDescriptor(mpOther,
                     sanitizedOther);
             if (sanitizedOtherFileDescriptor != fileDescriptor) {
                 throw new NotAggregatableException(
@@ -363,7 +402,7 @@ public class OperationStatistics {
         }
 
         // set a reference to ourselves in the other OperationStatistcs
-        mp.pool.putInt(sanitizedOther + AGGREGATE_OFFSET, sanitizedAddress);
+        mpOther.pool.putLong(sanitizedOther + AGGREGATE_OFFSET, address);
 
         // return ourselves
         return address;
@@ -377,17 +416,21 @@ public class OperationStatistics {
     protected void doAggregationImpl(MemoryPool mp, int address) {
         // if we do not hold an aggregate, bail out and don't free ourselves,
         // because we are the long-living instance
-        int aggregate = mp.pool.getInt(address + AGGREGATE_OFFSET);
+        long aggregate = mp.pool.getLong(address + AGGREGATE_OFFSET);
         if (aggregate < 0) {
             return;
         }
+
+        MemoryPool mpAggregate = getMemoryPool(aggregate);
+        int sanitizedAggregate = sanitizeAddress(aggregate);
 
         // The JVM has an integer cache that could be used for locking as well,
         // but we use our own for custom locking. This introduces some
         // unnecessary synchronization between unrelated tasks, but hopefully
         // this is not too bad. aggregate is always a multiple of 2, so divide
         // by two to use full cache range.
-        Object lock = LOCK_CACHE[(aggregate >> 1) & (LOCK_CACHE_SIZE - 1)];
+        Object lock = LOCK_CACHE[(sanitizedAggregate >> 1)
+                & (LOCK_CACHE_SIZE - 1)];
 
         long startWait;
         if (Globals.LOCK_DIAGNOSTICS) {
@@ -400,8 +443,10 @@ public class OperationStatistics {
 
             // add ourselves to the aggregate, then free ourselves because we
             // are the short-living instance
-            incrementCount(mp, aggregate, getCount(mp, address));
-            incrementCpuTime(mp, aggregate, getCpuTime(mp, address));
+            incrementCount(mpAggregate, sanitizedAggregate,
+                    getCount(mp, address));
+            incrementCpuTime(mpAggregate, sanitizedAggregate,
+                    getCpuTime(mp, address));
             mp.free(address);
         }
     }
@@ -557,7 +602,9 @@ public class OperationStatistics {
             throw new Error("Only to be called when assertions are enabled.");
         }
 
-        int r = memory[OS_OFFSET].remaining();
-        assert (r == POOL_SIZE) : r + " actual vs. " + POOL_SIZE + " expected";
+        int r = memory.get(OS_OFFSET).stream().map((mp) -> mp.remaining())
+                .reduce(0, (x, y) -> x + y);
+        int p = memory.get(OS_OFFSET).size() * POOL_SIZE;
+        assert (r == p) : r + " actual vs. " + p + " expected";
     }
 }

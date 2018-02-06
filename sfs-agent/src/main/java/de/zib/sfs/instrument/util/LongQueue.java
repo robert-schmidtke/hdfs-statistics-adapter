@@ -21,33 +21,10 @@ public class LongQueue {
         }
     }
 
-    protected static final Object[] LOCK_CACHE;
-    protected static final int LOCK_CACHE_SIZE;
+    protected final Object[] lockCache;
+    protected final int lockCacheSize;
     public static final AtomicLong lockWaitTime;
     static {
-        int size = 1024;
-        String sizeString = System
-                .getProperty("de.zib.sfs.longQueue.lockCacheSize");
-        if (sizeString != null) {
-            try {
-                size = Integer.parseInt(sizeString);
-            } catch (NumberFormatException e) {
-                System.err.println(
-                        "Invalid number for de.zib.sfs.longQueue.lockCacheSize: "
-                                + sizeString + ", falling back to " + size
-                                + ".");
-            }
-
-            if (Integer.bitCount(size) != 1) {
-                throw new IllegalArgumentException(
-                        "Lock cache size is not a power of two.");
-            }
-        }
-        LOCK_CACHE = new Object[LOCK_CACHE_SIZE = size];
-        for (int i = 0; i < LOCK_CACHE_SIZE; ++i) {
-            LOCK_CACHE[i] = new Object();
-        }
-
         if (Globals.LOCK_DIAGNOSTICS) {
             lockWaitTime = new AtomicLong(0);
         } else {
@@ -76,29 +53,61 @@ public class LongQueue {
 
         // need this for handling overflow of the indices
         this.sanitizer = 2L * Integer.MAX_VALUE + 2L;
+
+        int lockCacheSize = 1024;
+        String sizeString = System
+                .getProperty("de.zib.sfs.longQueue.lockCacheSize");
+        if (sizeString != null) {
+            try {
+                lockCacheSize = Integer.parseInt(sizeString);
+            } catch (NumberFormatException e) {
+                System.err.println(
+                        "Invalid number for de.zib.sfs.longQueue.lockCacheSize: "
+                                + sizeString + ", falling back to "
+                                + lockCacheSize + ".");
+            }
+
+            if (Integer.bitCount(lockCacheSize) != 1) {
+                throw new IllegalArgumentException(
+                        "Lock cache size is not a power of two.");
+            }
+        }
+        this.lockCache = new Object[this.lockCacheSize = lockCacheSize];
+        for (int i = 0; i < this.lockCacheSize; ++i) {
+            this.lockCache[i] = new Object();
+        }
     }
 
     public long poll() {
-        int index = this.pollIndex.get();
-        if (this.offerIndex.get() - index > 0) {
-            int sanitizedIndex = sanitizeIndex(index);
+        loop: for (;;) {
+            int index = this.pollIndex.get();
+            if (this.offerIndex.get() - index > 0) {
+                int sanitizedIndex = sanitizeIndex(index);
 
-            Object lock = LOCK_CACHE[sanitizedIndex & (LOCK_CACHE_SIZE - 1)];
-            long startWait;
-            if (Globals.LOCK_DIAGNOSTICS) {
-                startWait = System.currentTimeMillis();
-            }
-            synchronized (lock) {
+                Object lock = this.lockCache[sanitizedIndex
+                        & (this.lockCacheSize - 1)];
+                long startWait;
                 if (Globals.LOCK_DIAGNOSTICS) {
-                    lockWaitTime
-                            .addAndGet(System.currentTimeMillis() - startWait);
+                    startWait = System.currentTimeMillis();
                 }
+                synchronized (lock) {
+                    if (Globals.LOCK_DIAGNOSTICS) {
+                        lockWaitTime.addAndGet(
+                                System.currentTimeMillis() - startWait);
+                    }
 
-                if (this.pollIndex.compareAndSet(index, index + 1)) {
-                    return this.queue.getLong(sanitizedIndex << 3);
+                    if (this.pollIndex.compareAndSet(index, index + 1)) {
+                        return this.queue.getLong(sanitizedIndex << 3);
+                    } else {
+                        // retry on failed cas
+                    }
                 }
+            } else {
+                // empty, no retry necessary
+                break loop;
             }
         }
+
         return Long.MIN_VALUE;
     }
 
@@ -121,7 +130,8 @@ public class LongQueue {
             }
 
             int sanitizedIndex = sanitizeIndex(index);
-            Object lock = LOCK_CACHE[sanitizedIndex & (LOCK_CACHE_SIZE - 1)];
+            Object lock = this.lockCache[sanitizedIndex
+                    & (this.lockCacheSize - 1)];
 
             long startWait;
             if (Globals.LOCK_DIAGNOSTICS) {

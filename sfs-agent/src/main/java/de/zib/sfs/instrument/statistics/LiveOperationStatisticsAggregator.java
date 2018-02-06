@@ -569,8 +569,10 @@ public class LiveOperationStatisticsAggregator {
             System.err.println("SFS Lock Diagnostics");
             System.err.println("  - OperationStatistics: "
                     + OperationStatistics.lockWaitTime.get() + "ms");
-            System.err.println("  - LongQueue:            "
+            System.err.println("  - LongQueue:           "
                     + LongQueue.lockWaitTime.get() + "ms");
+            System.err.println("  - MemoryPool:          "
+                    + MemoryPool.lockWaitTime.get() + "ms");
         }
 
         if (Globals.POOL_DIAGNOSTICS) {

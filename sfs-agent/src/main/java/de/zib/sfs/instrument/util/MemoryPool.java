@@ -9,24 +9,9 @@ package de.zib.sfs.instrument.util;
 
 import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class MemoryPool {
-
-    public static class OutOfMemoryException extends RuntimeException {
-        private static final long serialVersionUID = 4987025963701460798L;
-
-        public OutOfMemoryException(String message) {
-            super(message);
-        }
-    }
-
-    public static class IllegalAddressException extends RuntimeException {
-        private static final long serialVersionUID = 7688859608105872482L;
-
-        public IllegalAddressException(String message) {
-            super(message);
-        }
-    }
 
     public final ByteBuffer pool;
 
@@ -36,6 +21,17 @@ public class MemoryPool {
     // pointers to the next address that can be allocated/freed
     protected AtomicInteger allocIndex, freeIndex;
     private final long sanitizer;
+
+    protected final Object[] lockCache;
+    protected final int lockCacheSize;
+    public static final AtomicLong lockWaitTime;
+    static {
+        if (Globals.LOCK_DIAGNOSTICS) {
+            lockWaitTime = new AtomicLong(0);
+        } else {
+            lockWaitTime = null;
+        }
+    }
 
     public MemoryPool(int poolSize, int chunkSize) {
         if (poolSize % chunkSize > 0) {
@@ -60,29 +56,89 @@ public class MemoryPool {
         for (int i = 0; i < this.numAddresses; ++i) {
             this.addresses.putInt(i << 2, i * chunkSize);
         }
-    }
 
-    public int alloc() throws OutOfMemoryException {
-        int index = this.allocIndex.getAndIncrement();
-        if (Globals.STRICT) {
-            int fi = this.freeIndex.get();
-            if (fi - index <= 0) {
-                throw new OutOfMemoryException(fi + ", " + index);
+        int lockCacheSize = 1024;
+        String sizeString = System
+                .getProperty("de.zib.sfs.memoryPool.lockCacheSize");
+        if (sizeString != null) {
+            try {
+                lockCacheSize = Integer.parseInt(sizeString);
+            } catch (NumberFormatException e) {
+                System.err.println(
+                        "Invalid number for de.zib.sfs.memoryPool.lockCacheSize: "
+                                + sizeString + ", falling back to "
+                                + lockCacheSize + ".");
+            }
+
+            if (Integer.bitCount(lockCacheSize) != 1) {
+                throw new IllegalArgumentException(
+                        "Lock cache size is not a power of two.");
             }
         }
-        return this.addresses.getInt(sanitizeIndex(index) << 2);
+        this.lockCache = new Object[this.lockCacheSize = lockCacheSize];
+        for (int i = 0; i < this.lockCacheSize; ++i) {
+            this.lockCache[i] = new Object();
+        }
     }
 
-    public void free(int address) throws IllegalAddressException {
-        int index = this.freeIndex.getAndIncrement();
-        if (Globals.STRICT) {
-            int ai = this.allocIndex.get();
-            if (index - ai >= this.numAddresses) {
-                throw new IllegalAddressException(
-                        index + ", " + ai + ", " + this.numAddresses);
+    public int alloc() {
+        for (;;) {
+            int index = this.allocIndex.get();
+            if (this.freeIndex.get() - index <= 0) {
+                return -1;
+            }
+
+            int sanitizedIndex = sanitizeIndex(index);
+            Object lock = this.lockCache[sanitizedIndex
+                    & (this.lockCacheSize - 1)];
+
+            long startWait;
+            if (Globals.LOCK_DIAGNOSTICS) {
+                startWait = System.currentTimeMillis();
+            }
+            synchronized (lock) {
+                if (Globals.LOCK_DIAGNOSTICS) {
+                    lockWaitTime
+                            .addAndGet(System.currentTimeMillis() - startWait);
+                }
+
+                if (this.allocIndex.compareAndSet(index, index + 1)) {
+                    return this.addresses.getInt(sanitizedIndex << 2);
+                }
             }
         }
-        this.addresses.putInt(sanitizeIndex(index) << 2, address);
+    }
+
+    public void free(int address) {
+        for (;;) {
+            int index = this.freeIndex.get();
+            if (Globals.STRICT) {
+                if (index - this.allocIndex.get() >= this.numAddresses) {
+                    throw new IllegalArgumentException(
+                            "Trying to free too many addresses: " + address);
+                }
+            }
+
+            int sanitizedIndex = sanitizeIndex(index);
+            Object lock = this.lockCache[sanitizedIndex
+                    & (this.lockCacheSize - 1)];
+
+            long startWait;
+            if (Globals.LOCK_DIAGNOSTICS) {
+                startWait = System.currentTimeMillis();
+            }
+            synchronized (lock) {
+                if (Globals.LOCK_DIAGNOSTICS) {
+                    lockWaitTime
+                            .addAndGet(System.currentTimeMillis() - startWait);
+                }
+
+                if (this.freeIndex.compareAndSet(index, index + 1)) {
+                    this.addresses.putInt(sanitizedIndex << 2, address);
+                    return;
+                }
+            }
+        }
     }
 
     public int remaining() {
