@@ -120,9 +120,9 @@ public class OperationStatistics {
     // index into this list of lists
     protected static final List<List<MemoryPool>> memory = new ArrayList<>(3);
     static {
-        memory.add(null); // OperationStatistics
-        memory.add(null); // DataOperationStatistics
-        memory.add(null); // ReadDataOperationStatistics
+        memory.add(new ArrayList<>()); // OperationStatistics
+        memory.add(new ArrayList<>()); // DataOperationStatistics
+        memory.add(new ArrayList<>()); // ReadDataOperationStatistics
     }
     private static int memoryCount = 0;
 
@@ -154,14 +154,13 @@ public class OperationStatistics {
     }
 
     public static long getOperationStatistics() {
-        if (memory.get(OS_OFFSET) == null) {
+        if (memoryCount == 0) {
             synchronized (OperationStatistics.class) {
-                if (memory.get(OS_OFFSET) == null) {
-                    List<MemoryPool> memoryList = new ArrayList<>();
-                    memoryList.add(new MemoryPool(SIZE * POOL_SIZE, SIZE));
-                    memoryCount = 1;
-                    memory.set(OS_OFFSET, memoryList);
+                if (memoryCount == 0) {
                     impl[OS_OFFSET] = new OperationStatistics();
+                    memory.get(OS_OFFSET)
+                            .add(new MemoryPool(SIZE * POOL_SIZE, SIZE));
+                    memoryCount = 1;
                 }
             }
         }

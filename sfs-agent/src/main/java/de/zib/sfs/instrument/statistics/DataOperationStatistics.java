@@ -7,7 +7,6 @@
  */
 package de.zib.sfs.instrument.statistics;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -31,14 +30,13 @@ public class DataOperationStatistics extends OperationStatistics {
             : null;
 
     public static long getDataOperationStatistics() {
-        if (memory.get(DOS_OFFSET) == null) {
+        if (memoryCount == 0) {
             synchronized (DataOperationStatistics.class) {
-                if (memory.get(DOS_OFFSET) == null) {
-                    List<MemoryPool> memoryList = new ArrayList<>();
-                    memoryList.add(new MemoryPool(SIZE * POOL_SIZE, SIZE));
-                    memoryCount = 1;
-                    memory.set(DOS_OFFSET, memoryList);
+                if (memoryCount == 0) {
                     impl[DOS_OFFSET] = new DataOperationStatistics();
+                    memory.get(DOS_OFFSET)
+                            .add(new MemoryPool(SIZE * POOL_SIZE, SIZE));
+                    memoryCount = 1;
                 }
             }
         }

@@ -7,7 +7,6 @@
  */
 package de.zib.sfs.instrument.statistics;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -33,14 +32,13 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
             : null;
 
     public static long getReadDataOperationStatistics() {
-        if (memory.get(RDOS_OFFSET) == null) {
+        if (memoryCount == 0) {
             synchronized (ReadDataOperationStatistics.class) {
-                if (memory.get(RDOS_OFFSET) == null) {
-                    List<MemoryPool> memoryList = new ArrayList<>();
-                    memoryList.add(new MemoryPool(SIZE * POOL_SIZE, SIZE));
-                    memoryCount = 1;
-                    memory.set(RDOS_OFFSET, memoryList);
+                if (memoryCount == 0) {
                     impl[RDOS_OFFSET] = new ReadDataOperationStatistics();
+                    memory.get(RDOS_OFFSET)
+                            .add(new MemoryPool(SIZE * POOL_SIZE, SIZE));
+                    memoryCount = 1;
                 }
             }
         }
