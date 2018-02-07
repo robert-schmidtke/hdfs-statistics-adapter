@@ -7,9 +7,15 @@
  */
 package de.zib.sfs.instrument.util;
 
+import java.io.File;
+import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel.MapMode;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+
+import de.zib.sfs.instrument.AbstractSfsCallback;
 
 public class LongQueue {
 
@@ -40,14 +46,40 @@ public class LongQueue {
     private final AtomicInteger pollIndex, offerIndex;
     private final long sanitizer;
 
-    public LongQueue(int queueSize) {
+    public LongQueue(int queueSize/*, boolean mmap*/) {
         this.numElements = queueSize;
         if (Integer.bitCount(this.numElements) != 1) {
             throw new IllegalArgumentException(
                     "Queue size is not a power of two.");
         }
 
-        this.queue = ByteBuffer.allocateDirect(this.numElements << 3);
+        boolean mmap = true;
+
+        AbstractSfsCallback.DISCARD_NEXT.set(Boolean.TRUE);
+        if (!mmap) {
+            this.queue = ByteBuffer.allocateDirect(this.numElements << 3);
+        } else {
+            try {
+                long id = Thread.currentThread().getId();
+                long time = System.currentTimeMillis();
+
+                File tmpDir = new File(System.getProperty("java.io.tmpdir"));
+
+                File lqFile = new File(tmpDir,
+                        "longqueue-" + id + "-" + time + ".lq");
+                lqFile.deleteOnExit();
+                RandomAccessFile lqRaf = new RandomAccessFile(lqFile, "rw");
+                lqRaf.setLength(this.numElements << 3);
+                this.queue = lqRaf.getChannel().map(MapMode.READ_WRITE, 0,
+                        this.numElements << 3);
+                lqRaf.getChannel().close();
+                lqRaf.close();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        AbstractSfsCallback.DISCARD_NEXT.set(Boolean.FALSE);
+
         this.pollIndex = new AtomicInteger(0);
         this.offerIndex = new AtomicInteger(0);
 

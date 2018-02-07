@@ -7,9 +7,15 @@
  */
 package de.zib.sfs.instrument.util;
 
+import java.io.File;
+import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel.MapMode;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+
+import de.zib.sfs.instrument.AbstractSfsCallback;
 
 public class MemoryPool {
 
@@ -33,7 +39,7 @@ public class MemoryPool {
         }
     }
 
-    public MemoryPool(int poolSize, int chunkSize) {
+    public MemoryPool(int poolSize, int chunkSize/*, boolean mmap*/) {
         if (poolSize % chunkSize > 0) {
             throw new IllegalArgumentException(
                     "Pool size must be a multiple of chunk size.");
@@ -45,8 +51,48 @@ public class MemoryPool {
                     "Number of elements is not a power of two.");
         }
 
-        this.pool = ByteBuffer.allocateDirect(poolSize);
-        this.addresses = ByteBuffer.allocateDirect(this.numAddresses << 2);
+        boolean mmap = true;
+
+        // do not add instrumentation to the instances created in the next
+        // clauses
+        AbstractSfsCallback.DISCARD_NEXT.set(Boolean.TRUE);
+        if (!mmap) {
+            this.pool = ByteBuffer.allocateDirect(poolSize);
+            this.addresses = ByteBuffer.allocateDirect(this.numAddresses << 2);
+        } else {
+            try {
+                long id = Thread.currentThread().getId();
+                long time = System.currentTimeMillis();
+
+                // File$TempDirectory may not be available at this point, so
+                // roll our own
+                File tmpDir = new File(System.getProperty("java.io.tmpdir"));
+
+                File mpFile = new File(tmpDir,
+                        "memorypool-" + id + "-" + time + ".mp");
+                mpFile.deleteOnExit();
+                RandomAccessFile mpRaf = new RandomAccessFile(mpFile, "rw");
+                mpRaf.setLength(poolSize);
+                this.pool = mpRaf.getChannel().map(MapMode.READ_WRITE, 0,
+                        poolSize);
+                mpRaf.getChannel().close();
+                mpRaf.close();
+
+                File addrFile = new File(tmpDir,
+                        "addresses-" + id + "-" + time + ".mp");
+                addrFile.deleteOnExit();
+                RandomAccessFile addrRaf = new RandomAccessFile(addrFile, "rw");
+                addrRaf.setLength(this.numAddresses << 2);
+                this.addresses = addrRaf.getChannel().map(MapMode.READ_WRITE, 0,
+                        this.numAddresses << 2);
+                addrRaf.getChannel().close();
+                addrRaf.close();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        AbstractSfsCallback.DISCARD_NEXT.set(Boolean.FALSE);
+
         this.allocIndex = new AtomicInteger(0);
         this.freeIndex = new AtomicInteger(this.numAddresses);
 
