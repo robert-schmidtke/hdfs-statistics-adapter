@@ -23,6 +23,10 @@ public class RandomAccessFileCallback extends AbstractSfsCallback {
     }
 
     public void openCallback(long startTime, long endTime, String filename) {
+        if (this.discard) {
+            return;
+        }
+
         try {
             this.fd = LiveOperationStatisticsAggregator.instance
                     .registerFileDescriptor(filename, this.raf.getFD());
@@ -40,6 +44,10 @@ public class RandomAccessFileCallback extends AbstractSfsCallback {
     }
 
     public void readCallback(long startTime, long endTime, int readResult) {
+        if (this.discard) {
+            return;
+        }
+
         getFileDescriptor();
         LiveOperationStatisticsAggregator.instance
                 .aggregateReadDataOperationStatistics(OperationSource.JVM,
@@ -49,6 +57,10 @@ public class RandomAccessFileCallback extends AbstractSfsCallback {
 
     public void readBytesCallback(long startTime, long endTime,
             int readBytesResult) {
+        if (this.discard) {
+            return;
+        }
+
         getFileDescriptor();
         LiveOperationStatisticsAggregator.instance
                 .aggregateReadDataOperationStatistics(OperationSource.JVM,
@@ -57,6 +69,10 @@ public class RandomAccessFileCallback extends AbstractSfsCallback {
     }
 
     public void writeCallback(long startTime, long endTime) {
+        if (this.discard) {
+            return;
+        }
+
         getFileDescriptor();
         LiveOperationStatisticsAggregator.instance
                 .aggregateDataOperationStatistics(OperationSource.JVM,
@@ -65,6 +81,10 @@ public class RandomAccessFileCallback extends AbstractSfsCallback {
     }
 
     public void writeBytesCallback(long startTime, long endTime, int len) {
+        if (this.discard) {
+            return;
+        }
+
         getFileDescriptor();
         LiveOperationStatisticsAggregator.instance
                 .aggregateDataOperationStatistics(OperationSource.JVM,

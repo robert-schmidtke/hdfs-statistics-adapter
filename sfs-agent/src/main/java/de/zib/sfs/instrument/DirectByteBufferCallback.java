@@ -26,6 +26,10 @@ public class DirectByteBufferCallback extends AbstractSfsCallback {
     }
 
     public void getCallback(long startTime, long endTime) {
+        if (this.discard) {
+            return;
+        }
+
         getFileDescriptor();
         LiveOperationStatisticsAggregator.instance
                 .aggregateReadDataOperationStatistics(OperationSource.JVM,
@@ -34,6 +38,10 @@ public class DirectByteBufferCallback extends AbstractSfsCallback {
     }
 
     public void getCallback(long startTime, long endTime, int length) {
+        if (this.discard) {
+            return;
+        }
+
         getFileDescriptor();
         LiveOperationStatisticsAggregator.instance
                 .aggregateReadDataOperationStatistics(OperationSource.JVM,
@@ -54,6 +62,10 @@ public class DirectByteBufferCallback extends AbstractSfsCallback {
     }
 
     public void getCharCallback(long startTime, long endTime) {
+        if (this.discard) {
+            return;
+        }
+
         getFileDescriptor();
         LiveOperationStatisticsAggregator.instance
                 .aggregateReadDataOperationStatistics(OperationSource.JVM,
@@ -62,6 +74,10 @@ public class DirectByteBufferCallback extends AbstractSfsCallback {
     }
 
     public void getDoubleCallback(long startTime, long endTime) {
+        if (this.discard) {
+            return;
+        }
+
         getFileDescriptor();
         LiveOperationStatisticsAggregator.instance
                 .aggregateReadDataOperationStatistics(OperationSource.JVM,
@@ -70,6 +86,10 @@ public class DirectByteBufferCallback extends AbstractSfsCallback {
     }
 
     public void getFloatCallback(long startTime, long endTime) {
+        if (this.discard) {
+            return;
+        }
+
         getFileDescriptor();
         LiveOperationStatisticsAggregator.instance
                 .aggregateReadDataOperationStatistics(OperationSource.JVM,
@@ -78,6 +98,10 @@ public class DirectByteBufferCallback extends AbstractSfsCallback {
     }
 
     public void getIntCallback(long startTime, long endTime) {
+        if (this.discard) {
+            return;
+        }
+
         getFileDescriptor();
         LiveOperationStatisticsAggregator.instance
                 .aggregateReadDataOperationStatistics(OperationSource.JVM,
@@ -86,6 +110,10 @@ public class DirectByteBufferCallback extends AbstractSfsCallback {
     }
 
     public void getLongCallback(long startTime, long endTime) {
+        if (this.discard) {
+            return;
+        }
+
         getFileDescriptor();
         LiveOperationStatisticsAggregator.instance
                 .aggregateReadDataOperationStatistics(OperationSource.JVM,
@@ -94,6 +122,10 @@ public class DirectByteBufferCallback extends AbstractSfsCallback {
     }
 
     public void getShortCallback(long startTime, long endTime) {
+        if (this.discard) {
+            return;
+        }
+
         getFileDescriptor();
         LiveOperationStatisticsAggregator.instance
                 .aggregateReadDataOperationStatistics(OperationSource.JVM,
@@ -102,6 +134,10 @@ public class DirectByteBufferCallback extends AbstractSfsCallback {
     }
 
     public void putCallback(long startTime, long endTime) {
+        if (this.discard) {
+            return;
+        }
+
         getFileDescriptor();
         LiveOperationStatisticsAggregator.instance
                 .aggregateDataOperationStatistics(OperationSource.JVM,
@@ -110,6 +146,10 @@ public class DirectByteBufferCallback extends AbstractSfsCallback {
     }
 
     public void putCallback(long startTime, long endTime, int length) {
+        if (this.discard) {
+            return;
+        }
+
         getFileDescriptor();
         LiveOperationStatisticsAggregator.instance
                 .aggregateDataOperationStatistics(OperationSource.JVM,
@@ -118,6 +158,10 @@ public class DirectByteBufferCallback extends AbstractSfsCallback {
     }
 
     public void putCharCallback(long startTime, long endTime) {
+        if (this.discard) {
+            return;
+        }
+
         getFileDescriptor();
         LiveOperationStatisticsAggregator.instance
                 .aggregateDataOperationStatistics(OperationSource.JVM,
@@ -126,6 +170,10 @@ public class DirectByteBufferCallback extends AbstractSfsCallback {
     }
 
     public void putDoubleCallback(long startTime, long endTime) {
+        if (this.discard) {
+            return;
+        }
+
         getFileDescriptor();
         LiveOperationStatisticsAggregator.instance
                 .aggregateDataOperationStatistics(OperationSource.JVM,
@@ -134,6 +182,10 @@ public class DirectByteBufferCallback extends AbstractSfsCallback {
     }
 
     public void putFloatCallback(long startTime, long endTime) {
+        if (this.discard) {
+            return;
+        }
+
         getFileDescriptor();
         LiveOperationStatisticsAggregator.instance
                 .aggregateDataOperationStatistics(OperationSource.JVM,
@@ -142,6 +194,10 @@ public class DirectByteBufferCallback extends AbstractSfsCallback {
     }
 
     public void putIntCallback(long startTime, long endTime) {
+        if (this.discard) {
+            return;
+        }
+
         getFileDescriptor();
         LiveOperationStatisticsAggregator.instance
                 .aggregateDataOperationStatistics(OperationSource.JVM,
@@ -150,6 +206,10 @@ public class DirectByteBufferCallback extends AbstractSfsCallback {
     }
 
     public void putLongCallback(long startTime, long endTime) {
+        if (this.discard) {
+            return;
+        }
+
         getFileDescriptor();
         LiveOperationStatisticsAggregator.instance
                 .aggregateDataOperationStatistics(OperationSource.JVM,
@@ -158,6 +218,10 @@ public class DirectByteBufferCallback extends AbstractSfsCallback {
     }
 
     public void putShortCallback(long startTime, long endTime) {
+        if (this.discard) {
+            return;
+        }
+
         getFileDescriptor();
         LiveOperationStatisticsAggregator.instance
                 .aggregateDataOperationStatistics(OperationSource.JVM,

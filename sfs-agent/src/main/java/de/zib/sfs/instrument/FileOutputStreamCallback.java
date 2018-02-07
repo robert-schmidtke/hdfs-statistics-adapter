@@ -21,9 +21,6 @@ public class FileOutputStreamCallback extends AbstractSfsCallback {
     // FileChannels obtained from FileOutputStreams to write its logs
     private static String LOG_FILE_PREFIX = null;
 
-    // set to true if all calls made to this callback should be discarded
-    private boolean discard = false;
-
     private FileOutputStream fos;
 
     public FileOutputStreamCallback(FileOutputStream fos) {
@@ -32,45 +29,31 @@ public class FileOutputStreamCallback extends AbstractSfsCallback {
     }
 
     public void openCallback(long startTime, long endTime, String filename) {
-        // null as long as the LiveOperationStatisticsAggregator is not
-        // initialized
-        if (LOG_FILE_PREFIX == null) {
-            LOG_FILE_PREFIX = LiveOperationStatisticsAggregator.instance
-                    .getLogFilePrefix();
+        if (this.discard) {
+            return;
         }
 
-        // discard all writes to the LiveOperationStatisticsAggregator's log
-        // files
-        this.discard = LOG_FILE_PREFIX != null && filename != null
-                && filename.startsWith(LOG_FILE_PREFIX);
-        if (!this.discard) {
-            try {
-                this.fd = LiveOperationStatisticsAggregator.instance
-                        .registerFileDescriptor(filename, this.fos.getFD());
-                this.fos = null;
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
+        try {
+            this.fd = LiveOperationStatisticsAggregator.instance
+                    .registerFileDescriptor(filename, this.fos.getFD());
+            this.fos = null;
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
 
-            if (!this.skipOther) {
-                LiveOperationStatisticsAggregator.instance
-                        .aggregateOperationStatistics(OperationSource.JVM,
-                                OperationCategory.OTHER, startTime, endTime,
-                                this.fd);
-            }
-        } else {
-            try {
-                // useful for FileChannelImplCallback
-                LiveOperationStatisticsAggregator.instance
-                        .discardFileDescriptor(this.fos.getFD());
-                this.fos = null;
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
+        if (!this.skipOther) {
+            LiveOperationStatisticsAggregator.instance
+                    .aggregateOperationStatistics(OperationSource.JVM,
+                            OperationCategory.OTHER, startTime, endTime,
+                            this.fd);
         }
     }
 
     public void writeCallback(long startTime, long endTime) {
+        if (this.discard) {
+            return;
+        }
+
         getFileDescriptor();
         if (!this.discard) {
             LiveOperationStatisticsAggregator.instance
@@ -81,6 +64,10 @@ public class FileOutputStreamCallback extends AbstractSfsCallback {
     }
 
     public void writeBytesCallback(long startTime, long endTime, int len) {
+        if (this.discard) {
+            return;
+        }
+
         getFileDescriptor();
         if (!this.discard) {
             LiveOperationStatisticsAggregator.instance
@@ -91,7 +78,7 @@ public class FileOutputStreamCallback extends AbstractSfsCallback {
     }
 
     private void getFileDescriptor() {
-        if (this.fd != -1 || this.discard) {
+        if (this.fd != -1) {
             return;
         }
 

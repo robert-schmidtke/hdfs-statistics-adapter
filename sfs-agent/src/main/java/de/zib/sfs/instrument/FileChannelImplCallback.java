@@ -28,16 +28,19 @@ public class FileChannelImplCallback extends AbstractSfsCallback {
     }
 
     public void openCallback(FileDescriptor fileDescriptor) {
-        // see FileOutputStreamCallback
-        this.discard = LiveOperationStatisticsAggregator.instance
-                .isDiscardedFileDescriptor(fileDescriptor);
-        if (!this.discard) {
-            this.fd = LiveOperationStatisticsAggregator.instance
-                    .getFileDescriptor(fileDescriptor);
+        if (this.discard) {
+            return;
         }
+
+        this.fd = LiveOperationStatisticsAggregator.instance
+                .getFileDescriptor(fileDescriptor);
     }
 
     public void readCallback(long startTime, long endTime, int readResult) {
+        if (this.discard) {
+            return;
+        }
+
         LiveOperationStatisticsAggregator.instance
                 .aggregateReadDataOperationStatistics(OperationSource.JVM,
                         OperationCategory.READ, startTime, endTime, this.fd,
@@ -55,6 +58,10 @@ public class FileChannelImplCallback extends AbstractSfsCallback {
     }
 
     public void readCallback(long startTime, long endTime, long readResult) {
+        if (this.discard) {
+            return;
+        }
+
         LiveOperationStatisticsAggregator.instance
                 .aggregateReadDataOperationStatistics(OperationSource.JVM,
                         OperationCategory.READ, startTime, endTime, this.fd,
@@ -72,12 +79,14 @@ public class FileChannelImplCallback extends AbstractSfsCallback {
     }
 
     public void writeCallback(long startTime, long endTime, int writeResult) {
-        if (!this.discard) {
-            LiveOperationStatisticsAggregator.instance
-                    .aggregateDataOperationStatistics(OperationSource.JVM,
-                            OperationCategory.WRITE, startTime, endTime,
-                            this.fd, writeResult);
+        if (this.discard) {
+            return;
         }
+
+        LiveOperationStatisticsAggregator.instance
+                .aggregateDataOperationStatistics(OperationSource.JVM,
+                        OperationCategory.WRITE, startTime, endTime, this.fd,
+                        writeResult);
     }
 
     public static void writeCallback(FileDescriptor fileDescriptor,
@@ -91,12 +100,14 @@ public class FileChannelImplCallback extends AbstractSfsCallback {
     }
 
     public void writeCallback(long startTime, long endTime, long writeResult) {
-        if (!this.discard) {
-            LiveOperationStatisticsAggregator.instance
-                    .aggregateDataOperationStatistics(OperationSource.JVM,
-                            OperationCategory.WRITE, startTime, endTime,
-                            this.fd, writeResult);
+        if (this.discard) {
+            return;
         }
+
+        LiveOperationStatisticsAggregator.instance
+                .aggregateDataOperationStatistics(OperationSource.JVM,
+                        OperationCategory.WRITE, startTime, endTime, this.fd,
+                        writeResult);
     }
 
     public static void writeCallback(FileDescriptor fileDescriptor,

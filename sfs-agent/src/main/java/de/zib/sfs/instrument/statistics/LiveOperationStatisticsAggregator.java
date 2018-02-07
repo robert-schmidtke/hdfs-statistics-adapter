@@ -35,6 +35,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import com.google.flatbuffers.FlatBufferBuilder;
 
+import de.zib.sfs.instrument.AbstractSfsCallback;
 import de.zib.sfs.instrument.statistics.bb.FileDescriptorMappingBufferBuilder;
 import de.zib.sfs.instrument.statistics.bb.OperationStatisticsBufferBuilder;
 import de.zib.sfs.instrument.statistics.fb.FileDescriptorMappingFB;
@@ -116,8 +117,6 @@ public class LiveOperationStatisticsAggregator {
     private final Map<FileDescriptor, Integer> fdToFd;
     private boolean traceFileDescriptors;
 
-    private final Set<FileDescriptor> discardedFileDescriptors;
-
     private long initializationTime;
 
     public static final LiveOperationStatisticsAggregator instance = new LiveOperationStatisticsAggregator();
@@ -153,8 +152,6 @@ public class LiveOperationStatisticsAggregator {
         this.filenameToFd = new ConcurrentHashMap<>();
         this.fdToFd = new ConcurrentHashMap<>();
         this.currentFileDescriptor = new AtomicInteger(0);
-
-        this.discardedFileDescriptors = ConcurrentHashMap.newKeySet();
 
         this.initializing = false;
         this.initialized = false;
@@ -335,14 +332,6 @@ public class LiveOperationStatisticsAggregator {
         }
 
         return this.fdToFd.getOrDefault(fileDescriptor, 0);
-    }
-
-    public void discardFileDescriptor(FileDescriptor fileDescriptor) {
-        this.discardedFileDescriptors.add(fileDescriptor);
-    }
-
-    public boolean isDiscardedFileDescriptor(FileDescriptor fileDescriptor) {
-        return this.discardedFileDescriptors.contains(fileDescriptor);
     }
 
     public void aggregateOperationStatistics(OperationSource source,
@@ -661,9 +650,12 @@ public class LiveOperationStatisticsAggregator {
                             // we will receive writes to this file as well in
                             // FileOutputStreamCallback
                             // bw is closed in shutdown
+                            AbstractSfsCallback.DISCARD_NEXT.set(Boolean.TRUE);
                             @SuppressWarnings("resource")
                             BufferedWriter bw = new BufferedWriter(
                                     new FileWriter(file));
+                            AbstractSfsCallback.DISCARD_NEXT.set(Boolean.FALSE);
+
                             bw.write(sb.toString());
                             sb.setLength(0);
 
@@ -735,6 +727,7 @@ public class LiveOperationStatisticsAggregator {
 
                         File file = new File(filename);
                         if (!file.exists()) {
+                            AbstractSfsCallback.DISCARD_NEXT.set(Boolean.TRUE);
                             FileChannel fc = new FileOutputStream(file)
                                     .getChannel();
 
@@ -747,6 +740,7 @@ public class LiveOperationStatisticsAggregator {
                             bbCount = null;
 
                             this.bbChannels[index] = fc;
+                            AbstractSfsCallback.DISCARD_NEXT.set(Boolean.FALSE);
                         } else {
                             throw new IOException(filename + " already exists");
                         }
@@ -893,12 +887,14 @@ public class LiveOperationStatisticsAggregator {
 
     private void writeFileDescriptorMappingsFb() {
         try {
+            AbstractSfsCallback.DISCARD_NEXT.set(Boolean.TRUE);
             @SuppressWarnings("resource") // we close the channel later on
             FileChannel fileDescriptorMappingsChannel = new FileOutputStream(
                     new File(getLogFilePrefix() + ".filedescriptormappings."
                             + this.initializationTime + "."
                             + this.outputFormat.name().toLowerCase()))
                                     .getChannel();
+            AbstractSfsCallback.DISCARD_NEXT.set(Boolean.FALSE);
 
             FlatBufferBuilder builder = new FlatBufferBuilder(0);
             for (Map.Entry<String, Integer> fd : this.filenameToFd.entrySet()) {
@@ -929,12 +925,14 @@ public class LiveOperationStatisticsAggregator {
 
     private void writeFileDescriptorMappingsBb() {
         try {
+            AbstractSfsCallback.DISCARD_NEXT.set(Boolean.TRUE);
             @SuppressWarnings("resource") // we close the channel later on
             FileChannel fileDescriptorMappingsChannel = new FileOutputStream(
                     new File(getLogFilePrefix() + ".filedescriptormappings."
                             + this.initializationTime + "."
                             + this.outputFormat.name().toLowerCase()))
                                     .getChannel();
+            AbstractSfsCallback.DISCARD_NEXT.set(Boolean.FALSE);
 
             ByteBuffer bb = this.bbBuffer.get();
             bb.clear();

@@ -14,6 +14,24 @@ public abstract class AbstractSfsCallback {
 
     protected boolean skipOther = false;
 
+    // switch to set discard flag in next constructor invocations
+    // per-thread to avoid concurrency issues
+    public static final ThreadLocal<Boolean> DISCARD_NEXT = new ThreadLocal<Boolean>() {
+        @Override
+        protected Boolean initialValue() {
+            return Boolean.FALSE;
+        }
+    };
+
+    // per-instance flag to signal whether to discard calls
+    protected boolean discard = false;
+
+    protected AbstractSfsCallback() {
+        // if at the time of constructor invocation the above flag is set,
+        // discard all calls
+        this.discard = DISCARD_NEXT.get().booleanValue();
+    }
+
     public void skipOther() {
         this.skipOther = true;
     }

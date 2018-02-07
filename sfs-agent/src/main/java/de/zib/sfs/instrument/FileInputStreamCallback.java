@@ -17,9 +17,6 @@ import de.zib.sfs.instrument.statistics.OperationSource;
 
 public class FileInputStreamCallback extends AbstractSfsCallback {
 
-    // set to true if all calls made to this callback should be discarded
-    private boolean discard = false;
-
     private FileInputStream fis;
 
     public FileInputStreamCallback(FileInputStream fis) {
@@ -27,6 +24,10 @@ public class FileInputStreamCallback extends AbstractSfsCallback {
     }
 
     public void openCallback(long startTime, long endTime, String filename) {
+        if (this.discard) {
+            return;
+        }
+
         try {
             this.fd = LiveOperationStatisticsAggregator.instance
                     .registerFileDescriptor(filename, this.fis.getFD());
@@ -44,6 +45,10 @@ public class FileInputStreamCallback extends AbstractSfsCallback {
     }
 
     public void readCallback(long startTime, long endTime, int readResult) {
+        if (this.discard) {
+            return;
+        }
+
         getFileDescriptor();
         if (!this.discard) {
             LiveOperationStatisticsAggregator.instance
@@ -55,6 +60,10 @@ public class FileInputStreamCallback extends AbstractSfsCallback {
 
     public void readBytesCallback(long startTime, long endTime,
             int readResult) {
+        if (this.discard) {
+            return;
+        }
+
         getFileDescriptor();
         if (!this.discard) {
             LiveOperationStatisticsAggregator.instance
@@ -65,7 +74,7 @@ public class FileInputStreamCallback extends AbstractSfsCallback {
     }
 
     private void getFileDescriptor() {
-        if (this.fd != -1 || this.discard) {
+        if (this.fd != -1) {
             return;
         }
 
