@@ -64,9 +64,13 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
         }
 
         if (Globals.POOL_DIAGNOSTICS) {
-            maxPoolSize.updateAndGet((v) -> Math.max(v,
-                    memoryList.stream().map((mp) -> POOL_SIZE - mp.remaining())
-                            .reduce(0, (x, y) -> x + y)));
+            int mpr = 0;
+            for (int i = 0; i < memoryCount; ++i) {
+                mpr += POOL_SIZE - memoryList.get(i).remaining();
+            }
+            final int maxPoolSize = mpr;
+            ReadDataOperationStatistics.maxPoolSize
+                    .updateAndGet((v) -> Math.max(v, maxPoolSize));
         }
         return address | ((long) RDOS_OFFSET << 61) | ((long) listIndex << 32);
     }
