@@ -212,7 +212,8 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
         }
         synchronized (lock) {
             if (Globals.LOCK_DIAGNOSTICS) {
-                lockWaitTime.addAndGet(System.currentTimeMillis() - startWait);
+                maxLockWaitTime.updateAndGet((v) -> Math.max(v,
+                        System.currentTimeMillis() - startWait));
             }
 
             incrementRemoteCount(mpAggregate, sanitizedAggregate,

@@ -78,7 +78,7 @@ public class OperationStatistics {
 
     protected static final Object[] LOCK_CACHE;
     protected static final int LOCK_CACHE_SIZE;
-    public static final AtomicLong lockWaitTime;
+    public static final AtomicLong maxLockWaitTime;
     static {
         int size = 1024;
         String sizeString = System
@@ -104,9 +104,9 @@ public class OperationStatistics {
         }
 
         if (Globals.LOCK_DIAGNOSTICS) {
-            lockWaitTime = new AtomicLong(0);
+            maxLockWaitTime = new AtomicLong(0);
         } else {
-            lockWaitTime = null;
+            maxLockWaitTime = null;
         }
     }
 
@@ -440,7 +440,8 @@ public class OperationStatistics {
         }
         synchronized (lock) {
             if (Globals.LOCK_DIAGNOSTICS) {
-                lockWaitTime.addAndGet(System.currentTimeMillis() - startWait);
+                maxLockWaitTime.updateAndGet((v) -> Math.max(v,
+                        System.currentTimeMillis() - startWait));
             }
 
             // add ourselves to the aggregate, then free ourselves because we

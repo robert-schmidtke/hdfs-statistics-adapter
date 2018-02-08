@@ -140,7 +140,8 @@ public class DataOperationStatistics extends OperationStatistics {
         }
         synchronized (lock) {
             if (Globals.LOCK_DIAGNOSTICS) {
-                lockWaitTime.addAndGet(System.currentTimeMillis() - startWait);
+                maxLockWaitTime.updateAndGet((v) -> Math.max(v,
+                        System.currentTimeMillis() - startWait));
             }
 
             incrementData(mpAggregate, sanitizedAggregate,

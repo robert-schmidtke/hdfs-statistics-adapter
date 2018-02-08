@@ -29,12 +29,12 @@ public class LongQueue {
 
     protected final Object[] lockCache;
     protected final int lockCacheSize;
-    public static final AtomicLong lockWaitTime;
+    public static final AtomicLong maxLockWaitTime;
     static {
         if (Globals.LOCK_DIAGNOSTICS) {
-            lockWaitTime = new AtomicLong(0);
+            maxLockWaitTime = new AtomicLong(0);
         } else {
-            lockWaitTime = null;
+            maxLockWaitTime = null;
         }
     }
 
@@ -130,8 +130,8 @@ public class LongQueue {
                 }
                 synchronized (lock) {
                     if (Globals.LOCK_DIAGNOSTICS) {
-                        lockWaitTime.addAndGet(
-                                System.currentTimeMillis() - startWait);
+                        maxLockWaitTime.updateAndGet((v) -> Math.max(v,
+                                System.currentTimeMillis() - startWait));
                     }
 
                     if (this.pollIndex.compareAndSet(index, index + 1)) {
@@ -176,10 +176,8 @@ public class LongQueue {
                 startWait = System.currentTimeMillis();
             }
             synchronized (lock) {
-                if (Globals.LOCK_DIAGNOSTICS) {
-                    lockWaitTime
-                            .addAndGet(System.currentTimeMillis() - startWait);
-                }
+                maxLockWaitTime.updateAndGet((v) -> Math.max(v,
+                        System.currentTimeMillis() - startWait));
 
                 if (this.offerIndex.compareAndSet(index, index + 1)) {
                     this.queue.putLong(sanitizedIndex << 3, value);

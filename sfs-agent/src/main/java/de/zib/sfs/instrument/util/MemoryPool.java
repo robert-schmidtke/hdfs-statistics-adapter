@@ -30,12 +30,12 @@ public class MemoryPool {
 
     protected final Object[] lockCache;
     protected final int lockCacheSize;
-    public static final AtomicLong lockWaitTime;
+    public static final AtomicLong maxLockWaitTime;
     static {
         if (Globals.LOCK_DIAGNOSTICS) {
-            lockWaitTime = new AtomicLong(0);
+            maxLockWaitTime = new AtomicLong(0);
         } else {
-            lockWaitTime = null;
+            maxLockWaitTime = null;
         }
     }
 
@@ -150,8 +150,8 @@ public class MemoryPool {
             }
             synchronized (lock) {
                 if (Globals.LOCK_DIAGNOSTICS) {
-                    lockWaitTime
-                            .addAndGet(System.currentTimeMillis() - startWait);
+                    maxLockWaitTime.updateAndGet((v) -> Math.max(v,
+                            System.currentTimeMillis() - startWait));
                 }
 
                 if (this.allocIndex.compareAndSet(index, index + 1)) {
@@ -181,8 +181,8 @@ public class MemoryPool {
             }
             synchronized (lock) {
                 if (Globals.LOCK_DIAGNOSTICS) {
-                    lockWaitTime
-                            .addAndGet(System.currentTimeMillis() - startWait);
+                    maxLockWaitTime.updateAndGet((v) -> Math.max(v,
+                            System.currentTimeMillis() - startWait));
                 }
 
                 if (this.freeIndex.compareAndSet(index, index + 1)) {
