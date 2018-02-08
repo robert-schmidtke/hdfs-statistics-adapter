@@ -695,10 +695,14 @@ static void JNICALL VMInitCallback(jvmtiEnv *jvmti_env, JNIEnv *jni_env,
                           initialize_method_id);
 
   // print stack trace of exception during initialization, if any
-  if (jni_env->ExceptionOccurred() != NULL) {
+  if (jni_env->ExceptionCheck() == JNI_TRUE) {
     LOG_VERBOSE("Exception during VM initialization.\n");
+
+    // print stacktrace and rethrow because ExceptionDescribe clears the pending
+    // exception
+    jthrowable exception = jni_env->ExceptionOccurred();
     jni_env->ExceptionDescribe();
-    // do not clear exception
+    jni_env->Throw(exception);
   } else {
     LOG_VERBOSE("VM initialized successfully.\n");
   }
