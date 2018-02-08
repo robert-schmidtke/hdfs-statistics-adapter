@@ -51,6 +51,12 @@ public class MemoryPool {
                     "Number of elements is not a power of two.");
         }
 
+        if (Integer.MAX_VALUE >> 2 < this.numAddresses) {
+            throw new IllegalArgumentException("Cannot allocate more than "
+                    + (Integer.MAX_VALUE >> 2) + " chunks of size " + chunkSize
+                    + " at once (" + this.numAddresses + ")");
+        }
+
         boolean mmap = true;
 
         // do not add instrumentation to the instances created in the next

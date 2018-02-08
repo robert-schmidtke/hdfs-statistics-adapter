@@ -53,6 +53,12 @@ public class LongQueue {
                     "Queue size is not a power of two.");
         }
 
+        if (Integer.MAX_VALUE >> 3 < this.numElements) {
+            throw new IllegalArgumentException(
+                    "Cannot allocate more than " + (Integer.MAX_VALUE >> 3)
+                            + " elements at once (" + this.numElements + ")");
+        }
+
         boolean mmap = true;
 
         AbstractSfsCallback.DISCARD_NEXT.set(Boolean.TRUE);
