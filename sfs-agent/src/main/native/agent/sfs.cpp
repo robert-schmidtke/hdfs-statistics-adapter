@@ -694,7 +694,14 @@ static void JNICALL VMInitCallback(jvmtiEnv *jvmti_env, JNIEnv *jni_env,
   jni_env->CallVoidMethod(live_operation_statistics_aggregator_instance,
                           initialize_method_id);
 
-  LOG_VERBOSE("VM initialized successfully.\n");
+  // print stack trace of exception during initialization, if any
+  if (jni_env->ExceptionOccurred() != NULL) {
+    LOG_VERBOSE("Exception during VM initialization.\n");
+    jni_env->ExceptionDescribe();
+    // do not clear exception
+  } else {
+    LOG_VERBOSE("VM initialized successfully.\n");
+  }
 }
 
 // function to be call when the JVM shuts down
