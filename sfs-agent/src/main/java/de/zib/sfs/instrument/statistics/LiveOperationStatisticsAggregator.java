@@ -51,9 +51,11 @@ public class LiveOperationStatisticsAggregator {
         CSV, FB, BB;
     }
 
-    private boolean initializing;
+    private static enum LifecyclePhase {
+        UNINITIALIZED, INITIALIZING, RUNNING, SHUTTING_DOWN, SHUT_DOWN;
+    }
 
-    boolean initialized;
+    LifecyclePhase phase;
 
     private String systemHostname, systemKey;
     private ByteBuffer systemHostnameBb, systemKeyBb;
@@ -153,16 +155,15 @@ public class LiveOperationStatisticsAggregator {
         this.fdToFd = new ConcurrentHashMap<>();
         this.currentFileDescriptor = new AtomicInteger(0);
 
-        this.initializing = false;
-        this.initialized = false;
+        this.phase = LifecyclePhase.UNINITIALIZED;
     }
 
     public void initialize() {
         synchronized (this) {
-            if (this.initialized || this.initializing) {
+            if (!LifecyclePhase.UNINITIALIZED.equals(this.phase)) {
                 return;
             }
-            this.initializing = true;
+            this.phase = LifecyclePhase.INITIALIZING;
         }
 
         this.systemHostname = System.getProperty("de.zib.sfs.hostname");
@@ -281,8 +282,7 @@ public class LiveOperationStatisticsAggregator {
         });
 
         this.initializationTime = System.currentTimeMillis();
-        this.initialized = true;
-        this.initializing = false;
+        this.phase = LifecyclePhase.RUNNING;
 
         int processors = Runtime.getRuntime().availableProcessors();
         for (int i = 0; i < processors; ++i) {
@@ -304,7 +304,7 @@ public class LiveOperationStatisticsAggregator {
 
     public int registerFileDescriptor(String filename,
             FileDescriptor fileDescriptor) {
-        if (!this.initialized || filename == null
+        if (!LifecyclePhase.RUNNING.equals(this.phase) || filename == null
                 || !this.traceFileDescriptors) {
             return 0;
         }
@@ -326,7 +326,7 @@ public class LiveOperationStatisticsAggregator {
     }
 
     public int getFileDescriptor(FileDescriptor fileDescriptor) {
-        if (!this.initialized || fileDescriptor == null
+        if (!LifecyclePhase.RUNNING.equals(this.phase) || fileDescriptor == null
                 || !this.traceFileDescriptors) {
             return 0;
         }
@@ -336,7 +336,7 @@ public class LiveOperationStatisticsAggregator {
 
     public void aggregateOperationStatistics(OperationSource source,
             OperationCategory category, long startTime, long endTime, int fd) {
-        if (!this.initialized) {
+        if (!LifecyclePhase.RUNNING.equals(this.phase)) {
             return;
         }
 
@@ -380,7 +380,7 @@ public class LiveOperationStatisticsAggregator {
     public void aggregateDataOperationStatistics(OperationSource source,
             OperationCategory category, long startTime, long endTime, int fd,
             long data) {
-        if (!this.initialized) {
+        if (!LifecyclePhase.RUNNING.equals(this.phase)) {
             return;
         }
 
@@ -425,7 +425,7 @@ public class LiveOperationStatisticsAggregator {
     public void aggregateReadDataOperationStatistics(OperationSource source,
             OperationCategory category, long startTime, long endTime, int fd,
             long data, boolean isRemote) {
-        if (!this.initialized) {
+        if (!LifecyclePhase.RUNNING.equals(this.phase)) {
             return;
         }
 
@@ -475,13 +475,15 @@ public class LiveOperationStatisticsAggregator {
         }
     }
 
-    public void shutdown() {
-        synchronized (this) {
-            if (!this.initialized) {
-                return;
-            }
-            this.initialized = false;
+    public synchronized void shutdown() {
+        // synchronize the entire shutdown sequence in order to block concurrent
+        // shutdown attempts, since they might send a SIGKILL if they return
+        // early
+        if (!LifecyclePhase.RUNNING.equals(this.phase)) {
+            return;
         }
+        this.phase = LifecyclePhase.SHUTTING_DOWN;
+
         this.threadPool.shutdown();
 
         // wake up all currently idle worker threads and have them discover that
@@ -582,6 +584,8 @@ public class LiveOperationStatisticsAggregator {
             System.err.println("  - Thread pool:      " + shutdownWait + "ms");
             System.err.println("  - File Descriptors: " + fdWait + "ms");
         }
+
+        this.phase = LifecyclePhase.SHUT_DOWN;
     }
 
     public String getLogFilePrefix() {
@@ -594,10 +598,6 @@ public class LiveOperationStatisticsAggregator {
 
     public String getCsvOutputSeparator() {
         return this.csvOutputSeparator;
-    }
-
-    public boolean isInitialized() {
-        return this.initialized;
     }
 
     void write(ConcurrentIntLongSkipListMap.ValueIterator vi,
@@ -1044,7 +1044,8 @@ public class LiveOperationStatisticsAggregator {
 
         @Override
         public void run() {
-            while (LiveOperationStatisticsAggregator.this.initialized
+            while (LifecyclePhase.RUNNING
+                    .equals(LiveOperationStatisticsAggregator.this.phase)
                     || LiveOperationStatisticsAggregator.this.taskQueue
                             .remaining() > 0) {
                 long aggregate = LiveOperationStatisticsAggregator.this.taskQueue
@@ -1052,7 +1053,8 @@ public class LiveOperationStatisticsAggregator {
                 if (aggregate == Long.MIN_VALUE) {
                     // nothing to do at the moment, wait on the queue to save
                     // CPU cycles if we're not shutting down at the moment
-                    if (LiveOperationStatisticsAggregator.this.initialized) {
+                    if (LifecyclePhase.RUNNING.equals(
+                            LiveOperationStatisticsAggregator.this.phase)) {
                         synchronized (LiveOperationStatisticsAggregator.this.taskQueue) {
                             try {
                                 LiveOperationStatisticsAggregator.this.taskQueue
