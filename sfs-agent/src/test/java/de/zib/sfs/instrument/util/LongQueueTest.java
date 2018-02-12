@@ -16,8 +16,6 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import de.zib.sfs.instrument.util.LongQueue.OutOfMemoryException;
-
 public class LongQueueTest {
 
     private static final int QUEUE_SIZE = 1024;
@@ -65,15 +63,9 @@ public class LongQueueTest {
         }
         Assert.assertEquals(QUEUE_SIZE, this.queue.remaining());
 
-        try {
-            this.queue.offer(42);
-            if (Globals.STRICT) {
-                Assert.fail("Expected exception.");
-            }
-        } catch (OutOfMemoryException e) {
-            if (!Globals.STRICT) {
-                Assert.fail("Did not expect exception.");
-            }
+        boolean r = this.queue.offer(42);
+        if (Globals.STRICT) {
+            Assert.assertFalse(r);
         }
     }
 

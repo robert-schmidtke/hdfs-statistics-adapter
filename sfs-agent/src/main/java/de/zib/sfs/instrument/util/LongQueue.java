@@ -19,14 +19,6 @@ import de.zib.sfs.instrument.AbstractSfsCallback;
 
 public class LongQueue {
 
-    public static class OutOfMemoryException extends RuntimeException {
-        private static final long serialVersionUID = 4987025963701460798L;
-
-        public OutOfMemoryException(String message) {
-            super(message);
-        }
-    }
-
     protected final Object[] lockCache;
     protected final int lockCacheSize;
     public static final AtomicLong maxLockWaitTime;
@@ -149,7 +141,7 @@ public class LongQueue {
         return Long.MIN_VALUE;
     }
 
-    public void offer(long value) {
+    public boolean offer(long value) {
         if (Globals.STRICT) {
             if (value == Long.MIN_VALUE) {
                 throw new IllegalArgumentException("Long.MIN_VALUE ("
@@ -162,8 +154,7 @@ public class LongQueue {
             if (Globals.STRICT) {
                 int pi = this.pollIndex.get();
                 if (index - pi >= this.numElements) {
-                    throw new OutOfMemoryException(
-                            index + ", " + pi + ", " + this.numElements);
+                    return false;
                 }
             }
 
@@ -181,7 +172,7 @@ public class LongQueue {
 
                 if (this.offerIndex.compareAndSet(index, index + 1)) {
                     this.queue.putLong(sanitizedIndex << 3, value);
-                    return;
+                    return true;
                 }
             }
         }
