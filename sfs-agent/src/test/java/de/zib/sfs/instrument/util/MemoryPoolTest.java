@@ -45,14 +45,14 @@ public class MemoryPoolTest {
 
     @Test
     public void testAllocTooMany() {
-        int address = -1;
+        int address = Integer.MIN_VALUE;
         for (int i = 0; i < POOL_SIZE; ++i) {
             address = this.pool.alloc();
         }
         Assert.assertEquals(0, this.pool.remaining());
 
         address = this.pool.alloc();
-        Assert.assertEquals(-1, address);
+        Assert.assertEquals(Integer.MIN_VALUE, address);
     }
 
     @Test
@@ -86,8 +86,8 @@ public class MemoryPoolTest {
                 try {
                     long result = 0L;
                     for (long i = 1; i <= COUNT; ++i) {
-                        int address = -1;
-                        while (address == -1) {
+                        int address = Integer.MIN_VALUE;
+                        while (address == Integer.MIN_VALUE) {
                             address = MemoryPoolTest.this.pool.alloc();
                         }
                         result = MemoryPoolTest.this.pool.pool.getLong(address)

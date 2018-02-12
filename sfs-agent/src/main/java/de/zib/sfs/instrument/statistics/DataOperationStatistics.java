@@ -41,14 +41,15 @@ public class DataOperationStatistics extends OperationStatistics {
             }
         }
 
-        int address = -1, listIndex = -1;
+        int address = Integer.MIN_VALUE, listIndex = Integer.MIN_VALUE;
         final List<MemoryPool> memoryList = memory.get(DOS_OFFSET);
-        for (int i = memoryCount - 1; i >= 0 && address == -1; --i) {
+        for (int i = memoryCount - 1; i >= 0
+                && address == Integer.MIN_VALUE; --i) {
             address = memoryList.get(i).alloc();
             listIndex = i;
         }
 
-        if (address == -1) {
+        if (address == Integer.MIN_VALUE) {
             MemoryPool mp = new MemoryPool(SIZE * POOL_SIZE, SIZE);
             address = mp.alloc();
             synchronized (memoryList) {

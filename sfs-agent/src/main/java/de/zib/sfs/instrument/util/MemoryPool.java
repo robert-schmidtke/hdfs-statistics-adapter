@@ -137,7 +137,7 @@ public class MemoryPool {
         for (;;) {
             int index = this.allocIndex.get();
             if (this.freeIndex.get() - index <= 0) {
-                return -1;
+                return Integer.MIN_VALUE;
             }
 
             int sanitizedIndex = sanitizeIndex(index);

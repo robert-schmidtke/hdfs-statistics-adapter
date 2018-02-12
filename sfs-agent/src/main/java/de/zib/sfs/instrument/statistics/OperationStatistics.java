@@ -165,16 +165,17 @@ public class OperationStatistics {
             }
         }
 
-        int address = -1, listIndex = -1;
+        int address = Integer.MIN_VALUE, listIndex = Integer.MIN_VALUE;
         final List<MemoryPool> memoryList = memory.get(OS_OFFSET);
-        for (int i = memoryCount - 1; i >= 0 && address == -1; --i) {
-            // returns -1 if exhausted
+        for (int i = memoryCount - 1; i >= 0
+                && address == Integer.MIN_VALUE; --i) {
+            // returns Integer.MIN_VALUE if exhausted
             address = memoryList.get(i).alloc();
             listIndex = i;
         }
 
         // all pools are exhausted, append a new one
-        if (address == -1) {
+        if (address == Integer.MIN_VALUE) {
             // we may add multiple pools concurrently here
             MemoryPool mp = new MemoryPool(SIZE * POOL_SIZE, SIZE);
             address = mp.alloc();
