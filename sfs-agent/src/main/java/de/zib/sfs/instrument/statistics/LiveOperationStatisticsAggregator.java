@@ -104,7 +104,9 @@ public class LiveOperationStatisticsAggregator {
     private AtomicLong[] counters;
 
     private final ExecutorService threadPool;
-    LongQueue taskQueue;
+
+    int taskQueueCount;
+    final List<LongQueue> taskQueue;
     public static final AtomicInteger maxQueueSize = Globals.POOL_DIAGNOSTICS
             ? new AtomicInteger(0)
             : null;
@@ -146,6 +148,8 @@ public class LiveOperationStatisticsAggregator {
         for (int i = 0; i < this.emissionInProgress.length; ++i) {
             this.emissionInProgress[i] = new AtomicBoolean(false);
         }
+
+        this.taskQueue = new ArrayList<>();
 
         // worker pool that will accept the aggregation tasks
         this.threadPool = Executors
@@ -272,7 +276,8 @@ public class LiveOperationStatisticsAggregator {
                         + sizeString + ", falling back to " + queueSize + ".");
             }
         }
-        this.taskQueue = new LongQueue(queueSize);
+        this.taskQueue.add(new LongQueue(queueSize));
+        this.taskQueueCount = 1;
 
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
@@ -347,7 +352,7 @@ public class LiveOperationStatisticsAggregator {
         if (startTimeBin == endTimeBin) {
             long os = OperationStatistics.getOperationStatistics(1,
                     startTimeBin, endTime - startTime, source, category, fd);
-            this.taskQueue.offer(os);
+            offerOperationStatistics(os);
         } else {
             // start from the last time bin and proceed to the second one
             for (long tb = endTimeBin; tb > startTimeBin; tb -= this.timeBinDuration) {
@@ -359,18 +364,18 @@ public class LiveOperationStatisticsAggregator {
 
                 long os = OperationStatistics.getOperationStatistics(0, tb,
                         currentDuration, source, category, fd);
-                this.taskQueue.offer(os);
+                offerOperationStatistics(os);
             }
 
             // only the first timeBin remains now
             long os = OperationStatistics.getOperationStatistics(1,
                     startTimeBin, endTime - startTime, source, category, fd);
-            this.taskQueue.offer(os);
+            offerOperationStatistics(os);
         }
 
         if (Globals.POOL_DIAGNOSTICS) {
-            maxQueueSize.updateAndGet(
-                    (v) -> Math.max(v, this.taskQueue.remaining()));
+            LiveOperationStatisticsAggregator.maxQueueSize.updateAndGet(
+                    (v) -> Math.max(v, remainingOperationStatistics()));
         }
         synchronized (this.taskQueue) {
             this.taskQueue.notify();
@@ -391,7 +396,7 @@ public class LiveOperationStatisticsAggregator {
         if (startTimeBin == endTimeBin) {
             long dos = DataOperationStatistics.getDataOperationStatistics(1,
                     startTimeBin, duration, source, category, fd, data);
-            this.taskQueue.offer(dos);
+            offerOperationStatistics(dos);
         } else {
             long remainingData = data;
             for (long tb = endTimeBin; tb > startTimeBin; tb -= this.timeBinDuration) {
@@ -404,18 +409,18 @@ public class LiveOperationStatisticsAggregator {
 
                 long dos = DataOperationStatistics.getDataOperationStatistics(0,
                         tb, currentDuration, source, category, fd, currentData);
-                this.taskQueue.offer(dos);
+                offerOperationStatistics(dos);
             }
 
             long dos = DataOperationStatistics.getDataOperationStatistics(1,
                     startTimeBin, endTime - startTime, source, category, fd,
                     remainingData);
-            this.taskQueue.offer(dos);
+            offerOperationStatistics(dos);
         }
 
         if (Globals.POOL_DIAGNOSTICS) {
-            maxQueueSize.updateAndGet(
-                    (v) -> Math.max(v, this.taskQueue.remaining()));
+            LiveOperationStatisticsAggregator.maxQueueSize.updateAndGet(
+                    (v) -> Math.max(v, remainingOperationStatistics()));
         }
         synchronized (this.taskQueue) {
             this.taskQueue.notify();
@@ -438,7 +443,7 @@ public class LiveOperationStatisticsAggregator {
                     .getReadDataOperationStatistics(1, startTimeBin, duration,
                             source, category, fd, data, isRemote ? 1 : 0,
                             isRemote ? duration : 0, isRemote ? data : 0);
-            this.taskQueue.offer(rdos);
+            offerOperationStatistics(rdos);
         } else {
             long remainingData = data;
             for (long tb = endTimeBin; tb > startTimeBin; tb -= this.timeBinDuration) {
@@ -454,7 +459,7 @@ public class LiveOperationStatisticsAggregator {
                                 source, category, fd, currentData, 0,
                                 isRemote ? currentDuration : 0,
                                 isRemote ? currentData : 0);
-                this.taskQueue.offer(rdos);
+                offerOperationStatistics(rdos);
             }
 
             long rdos = ReadDataOperationStatistics
@@ -463,16 +468,47 @@ public class LiveOperationStatisticsAggregator {
                             remainingData, 0,
                             isRemote ? endTime - startTime : 0,
                             isRemote ? remainingData : 0);
-            this.taskQueue.offer(rdos);
+            offerOperationStatistics(rdos);
         }
 
         if (Globals.POOL_DIAGNOSTICS) {
-            maxQueueSize.updateAndGet(
-                    (v) -> Math.max(v, this.taskQueue.remaining()));
+            LiveOperationStatisticsAggregator.maxQueueSize.updateAndGet(
+                    (v) -> Math.max(v, remainingOperationStatistics()));
         }
         synchronized (this.taskQueue) {
             this.taskQueue.notify();
         }
+    }
+
+    private void offerOperationStatistics(long os) {
+        boolean offered = false;
+        for (int i = this.taskQueueCount - 1; i >= 0 && !offered; --i) {
+            offered = this.taskQueue.get(i).offer(os);
+        }
+        if (!offered) {
+            LongQueue lq = new LongQueue(this.taskQueue.get(0).capacity());
+            lq.offer(os);
+            synchronized (this.taskQueue) {
+                this.taskQueue.add(lq);
+                ++this.taskQueueCount;
+            }
+        }
+    }
+
+    long pollOperationStatistics() {
+        long os = Long.MIN_VALUE;
+        for (int i = 0; i < this.taskQueueCount && os == Long.MIN_VALUE; ++i) {
+            os = this.taskQueue.get(i).poll();
+        }
+        return os;
+    }
+
+    private int remainingOperationStatistics() {
+        int remaining = 0;
+        for (int i = this.taskQueueCount - 1; i >= 0; --i) {
+            remaining += this.taskQueue.get(i).remaining();
+        }
+        return remaining;
     }
 
     public synchronized void shutdown() {
@@ -497,7 +533,7 @@ public class LiveOperationStatisticsAggregator {
         int taskQueueSize = 0;
         try {
             if (Globals.SHUTDOWN_DIAGNOSTICS) {
-                taskQueueSize = this.taskQueue.remaining();
+                taskQueueSize = remainingOperationStatistics();
                 shutdownWait = System.currentTimeMillis();
             }
             if (!this.threadPool.awaitTermination(30, TimeUnit.SECONDS)) {
@@ -1046,10 +1082,8 @@ public class LiveOperationStatisticsAggregator {
         public void run() {
             while (LifecyclePhase.RUNNING
                     .equals(LiveOperationStatisticsAggregator.this.phase)
-                    || LiveOperationStatisticsAggregator.this.taskQueue
-                            .remaining() > 0) {
-                long aggregate = LiveOperationStatisticsAggregator.this.taskQueue
-                        .poll();
+                    || remainingOperationStatistics() > 0) {
+                long aggregate = pollOperationStatistics();
                 if (aggregate == Long.MIN_VALUE) {
                     // nothing to do at the moment, wait on the queue to save
                     // CPU cycles if we're not shutting down at the moment
@@ -1165,7 +1199,7 @@ public class LiveOperationStatisticsAggregator {
             throw new Error("Only to be called when assertions are enabled.");
         }
 
-        int r = this.taskQueue.remaining();
+        int r = remainingOperationStatistics();
         assert (r == 0) : r + " actual vs. 0 expected";
     }
 }

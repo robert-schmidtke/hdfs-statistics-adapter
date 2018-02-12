@@ -406,7 +406,7 @@
                       <argument>-XX:MaxDirectMemorySize=856M</argument>
                       <!-- <argument>-verbose:gc</argument>
                       <argument>-XX:+PrintGCDetails</argument> -->
-                      <argument>-agentpath:${project.build.directory}/${libsfs.name}=trans_jar=${project.build.directory}/sfs-agent.jar,key=test,bin_duration=1000,cache_size=120,out_dir=${project.build.directory},out_fmt=bb,os_pool_size=128,dos_pool_size=262144,rdos_pool_size=262144,tq_pool_size=8388608,lq_lock_cache=4096,mp_lock_cache=4096,os_lock_cache=4096,verbose=n,trace_mmap=n,instr_skip=n,trace_fds=y,use_proxy=n</argument>
+                      <argument>-agentpath:${project.build.directory}/${libsfs.name}=trans_jar=${project.build.directory}/sfs-agent.jar,key=test,bin_duration=1000,cache_size=120,out_dir=${project.build.directory},out_fmt=bb,os_pool_size=128,dos_pool_size=262144,rdos_pool_size=262144,tq_pool_size=262144,lq_lock_cache=4096,mp_lock_cache=4096,os_lock_cache=4096,verbose=n,trace_mmap=n,instr_skip=n,trace_fds=y,use_proxy=n</argument>
                       <!-- <argument>-agentlib:hprof=heap=sites,file=${project.build.directory}/@item@.txt</argument> -->
                       <argument>-ea</argument>
                       <argument>-esa</argument>
