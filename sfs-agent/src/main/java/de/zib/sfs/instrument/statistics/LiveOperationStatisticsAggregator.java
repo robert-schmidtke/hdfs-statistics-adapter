@@ -93,6 +93,9 @@ public class LiveOperationStatisticsAggregator {
     private String csvOutputSeparator;
     private String csvNewLine;
 
+    // directory to be used for mmaping LongQueue and MemoryPool
+    private File mmapDirectory;
+
     // CSV StringBuilder counts in chars, so divide by 2
     private static final int CSV_OUTPUT_BUFFER_SPILL_THRESHOLD = OUTPUT_BUFFER_SPILL_THRESHOLD >> 1;
 
@@ -181,6 +184,23 @@ public class LiveOperationStatisticsAggregator {
                 .parseInt(System.getProperty("de.zib.sfs.timeBin.cacheSize"));
         String outputDirectory = System
                 .getProperty("de.zib.sfs.output.directory");
+
+        String mmapDir = System.getProperty("de.zib.sfs.mmap.directory");
+        if (mmapDir != null && !"".equals(mmapDir = mmapDir.trim())) {
+            this.mmapDirectory = new File(mmapDir);
+            if (!this.mmapDirectory.exists()) {
+                throw new IllegalArgumentException(
+                        "mmap directory does not exist: " + mmapDir);
+            } else if (!this.mmapDirectory.isDirectory()) {
+                throw new IllegalArgumentException(
+                        "mmap directory is not a directory: " + mmapDir);
+            }
+
+            // I know.
+            OperationStatistics.mmapDirectory = this.mmapDirectory;
+            DataOperationStatistics.mmapDirectory = this.mmapDirectory;
+            ReadDataOperationStatistics.mmapDirectory = this.mmapDirectory;
+        }
 
         // output format specifics
         this.outputFormat = OutputFormat.valueOf(
@@ -276,7 +296,7 @@ public class LiveOperationStatisticsAggregator {
                         + sizeString + ", falling back to " + queueSize + ".");
             }
         }
-        this.taskQueue.add(new LongQueue(queueSize));
+        this.taskQueue.add(new LongQueue(queueSize, this.mmapDirectory));
         this.taskQueueCount = 1;
 
         Runtime.getRuntime().addShutdownHook(new Thread() {
@@ -486,7 +506,8 @@ public class LiveOperationStatisticsAggregator {
             offered = this.taskQueue.get(i).offer(os);
         }
         if (!offered) {
-            LongQueue lq = new LongQueue(this.taskQueue.get(0).capacity());
+            LongQueue lq = new LongQueue(this.taskQueue.get(0).capacity(),
+                    this.mmapDirectory);
             lq.offer(os);
             synchronized (this.taskQueue) {
                 this.taskQueue.add(lq);

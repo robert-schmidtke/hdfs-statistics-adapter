@@ -57,6 +57,7 @@ struct CliOptions {
   std::string long_queue_lock_cache_size;
   std::string memory_pool_lock_cache_size;
   std::string operation_statistics_lock_cache_size;
+  std::string mmap_directory;
   bool trace_mmap;
   bool trace_fds;
   bool use_proxy;
@@ -106,6 +107,7 @@ static bool parse_options(char *command_line_options, CliOptions *cli_options) {
   cli_options->long_queue_lock_cache_size = std::string("");
   cli_options->memory_pool_lock_cache_size = std::string("");
   cli_options->operation_statistics_lock_cache_size = std::string("");
+  cli_options->mmap_directory = std::string("");
   cli_options->trace_mmap = false;
   cli_options->trace_fds = false;
   cli_options->use_proxy = false;
@@ -199,6 +201,10 @@ static bool parse_options(char *command_line_options, CliOptions *cli_options) {
       } else if (strcmp(option, "instr_skip") == 0) {
         if (get_tok(&options, suboption, (int)sizeof(suboption), ',')) {
           cli_options->instrumentation_skip = std::string(suboption);
+        }
+      } else if (strcmp(option, "mmap_dir") == 0) {
+        if (get_tok(&options, suboption, (int)sizeof(suboption), ',')) {
+          cli_options->mmap_directory = std::string(suboption);
         }
       } else if (strcmp(option, "trace_mmap") == 0) {
         if (get_tok(&options, suboption, (int)sizeof(suboption), ',')) {

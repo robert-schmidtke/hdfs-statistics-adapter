@@ -7,6 +7,7 @@
  */
 package de.zib.sfs.instrument.statistics;
 
+import java.io.File;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -21,6 +22,8 @@ public class DataOperationStatistics extends OperationStatistics {
     private static final int DATA_OFFSET = OperationStatistics.SIZE; // long
     protected static final int SIZE = DATA_OFFSET + 8;
 
+    public static File mmapDirectory;
+
     private static int memoryCount = 0;
 
     private static final int POOL_SIZE = getPoolSize(
@@ -34,8 +37,8 @@ public class DataOperationStatistics extends OperationStatistics {
             synchronized (DataOperationStatistics.class) {
                 if (memoryCount == 0) {
                     impl[DOS_OFFSET] = new DataOperationStatistics();
-                    memory.get(DOS_OFFSET)
-                            .add(new MemoryPool(SIZE * POOL_SIZE, SIZE));
+                    memory.get(DOS_OFFSET).add(new MemoryPool(SIZE * POOL_SIZE,
+                            SIZE, mmapDirectory));
                     memoryCount = 1;
                 }
             }
@@ -50,7 +53,8 @@ public class DataOperationStatistics extends OperationStatistics {
         }
 
         if (address == Integer.MIN_VALUE) {
-            MemoryPool mp = new MemoryPool(SIZE * POOL_SIZE, SIZE);
+            MemoryPool mp = new MemoryPool(SIZE * POOL_SIZE, SIZE,
+                    mmapDirectory);
             address = mp.alloc();
             synchronized (memoryList) {
                 memoryList.add(mp);

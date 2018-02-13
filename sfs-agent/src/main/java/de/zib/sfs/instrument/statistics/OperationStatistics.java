@@ -7,6 +7,7 @@
  */
 package de.zib.sfs.instrument.statistics;
 
+import java.io.File;
 import java.nio.BufferOverflowException;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
@@ -110,6 +111,8 @@ public class OperationStatistics {
         }
     }
 
+    public static File mmapDirectory;
+
     protected static final OperationStatistics[] impl = new OperationStatistics[3];
 
     private static ByteBufferFactory overflowByteBufferFactory;
@@ -158,8 +161,8 @@ public class OperationStatistics {
             synchronized (OperationStatistics.class) {
                 if (memoryCount == 0) {
                     impl[OS_OFFSET] = new OperationStatistics();
-                    memory.get(OS_OFFSET)
-                            .add(new MemoryPool(SIZE * POOL_SIZE, SIZE));
+                    memory.get(OS_OFFSET).add(new MemoryPool(SIZE * POOL_SIZE,
+                            SIZE, mmapDirectory));
                     memoryCount = 1;
                 }
             }
@@ -177,7 +180,8 @@ public class OperationStatistics {
         // all pools are exhausted, append a new one
         if (address == Integer.MIN_VALUE) {
             // we may add multiple pools concurrently here
-            MemoryPool mp = new MemoryPool(SIZE * POOL_SIZE, SIZE);
+            MemoryPool mp = new MemoryPool(SIZE * POOL_SIZE, SIZE,
+                    mmapDirectory);
             address = mp.alloc();
             synchronized (memoryList) {
                 memoryList.add(mp);

@@ -39,7 +39,7 @@ public class MemoryPool {
         }
     }
 
-    public MemoryPool(int poolSize, int chunkSize/*, boolean mmap*/) {
+    public MemoryPool(int poolSize, int chunkSize, File mmapDir) {
         if (poolSize % chunkSize > 0) {
             throw new IllegalArgumentException(
                     "Pool size must be a multiple of chunk size.");
@@ -57,12 +57,10 @@ public class MemoryPool {
                     + " at once (" + this.numAddresses + ")");
         }
 
-        boolean mmap = true;
-
         // do not add instrumentation to the instances created in the next
         // clauses
         AbstractSfsCallback.DISCARD_NEXT.set(Boolean.TRUE);
-        if (!mmap) {
+        if (mmapDir == null) {
             this.pool = ByteBuffer.allocateDirect(poolSize);
             this.addresses = ByteBuffer.allocateDirect(this.numAddresses << 2);
         } else {
@@ -70,11 +68,7 @@ public class MemoryPool {
                 long id = Thread.currentThread().getId();
                 long time = System.currentTimeMillis();
 
-                // File$TempDirectory may not be available at this point, so
-                // roll our own
-                File tmpDir = new File(System.getProperty("java.io.tmpdir"));
-
-                File mpFile = new File(tmpDir,
+                File mpFile = new File(mmapDir,
                         "memorypool-" + id + "-" + time + ".mp");
                 mpFile.deleteOnExit();
                 RandomAccessFile mpRaf = new RandomAccessFile(mpFile, "rw");
@@ -84,7 +78,7 @@ public class MemoryPool {
                 mpRaf.getChannel().close();
                 mpRaf.close();
 
-                File addrFile = new File(tmpDir,
+                File addrFile = new File(mmapDir,
                         "addresses-" + id + "-" + time + ".mp");
                 addrFile.deleteOnExit();
                 RandomAccessFile addrRaf = new RandomAccessFile(addrFile, "rw");

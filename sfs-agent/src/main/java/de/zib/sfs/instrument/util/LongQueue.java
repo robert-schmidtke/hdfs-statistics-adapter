@@ -38,7 +38,7 @@ public class LongQueue {
     private final AtomicInteger pollIndex, offerIndex;
     private final long sanitizer;
 
-    public LongQueue(int queueSize/*, boolean mmap*/) {
+    public LongQueue(int queueSize, File mmapDir) {
         this.numElements = queueSize;
         if (Integer.bitCount(this.numElements) != 1) {
             throw new IllegalArgumentException(
@@ -51,19 +51,15 @@ public class LongQueue {
                             + " elements at once (" + this.numElements + ")");
         }
 
-        boolean mmap = true;
-
         AbstractSfsCallback.DISCARD_NEXT.set(Boolean.TRUE);
-        if (!mmap) {
+        if (mmapDir == null) {
             this.queue = ByteBuffer.allocateDirect(this.numElements << 3);
         } else {
             try {
                 long id = Thread.currentThread().getId();
                 long time = System.currentTimeMillis();
 
-                File tmpDir = new File(System.getProperty("java.io.tmpdir"));
-
-                File lqFile = new File(tmpDir,
+                File lqFile = new File(mmapDir,
                         "longqueue-" + id + "-" + time + ".lq");
                 lqFile.deleteOnExit();
                 RandomAccessFile lqRaf = new RandomAccessFile(lqFile, "rw");

@@ -24,7 +24,7 @@ public class LongQueueTest {
 
     @Before
     public void setUp() {
-        this.queue = new LongQueue(QUEUE_SIZE);
+        this.queue = new LongQueue(QUEUE_SIZE, null);
     }
 
     @Test

@@ -28,7 +28,7 @@ public class MemoryPoolTest {
 
     @Before
     public void setUp() {
-        this.pool = new MemoryPool(8 * POOL_SIZE, 8);
+        this.pool = new MemoryPool(8 * POOL_SIZE, 8, null);
     }
 
     @Test

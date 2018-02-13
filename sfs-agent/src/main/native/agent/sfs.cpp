@@ -65,6 +65,10 @@ static std::string g_lq_lock_cache_size;
 static std::string g_mp_lock_cache_size;
 static std::string g_os_lock_cache_size;
 
+// if set, mmap operation statistics to this directory instead of keeping them
+// all in memory
+static std::string g_mmap_directory;
+
 // whether to trace mmap calls as well
 static bool g_trace_mmap = false;
 
@@ -127,6 +131,7 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
         << std::endl
         // default in OperationStatistics.java
         << "  os_lock_cache=number (default: 1024)" << std::endl
+        << "  mmap_dir=/path/to/dir (default: empty)" << std::endl
         << "  trace_mmap=y|n (default: n)" << std::endl
         << "  trace_fds=y|n (default: n)" << std::endl
         << "  use_proxy=y|n (default: n)" << std::endl
@@ -210,6 +215,7 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
   g_lq_lock_cache_size = cli_options.long_queue_lock_cache_size;
   g_mp_lock_cache_size = cli_options.memory_pool_lock_cache_size;
   g_os_lock_cache_size = cli_options.operation_statistics_lock_cache_size;
+  g_mmap_directory = cli_options.mmap_directory;
   g_trace_mmap = cli_options.trace_mmap;
   g_trace_fds = cli_options.trace_fds;
 
@@ -623,6 +629,15 @@ static void JNICALL VMInitCallback(jvmtiEnv *jvmti_env, JNIEnv *jni_env,
   jni_env->CallStaticVoidMethod(system_class, set_property_method_id,
                                 jni_env->NewStringUTF("de.zib.sfs.queueSize"),
                                 jni_env->NewStringUTF(g_tq_pool_size.c_str()));
+
+  // repeat for the mmap directory
+  LOG_VERBOSE("Setting system property '%s'='%s'.\n",
+              std::string("de.zib.sfs.mmap.directory").c_str(),
+              g_mmap_directory.c_str());
+  jni_env->CallStaticVoidMethod(
+      system_class, set_property_method_id,
+      jni_env->NewStringUTF("de.zib.sfs.mmap.directory"),
+      jni_env->NewStringUTF(g_mmap_directory.c_str()));
 
   // repeat for the LongQueue lock cache size
   LOG_VERBOSE("Setting system property '%s'='%s'.\n",
