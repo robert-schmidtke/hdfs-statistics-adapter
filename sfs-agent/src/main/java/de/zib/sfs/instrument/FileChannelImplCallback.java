@@ -17,9 +17,6 @@ import sun.nio.ch.FileChannelImpl;
 @SuppressWarnings("restriction")
 public class FileChannelImplCallback extends AbstractSfsCallback {
 
-    // set to true if write calls made to this callback should be discarded
-    private boolean discard = false;
-
     /**
      * @param fci
      */

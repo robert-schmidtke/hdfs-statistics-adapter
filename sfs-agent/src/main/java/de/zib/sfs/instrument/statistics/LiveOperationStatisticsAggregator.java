@@ -273,6 +273,7 @@ public class LiveOperationStatisticsAggregator {
             }
             this.systemKeyBb.flip();
 
+            AbstractSfsCallback.DISCARD_NEXT.set(Boolean.TRUE);
             if (this.mmapDirectory == null) {
                 this.bbBuffer = ThreadLocal.withInitial(() -> ByteBuffer
                         .allocateDirect(OUTPUT_BUFFER_CAPACITY));
@@ -302,6 +303,8 @@ public class LiveOperationStatisticsAggregator {
                     return bb;
                 });
             }
+            AbstractSfsCallback.DISCARD_NEXT.set(Boolean.FALSE);
+
             this.bbChannels = new FileChannel[OperationSource.VALUES.length
                     * OperationCategory.VALUES.length];
 
@@ -941,6 +944,7 @@ public class LiveOperationStatisticsAggregator {
 
     private void writeFileDescriptorMappingsCsv() {
         try {
+            AbstractSfsCallback.DISCARD_NEXT.set(Boolean.TRUE);
             try (BufferedWriter fileDescriptorMappingsWriter = new BufferedWriter(
                     new FileWriter(new File(getLogFilePrefix()
                             + ".filedescriptormappings."
@@ -973,6 +977,7 @@ public class LiveOperationStatisticsAggregator {
                 }
 
             }
+            AbstractSfsCallback.DISCARD_NEXT.set(Boolean.FALSE);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

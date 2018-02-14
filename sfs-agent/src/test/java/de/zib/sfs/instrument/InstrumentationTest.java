@@ -1485,6 +1485,9 @@ public class InstrumentationTest {
         DataOperationStatistics.assertPoolEmpty();
         ReadDataOperationStatistics.assertPoolEmpty();
 
+        // from here on, discard all callbacks
+        AbstractSfsCallback.DISCARD_NEXT.set(Boolean.TRUE);
+
         List<NavigableMap<Long, NavigableMap<Integer, Long>>> aggregates = new ArrayList<>();
         for (int i = 0; i < OperationSource.VALUES.length
                 * OperationCategory.VALUES.length; ++i) {
@@ -1985,7 +1988,7 @@ public class InstrumentationTest {
             for (Map.Entry<Integer, Long> e : operationDataPerFd.entrySet()) {
                 System.err.println(
                         fileDescriptorMappings.getOrDefault(e.getKey(), "n/a")
-                                + ": " + e.getValue());
+                                + " (" + e.getKey() + "): " + e.getValue());
             }
             assert (false) : ("actual " + allData + " vs. " + exact
                     + " at least / " + atMost + " at most expected " + source
