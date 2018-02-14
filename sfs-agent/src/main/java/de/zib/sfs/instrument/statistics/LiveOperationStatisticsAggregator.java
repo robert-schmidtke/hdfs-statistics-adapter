@@ -75,9 +75,9 @@ public class LiveOperationStatisticsAggregator {
     // only have one thread per source/category emit from the aggregates
     final AtomicBoolean[] emissionInProgress;
 
-    // for each source/category combination, map a time bin to an aggregate
-    // operation statistics for each file
-    final List<ConcurrentLongObjectSkipListMap<ConcurrentIntLongSkipListMap>> aggregates;
+    // per aggregation thread: for each source/category combination, map a time
+    // bin to an aggregate operation statistics for each file
+    final List<List<ConcurrentLongObjectSkipListMap<ConcurrentIntLongSkipListMap>>> aggregates;
 
     // for coordinating writing of statistics
     private final Object[] writerLocks;
@@ -108,6 +108,7 @@ public class LiveOperationStatisticsAggregator {
     // to keep track of the number of operation statistics
     private AtomicLong[] counters;
 
+    private final int numAggregationThreads;
     private final ExecutorService threadPool;
 
     int taskQueueCount;
@@ -131,16 +132,25 @@ public class LiveOperationStatisticsAggregator {
     public static final LiveOperationStatisticsAggregator instance = new LiveOperationStatisticsAggregator();
 
     private LiveOperationStatisticsAggregator() {
-        // map each source/category combination, map a time bin to an aggregate
-        this.aggregates = new ArrayList<>();
-        for (int i = 0; i < OperationSource.VALUES.length
-                * OperationCategory.VALUES.length; ++i) {
-            this.aggregates.add(new ConcurrentLongObjectSkipListMap<>());
+        this.numAggregationThreads = Runtime.getRuntime().availableProcessors();
+        final int numSourceCategories = OperationSource.VALUES.length
+                * OperationCategory.VALUES.length;
+
+        // each aggregation thread will have their own set of aggregates
+        this.aggregates = new ArrayList<>(this.numAggregationThreads);
+        for (int i = 0; i < this.numAggregationThreads; ++i) {
+            // there are time bins for each source/category combination
+            List<ConcurrentLongObjectSkipListMap<ConcurrentIntLongSkipListMap>> timeBins = new ArrayList<>(
+                    numSourceCategories);
+            for (int j = 0; j < numSourceCategories; ++j) {
+                timeBins.add(
+                        new ConcurrentLongObjectSkipListMap<ConcurrentIntLongSkipListMap>());
+            }
+            this.aggregates.add(timeBins);
         }
 
         // similar for the writer locks
-        this.writerLocks = new Object[OperationSource.VALUES.length
-                * OperationCategory.VALUES.length];
+        this.writerLocks = new Object[numSourceCategories];
         for (OperationSource source : OperationSource.VALUES) {
             for (OperationCategory category : OperationCategory.VALUES) {
                 this.writerLocks[getUniqueIndex(source,
@@ -148,8 +158,7 @@ public class LiveOperationStatisticsAggregator {
             }
         }
 
-        this.emissionInProgress = new AtomicBoolean[OperationSource.VALUES.length
-                * OperationCategory.VALUES.length];
+        this.emissionInProgress = new AtomicBoolean[numSourceCategories];
         for (int i = 0; i < this.emissionInProgress.length; ++i) {
             this.emissionInProgress[i] = new AtomicBoolean(false);
         }
@@ -158,7 +167,7 @@ public class LiveOperationStatisticsAggregator {
 
         // worker pool that will accept the aggregation tasks
         this.threadPool = Executors
-                .newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+                .newFixedThreadPool(this.numAggregationThreads);
 
         this.filenameToFd = new ConcurrentHashMap<>();
         this.fdToFd = new ConcurrentHashMap<>();
@@ -338,9 +347,9 @@ public class LiveOperationStatisticsAggregator {
         this.initializationTime = System.currentTimeMillis();
         this.phase = LifecyclePhase.RUNNING;
 
-        int processors = Runtime.getRuntime().availableProcessors();
-        for (int i = 0; i < processors; ++i) {
-            this.threadPool.submit(new AggregationTask());
+        for (int i = 0; i < this.numAggregationThreads; ++i) {
+            this.threadPool
+                    .submit(new AggregationTask(i, this.numAggregationThreads));
         }
     }
 
@@ -644,8 +653,6 @@ public class LiveOperationStatisticsAggregator {
 
         if (Globals.LOCK_DIAGNOSTICS) {
             System.err.println("SFS Lock Diagnostics");
-            System.err.println("  - OperationStatistics: "
-                    + OperationStatistics.maxLockWaitTime.get() + "ms");
             System.err.println("  - LongQueue:           "
                     + LongQueue.maxLockWaitTime.get() + "ms");
             System.err.println("  - MemoryPool:          "
@@ -1125,7 +1132,56 @@ public class LiveOperationStatisticsAggregator {
     }
 
     private class AggregationTask implements Runnable {
-        public AggregationTask() {
+        private final int aggregationTaskIndex, numAggregationTasks;
+
+        public AggregationTask(int aggregateIndex, int numAggregationTasks) {
+            this.aggregationTaskIndex = aggregateIndex;
+            this.numAggregationTasks = numAggregationTasks;
+        }
+
+        private int doAggregation(long aggregate) {
+            MemoryPool mp = OperationStatistics.getMemoryPool(aggregate);
+            int aggregateAddress = OperationStatistics
+                    .sanitizeAddress(aggregate);
+
+            // get the time bin applicable for this operation for this
+            // thread
+            OperationSource source = OperationStatistics.getSource(mp,
+                    aggregateAddress);
+            OperationCategory category = OperationStatistics.getCategory(mp,
+                    aggregateAddress);
+            int index = getUniqueIndex(source, category);
+            ConcurrentLongObjectSkipListMap<ConcurrentIntLongSkipListMap> timeBins = LiveOperationStatisticsAggregator.this.aggregates
+                    .get(this.aggregationTaskIndex).get(index);
+
+            // get the file descriptor applicable for this operation
+            ConcurrentIntLongSkipListMap fileDescriptors = timeBins
+                    .computeIfAbsent(
+                            OperationStatistics.getTimeBin(mp,
+                                    aggregateAddress),
+                            l -> new ConcurrentIntLongSkipListMap());
+
+            fileDescriptors.merge(
+                    OperationStatistics.getFileDescriptor(mp, aggregateAddress),
+                    aggregate, (v1, v2) -> {
+                        try {
+                            // sets a reference to v1 in v2 and returns v1
+                            return OperationStatistics.aggregate(v1, v2);
+                        } catch (OperationStatistics.NotAggregatableException e) {
+                            e.printStackTrace();
+                            throw new IllegalArgumentException(e);
+                        }
+                    });
+
+            // Upon successful merge, this.aggregate holds a reference
+            // to the OperationStatistics that was already in the map.
+            // If there was no OperationStatistics in the map before,
+            // the reference will be empty. So trigger the aggregation
+            // on this.aggregate.
+            OperationStatistics.doAggregation(aggregate);
+
+            // return the calculated source/category index for convenience
+            return index;
         }
 
         @Override
@@ -1151,43 +1207,9 @@ public class LiveOperationStatisticsAggregator {
                     continue;
                 }
 
-                MemoryPool mp = OperationStatistics.getMemoryPool(aggregate);
-                int aggregateAddress = OperationStatistics
-                        .sanitizeAddress(aggregate);
-
-                // get the time bin applicable for this operation
-                OperationSource source = OperationStatistics.getSource(mp,
-                        aggregateAddress);
-                OperationCategory category = OperationStatistics.getCategory(mp,
-                        aggregateAddress);
-                int index = getUniqueIndex(source, category);
-                ConcurrentLongObjectSkipListMap<ConcurrentIntLongSkipListMap> timeBins = LiveOperationStatisticsAggregator.this.aggregates
-                        .get(index);
-
-                // get the file descriptor applicable for this operation
-                ConcurrentIntLongSkipListMap fileDescriptors = timeBins
-                        .computeIfAbsent(
-                                OperationStatistics.getTimeBin(mp,
-                                        aggregateAddress),
-                                l -> new ConcurrentIntLongSkipListMap());
-
-                fileDescriptors.merge(OperationStatistics.getFileDescriptor(mp,
-                        aggregateAddress), aggregate, (v1, v2) -> {
-                            try {
-                                // sets a reference to v1 in v2 and returns v1
-                                return OperationStatistics.aggregate(v1, v2);
-                            } catch (OperationStatistics.NotAggregatableException e) {
-                                e.printStackTrace();
-                                throw new IllegalArgumentException(e);
-                            }
-                        });
-
-                // Upon successful merge, this.aggregate holds a reference
-                // to the OperationStatistics that was already in the map.
-                // If there was no OperationStatistics in the map before,
-                // the reference will be empty. So trigger the aggregation
-                // on this.aggregate.
-                OperationStatistics.doAggregation(aggregate);
+                // do the actual aggregation and obtain the unique
+                // source/category index
+                int index = doAggregation(aggregate);
 
                 // make sure to emit aggregates when the cache is full until
                 // it's half full again to avoid writing every time bin size
@@ -1195,17 +1217,47 @@ public class LiveOperationStatisticsAggregator {
                 // source/category
                 if (!LiveOperationStatisticsAggregator.this.emissionInProgress[index]
                         .getAndSet(true)) {
+                    ConcurrentLongObjectSkipListMap<ConcurrentIntLongSkipListMap> timeBins = LiveOperationStatisticsAggregator.this.aggregates
+                            .get(this.aggregationTaskIndex).get(index);
+
                     // emission was not in progress, all other threads now see
                     // it as in progress and skip this
                     int size = timeBins.size();
                     if (size > LiveOperationStatisticsAggregator.this.timeBinCacheSize) {
+                        // for this aggregation thread, the emission threshold
+                        // has been reached, so assume the same for the other
+                        // threads and poll their aggregates as well,
+                        // aggregating them before emission
+                        for (int aggregationTask = 0; aggregationTask < this.numAggregationTasks; ++aggregationTask) {
+                            if (aggregationTask == this.aggregationTaskIndex) {
+                                // skip this thread since we will use it as
+                                // final aggregation target
+                                continue;
+                            }
+
+                            // get the time bins for the other aggregation task,
+                            // poll half of them and aggregate them in this
+                            // thread
+                            ConcurrentLongObjectSkipListMap<ConcurrentIntLongSkipListMap> foreignTimeBins = LiveOperationStatisticsAggregator.this.aggregates
+                                    .get(aggregationTask).get(index);
+                            for (int i = size / 2; i > 0; --i) {
+                                ConcurrentIntLongSkipListMap foreignFds = foreignTimeBins
+                                        .poll();
+                                ConcurrentIntLongSkipListMap.ValueIterator vi = foreignFds
+                                        .values();
+                                while (vi.hasNext()) {
+                                    doAggregation(vi.next());
+                                }
+                            }
+                        }
+
                         for (int i = size / 2; i > 0; --i) {
                             try {
                                 ConcurrentIntLongSkipListMap fds = timeBins
                                         .poll();
                                 if (fds != null) {
-                                    write(fds.values(), source, category,
-                                            index);
+                                    write(fds.values(), getSource(index),
+                                            getCategory(index), index);
                                 } else {
                                     break;
                                 }
@@ -1223,20 +1275,50 @@ public class LiveOperationStatisticsAggregator {
 
             // taskQueue is empty and we're shutting down, so write the
             // remaining aggregates
-            int size = LiveOperationStatisticsAggregator.this.aggregates.size();
-            for (int i = 0; i < size; ++i) {
-                ConcurrentLongObjectSkipListMap<ConcurrentIntLongSkipListMap> timeBins = LiveOperationStatisticsAggregator.this.aggregates
-                        .get(i);
-                ConcurrentIntLongSkipListMap fileDescriptors;
-                while ((fileDescriptors = timeBins.poll()) != null) {
-                    // fileDescriptors is exclusive to this thread, so it's safe
-                    // to iterate over the values
-                    try {
-                        write(fileDescriptors.values(), getSource(i),
-                                getCategory(i), i);
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
+            for (int index = 0; index < OperationSource.VALUES.length
+                    * OperationCategory.VALUES.length; ++index) {
+                OperationSource source = getSource(index);
+                OperationCategory category = getCategory(index);
+
+                // see above
+                if (!LiveOperationStatisticsAggregator.this.emissionInProgress[index]
+                        .getAndSet(true)) {
+                    ConcurrentLongObjectSkipListMap<ConcurrentIntLongSkipListMap> timeBins = LiveOperationStatisticsAggregator.this.aggregates
+                            .get(this.aggregationTaskIndex).get(index);
+
+                    for (int aggregationTask = 0; aggregationTask < this.numAggregationTasks; ++aggregationTask) {
+                        if (aggregationTask == this.aggregationTaskIndex) {
+                            continue;
+                        }
+
+                        ConcurrentLongObjectSkipListMap<ConcurrentIntLongSkipListMap> foreignTimeBins = LiveOperationStatisticsAggregator.this.aggregates
+                                .get(aggregationTask).get(index);
+                        int size = foreignTimeBins.size();
+                        for (int i = 0; i < size; ++i) {
+                            ConcurrentIntLongSkipListMap foreignFds = foreignTimeBins
+                                    .poll();
+                            ConcurrentIntLongSkipListMap.ValueIterator vi = foreignFds
+                                    .values();
+                            while (vi.hasNext()) {
+                                doAggregation(vi.next());
+                            }
+                        }
                     }
+
+                    ConcurrentIntLongSkipListMap fileDescriptors;
+                    while ((fileDescriptors = timeBins.poll()) != null) {
+                        // fileDescriptors is exclusive to this thread, so it's
+                        // safe to iterate over the values
+                        try {
+                            write(fileDescriptors.values(), source, category,
+                                    index);
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                    }
+
+                    // do not reset emission state to prevent other threads from
+                    // attempting to emit this source/category index again
                 }
             }
         }

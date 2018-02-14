@@ -139,24 +139,8 @@ public class DataOperationStatistics extends OperationStatistics {
         MemoryPool mpAggregate = getMemoryPool(aggregate);
         int sanitizedAggregate = sanitizeAddress(aggregate);
 
-        // see super for reasoning behind locking mechanism
-        Object lock = LOCK_CACHE[(sanitizedAggregate >> 1)
-                & (LOCK_CACHE_SIZE - 1)];
-
-        long startWait;
-        if (Globals.LOCK_DIAGNOSTICS) {
-            startWait = System.currentTimeMillis();
-        }
-        synchronized (lock) {
-            if (Globals.LOCK_DIAGNOSTICS) {
-                maxLockWaitTime.updateAndGet((v) -> Math.max(v,
-                        System.currentTimeMillis() - startWait));
-            }
-
-            incrementData(mpAggregate, sanitizedAggregate,
-                    getData(mp, address));
-            super.doAggregationImpl(mp, address);
-        }
+        incrementData(mpAggregate, sanitizedAggregate, getData(mp, address));
+        super.doAggregationImpl(mp, address);
     }
 
     @Override

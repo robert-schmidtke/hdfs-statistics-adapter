@@ -63,7 +63,6 @@ static std::string g_tq_pool_size;
 // number of locks to cache for some types
 static std::string g_lq_lock_cache_size;
 static std::string g_mp_lock_cache_size;
-static std::string g_os_lock_cache_size;
 
 // if set, mmap operation statistics to this directory instead of keeping them
 // all in memory
@@ -127,10 +126,7 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
         << "  lq_lock_cache=number (default: 1024)"
         << std::endl
         // default in MemoryPool.java
-        << "  mp_lock_cache=number (default: 1024)"
-        << std::endl
-        // default in OperationStatistics.java
-        << "  os_lock_cache=number (default: 1024)" << std::endl
+        << "  mp_lock_cache=number (default: 1024)" << std::endl
         << "  mmap_dir=/path/to/dir (default: empty)" << std::endl
         << "  trace_mmap=y|n (default: n)" << std::endl
         << "  trace_fds=y|n (default: n)" << std::endl
@@ -214,7 +210,6 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
   g_tq_pool_size = cli_options.task_queue_size;
   g_lq_lock_cache_size = cli_options.long_queue_lock_cache_size;
   g_mp_lock_cache_size = cli_options.memory_pool_lock_cache_size;
-  g_os_lock_cache_size = cli_options.operation_statistics_lock_cache_size;
   g_mmap_directory = cli_options.mmap_directory;
   g_trace_mmap = cli_options.trace_mmap;
   g_trace_fds = cli_options.trace_fds;
@@ -656,16 +651,6 @@ static void JNICALL VMInitCallback(jvmtiEnv *jvmti_env, JNIEnv *jni_env,
       system_class, set_property_method_id,
       jni_env->NewStringUTF("de.zib.sfs.memoryPool.lockCacheSize"),
       jni_env->NewStringUTF(g_mp_lock_cache_size.c_str()));
-
-  // repeat for the OperationStatistics lock cache size
-  LOG_VERBOSE(
-      "Setting system property '%s'='%s'.\n",
-      std::string("de.zib.sfs.operationStatistics.lockCacheSize").c_str(),
-      g_os_lock_cache_size.c_str());
-  jni_env->CallStaticVoidMethod(
-      system_class, set_property_method_id,
-      jni_env->NewStringUTF("de.zib.sfs.operationStatistics.lockCacheSize"),
-      jni_env->NewStringUTF(g_os_lock_cache_size.c_str()));
 
   // repeat for the tracing of mmap calls
   LOG_VERBOSE("Setting system property '%s'='%s'.\n",

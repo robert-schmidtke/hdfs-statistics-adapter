@@ -15,7 +15,6 @@ import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 
 import com.google.flatbuffers.ByteBufferUtil;
 import com.google.flatbuffers.Constants;
@@ -75,40 +74,6 @@ public class OperationStatistics {
         }
 
         return maxElements;
-    }
-
-    protected static final Object[] LOCK_CACHE;
-    protected static final int LOCK_CACHE_SIZE;
-    public static final AtomicLong maxLockWaitTime;
-    static {
-        int size = 1024;
-        String sizeString = System
-                .getProperty("de.zib.sfs.operationStatistics.lockCacheSize");
-        if (sizeString != null) {
-            try {
-                size = Integer.parseInt(sizeString);
-            } catch (NumberFormatException e) {
-                System.err.println(
-                        "Invalid number for de.zib.sfs.operationStatistics.lockCacheSize: "
-                                + sizeString + ", falling back to " + size
-                                + ".");
-            }
-
-            if (Integer.bitCount(size) != 1) {
-                throw new IllegalArgumentException(
-                        "Lock cache size is not a power of two.");
-            }
-        }
-        LOCK_CACHE = new Object[LOCK_CACHE_SIZE = size];
-        for (int i = 0; i < LOCK_CACHE_SIZE; ++i) {
-            LOCK_CACHE[i] = new Object();
-        }
-
-        if (Globals.LOCK_DIAGNOSTICS) {
-            maxLockWaitTime = new AtomicLong(0);
-        } else {
-            maxLockWaitTime = null;
-        }
     }
 
     public static File mmapDirectory;
@@ -435,32 +400,12 @@ public class OperationStatistics {
         MemoryPool mpAggregate = getMemoryPool(aggregate);
         int sanitizedAggregate = sanitizeAddress(aggregate);
 
-        // The JVM has an integer cache that could be used for locking as well,
-        // but we use our own for custom locking. This introduces some
-        // unnecessary synchronization between unrelated tasks, but hopefully
-        // this is not too bad. aggregate is always a multiple of 2, so divide
-        // by two to use full cache range.
-        Object lock = LOCK_CACHE[(sanitizedAggregate >> 1)
-                & (LOCK_CACHE_SIZE - 1)];
-
-        long startWait;
-        if (Globals.LOCK_DIAGNOSTICS) {
-            startWait = System.currentTimeMillis();
-        }
-        synchronized (lock) {
-            if (Globals.LOCK_DIAGNOSTICS) {
-                maxLockWaitTime.updateAndGet((v) -> Math.max(v,
-                        System.currentTimeMillis() - startWait));
-            }
-
-            // add ourselves to the aggregate, then free ourselves because we
-            // are the short-living instance
-            incrementCount(mpAggregate, sanitizedAggregate,
-                    getCount(mp, address));
-            incrementCpuTime(mpAggregate, sanitizedAggregate,
-                    getCpuTime(mp, address));
-            mp.free(address);
-        }
+        // add ourselves to the aggregate, then free ourselves because we
+        // are the short-living instance
+        incrementCount(mpAggregate, sanitizedAggregate, getCount(mp, address));
+        incrementCpuTime(mpAggregate, sanitizedAggregate,
+                getCpuTime(mp, address));
+        mp.free(address);
     }
 
     public static void getCsvHeaders(long address, String separator,

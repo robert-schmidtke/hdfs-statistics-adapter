@@ -56,7 +56,6 @@ struct CliOptions {
   std::string task_queue_size;
   std::string long_queue_lock_cache_size;
   std::string memory_pool_lock_cache_size;
-  std::string operation_statistics_lock_cache_size;
   std::string mmap_directory;
   bool trace_mmap;
   bool trace_fds;
@@ -106,7 +105,6 @@ static bool parse_options(char *command_line_options, CliOptions *cli_options) {
   cli_options->task_queue_size = std::string("");
   cli_options->long_queue_lock_cache_size = std::string("");
   cli_options->memory_pool_lock_cache_size = std::string("");
-  cli_options->operation_statistics_lock_cache_size = std::string("");
   cli_options->mmap_directory = std::string("");
   cli_options->trace_mmap = false;
   cli_options->trace_fds = false;
@@ -192,11 +190,6 @@ static bool parse_options(char *command_line_options, CliOptions *cli_options) {
       } else if (strcmp(option, "mp_lock_cache") == 0) {
         if (get_tok(&options, suboption, (int)sizeof(suboption), ',')) {
           cli_options->memory_pool_lock_cache_size = std::string(suboption);
-        }
-      } else if (strcmp(option, "os_lock_cache") == 0) {
-        if (get_tok(&options, suboption, (int)sizeof(suboption), ',')) {
-          cli_options->operation_statistics_lock_cache_size =
-              std::string(suboption);
         }
       } else if (strcmp(option, "instr_skip") == 0) {
         if (get_tok(&options, suboption, (int)sizeof(suboption), ',')) {

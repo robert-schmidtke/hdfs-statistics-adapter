@@ -211,28 +211,13 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
         MemoryPool mpAggregate = getMemoryPool(aggregate);
         int sanitizedAggregate = sanitizeAddress(aggregate);
 
-        // see super for reasoning behind locking mechanism
-        Object lock = LOCK_CACHE[(sanitizedAggregate >> 1)
-                & (LOCK_CACHE_SIZE - 1)];
-
-        long startWait;
-        if (Globals.LOCK_DIAGNOSTICS) {
-            startWait = System.currentTimeMillis();
-        }
-        synchronized (lock) {
-            if (Globals.LOCK_DIAGNOSTICS) {
-                maxLockWaitTime.updateAndGet((v) -> Math.max(v,
-                        System.currentTimeMillis() - startWait));
-            }
-
-            incrementRemoteCount(mpAggregate, sanitizedAggregate,
-                    getRemoteCount(mp, address));
-            incrementRemoteCpuTime(mpAggregate, sanitizedAggregate,
-                    getRemoteCpuTime(mp, address));
-            incrementRemoteData(mpAggregate, sanitizedAggregate,
-                    getRemoteData(mp, address));
-            super.doAggregationImpl(mp, address);
-        }
+        incrementRemoteCount(mpAggregate, sanitizedAggregate,
+                getRemoteCount(mp, address));
+        incrementRemoteCpuTime(mpAggregate, sanitizedAggregate,
+                getRemoteCpuTime(mp, address));
+        incrementRemoteData(mpAggregate, sanitizedAggregate,
+                getRemoteData(mp, address));
+        super.doAggregationImpl(mp, address);
     }
 
     @Override
