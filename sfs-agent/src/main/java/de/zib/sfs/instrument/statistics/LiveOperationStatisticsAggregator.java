@@ -13,10 +13,12 @@ import java.io.FileDescriptor;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.CharBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.channels.FileChannel.MapMode;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.Charset;
 import java.nio.charset.CharsetEncoder;
@@ -262,8 +264,35 @@ public class LiveOperationStatisticsAggregator {
             }
             this.systemKeyBb.flip();
 
-            this.bbBuffer = ThreadLocal.withInitial(
-                    () -> ByteBuffer.allocateDirect(OUTPUT_BUFFER_CAPACITY));
+            if (this.mmapDirectory == null) {
+                this.bbBuffer = ThreadLocal.withInitial(() -> ByteBuffer
+                        .allocateDirect(OUTPUT_BUFFER_CAPACITY));
+            } else {
+                // mmap the output buffer as well, since this may speed up
+                // transfer to the output files
+                final File md = this.mmapDirectory;
+                this.bbBuffer = ThreadLocal.withInitial(() -> {
+                    long id = Thread.currentThread().getId();
+                    long time = System.currentTimeMillis();
+
+                    File obFile = new File(md,
+                            "outputbuffer-" + id + "-" + time + ".ob");
+                    obFile.deleteOnExit();
+                    ByteBuffer bb;
+                    try {
+                        RandomAccessFile obRaf = new RandomAccessFile(obFile,
+                                "rw");
+                        obRaf.setLength(OUTPUT_BUFFER_CAPACITY);
+                        bb = obRaf.getChannel().map(MapMode.READ_WRITE, 0,
+                                OUTPUT_BUFFER_CAPACITY);
+                        obRaf.getChannel().close();
+                        obRaf.close();
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                    return bb;
+                });
+            }
             this.bbChannels = new FileChannel[OperationSource.VALUES.length
                     * OperationCategory.VALUES.length];
 
