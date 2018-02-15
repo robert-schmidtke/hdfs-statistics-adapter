@@ -574,6 +574,11 @@ public class LiveOperationStatisticsAggregator {
     }
 
     public synchronized void shutdown() {
+        long shutdown;
+        if (Globals.SHUTDOWN_DIAGNOSTICS) {
+            shutdown = System.currentTimeMillis();
+        }
+
         // synchronize the entire shutdown sequence in order to block concurrent
         // shutdown attempts, since they might send a SIGKILL if they return
         // early
@@ -591,18 +596,19 @@ public class LiveOperationStatisticsAggregator {
         }
 
         // wait a bit for all still currently running tasks
-        long shutdownWait = 0;
+        long threadPoolShutdown = 0;
         int taskQueueSize = 0;
         try {
             if (Globals.SHUTDOWN_DIAGNOSTICS) {
                 taskQueueSize = remainingOperationStatistics();
-                shutdownWait = System.currentTimeMillis();
+                threadPoolShutdown = System.currentTimeMillis();
             }
             if (!this.threadPool.awaitTermination(30, TimeUnit.SECONDS)) {
                 System.err.println("Thread pool did not shut down");
             }
             if (Globals.SHUTDOWN_DIAGNOSTICS) {
-                shutdownWait = System.currentTimeMillis() - shutdownWait;
+                threadPoolShutdown = System.currentTimeMillis()
+                        - threadPoolShutdown;
             }
         } catch (InterruptedException e) {
             e.printStackTrace();
@@ -677,8 +683,11 @@ public class LiveOperationStatisticsAggregator {
         if (Globals.SHUTDOWN_DIAGNOSTICS) {
             System.err.println("SFS Shutdown Diagnostics");
             System.err.println("  - TaskQueue:        " + taskQueueSize);
-            System.err.println("  - Thread pool:      " + shutdownWait + "ms");
+            System.err.println(
+                    "  - Thread pool:      " + threadPoolShutdown + "ms");
             System.err.println("  - File Descriptors: " + fdWait + "ms");
+            System.err.println("  - Total:            "
+                    + (System.currentTimeMillis() - shutdown) + "ms");
         }
 
         this.phase = LifecyclePhase.SHUT_DOWN;
