@@ -565,7 +565,7 @@ public class LiveOperationStatisticsAggregator {
         return os;
     }
 
-    private int remainingOperationStatistics() {
+    int remainingOperationStatistics() {
         int remaining = 0;
         for (int i = this.taskQueueCount - 1; i >= 0; --i) {
             remaining += this.taskQueue.get(i).remaining();
