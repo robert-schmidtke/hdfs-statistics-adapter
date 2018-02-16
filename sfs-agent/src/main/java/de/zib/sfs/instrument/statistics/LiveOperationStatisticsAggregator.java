@@ -1257,10 +1257,14 @@ public class LiveOperationStatisticsAggregator {
                             for (int i = size / 2; i > 0; --i) {
                                 ConcurrentIntLongSkipListMap foreignFds = foreignTimeBins
                                         .poll();
-                                ConcurrentIntLongSkipListMap.ValueIterator vi = foreignFds
-                                        .values();
-                                while (vi.hasNext()) {
-                                    doAggregation(vi.next());
+                                if (foreignFds != null) {
+                                    ConcurrentIntLongSkipListMap.ValueIterator vi = foreignFds
+                                            .values();
+                                    while (vi.hasNext()) {
+                                        doAggregation(vi.next());
+                                    }
+                                } else {
+                                    break;
                                 }
                             }
                         }
@@ -1311,10 +1315,14 @@ public class LiveOperationStatisticsAggregator {
                         for (int i = 0; i < size; ++i) {
                             ConcurrentIntLongSkipListMap foreignFds = foreignTimeBins
                                     .poll();
-                            ConcurrentIntLongSkipListMap.ValueIterator vi = foreignFds
-                                    .values();
-                            while (vi.hasNext()) {
-                                doAggregation(vi.next());
+                            if (foreignFds != null) {
+                                ConcurrentIntLongSkipListMap.ValueIterator vi = foreignFds
+                                        .values();
+                                while (vi.hasNext()) {
+                                    doAggregation(vi.next());
+                                }
+                            } else {
+                                break;
                             }
                         }
                     }
