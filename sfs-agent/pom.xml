@@ -17,7 +17,7 @@
   <properties>
     <!-- Compile dependencies -->
     <asm-all.version>5.2</asm-all.version>
-    <flatbuffers.version>1.7.1-1-SNAPSHOT</flatbuffers.version>
+    <flatbuffers.version>1.8.0</flatbuffers.version>
     <grpc.version>1.6.1</grpc.version>
     <protobuf.version>3.4.0</protobuf.version>
 
