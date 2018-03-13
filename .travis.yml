@@ -46,7 +46,7 @@ install:
   - cd $TRAVIS_BUILD_DIR
 
   # build custom FlatBuffers
-  - export FLATBUFFERS_VERSION=1.8.0
+  - export FLATBUFFERS_JAVA_VERSION=1.8.0
   - cd $HOME
   - git clone https://github.com/google/flatbuffers.git
   # this commit introduces prefixed size support for Java
