@@ -1488,7 +1488,7 @@ public class InstrumentationTest {
         // from here on, discard all callbacks
         AbstractSfsCallback.DISCARD_NEXT.set(Boolean.TRUE);
 
-        List<NavigableMap<Long, NavigableMap<Integer, Long>>> aggregates = new ArrayList<>();
+        List<NavigableMap<Long, NavigableMap<Long, NavigableMap<Integer, Long>>>> aggregates = new ArrayList<>();
         for (int i = 0; i < OperationSource.VALUES.length
                 * OperationCategory.VALUES.length; ++i) {
             aggregates.add(new ConcurrentSkipListMap<>());
@@ -1522,15 +1522,22 @@ public class InstrumentationTest {
                 assert (category.equals(
                         OperationStatistics.getCategory(operationStatistics)));
 
-                NavigableMap<Long, NavigableMap<Integer, Long>> timeBins = aggregates
+                NavigableMap<Long, NavigableMap<Long, NavigableMap<Integer, Long>>> timeBins = aggregates
                         .get(LiveOperationStatisticsAggregator.getUniqueIndex(
                                 OperationStatistics
                                         .getSource(operationStatistics),
                                 OperationStatistics
                                         .getCategory(operationStatistics)));
 
+                // get the thread ID applicable for this operation
+                NavigableMap<Long, NavigableMap<Integer, Long>> threadIds = timeBins
+                        .computeIfAbsent(
+                                OperationStatistics
+                                        .getThreadId(operationStatistics),
+                                l -> new ConcurrentSkipListMap<>());
+
                 // get the file descriptor applicable for this operation
-                NavigableMap<Integer, Long> fileDescriptors = timeBins
+                NavigableMap<Integer, Long> fileDescriptors = threadIds
                         .computeIfAbsent(
                                 OperationStatistics
                                         .getTimeBin(operationStatistics),
@@ -1916,15 +1923,17 @@ public class InstrumentationTest {
     }
 
     private static void assertOperationCount(
-            List<NavigableMap<Long, NavigableMap<Integer, Long>>> aggregates,
+            List<NavigableMap<Long, NavigableMap<Long, NavigableMap<Integer, Long>>>> aggregates,
             OperationSource source, OperationCategory category, long atLeast) {
-        Map<Long, NavigableMap<Integer, Long>> timeBins = aggregates
+        Map<Long, NavigableMap<Long, NavigableMap<Integer, Long>>> timeBins = aggregates
                 .get(LiveOperationStatisticsAggregator.getUniqueIndex(source,
                         category));
         long operationCount = 0;
-        for (Map<Integer, Long> fds : timeBins.values()) {
-            for (Long os : fds.values()) {
-                operationCount += OperationStatistics.getCount(os);
+        for (Map<Long, NavigableMap<Integer, Long>> tids : timeBins.values()) {
+            for (Map<Integer, Long> fds : tids.values()) {
+                for (Long os : fds.values()) {
+                    operationCount += OperationStatistics.getCount(os);
+                }
             }
         }
         assert (operationCount >= atLeast) : ("actual " + operationCount
@@ -1933,23 +1942,25 @@ public class InstrumentationTest {
     }
 
     private static void assertOperationData(
-            List<NavigableMap<Long, NavigableMap<Integer, Long>>> aggregates,
+            List<NavigableMap<Long, NavigableMap<Long, NavigableMap<Integer, Long>>>> aggregates,
             Map<Integer, String> fileDescriptorMappings, OperationSource source,
             OperationCategory category, long exact, long atMost) {
-        Map<Long, NavigableMap<Integer, Long>> timeBins = aggregates
+        Map<Long, NavigableMap<Long, NavigableMap<Integer, Long>>> timeBins = aggregates
                 .get(LiveOperationStatisticsAggregator.getUniqueIndex(source,
                         category));
         Map<Integer, Long> operationDataPerFd = new HashMap<>();
         long allData = 0;
-        for (Map<Integer, Long> fds : timeBins.values()) {
-            for (Long os : fds.values()) {
-                assert (OperationStatistics.getOperationStatisticsOffset(
-                        os) >= OperationStatistics.DOS_OFFSET) : os;
-                long data = DataOperationStatistics.getData(os);
-                operationDataPerFd.merge(
-                        OperationStatistics.getFileDescriptor(os), data,
-                        (v1, v2) -> v1 + v2);
-                allData += data;
+        for (Map<Long, NavigableMap<Integer, Long>> tids : timeBins.values()) {
+            for (Map<Integer, Long> fds : tids.values()) {
+                for (Long os : fds.values()) {
+                    assert (OperationStatistics.getOperationStatisticsOffset(
+                            os) >= OperationStatistics.DOS_OFFSET) : os;
+                    long data = DataOperationStatistics.getData(os);
+                    operationDataPerFd.merge(
+                            OperationStatistics.getFileDescriptor(os), data,
+                            (v1, v2) -> v1 + v2);
+                    allData += data;
+                }
             }
         }
 

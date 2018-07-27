@@ -20,6 +20,7 @@ table OperationStatisticsFB {
   source:OperationSourceFB;
   category:OperationCategoryFB;
   file_descriptor:int;
+  threadId:ulong;
   data:ulong;
   remote_count:ulong;
   remote_cpu_time:ulong;

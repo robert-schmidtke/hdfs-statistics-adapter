@@ -51,13 +51,14 @@ public class OperationStatisticsTest {
             for (int i = 0; i < 128; ++i) {
                 long startTime = rnd.nextLong();
                 int fd = rnd.nextInt();
+                long tid = rnd.nextLong();
                 long address = OperationStatistics.getOperationStatistics(1000,
                         OperationSource.JVM, OperationCategory.OTHER, startTime,
-                        startTime + 5, fd);
+                        startTime + 5, fd, tid);
 
-                // multiples of 38 because OS is that big, index of pool
+                // multiples of 46 because OS is that big, index of pool
                 // prepended
-                Assert.assertEquals(((long) j << 32) | (i * 38), address);
+                Assert.assertEquals(((long) j << 32) | (i * 46), address);
 
                 Assert.assertEquals(startTime - (startTime % 1000),
                         OperationStatistics.getTimeBin(address));
@@ -101,7 +102,7 @@ public class OperationStatisticsTest {
         for (int j = 0; j < 128; ++j) {
             for (int i = 0; i < 128; ++i) {
                 OperationStatistics
-                        .returnOperationStatistics(((long) j << 32) | (i * 38));
+                        .returnOperationStatistics(((long) j << 32) | (i * 46));
             }
         }
 
@@ -111,11 +112,11 @@ public class OperationStatisticsTest {
                 long startTime = System.currentTimeMillis();
                 long address = OperationStatistics.getOperationStatistics(1000,
                         OperationSource.JVM, OperationCategory.OTHER, startTime,
-                        startTime + 5, 42);
+                        startTime + 5, 42, 43);
 
-                // multiples of 38 because OS is that big, index of pool
+                // multiples of 46 because OS is that big, index of pool
                 // prepended
-                Assert.assertEquals(((long) j << 32) | (i * 38), address);
+                Assert.assertEquals(((long) j << 32) | (i * 46), address);
             }
         }
     }
@@ -128,13 +129,14 @@ public class OperationStatisticsTest {
             for (int i = 0; i < 128; ++i) {
                 long startTime = rnd.nextLong();
                 int fd = rnd.nextInt();
+                long tid = rnd.nextLong();
                 long data = rnd.nextLong();
                 long address = DataOperationStatistics
                         .getDataOperationStatistics(1000, OperationSource.JVM,
                                 OperationCategory.WRITE, startTime,
-                                startTime + 5, fd, data);
+                                startTime + 5, fd, tid, data);
 
-                Assert.assertEquals((1L << 61) | ((long) j << 32) | (i * 46),
+                Assert.assertEquals((1L << 61) | ((long) j << 32) | (i * 54),
                         address);
                 Assert.assertEquals(data,
                         DataOperationStatistics.getData(address));
@@ -163,7 +165,7 @@ public class OperationStatisticsTest {
         for (int j = 0; j < 128; ++j) {
             for (int i = 0; i < 128; ++i) {
                 OperationStatistics.returnOperationStatistics(
-                        (1L << 61) | ((long) j << 32) | (i * 46));
+                        (1L << 61) | ((long) j << 32) | (i * 54));
             }
         }
 
@@ -174,9 +176,9 @@ public class OperationStatisticsTest {
                 long address = DataOperationStatistics
                         .getDataOperationStatistics(1000, OperationSource.JVM,
                                 OperationCategory.WRITE, startTime,
-                                startTime + 5, 42, 42);
+                                startTime + 5, 42, 43, 42);
 
-                Assert.assertEquals((1L << 61) | ((long) j << 32) | (i * 46),
+                Assert.assertEquals((1L << 61) | ((long) j << 32) | (i * 54),
                         address);
             }
         }
@@ -190,14 +192,16 @@ public class OperationStatisticsTest {
             for (int i = 0; i < 128; ++i) {
                 long startTime = rnd.nextLong();
                 int fd = rnd.nextInt();
+                long tid = rnd.nextLong();
                 long data = rnd.nextLong();
                 boolean remote = rnd.nextBoolean();
                 long address = ReadDataOperationStatistics
                         .getReadDataOperationStatistics(1000,
                                 OperationSource.JVM, OperationCategory.READ,
-                                startTime, startTime + 5, fd, data, remote);
+                                startTime, startTime + 5, fd, tid, data,
+                                remote);
 
-                Assert.assertEquals((2L << 61) | ((long) j << 32) | (i * 70),
+                Assert.assertEquals((2L << 61) | ((long) j << 32) | (i * 78),
                         address);
 
                 Assert.assertEquals(remote ? data : 0,
@@ -232,7 +236,7 @@ public class OperationStatisticsTest {
         for (int j = 0; j < 128; ++j) {
             for (int i = 0; i < 128; ++i) {
                 OperationStatistics.returnOperationStatistics(
-                        (2L << 61) | ((long) j << 32) | (i * 70));
+                        (2L << 61) | ((long) j << 32) | (i * 78));
             }
         }
 
@@ -243,9 +247,9 @@ public class OperationStatisticsTest {
                 long address = ReadDataOperationStatistics
                         .getReadDataOperationStatistics(1000,
                                 OperationSource.JVM, OperationCategory.READ,
-                                startTime, startTime + 5, 42, 42, true);
+                                startTime, startTime + 5, 42, 43, 42, true);
 
-                Assert.assertEquals((2L << 61) | ((long) j << 32) | (i * 70),
+                Assert.assertEquals((2L << 61) | ((long) j << 32) | (i * 78),
                         address);
             }
         }

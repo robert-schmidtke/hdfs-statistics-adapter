@@ -56,14 +56,17 @@ public class OperationStatisticsBufferBuilder {
         // 11-12: cpuTimeType
         // 13: hasFd
         // 14-15: fdType
-        short header = 0;
+        // 16: hasThreadId
+        // 17-18: threadIdType
+        // 19-31: empty
+        int header = 0;
 
-        // for the short header
-        int size = 2;
+        // for the int header
+        int size = 4;
 
         // 0 = OS, 1 = DOS, 2 = RDOS
         int ost = OperationStatistics.getOperationStatisticsOffset(address);
-        header |= ost << 12;
+        header |= ost << 28;
 
         MemoryPool mp = OperationStatistics.getMemoryPool(address);
         int sanitizedAddress = OperationStatistics.sanitizeAddress(address);
@@ -73,24 +76,24 @@ public class OperationStatisticsBufferBuilder {
 
         NumberType ntPid = ByteBufferUtil.getNumberType(pid);
         if (pid != 0) {
-            header |= 0b100 << 9;
-            header |= ntPid.ordinal() << 9;
+            header |= 0b100 << 25;
+            header |= ntPid.ordinal() << 25;
             size += ntPid.getSize();
         }
 
         long count = OperationStatistics.getCount(mp, sanitizedAddress);
         NumberType ntCount = ByteBufferUtil.getNumberType(count);
         if (count != 0) {
-            header |= 0b100 << 6;
-            header |= ntCount.ordinal() << 6;
+            header |= 0b100 << 22;
+            header |= ntCount.ordinal() << 22;
             size += ntCount.getSize();
         }
 
         long cpuTime = OperationStatistics.getCpuTime(mp, sanitizedAddress);
         NumberType ntTime = ByteBufferUtil.getNumberType(cpuTime);
         if (cpuTime != 0) {
-            header |= 0b100 << 3;
-            header |= ntTime.ordinal() << 3;
+            header |= 0b100 << 19;
+            header |= ntTime.ordinal() << 19;
             size += ntTime.getSize();
         }
 
@@ -98,20 +101,28 @@ public class OperationStatisticsBufferBuilder {
                 sanitizedAddress);
         NumberType ntFd = ByteBufferUtil.getNumberType(fileDescriptor);
         if (fileDescriptor != 0) {
-            header |= 0b100;
-            header |= ntFd.ordinal();
+            header |= 0b100 << 16;
+            header |= ntFd.ordinal() << 16;
             size += ntFd.getSize();
+        }
+
+        long threadId = OperationStatistics.getThreadId(mp, sanitizedAddress);
+        NumberType ntThreadId = ByteBufferUtil.getNumberType(threadId);
+        if (threadId != 0) {
+            header |= 0b100 << 13;
+            header |= ntThreadId.ordinal() << 13;
+            size += ntThreadId.getSize();
         }
 
         byte[] extHeader = new byte[ost];
 
         NumberType ntData = null;
         if (ost >= OperationStatistics.DOS_OFFSET) {
-            // see above for 0-15
-            // 16: empty
-            // 17: hasData
-            // 18-19: dataType
-            // 20-23: empty
+            // see above for 0-31
+            // 32: empty
+            // 33: hasData
+            // 34-35: dataType
+            // 36-39: empty
             long data = DataOperationStatistics.getData(mp, sanitizedAddress);
             ntData = ByteBufferUtil.getNumberType(data);
             if (data != 0) {
@@ -125,15 +136,15 @@ public class OperationStatisticsBufferBuilder {
         NumberType ntRemoteCpuTime = null;
         NumberType ntRemoteData = null;
         if (ost >= OperationStatistics.RDOS_OFFSET) {
-            // see above for 0-19
-            // 20: hasRemoteCount
-            // 21-22: remoteCountType
-            // 23-24: empty
-            // 25: hasRemoteCpuTime
-            // 26-27: remoteCpuTimeType
-            // 28: hasRemoteData
-            // 29-30: remoteDataType
-            // 31: empty
+            // see above for 0-35
+            // 36: hasRemoteCount
+            // 37-38: remoteCountType
+            // 39-40: empty
+            // 41: hasRemoteCpuTime
+            // 42-43: remoteCpuTimeType
+            // 44: hasRemoteData
+            // 45-46: remoteDataType
+            // 47: empty
             long remoteCount = ReadDataOperationStatistics.getRemoteCount(mp,
                     sanitizedAddress);
             ntRemoteCount = ByteBufferUtil.getNumberType(remoteCount);
@@ -186,7 +197,7 @@ public class OperationStatisticsBufferBuilder {
         bb.order(ByteOrder.LITTLE_ENDIAN);
 
         // header
-        bb.putShort(header);
+        bb.putInt(header);
         for (byte b : extHeader) {
             bb.put(b);
         }
@@ -223,6 +234,9 @@ public class OperationStatisticsBufferBuilder {
         // file descriptor
         ntFd.putInt(bb, fileDescriptor);
 
+        // thread ID
+        ntThreadId.putLong(bb, threadId);
+
         if (ost >= OperationStatistics.DOS_OFFSET) {
             ntData.putLong(bb,
                     DataOperationStatistics.getData(mp, sanitizedAddress));
@@ -241,27 +255,32 @@ public class OperationStatisticsBufferBuilder {
     public static void deserialize(ByteBuffer bb, long address) {
         bb.order(ByteOrder.LITTLE_ENDIAN);
 
-        short header = bb.getShort();
-        int ost = header >> 12;
+        int header = bb.getInt();
+        int ost = header >> 28;
 
         NumberType ntPid = NumberType.EMPTY;
-        if ((header & (0b100 << 9)) > 0) {
-            ntPid = NumberType.VALUES[(header & (0b011 << 9)) >> 9];
+        if ((header & (0b100 << 25)) > 0) {
+            ntPid = NumberType.VALUES[(header & (0b011 << 25)) >> 25];
         }
 
         NumberType ntCount = NumberType.EMPTY;
-        if ((header & (0b100 << 6)) > 0) {
-            ntCount = NumberType.VALUES[(header & (0b011 << 6)) >> 6];
+        if ((header & (0b100 << 22)) > 0) {
+            ntCount = NumberType.VALUES[(header & (0b011 << 22)) >> 22];
         }
 
         NumberType ntTime = NumberType.EMPTY;
-        if ((header & (0b100 << 3)) > 0) {
-            ntTime = NumberType.VALUES[(header & (0b011 << 3)) >> 3];
+        if ((header & (0b100 << 19)) > 0) {
+            ntTime = NumberType.VALUES[(header & (0b011 << 19)) >> 19];
         }
 
         NumberType ntFd = NumberType.EMPTY;
-        if ((header & 0b100) > 0) {
-            ntFd = NumberType.VALUES[header & 0b011];
+        if ((header & (0b100 << 16)) > 0) {
+            ntFd = NumberType.VALUES[(header & (0b011 << 16)) >> 16];
+        }
+
+        NumberType ntThreadId = NumberType.EMPTY;
+        if ((header & (0b100 << 13)) > 0) {
+            ntThreadId = NumberType.VALUES[(header & (0b011 << 13)) >> 13];
         }
 
         byte[] extHeader = new byte[ost];
@@ -370,6 +389,9 @@ public class OperationStatisticsBufferBuilder {
         // file descriptor
         int fd = ntFd.getInt(bb);
 
+        // thread ID
+        long threadId = ntThreadId.getLong(bb);
+
         MemoryPool mp = OperationStatistics.getMemoryPool(address);
         int sanitizedAddress = OperationStatistics.sanitizeAddress(address);
 
@@ -379,6 +401,7 @@ public class OperationStatisticsBufferBuilder {
         OperationStatistics.setSource(mp, sanitizedAddress, source);
         OperationStatistics.setCategory(mp, sanitizedAddress, category);
         OperationStatistics.setFileDescriptor(mp, sanitizedAddress, fd);
+        OperationStatistics.setThreadId(mp, sanitizedAddress, threadId);
 
         if (ost >= OperationStatistics.DOS_OFFSET) {
             DataOperationStatistics.setData(mp, sanitizedAddress,

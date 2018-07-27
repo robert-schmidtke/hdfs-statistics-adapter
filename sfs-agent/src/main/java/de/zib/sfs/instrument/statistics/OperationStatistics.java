@@ -45,7 +45,8 @@ public class OperationStatistics {
     protected static final int SOURCE_OFFSET = CPU_TIME_OFFSET + 8; // byte
     protected static final int CATEGORY_OFFSET = SOURCE_OFFSET + 1; // byte
     protected static final int FILE_DESCRIPTOR_OFFSET = CATEGORY_OFFSET + 1; // int
-    protected static final int AGGREGATE_OFFSET = FILE_DESCRIPTOR_OFFSET + 4; // long
+    protected static final int THREAD_ID_OFFSET = FILE_DESCRIPTOR_OFFSET + 4; // long
+    protected static final int AGGREGATE_OFFSET = THREAD_ID_OFFSET + 8; // long
     protected static final int SIZE = AGGREGATE_OFFSET + 8;
 
     private static final int POOL_SIZE = getPoolSize(
@@ -173,31 +174,32 @@ public class OperationStatistics {
 
     public static long getOperationStatistics(long count, long timeBin,
             long cpuTime, OperationSource source, OperationCategory category,
-            int fd) {
+            int fd, long threadId) {
         long address = getOperationStatistics();
         getOperationStatistics(getMemoryPool(address), sanitizeAddress(address),
-                count, timeBin, cpuTime, source, category, fd);
+                count, timeBin, cpuTime, source, category, fd, threadId);
         return address;
     }
 
     protected static void getOperationStatistics(MemoryPool mp, int address,
             long count, long timeBin, long cpuTime, OperationSource source,
-            OperationCategory category, int fd) {
+            OperationCategory category, int fd, long threadId) {
         setCount(mp, address, count);
         setTimeBin(mp, address, timeBin);
         setCpuTime(mp, address, cpuTime);
         setSource(mp, address, source);
         setCategory(mp, address, category);
         setFileDescriptor(mp, address, fd);
+        setThreadId(mp, address, threadId);
         mp.pool.putLong(address + AGGREGATE_OFFSET, -1);
     }
 
     public static long getOperationStatistics(long timeBinDuration,
             OperationSource source, OperationCategory category, long startTime,
-            long endTime, int fd) {
+            long endTime, int fd, long threadId) {
         return getOperationStatistics(1,
                 startTime - startTime % timeBinDuration, endTime - startTime,
-                source, category, fd);
+                source, category, fd, threadId);
     }
 
     public static void returnOperationStatistics(long address) {
@@ -323,6 +325,22 @@ public class OperationStatistics {
         mp.pool.putInt(address + FILE_DESCRIPTOR_OFFSET, fd);
     }
 
+    public static long getThreadId(long address) {
+        return getThreadId(getMemoryPool(address), sanitizeAddress(address));
+    }
+
+    public static long getThreadId(MemoryPool mp, int address) {
+        return mp.pool.getLong(address + THREAD_ID_OFFSET);
+    }
+
+    public static void setThreadId(long address, long threadId) {
+        setThreadId(getMemoryPool(address), sanitizeAddress(address), threadId);
+    }
+
+    public static void setThreadId(MemoryPool mp, int address, long threadId) {
+        mp.pool.putLong(address + THREAD_ID_OFFSET, threadId);
+    }
+
     public static long aggregate(long address, long other)
             throws NotAggregatableException {
         if (Globals.STRICT) {
@@ -341,6 +359,13 @@ public class OperationStatistics {
             if (address == other) {
                 throw new NotAggregatableException(
                         "Cannot aggregate self: " + address + ", " + other);
+            }
+
+            long threadId = getThreadId(mpAddress, sanitizedAddress);
+            long sanitizedOtherThreadId = getThreadId(mpOther, sanitizedOther);
+            if (sanitizedOtherThreadId != threadId) {
+                throw new NotAggregatableException("Thread IDs do not match: "
+                        + threadId + ", " + sanitizedOtherThreadId);
             }
 
             long timeBin = getTimeBin(mpAddress, sanitizedAddress);
@@ -422,6 +447,7 @@ public class OperationStatistics {
         sb.append(separator).append("source");
         sb.append(separator).append("category");
         sb.append(separator).append("fileDescriptor");
+        sb.append(separator).append("threadId");
     }
 
     public static void toCsv(long address, String separator, StringBuilder sb) {
@@ -439,6 +465,7 @@ public class OperationStatistics {
         sb.append(separator)
                 .append(getCategory(mp, address).name().toLowerCase());
         sb.append(separator).append(getFileDescriptor(mp, address));
+        sb.append(separator).append(getThreadId(mp, address));
     }
 
     public static void fromCsv(String[] values, int off, long address) {
@@ -456,6 +483,7 @@ public class OperationStatistics {
         setCategory(mp, address,
                 OperationCategory.valueOf(values[off + 4].toUpperCase()));
         setFileDescriptor(mp, address, Integer.parseInt(values[off + 5]));
+        setThreadId(mp, address, Long.parseLong(values[off + 6]));
     }
 
     public static void toFlatBuffer(long address, String hostname, int pid,
@@ -508,6 +536,9 @@ public class OperationStatistics {
         int fileDescriptor = getFileDescriptor(mp, address);
         if (fileDescriptor > 0)
             OperationStatisticsFB.addFileDescriptor(builder, fileDescriptor);
+        long threadId = getThreadId(mp, address);
+        if (threadId > 0)
+            OperationStatisticsFB.addThreadId(builder, threadId);
     }
 
     public static void fromFlatBuffer(ByteBuffer buffer, long address) {
@@ -537,6 +568,7 @@ public class OperationStatistics {
         setCategory(mp, address,
                 OperationCategory.fromFlatBuffer(osfb.category()));
         setFileDescriptor(mp, address, osfb.fileDescriptor());
+        setThreadId(mp, address, osfb.threadId());
     }
 
     public static String toString(long address) {

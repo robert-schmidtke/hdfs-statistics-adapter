@@ -76,8 +76,10 @@ public class LiveOperationStatisticsAggregator {
     final AtomicBoolean[] emissionInProgress;
 
     // per aggregation thread: for each source/category combination, map a time
-    // bin to an aggregate operation statistics for each file
-    final List<List<ConcurrentLongObjectSkipListMap<ConcurrentIntLongSkipListMap>>> aggregates;
+    // bin to an aggregate operation statistics for each file and thread
+    // [aggregation thread ID] -> [source/category combination] -> [time bin] ->
+    // [thread ID] -> [file descriptor] -> [aggregate operation statistics]
+    final List<List<ConcurrentLongObjectSkipListMap<ConcurrentLongObjectSkipListMap<ConcurrentIntLongSkipListMap>>>> aggregates;
 
     // for coordinating writing of statistics
     private final Object[] writerLocks;
@@ -139,12 +141,12 @@ public class LiveOperationStatisticsAggregator {
         // each aggregation thread will have their own set of aggregates
         this.aggregates = new ArrayList<>(this.numAggregationThreads);
         for (int i = 0; i < this.numAggregationThreads; ++i) {
-            // there are time bins for each source/category combination
-            List<ConcurrentLongObjectSkipListMap<ConcurrentIntLongSkipListMap>> timeBins = new ArrayList<>(
+            // there are time binds for each source/category combination
+            List<ConcurrentLongObjectSkipListMap<ConcurrentLongObjectSkipListMap<ConcurrentIntLongSkipListMap>>> timeBins = new ArrayList<>(
                     numSourceCategories);
             for (int j = 0; j < numSourceCategories; ++j) {
                 timeBins.add(
-                        new ConcurrentLongObjectSkipListMap<ConcurrentIntLongSkipListMap>());
+                        new ConcurrentLongObjectSkipListMap<ConcurrentLongObjectSkipListMap<ConcurrentIntLongSkipListMap>>());
             }
             this.aggregates.add(timeBins);
         }
@@ -406,13 +408,16 @@ public class LiveOperationStatisticsAggregator {
             return;
         }
 
+        long threadId = Thread.currentThread().getId();
+
         // stretch request proportionally over time bins
         long startTimeBin = startTime - startTime % this.timeBinDuration;
         long endTimeBin = endTime - endTime % this.timeBinDuration;
 
         if (startTimeBin == endTimeBin) {
             long os = OperationStatistics.getOperationStatistics(1,
-                    startTimeBin, endTime - startTime, source, category, fd);
+                    startTimeBin, endTime - startTime, source, category, fd,
+                    threadId);
             offerOperationStatistics(os);
         } else {
             // start from the last time bin and proceed to the second one
@@ -424,13 +429,14 @@ public class LiveOperationStatisticsAggregator {
                 endTime = tb;
 
                 long os = OperationStatistics.getOperationStatistics(0, tb,
-                        currentDuration, source, category, fd);
+                        currentDuration, source, category, fd, threadId);
                 offerOperationStatistics(os);
             }
 
             // only the first timeBin remains now
             long os = OperationStatistics.getOperationStatistics(1,
-                    startTimeBin, endTime - startTime, source, category, fd);
+                    startTimeBin, endTime - startTime, source, category, fd,
+                    threadId);
             offerOperationStatistics(os);
         }
 
@@ -450,13 +456,16 @@ public class LiveOperationStatisticsAggregator {
             return;
         }
 
+        long threadId = Thread.currentThread().getId();
+
         long startTimeBin = startTime - startTime % this.timeBinDuration;
         long endTimeBin = endTime - endTime % this.timeBinDuration;
         long duration = endTime - startTime;
 
         if (startTimeBin == endTimeBin) {
             long dos = DataOperationStatistics.getDataOperationStatistics(1,
-                    startTimeBin, duration, source, category, fd, data);
+                    startTimeBin, duration, source, category, fd, threadId,
+                    data);
             offerOperationStatistics(dos);
         } else {
             long remainingData = data;
@@ -469,13 +478,14 @@ public class LiveOperationStatisticsAggregator {
                 remainingData -= currentData;
 
                 long dos = DataOperationStatistics.getDataOperationStatistics(0,
-                        tb, currentDuration, source, category, fd, currentData);
+                        tb, currentDuration, source, category, fd, threadId,
+                        currentData);
                 offerOperationStatistics(dos);
             }
 
             long dos = DataOperationStatistics.getDataOperationStatistics(1,
                     startTimeBin, endTime - startTime, source, category, fd,
-                    remainingData);
+                    threadId, remainingData);
             offerOperationStatistics(dos);
         }
 
@@ -495,6 +505,8 @@ public class LiveOperationStatisticsAggregator {
             return;
         }
 
+        long threadId = Thread.currentThread().getId();
+
         long startTimeBin = startTime - startTime % this.timeBinDuration;
         long endTimeBin = endTime - endTime % this.timeBinDuration;
         long duration = endTime - startTime;
@@ -502,8 +514,9 @@ public class LiveOperationStatisticsAggregator {
         if (startTimeBin == endTimeBin) {
             long rdos = ReadDataOperationStatistics
                     .getReadDataOperationStatistics(1, startTimeBin, duration,
-                            source, category, fd, data, isRemote ? 1 : 0,
-                            isRemote ? duration : 0, isRemote ? data : 0);
+                            source, category, fd, threadId, data,
+                            isRemote ? 1 : 0, isRemote ? duration : 0,
+                            isRemote ? data : 0);
             offerOperationStatistics(rdos);
         } else {
             long remainingData = data;
@@ -517,7 +530,7 @@ public class LiveOperationStatisticsAggregator {
 
                 long rdos = ReadDataOperationStatistics
                         .getReadDataOperationStatistics(0, tb, currentDuration,
-                                source, category, fd, currentData, 0,
+                                source, category, fd, threadId, currentData, 0,
                                 isRemote ? currentDuration : 0,
                                 isRemote ? currentData : 0);
                 offerOperationStatistics(rdos);
@@ -525,7 +538,7 @@ public class LiveOperationStatisticsAggregator {
 
             long rdos = ReadDataOperationStatistics
                     .getReadDataOperationStatistics(1, startTimeBin,
-                            endTime - startTime, source, category, fd,
+                            endTime - startTime, source, category, fd, threadId,
                             remainingData, 0,
                             isRemote ? endTime - startTime : 0,
                             isRemote ? remainingData : 0);
@@ -1158,18 +1171,25 @@ public class LiveOperationStatisticsAggregator {
             int aggregateAddress = OperationStatistics
                     .sanitizeAddress(aggregate);
 
-            // get the time bin applicable for this operation for this
+            // get the timeBin applicable for this operation for this
             // thread
             OperationSource source = OperationStatistics.getSource(mp,
                     aggregateAddress);
             OperationCategory category = OperationStatistics.getCategory(mp,
                     aggregateAddress);
             int index = getUniqueIndex(source, category);
-            ConcurrentLongObjectSkipListMap<ConcurrentIntLongSkipListMap> timeBins = LiveOperationStatisticsAggregator.this.aggregates
+            ConcurrentLongObjectSkipListMap<ConcurrentLongObjectSkipListMap<ConcurrentIntLongSkipListMap>> timeBins = LiveOperationStatisticsAggregator.this.aggregates
                     .get(this.aggregationTaskIndex).get(index);
 
+            // get the thread ID applicable for this operation
+            ConcurrentLongObjectSkipListMap<ConcurrentIntLongSkipListMap> threadIds = timeBins
+                    .computeIfAbsent(
+                            OperationStatistics.getThreadId(mp,
+                                    aggregateAddress),
+                            l -> new ConcurrentLongObjectSkipListMap<>());
+
             // get the file descriptor applicable for this operation
-            ConcurrentIntLongSkipListMap fileDescriptors = timeBins
+            ConcurrentIntLongSkipListMap fileDescriptors = threadIds
                     .computeIfAbsent(
                             OperationStatistics.getTimeBin(mp,
                                     aggregateAddress),
@@ -1231,7 +1251,7 @@ public class LiveOperationStatisticsAggregator {
                 // source/category
                 if (!LiveOperationStatisticsAggregator.this.emissionInProgress[index]
                         .getAndSet(true)) {
-                    ConcurrentLongObjectSkipListMap<ConcurrentIntLongSkipListMap> timeBins = LiveOperationStatisticsAggregator.this.aggregates
+                    ConcurrentLongObjectSkipListMap<ConcurrentLongObjectSkipListMap<ConcurrentIntLongSkipListMap>> timeBins = LiveOperationStatisticsAggregator.this.aggregates
                             .get(this.aggregationTaskIndex).get(index);
 
                     // emission was not in progress, all other threads now see
@@ -1252,16 +1272,22 @@ public class LiveOperationStatisticsAggregator {
                             // get the time bins for the other aggregation task,
                             // poll half of them and aggregate them in this
                             // thread
-                            ConcurrentLongObjectSkipListMap<ConcurrentIntLongSkipListMap> foreignTimeBins = LiveOperationStatisticsAggregator.this.aggregates
+                            ConcurrentLongObjectSkipListMap<ConcurrentLongObjectSkipListMap<ConcurrentIntLongSkipListMap>> foreignTimeBins = LiveOperationStatisticsAggregator.this.aggregates
                                     .get(aggregationTask).get(index);
                             for (int i = size / 2; i > 0; --i) {
-                                ConcurrentIntLongSkipListMap foreignFds = foreignTimeBins
+                                ConcurrentLongObjectSkipListMap<ConcurrentIntLongSkipListMap> foreignThreadIds = foreignTimeBins
                                         .poll();
-                                if (foreignFds != null) {
-                                    ConcurrentIntLongSkipListMap.ValueIterator vi = foreignFds
+                                if (foreignThreadIds != null) {
+                                    ConcurrentLongObjectSkipListMap<ConcurrentIntLongSkipListMap>.ValueIterator tidVi = foreignThreadIds
                                             .values();
-                                    while (vi.hasNext()) {
-                                        doAggregation(vi.next());
+                                    while (tidVi.hasNext()) {
+                                        ConcurrentIntLongSkipListMap foreignFds = tidVi
+                                                .next();
+                                        ConcurrentIntLongSkipListMap.ValueIterator fdVi = foreignFds
+                                                .values();
+                                        while (fdVi.hasNext()) {
+                                            doAggregation(fdVi.next());
+                                        }
                                     }
                                 } else {
                                     break;
@@ -1271,11 +1297,16 @@ public class LiveOperationStatisticsAggregator {
 
                         for (int i = size / 2; i > 0; --i) {
                             try {
-                                ConcurrentIntLongSkipListMap fds = timeBins
+                                ConcurrentLongObjectSkipListMap<ConcurrentIntLongSkipListMap> tids = timeBins
                                         .poll();
-                                if (fds != null) {
-                                    write(fds.values(), getSource(index),
-                                            getCategory(index), index);
+                                if (tids != null) {
+                                    ConcurrentLongObjectSkipListMap<ConcurrentIntLongSkipListMap>.ValueIterator tidVi = tids
+                                            .values();
+                                    while (tidVi.hasNext()) {
+                                        write(tidVi.next().values(),
+                                                getSource(index),
+                                                getCategory(index), index);
+                                    }
                                 } else {
                                     break;
                                 }
@@ -1301,7 +1332,7 @@ public class LiveOperationStatisticsAggregator {
                 // see above
                 if (!LiveOperationStatisticsAggregator.this.emissionInProgress[index]
                         .getAndSet(true)) {
-                    ConcurrentLongObjectSkipListMap<ConcurrentIntLongSkipListMap> timeBins = LiveOperationStatisticsAggregator.this.aggregates
+                    ConcurrentLongObjectSkipListMap<ConcurrentLongObjectSkipListMap<ConcurrentIntLongSkipListMap>> timeBins = LiveOperationStatisticsAggregator.this.aggregates
                             .get(this.aggregationTaskIndex).get(index);
 
                     for (int aggregationTask = 0; aggregationTask < this.numAggregationTasks; ++aggregationTask) {
@@ -1309,17 +1340,23 @@ public class LiveOperationStatisticsAggregator {
                             continue;
                         }
 
-                        ConcurrentLongObjectSkipListMap<ConcurrentIntLongSkipListMap> foreignTimeBins = LiveOperationStatisticsAggregator.this.aggregates
+                        ConcurrentLongObjectSkipListMap<ConcurrentLongObjectSkipListMap<ConcurrentIntLongSkipListMap>> foreignTimeBins = LiveOperationStatisticsAggregator.this.aggregates
                                 .get(aggregationTask).get(index);
                         int size = foreignTimeBins.size();
                         for (int i = 0; i < size; ++i) {
-                            ConcurrentIntLongSkipListMap foreignFds = foreignTimeBins
+                            ConcurrentLongObjectSkipListMap<ConcurrentIntLongSkipListMap> foreignThreadIds = foreignTimeBins
                                     .poll();
-                            if (foreignFds != null) {
-                                ConcurrentIntLongSkipListMap.ValueIterator vi = foreignFds
+                            if (foreignThreadIds != null) {
+                                ConcurrentLongObjectSkipListMap<ConcurrentIntLongSkipListMap>.ValueIterator tidVi = foreignThreadIds
                                         .values();
-                                while (vi.hasNext()) {
-                                    doAggregation(vi.next());
+                                while (tidVi.hasNext()) {
+                                    ConcurrentIntLongSkipListMap foreignFds = tidVi
+                                            .next();
+                                    ConcurrentIntLongSkipListMap.ValueIterator fdVi = foreignFds
+                                            .values();
+                                    while (fdVi.hasNext()) {
+                                        doAggregation(fdVi.next());
+                                    }
                                 }
                             } else {
                                 break;
@@ -1327,13 +1364,17 @@ public class LiveOperationStatisticsAggregator {
                         }
                     }
 
-                    ConcurrentIntLongSkipListMap fileDescriptors;
-                    while ((fileDescriptors = timeBins.poll()) != null) {
-                        // fileDescriptors is exclusive to this thread, so it's
+                    ConcurrentLongObjectSkipListMap<ConcurrentIntLongSkipListMap> threadIds;
+                    while ((threadIds = timeBins.poll()) != null) {
+                        // threadIds is exclusive to this thread, so it's
                         // safe to iterate over the values
                         try {
-                            write(fileDescriptors.values(), source, category,
-                                    index);
+                            ConcurrentLongObjectSkipListMap<ConcurrentIntLongSkipListMap>.ValueIterator vi = threadIds
+                                    .values();
+                            while (vi.hasNext()) {
+                                write(vi.next().values(), source, category,
+                                        index);
+                            }
                         } catch (IOException e) {
                             throw new RuntimeException(e);
                         }

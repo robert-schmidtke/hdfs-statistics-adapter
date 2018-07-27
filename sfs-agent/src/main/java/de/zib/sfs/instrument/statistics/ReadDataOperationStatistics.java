@@ -82,21 +82,23 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
 
     public static long getReadDataOperationStatistics(long count, long timeBin,
             long cpuTime, OperationSource source, OperationCategory category,
-            int fd, long data, long remoteCount, long remoteCpuTime,
-            long remoteData) {
+            int fd, long threadId, long data, long remoteCount,
+            long remoteCpuTime, long remoteData) {
         long address = getReadDataOperationStatistics();
         getReadDataOperationStatistics(getMemoryPool(address),
                 sanitizeAddress(address), count, timeBin, cpuTime, source,
-                category, fd, data, remoteCount, remoteCpuTime, remoteData);
+                category, fd, threadId, data, remoteCount, remoteCpuTime,
+                remoteData);
         return address;
     }
 
     protected static void getReadDataOperationStatistics(MemoryPool mp,
             int address, long count, long timeBin, long cpuTime,
             OperationSource source, OperationCategory category, int fd,
-            long data, long remoteCount, long remoteCpuTime, long remoteData) {
+            long threadId, long data, long remoteCount, long remoteCpuTime,
+            long remoteData) {
         DataOperationStatistics.getDataOperationStatistics(mp, address, count,
-                timeBin, cpuTime, source, category, fd, data);
+                timeBin, cpuTime, source, category, fd, threadId, data);
         setRemoteCount(mp, address, remoteCount);
         setRemoteCpuTime(mp, address, remoteCpuTime);
         setRemoteData(mp, address, remoteData);
@@ -104,10 +106,10 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
 
     public static long getReadDataOperationStatistics(long timeBinDuration,
             OperationSource source, OperationCategory category, long startTime,
-            long endTime, int fd, long data, boolean isRemote) {
+            long endTime, int fd, long threadId, long data, boolean isRemote) {
         return getReadDataOperationStatistics(1,
                 startTime - startTime % timeBinDuration, endTime - startTime,
-                source, category, fd, data, isRemote ? 1 : 0,
+                source, category, fd, threadId, data, isRemote ? 1 : 0,
                 isRemote ? endTime - startTime : 0, isRemote ? data : 0);
     }
 
@@ -242,9 +244,9 @@ public class ReadDataOperationStatistics extends DataOperationStatistics {
     protected void fromCsvImpl(String[] values, int off, MemoryPool mp,
             int address) {
         super.fromCsvImpl(values, off, mp, address);
-        setRemoteCount(mp, address, Long.parseLong(values[off + 7]));
-        setRemoteCpuTime(mp, address, Long.parseLong(values[off + 8]));
-        setRemoteData(mp, address, Long.parseLong(values[off + 9]));
+        setRemoteCount(mp, address, Long.parseLong(values[off + 8]));
+        setRemoteCpuTime(mp, address, Long.parseLong(values[off + 9]));
+        setRemoteData(mp, address, Long.parseLong(values[off + 10]));
     }
 
     @Override

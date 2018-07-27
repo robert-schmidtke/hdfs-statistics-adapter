@@ -80,28 +80,28 @@ public class DataOperationStatistics extends OperationStatistics {
 
     public static long getDataOperationStatistics(long count, long timeBin,
             long cpuTime, OperationSource source, OperationCategory category,
-            int fd, long data) {
+            int fd, long threadId, long data) {
         long address = getDataOperationStatistics();
         getDataOperationStatistics(getMemoryPool(address),
                 sanitizeAddress(address), count, timeBin, cpuTime, source,
-                category, fd, data);
+                category, fd, threadId, data);
         return address;
     }
 
     protected static void getDataOperationStatistics(MemoryPool mp, int address,
             long count, long timeBin, long cpuTime, OperationSource source,
-            OperationCategory category, int fd, long data) {
+            OperationCategory category, int fd, long threadId, long data) {
         OperationStatistics.getOperationStatistics(mp, address, count, timeBin,
-                cpuTime, source, category, fd);
+                cpuTime, source, category, fd, threadId);
         setData(mp, address, data);
     }
 
     public static long getDataOperationStatistics(long timeBinDuration,
             OperationSource source, OperationCategory category, long startTime,
-            long endTime, int fd, long data) {
+            long endTime, int fd, long threadId, long data) {
         return getDataOperationStatistics(1,
                 startTime - startTime % timeBinDuration, endTime - startTime,
-                source, category, fd, data);
+                source, category, fd, threadId, data);
     }
 
     public static long getData(long address) {
@@ -161,7 +161,7 @@ public class DataOperationStatistics extends OperationStatistics {
     protected void fromCsvImpl(String[] values, int off, MemoryPool mp,
             int address) {
         super.fromCsvImpl(values, off, mp, address);
-        setData(mp, address, Long.parseLong(values[off + 6]));
+        setData(mp, address, Long.parseLong(values[off + 7]));
     }
 
     @Override
