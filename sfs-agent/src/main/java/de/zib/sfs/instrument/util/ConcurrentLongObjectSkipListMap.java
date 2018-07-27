@@ -13,6 +13,7 @@
 package de.zib.sfs.instrument.util;
 
 import java.lang.reflect.Constructor;
+import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAdder;
 
@@ -45,6 +46,39 @@ public class ConcurrentLongObjectSkipListMap<V> {
             this.node = node;
             this.down = down;
             this.right = right;
+        }
+    }
+
+    public final class ValueIterator {
+        Node<V> lastReturned;
+        Node<V> next;
+        V nextValue;
+
+        ValueIterator() {
+            advance(baseHead());
+        }
+
+        public final boolean hasNext() {
+            return this.next != null;
+        }
+
+        final void advance(Node<V> b) {
+            Node<V> n = null;
+            V v = null;
+            if ((this.lastReturned = b) != null) {
+                while ((n = b.next) != null && (v = n.val) == null)
+                    b = n;
+            }
+            this.nextValue = v;
+            this.next = n;
+        }
+
+        public V next() {
+            V v;
+            if ((v = this.nextValue) == null)
+                throw new NoSuchElementException();
+            advance(this.next);
+            return v;
         }
     }
 
@@ -90,7 +124,8 @@ public class ConcurrentLongObjectSkipListMap<V> {
         long c;
         return ((baseHead() == null) ? 0
                 : ((c = getAdderCount()) >= Integer.MAX_VALUE)
-                        ? Integer.MAX_VALUE : (int) c);
+                        ? Integer.MAX_VALUE
+                        : (int) c);
     }
 
     private void addCount(long c) {
@@ -100,6 +135,10 @@ public class ConcurrentLongObjectSkipListMap<V> {
         } while ((a = this.adder) == null && !U.compareAndSwapObject(this,
                 ADDER, null, a = new LongAdder()));
         a.add(c);
+    }
+
+    public ValueIterator values() {
+        return new ValueIterator();
     }
 
     static <V> boolean addIndices(Index<V> q, int skips, Index<V> x) {
