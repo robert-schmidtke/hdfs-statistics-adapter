@@ -333,6 +333,7 @@
               <executable>java</executable>
               <arguments>
                 <argument>-Xmx20M</argument>
+                <argument>-XX:MaxDirectMemorySize=128M</argument>
                 <argument>-Djava.io.tmpdir=${java.io.tmpdir}</argument>
                 <argument>-ea</argument>
                 <argument>-esa</argument>
@@ -389,6 +390,7 @@
                 <item>mapped-false</item>
                 <item>mapped-true</item>
                 <item>zip-false</item>
+                <item>throughput-false</item>
               </items>
               <pluginExecutors>
                 <pluginExecutor>

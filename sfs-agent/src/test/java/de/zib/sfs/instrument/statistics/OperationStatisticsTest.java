@@ -109,7 +109,7 @@ public class OperationStatisticsTest {
         // now expect addresses returned in the other direction
         for (int j = 127; j >= 0; --j) {
             for (int i = 0; i < 128; ++i) {
-                long startTime = System.currentTimeMillis();
+                long startTime = System.nanoTime();
                 long address = OperationStatistics.getOperationStatistics(1000,
                         OperationSource.JVM, OperationCategory.OTHER, startTime,
                         startTime + 5, 42, 43);
@@ -172,7 +172,7 @@ public class OperationStatisticsTest {
         // now expect addresses returned in the other direction
         for (int j = 127; j >= 0; --j) {
             for (int i = 0; i < 128; ++i) {
-                long startTime = System.currentTimeMillis();
+                long startTime = System.nanoTime();
                 long address = DataOperationStatistics
                         .getDataOperationStatistics(1000, OperationSource.JVM,
                                 OperationCategory.WRITE, startTime,
@@ -243,7 +243,7 @@ public class OperationStatisticsTest {
         // now expect addresses returned in the other direction
         for (int j = 127; j >= 0; --j) {
             for (int i = 0; i < 128; ++i) {
-                long startTime = System.currentTimeMillis();
+                long startTime = System.nanoTime();
                 long address = ReadDataOperationStatistics
                         .getReadDataOperationStatistics(1000,
                                 OperationSource.JVM, OperationCategory.READ,

@@ -125,12 +125,16 @@ public class InstrumentationTest {
         case "zip":
             runZipTest(executor, numProcessors);
             break;
+        case "throughput":
+            runThroughputTest(executor, numProcessors);
+            break;
         case "all":
             runStreamTest(executor, numProcessors);
             runRandomTest(executor, numProcessors);
             runChannelTest(executor, numProcessors);
             runMappedTest(executor, numProcessors);
             runZipTest(executor, numProcessors);
+            runThroughputTest(executor, numProcessors);
             break;
         case "none":
             return;
@@ -1455,6 +1459,88 @@ public class InstrumentationTest {
         file.delete();
     }
 
+    /**
+     * @param executor
+     * @param numProcessors
+     * @throws IOException
+     */
+    private static void runThroughputTest(ExecutorService executor,
+            int numProcessors) throws IOException {
+        // TODO add threading
+
+        File file = File.createTempFile("throughput", null);
+        file.deleteOnExit();
+
+        int size = 32 * 1024 * 1024;
+        ByteBuffer buffer = ByteBuffer.allocateDirect(size);
+        int[] blockSizes = new int[] { 512, 1024, 4096, 16384, 524288, 1048576,
+                4194304 };
+
+        // Write
+
+        for (int blockSize : blockSizes) {
+            FileChannel fco = new FileOutputStream(file).getChannel();
+            ++openOperations;
+
+            long duration = 0;
+            for (int i = 0; i < size; i += blockSize) {
+                ByteBuffer bb = buffer.slice();
+                bb.limit(blockSize);
+                long startTime = System.currentTimeMillis();
+                fco.write(bb);
+                long endTime = System.currentTimeMillis();
+                buffer.position(buffer.position() + blockSize);
+
+                duration += endTime - startTime;
+            }
+
+            assert (buffer.position() == size);
+            buffer.clear();
+
+            System.err
+                    .println("Block size: " + blockSize + ", write throughput: "
+                            + (int) (size / (1048.576 * duration)) + " MiB/s ( "
+                            + size + " / " + duration + " )");
+
+            writeBytes += size;
+            fco.close();
+        }
+
+        assert (file.length() == size) : file.length() + " : " + size;
+
+        // Read
+
+        for (int blockSize : blockSizes) {
+            FileChannel fci = new FileInputStream(file).getChannel();
+            ++openOperations;
+
+            long duration = 0;
+            for (int i = 0; i < size; i += blockSize) {
+                ByteBuffer bb = buffer.slice();
+                bb.limit(blockSize);
+                long startTime = System.currentTimeMillis();
+                fci.read(bb);
+                long endTime = System.currentTimeMillis();
+                buffer.position(buffer.position() + blockSize);
+
+                duration += endTime - startTime;
+            }
+
+            assert (buffer.position() == size);
+            buffer.clear();
+
+            System.err
+                    .println("Block size: " + blockSize + ", read throughput: "
+                            + (int) (size / (1048.576 * duration)) + " MiB/s ( "
+                            + size + " / " + duration + " )");
+
+            readBytes += size;
+            fci.close();
+        }
+
+        file.delete();
+    }
+
     private static void assertStatistics() throws IOException {
         try {
             // figure out whether the LiveOperationStatisticsAggregator has
@@ -1949,20 +2035,41 @@ public class InstrumentationTest {
                 .get(LiveOperationStatisticsAggregator.getUniqueIndex(source,
                         category));
         Map<Integer, Long> operationDataPerFd = new HashMap<>();
-        long allData = 0;
+        long readData = 0, writeData = 0, readTime = 0, writeTime = 0;
         for (Map<Long, NavigableMap<Integer, Long>> tids : timeBins.values()) {
             for (Map<Integer, Long> fds : tids.values()) {
                 for (Long os : fds.values()) {
                     assert (OperationStatistics.getOperationStatisticsOffset(
                             os) >= OperationStatistics.DOS_OFFSET) : os;
-                    long data = DataOperationStatistics.getData(os);
-                    operationDataPerFd.merge(
-                            OperationStatistics.getFileDescriptor(os), data,
-                            (v1, v2) -> v1 + v2);
-                    allData += data;
+                    int offset = OperationStatistics
+                            .getOperationStatisticsOffset(os);
+                    if (offset == OperationStatistics.DOS_OFFSET) {
+                        long data = DataOperationStatistics.getData(os);
+                        operationDataPerFd.merge(
+                                OperationStatistics.getFileDescriptor(os), data,
+                                (v1, v2) -> v1 + v2);
+                        writeData += data;
+                        writeTime += OperationStatistics.getCpuTime(os);
+                    } else {
+                        long data = DataOperationStatistics.getData(os);
+                        operationDataPerFd.merge(
+                                OperationStatistics.getFileDescriptor(os), data,
+                                (v1, v2) -> v1 + v2);
+                        readData += data;
+                        readTime += OperationStatistics.getCpuTime(os);
+                    }
                 }
             }
         }
+
+        long allData = readData + writeData;
+
+        System.err.println("Write throughput: "
+                + (int) (writeData / (1048.576 * writeTime)) + " MiB/s ( "
+                + writeData + " / " + writeTime + " )");
+        System.err.println(
+                "Read throughput: " + (int) (readData / (1048.576 * readTime))
+                        + " MiB/s ( " + readData + " / " + readTime + " )");
 
         // make sure the tmp files are exactly measured, if we have the file
         // descriptor mappings
