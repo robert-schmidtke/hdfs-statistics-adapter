@@ -400,7 +400,7 @@ public class FileChannelImplAdapter extends AbstractSfsAdapter {
             mv.visitLabel(bufferInstanceofMappedByteBufferLabel);
         }
 
-        // long startTime = System.currentTimeMillis();
+        // long startTime = System.nanoTime();
         int startTimeIndex = bufferInstrumentationActiveIndex + 1;
         storeTime(mv, startTimeIndex);
 
@@ -418,7 +418,7 @@ public class FileChannelImplAdapter extends AbstractSfsAdapter {
         mv.visitVarInsn(returnType.getOpcode(Opcodes.ISTORE), resultIndex);
         int endTimeIndex = resultIndex + returnType.getSize();
 
-        // long endTime = System.currentTimeMillis();
+        // long endTime = System.nanoTime();
         storeTime(mv, endTimeIndex);
 
         // if map(...) was involved in this, then it may have reset the
@@ -609,8 +609,7 @@ public class FileChannelImplAdapter extends AbstractSfsAdapter {
             String signature, String[] exceptions) {
         return access == Opcodes.ACC_PUBLIC && "read".equals(name)
                 && (Type.getMethodDescriptor(Type.INT_TYPE,
-                        Type.getType(ByteBuffer.class)).equals(
-                                desc)
+                        Type.getType(ByteBuffer.class)).equals(desc)
                         || Type.getMethodDescriptor(Type.LONG_TYPE,
                                 Type.getType(ByteBuffer[].class), Type.INT_TYPE,
                                 Type.INT_TYPE).equals(desc)
@@ -627,8 +626,7 @@ public class FileChannelImplAdapter extends AbstractSfsAdapter {
             String signature, String[] exceptions) {
         return access == Opcodes.ACC_PUBLIC && "write".equals(name)
                 && (Type.getMethodDescriptor(Type.INT_TYPE,
-                        Type.getType(ByteBuffer.class)).equals(
-                                desc)
+                        Type.getType(ByteBuffer.class)).equals(desc)
                         || Type.getMethodDescriptor(Type.LONG_TYPE,
                                 Type.getType(ByteBuffer[].class), Type.INT_TYPE,
                                 Type.INT_TYPE).equals(desc)

@@ -296,8 +296,8 @@ with open(slurm_file) as f:
             elif stats.get('terasort.io.spill', None) is None:
                 stats['terasort.io.spill'] = int(line.split('=')[1])
 
-# capture actual time in milliseconds between TeraGen and TeraSort
-teragen_terasort_border_ms = 1000 * int(
+# capture actual time in nanoseconds between TeraGen and TeraSort
+teragen_terasort_border_ns = 1000000000 * int(
     round(stats['teragen.time.end'] + (stats['terasort.time.start'] - stats['teragen.time.end']) / 2.0))
 
 # use beginning of TeraGen as zero and reset all times
@@ -869,13 +869,13 @@ for (orders, ax, title, subtitle) in [(jvm_orders, ax_bottom, None, "JVM Layer")
 
         # sum of empty series is nan, replace with 0
         operation_count['teragen'][group[1]][group[2]] += np.nan_to_num(
-            group_data['count'].loc[group_data['timeBin'] < teragen_terasort_border_ms].sum())
+            group_data['count'].loc[group_data['timeBin'] < teragen_terasort_border_ns].sum())
         operation_count['terasort'][group[1]][group[2]] += np.nan_to_num(
-            group_data['count'].loc[group_data['timeBin'] > teragen_terasort_border_ms].sum())
+            group_data['count'].loc[group_data['timeBin'] > teragen_terasort_border_ns].sum())
         operation_data['teragen'][group[1]][group[2]] += np.nan_to_num(
-            group_data['data'].loc[group_data['timeBin'] < teragen_terasort_border_ms].sum())
+            group_data['data'].loc[group_data['timeBin'] < teragen_terasort_border_ns].sum())
         operation_data['terasort'][group[1]][group[2]] += np.nan_to_num(
-            group_data['data'].loc[group_data['timeBin'] > teragen_terasort_border_ms].sum())
+            group_data['data'].loc[group_data['timeBin'] > teragen_terasort_border_ns].sum())
 
         # give a nice name to each column
         plot_data = plot_data.assign(**{

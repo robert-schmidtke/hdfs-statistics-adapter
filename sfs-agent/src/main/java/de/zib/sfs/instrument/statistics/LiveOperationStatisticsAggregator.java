@@ -130,6 +130,7 @@ public class LiveOperationStatisticsAggregator {
     private boolean traceFileDescriptors;
 
     private long initializationTime;
+    private long nanoTimeOffset;
 
     public static final LiveOperationStatisticsAggregator instance = new LiveOperationStatisticsAggregator();
 
@@ -350,6 +351,12 @@ public class LiveOperationStatisticsAggregator {
         });
 
         this.initializationTime = System.currentTimeMillis();
+
+        // Since our measurements are in nanoseconds (from System.nanoTime()),
+        // which do not represent actual system time, compute the term we add to
+        // each measurement to get back to system time (in nanoseconds)
+        this.nanoTimeOffset = this.initializationTime * 1000000
+                - System.nanoTime();
         this.phase = LifecyclePhase.RUNNING;
 
         for (int i = 0; i < this.numAggregationThreads; ++i) {
@@ -410,6 +417,10 @@ public class LiveOperationStatisticsAggregator {
 
         long threadId = Thread.currentThread().getId();
 
+        // compute start and end times in system time in nanoseconds
+        startTime += this.nanoTimeOffset;
+        endTime += this.nanoTimeOffset;
+
         // stretch request proportionally over time bins
         long startTimeBin = startTime - startTime % this.timeBinDuration;
         long endTimeBin = endTime - endTime % this.timeBinDuration;
@@ -457,6 +468,9 @@ public class LiveOperationStatisticsAggregator {
         }
 
         long threadId = Thread.currentThread().getId();
+
+        startTime += this.nanoTimeOffset;
+        endTime += this.nanoTimeOffset;
 
         long startTimeBin = startTime - startTime % this.timeBinDuration;
         long endTimeBin = endTime - endTime % this.timeBinDuration;
@@ -506,6 +520,9 @@ public class LiveOperationStatisticsAggregator {
         }
 
         long threadId = Thread.currentThread().getId();
+
+        startTime += this.nanoTimeOffset;
+        endTime += this.nanoTimeOffset;
 
         long startTimeBin = startTime - startTime % this.timeBinDuration;
         long endTimeBin = endTime - endTime % this.timeBinDuration;

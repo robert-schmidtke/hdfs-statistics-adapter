@@ -28,7 +28,7 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
     protected final String callbackTypeInternalName, callbackTypeDescriptor,
             callbackTypeConstructorDescriptor;
 
-    protected final String systemInternalName, currentTimeMillisDescriptor;
+    protected final String systemInternalName, nanoTimeDescriptor;
 
     private final Set<OperationCategory> skip;
 
@@ -54,8 +54,7 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
         }
 
         this.systemInternalName = Type.getInternalName(System.class);
-        this.currentTimeMillisDescriptor = Type
-                .getMethodDescriptor(Type.LONG_TYPE);
+        this.nanoTimeDescriptor = Type.getMethodDescriptor(Type.LONG_TYPE);
 
         this.skip = skip;
     }
@@ -74,8 +73,7 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
         this.callbackTypeConstructorDescriptor = null;
 
         this.systemInternalName = Type.getInternalName(System.class);
-        this.currentTimeMillisDescriptor = Type
-                .getMethodDescriptor(Type.LONG_TYPE);
+        this.nanoTimeDescriptor = Type.getMethodDescriptor(Type.LONG_TYPE);
 
         this.skip = skip;
     }
@@ -101,8 +99,7 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
         }
 
         this.systemInternalName = Type.getInternalName(System.class);
-        this.currentTimeMillisDescriptor = Type
-                .getMethodDescriptor(Type.LONG_TYPE);
+        this.nanoTimeDescriptor = Type.getMethodDescriptor(Type.LONG_TYPE);
 
         this.skip = skip;
     }
@@ -199,7 +196,7 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
         // setInstrumentationActive(true);
         setInstrumentationActive(mv, true);
 
-        // long startTime = System.currentTimeMillis();
+        // long startTime = System.nanoTime();
         int startTimeIndex = 1;
         for (Type argument : argumentTypes) {
             startTimeIndex += argument.getSize();
@@ -225,7 +222,7 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
             endTimeIndex += returnType.getSize();
         }
 
-        // long endTime = System.currentTimeMillis();
+        // long endTime = System.nanoTime();
         storeTime(mv, endTimeIndex);
 
         // callback.<callbackMethod>(startTime, endTime, result?);
@@ -352,9 +349,9 @@ public abstract class AbstractSfsAdapter extends ClassVisitor {
     }
 
     protected void storeTime(MethodVisitor mv, int index) {
-        // long time = System.currentTimeMillis();
+        // long time = System.nanoTime();
         mv.visitMethodInsn(Opcodes.INVOKESTATIC, this.systemInternalName,
-                "currentTimeMillis", this.currentTimeMillisDescriptor, false);
+                "nanoTime", this.nanoTimeDescriptor, false);
         mv.visitVarInsn(Opcodes.LSTORE, index);
     }
 

@@ -324,7 +324,7 @@ public class StatisticsFileSystem extends FileSystem {
 
     @Override
     public FSDataOutputStream append(Path f) throws IOException {
-        long startTime = System.currentTimeMillis();
+        long startTime = System.nanoTime();
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream;
         if (!this.skipWrite) {
@@ -340,7 +340,7 @@ public class StatisticsFileSystem extends FileSystem {
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis(), fd);
+                            System.nanoTime(), fd);
         }
         return stream;
     }
@@ -348,7 +348,7 @@ public class StatisticsFileSystem extends FileSystem {
     @Override
     public FSDataOutputStream append(Path f, int bufferSize)
             throws IOException {
-        long startTime = System.currentTimeMillis();
+        long startTime = System.nanoTime();
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream;
         if (!this.skipWrite) {
@@ -364,7 +364,7 @@ public class StatisticsFileSystem extends FileSystem {
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis(), fd);
+                            System.nanoTime(), fd);
         }
         return stream;
     }
@@ -372,7 +372,7 @@ public class StatisticsFileSystem extends FileSystem {
     @Override
     public FSDataOutputStream append(Path f, int bufferSize,
             Progressable progress) throws IOException {
-        long startTime = System.currentTimeMillis();
+        long startTime = System.nanoTime();
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream;
         if (!this.skipWrite) {
@@ -388,7 +388,7 @@ public class StatisticsFileSystem extends FileSystem {
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis(), fd);
+                            System.nanoTime(), fd);
         }
         return stream;
     }
@@ -507,7 +507,7 @@ public class StatisticsFileSystem extends FileSystem {
 
     @Override
     public FSDataOutputStream create(Path f) throws IOException {
-        long startTime = System.currentTimeMillis();
+        long startTime = System.nanoTime();
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream;
         if (!this.skipWrite) {
@@ -523,7 +523,7 @@ public class StatisticsFileSystem extends FileSystem {
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis(), fd);
+                            System.nanoTime(), fd);
         }
         return stream;
     }
@@ -531,7 +531,7 @@ public class StatisticsFileSystem extends FileSystem {
     @Override
     public FSDataOutputStream create(Path f, boolean overwrite)
             throws IOException {
-        long startTime = System.currentTimeMillis();
+        long startTime = System.nanoTime();
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream;
         if (!this.skipWrite) {
@@ -547,7 +547,7 @@ public class StatisticsFileSystem extends FileSystem {
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis(), fd);
+                            System.nanoTime(), fd);
         }
         return stream;
     }
@@ -555,7 +555,7 @@ public class StatisticsFileSystem extends FileSystem {
     @Override
     public FSDataOutputStream create(Path f, boolean overwrite, int bufferSize)
             throws IOException {
-        long startTime = System.currentTimeMillis();
+        long startTime = System.nanoTime();
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream;
         if (!this.skipWrite) {
@@ -572,7 +572,7 @@ public class StatisticsFileSystem extends FileSystem {
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis(), fd);
+                            System.nanoTime(), fd);
         }
         return stream;
     }
@@ -580,7 +580,7 @@ public class StatisticsFileSystem extends FileSystem {
     @Override
     public FSDataOutputStream create(Path f, boolean overwrite, int bufferSize,
             Progressable progress) throws IOException {
-        long startTime = System.currentTimeMillis();
+        long startTime = System.nanoTime();
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream;
         if (!this.skipWrite) {
@@ -598,7 +598,7 @@ public class StatisticsFileSystem extends FileSystem {
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis(), fd);
+                            System.nanoTime(), fd);
         }
         return stream;
     }
@@ -606,7 +606,7 @@ public class StatisticsFileSystem extends FileSystem {
     @Override
     public FSDataOutputStream create(Path f, boolean overwrite, int bufferSize,
             short replication, long blockSize) throws IOException {
-        long startTime = System.currentTimeMillis();
+        long startTime = System.nanoTime();
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream;
         if (!this.skipWrite) {
@@ -624,7 +624,7 @@ public class StatisticsFileSystem extends FileSystem {
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis(), fd);
+                            System.nanoTime(), fd);
         }
         return stream;
     }
@@ -633,7 +633,7 @@ public class StatisticsFileSystem extends FileSystem {
     public FSDataOutputStream create(Path f, boolean overwrite, int bufferSize,
             short replication, long blockSize, Progressable progress)
             throws IOException {
-        long startTime = System.currentTimeMillis();
+        long startTime = System.nanoTime();
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream;
         if (!this.skipWrite) {
@@ -651,7 +651,7 @@ public class StatisticsFileSystem extends FileSystem {
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis(), fd);
+                            System.nanoTime(), fd);
         }
         return stream;
     }
@@ -660,7 +660,7 @@ public class StatisticsFileSystem extends FileSystem {
     public FSDataOutputStream create(Path f, FsPermission permission,
             boolean overwrite, int bufferSize, short replication,
             long blockSize, Progressable progress) throws IOException {
-        long startTime = System.currentTimeMillis();
+        long startTime = System.nanoTime();
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream;
         if (!this.skipWrite) {
@@ -678,7 +678,7 @@ public class StatisticsFileSystem extends FileSystem {
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis(), fd);
+                            System.nanoTime(), fd);
         }
         return stream;
     }
@@ -687,7 +687,7 @@ public class StatisticsFileSystem extends FileSystem {
     public FSDataOutputStream create(Path f, FsPermission permission,
             EnumSet<CreateFlag> flags, int bufferSize, short replication,
             long blockSize, Progressable progress) throws IOException {
-        long startTime = System.currentTimeMillis();
+        long startTime = System.nanoTime();
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream;
         if (!this.skipWrite) {
@@ -705,7 +705,7 @@ public class StatisticsFileSystem extends FileSystem {
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis(), fd);
+                            System.nanoTime(), fd);
         }
         return stream;
     }
@@ -715,7 +715,7 @@ public class StatisticsFileSystem extends FileSystem {
             EnumSet<CreateFlag> flags, int bufferSize, short replication,
             long blockSize, Progressable progress, ChecksumOpt checksumOpt)
             throws IOException {
-        long startTime = System.currentTimeMillis();
+        long startTime = System.nanoTime();
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream;
         if (!this.skipWrite) {
@@ -734,7 +734,7 @@ public class StatisticsFileSystem extends FileSystem {
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis(), fd);
+                            System.nanoTime(), fd);
         }
         return stream;
     }
@@ -742,7 +742,7 @@ public class StatisticsFileSystem extends FileSystem {
     @Override
     public FSDataOutputStream create(Path f, Progressable progress)
             throws IOException {
-        long startTime = System.currentTimeMillis();
+        long startTime = System.nanoTime();
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream;
         if (!this.skipWrite) {
@@ -758,7 +758,7 @@ public class StatisticsFileSystem extends FileSystem {
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis(), fd);
+                            System.nanoTime(), fd);
         }
         return stream;
     }
@@ -766,7 +766,7 @@ public class StatisticsFileSystem extends FileSystem {
     @Override
     public FSDataOutputStream create(Path f, short replication)
             throws IOException {
-        long startTime = System.currentTimeMillis();
+        long startTime = System.nanoTime();
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream;
         if (!this.skipWrite) {
@@ -782,7 +782,7 @@ public class StatisticsFileSystem extends FileSystem {
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis(), fd);
+                            System.nanoTime(), fd);
         }
         return stream;
     }
@@ -790,7 +790,7 @@ public class StatisticsFileSystem extends FileSystem {
     @Override
     public FSDataOutputStream create(Path f, short replication,
             Progressable progress) throws IOException {
-        long startTime = System.currentTimeMillis();
+        long startTime = System.nanoTime();
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream;
         if (!this.skipWrite) {
@@ -807,7 +807,7 @@ public class StatisticsFileSystem extends FileSystem {
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis(), fd);
+                            System.nanoTime(), fd);
         }
         return stream;
     }
@@ -822,7 +822,7 @@ public class StatisticsFileSystem extends FileSystem {
     public FSDataOutputStream createNonRecursive(Path f, boolean overwrite,
             int bufferSize, short replication, long blockSize,
             Progressable progress) throws IOException {
-        long startTime = System.currentTimeMillis();
+        long startTime = System.nanoTime();
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream;
         if (!this.skipWrite) {
@@ -840,7 +840,7 @@ public class StatisticsFileSystem extends FileSystem {
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis(), fd);
+                            System.nanoTime(), fd);
         }
         return stream;
     }
@@ -851,7 +851,7 @@ public class StatisticsFileSystem extends FileSystem {
             FsPermission permission, boolean overwrite, int bufferSize,
             short replication, long blockSize, Progressable progress)
             throws IOException {
-        long startTime = System.currentTimeMillis();
+        long startTime = System.nanoTime();
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream;
         if (!this.skipWrite) {
@@ -871,7 +871,7 @@ public class StatisticsFileSystem extends FileSystem {
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis(), fd);
+                            System.nanoTime(), fd);
         }
         return stream;
     }
@@ -882,7 +882,7 @@ public class StatisticsFileSystem extends FileSystem {
             FsPermission permission, EnumSet<CreateFlag> flags, int bufferSize,
             short replication, long blockSize, Progressable progress)
             throws IOException {
-        long startTime = System.currentTimeMillis();
+        long startTime = System.nanoTime();
         Path unwrappedPath = unwrapPath(f);
         FSDataOutputStream stream;
         if (!this.skipWrite) {
@@ -902,7 +902,7 @@ public class StatisticsFileSystem extends FileSystem {
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis(), fd);
+                            System.nanoTime(), fd);
         }
         return stream;
     }
@@ -933,7 +933,7 @@ public class StatisticsFileSystem extends FileSystem {
 
     @Override
     public boolean delete(Path f, boolean recursive) throws IOException {
-        long startTime = System.currentTimeMillis();
+        long startTime = System.nanoTime();
         Path unwrappedPath = unwrapPath(f);
         boolean result = this.wrappedFS.delete(unwrappedPath, recursive);
         if (!this.skipOther) {
@@ -942,7 +942,7 @@ public class StatisticsFileSystem extends FileSystem {
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis(), fd);
+                            System.nanoTime(), fd);
         }
         return result;
     }
@@ -1014,7 +1014,7 @@ public class StatisticsFileSystem extends FileSystem {
     @Override
     public BlockLocation[] getFileBlockLocations(FileStatus file, long start,
             long len) throws IOException {
-        long startTime = System.currentTimeMillis();
+        long startTime = System.nanoTime();
         Path path = file.getPath();
         file.setPath(unwrapPath(path));
         BlockLocation[] blockLocations = this.wrappedFS
@@ -1026,7 +1026,7 @@ public class StatisticsFileSystem extends FileSystem {
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis(), fd);
+                            System.nanoTime(), fd);
         }
         return blockLocations;
     }
@@ -1034,7 +1034,7 @@ public class StatisticsFileSystem extends FileSystem {
     @Override
     public BlockLocation[] getFileBlockLocations(Path p, long start, long len)
             throws IOException {
-        long startTime = System.currentTimeMillis();
+        long startTime = System.nanoTime();
         Path path = unwrapPath(p);
         BlockLocation[] blockLocations = this.wrappedFS
                 .getFileBlockLocations(path, start, len);
@@ -1044,7 +1044,7 @@ public class StatisticsFileSystem extends FileSystem {
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis(), fd);
+                            System.nanoTime(), fd);
         }
         return blockLocations;
     }
@@ -1068,7 +1068,7 @@ public class StatisticsFileSystem extends FileSystem {
 
     @Override
     public FileStatus getFileStatus(Path f) throws IOException {
-        long startTime = System.currentTimeMillis();
+        long startTime = System.nanoTime();
         UnwrappedPath unwrappedPath = unwrapPath(f);
         FileStatus fileStatus = this.wrappedFS.getFileStatus(unwrappedPath);
         if (unwrappedPath.isUnwrapped()) {
@@ -1081,7 +1081,7 @@ public class StatisticsFileSystem extends FileSystem {
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis(), fd);
+                            System.nanoTime(), fd);
         }
         return fileStatus;
     }
@@ -1286,7 +1286,7 @@ public class StatisticsFileSystem extends FileSystem {
     @Override
     public FileStatus[] listStatus(Path f)
             throws FileNotFoundException, IOException {
-        long startTime = System.currentTimeMillis();
+        long startTime = System.nanoTime();
         UnwrappedPath unwrappedPath = unwrapPath(f);
         FileStatus[] fileStatuses = this.wrappedFS.listStatus(unwrappedPath);
         if (unwrappedPath.isUnwrapped()) {
@@ -1301,7 +1301,7 @@ public class StatisticsFileSystem extends FileSystem {
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis(), fd);
+                            System.nanoTime(), fd);
         }
         return fileStatuses;
     }
@@ -1309,7 +1309,7 @@ public class StatisticsFileSystem extends FileSystem {
     @Override
     public FileStatus[] listStatus(Path f, PathFilter filter)
             throws FileNotFoundException, IOException {
-        long startTime = System.currentTimeMillis();
+        long startTime = System.nanoTime();
         UnwrappedPath unwrappedPath = unwrapPath(f);
         PathFilter wrappedFilter = new PathFilter() {
             @Override
@@ -1332,7 +1332,7 @@ public class StatisticsFileSystem extends FileSystem {
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis(), fd);
+                            System.nanoTime(), fd);
         }
         return fileStatuses;
     }
@@ -1398,7 +1398,7 @@ public class StatisticsFileSystem extends FileSystem {
 
     @Override
     public boolean mkdirs(Path f, FsPermission permission) throws IOException {
-        long startTime = System.currentTimeMillis();
+        long startTime = System.nanoTime();
         Path unwrappedPath = unwrapPath(f);
         boolean result = this.wrappedFS.mkdirs(unwrappedPath, permission);
         if (!this.skipOther) {
@@ -1407,7 +1407,7 @@ public class StatisticsFileSystem extends FileSystem {
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis(), fd);
+                            System.nanoTime(), fd);
         }
         return result;
     }
@@ -1433,7 +1433,7 @@ public class StatisticsFileSystem extends FileSystem {
 
     @Override
     public FSDataInputStream open(Path f) throws IOException {
-        long startTime = System.currentTimeMillis();
+        long startTime = System.nanoTime();
         Path unwrappedPath = unwrapPath(f);
         FSDataInputStream stream;
         if (!this.skipRead) {
@@ -1450,14 +1450,14 @@ public class StatisticsFileSystem extends FileSystem {
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis(), fd);
+                            System.nanoTime(), fd);
         }
         return stream;
     }
 
     @Override
     public FSDataInputStream open(Path f, int bufferSize) throws IOException {
-        long startTime = System.currentTimeMillis();
+        long startTime = System.nanoTime();
         Path unwrappedPath = unwrapPath(f);
         FSDataInputStream stream;
         if (!this.skipRead) {
@@ -1474,14 +1474,14 @@ public class StatisticsFileSystem extends FileSystem {
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis(), fd);
+                            System.nanoTime(), fd);
         }
         return stream;
     }
 
     @Override
     public boolean rename(Path src, Path dst) throws IOException {
-        long startTime = System.currentTimeMillis();
+        long startTime = System.nanoTime();
         Path unwrappedSrc = unwrapPath(src);
         Path unwrappedDst = unwrapPath(dst);
         boolean result = this.wrappedFS.rename(unwrappedSrc, unwrappedDst);
@@ -1491,7 +1491,7 @@ public class StatisticsFileSystem extends FileSystem {
             LiveOperationStatisticsAggregator.instance
                     .aggregateOperationStatistics(OperationSource.SFS,
                             OperationCategory.OTHER, startTime,
-                            System.currentTimeMillis(), fd);
+                            System.nanoTime(), fd);
         }
         return result;
     }

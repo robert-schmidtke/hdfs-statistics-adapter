@@ -62,12 +62,12 @@ public class WrappedFSDataInputStream extends InputStream
 
     @Override
     public int read() throws IOException {
-        long startTime = System.currentTimeMillis();
+        long startTime = System.nanoTime();
         int result = this.in.read();
         String datanodeHostname = getDatanodeHostNameString();
         this.aggregator.aggregateReadDataOperationStatistics(
                 OperationSource.SFS, OperationCategory.READ, startTime,
-                System.currentTimeMillis(), this.fd, result == -1 ? 0 : 1,
+                System.nanoTime(), this.fd, result == -1 ? 0 : 1,
                 this.hostname.equals(datanodeHostname)
                         || "localhost".equals(datanodeHostname));
         return result;
@@ -75,12 +75,12 @@ public class WrappedFSDataInputStream extends InputStream
 
     @Override
     public int read(byte[] b, int off, int len) throws IOException {
-        long startTime = System.currentTimeMillis();
+        long startTime = System.nanoTime();
         int result = this.in.read(b, off, len);
         String datanodeHostname = getDatanodeHostNameString();
         this.aggregator.aggregateReadDataOperationStatistics(
                 OperationSource.SFS, OperationCategory.READ, startTime,
-                System.currentTimeMillis(), this.fd, result == -1 ? 0 : result,
+                System.nanoTime(), this.fd, result == -1 ? 0 : result,
                 this.hostname.equals(datanodeHostname)
                         || "localhost".equals(datanodeHostname));
         return result;
@@ -88,12 +88,12 @@ public class WrappedFSDataInputStream extends InputStream
 
     @Override
     public int read(byte[] b) throws IOException {
-        long startTime = System.currentTimeMillis();
+        long startTime = System.nanoTime();
         int result = this.in.read(b);
         String datanodeHostname = getDatanodeHostNameString();
         this.aggregator.aggregateReadDataOperationStatistics(
                 OperationSource.SFS, OperationCategory.READ, startTime,
-                System.currentTimeMillis(), this.fd, result == -1 ? 0 : result,
+                System.nanoTime(), this.fd, result == -1 ? 0 : result,
                 this.hostname.equals(datanodeHostname)
                         || "localhost".equals(datanodeHostname));
         return result;
@@ -106,23 +106,23 @@ public class WrappedFSDataInputStream extends InputStream
 
     @Override
     public void seek(long desired) throws IOException {
-        long startTime = System.currentTimeMillis();
+        long startTime = System.nanoTime();
         this.in.seek(desired);
         if (!this.skipOther) {
             this.aggregator.aggregateOperationStatistics(OperationSource.SFS,
-                    OperationCategory.OTHER, startTime,
-                    System.currentTimeMillis(), this.fd);
+                    OperationCategory.OTHER, startTime, System.nanoTime(),
+                    this.fd);
         }
     }
 
     @Override
     public boolean seekToNewSource(long targetPos) throws IOException {
-        long startTime = System.currentTimeMillis();
+        long startTime = System.nanoTime();
         boolean result = this.in.seekToNewSource(targetPos);
         if (!this.skipOther) {
             this.aggregator.aggregateOperationStatistics(OperationSource.SFS,
-                    OperationCategory.OTHER, startTime,
-                    System.currentTimeMillis(), this.fd);
+                    OperationCategory.OTHER, startTime, System.nanoTime(),
+                    this.fd);
         }
         return result;
     }
@@ -130,12 +130,12 @@ public class WrappedFSDataInputStream extends InputStream
     @Override
     public int read(long position, byte[] buffer, int offset, int length)
             throws IOException {
-        long startTime = System.currentTimeMillis();
+        long startTime = System.nanoTime();
         int result = this.in.read(position, buffer, offset, length);
         String datanodeHostname = getDatanodeHostNameString();
         this.aggregator.aggregateReadDataOperationStatistics(
                 OperationSource.SFS, OperationCategory.READ, startTime,
-                System.currentTimeMillis(), this.fd, result == -1 ? 0 : result,
+                System.nanoTime(), this.fd, result == -1 ? 0 : result,
                 this.hostname.equals(datanodeHostname)
                         || "localhost".equals(datanodeHostname));
         return result;
@@ -143,12 +143,12 @@ public class WrappedFSDataInputStream extends InputStream
 
     @Override
     public void readFully(long position, byte[] buffer) throws IOException {
-        long startTime = System.currentTimeMillis();
+        long startTime = System.nanoTime();
         this.in.readFully(position, buffer);
         String datanodeHostname = getDatanodeHostNameString();
         this.aggregator.aggregateReadDataOperationStatistics(
                 OperationSource.SFS, OperationCategory.READ, startTime,
-                System.currentTimeMillis(), this.fd, buffer.length,
+                System.nanoTime(), this.fd, buffer.length,
                 this.hostname.equals(datanodeHostname)
                         || "localhost".equals(datanodeHostname));
     }
@@ -156,12 +156,12 @@ public class WrappedFSDataInputStream extends InputStream
     @Override
     public void readFully(long position, byte[] buffer, int offset, int length)
             throws IOException {
-        long startTime = System.currentTimeMillis();
+        long startTime = System.nanoTime();
         this.in.readFully(position, buffer, offset, length);
         String datanodeHostname = getDatanodeHostNameString();
         this.aggregator.aggregateReadDataOperationStatistics(
                 OperationSource.SFS, OperationCategory.READ, startTime,
-                System.currentTimeMillis(), this.fd, length,
+                System.nanoTime(), this.fd, length,
                 this.hostname.equals(datanodeHostname)
                         || "localhost".equals(datanodeHostname));
     }

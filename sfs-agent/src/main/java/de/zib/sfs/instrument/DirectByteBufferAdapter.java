@@ -251,10 +251,10 @@ public class DirectByteBufferAdapter extends AbstractSfsAdapter {
                     Type.getMethodDescriptor(Type.INT_TYPE), false);
             bulkPutMV.visitVarInsn(Opcodes.ISTORE, 4);
 
-            // long startTime = System.currentTimeMillis();
+            // long startTime = System.nanoTime();
             bulkPutMV.visitMethodInsn(Opcodes.INVOKESTATIC,
-                    this.systemInternalName, "currentTimeMillis",
-                    this.currentTimeMillisDescriptor, false);
+                    this.systemInternalName, "nanoTime",
+                    this.nanoTimeDescriptor, false);
             bulkPutMV.visitVarInsn(Opcodes.LSTORE, 5);
 
             // ByteBuffer result = nativeMethodPrefixput(src);
@@ -268,10 +268,10 @@ public class DirectByteBufferAdapter extends AbstractSfsAdapter {
                     false);
             bulkPutMV.visitVarInsn(Opcodes.ASTORE, 7);
 
-            // long endTime = System.currentTimeMillis();
+            // long endTime = System.nanoTime();
             bulkPutMV.visitMethodInsn(Opcodes.INVOKESTATIC,
-                    this.systemInternalName, "currentTimeMillis",
-                    this.currentTimeMillisDescriptor, false);
+                    this.systemInternalName, "nanoTime",
+                    this.nanoTimeDescriptor, false);
             bulkPutMV.visitVarInsn(Opcodes.LSTORE, 8);
 
             // if (isInstrumentationActive()) {
@@ -288,8 +288,8 @@ public class DirectByteBufferAdapter extends AbstractSfsAdapter {
             bulkPutMV.visitVarInsn(Opcodes.LLOAD, 5);
             bulkPutMV.visitVarInsn(Opcodes.LLOAD, 8);
             bulkPutMV.visitVarInsn(Opcodes.ILOAD, 4);
-            bulkPutMV.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
-                    this.callbackTypeInternalName,
+            bulkPutMV.visitMethodInsn(
+                    Opcodes.INVOKEVIRTUAL, this.callbackTypeInternalName,
                     "putCallback", Type.getMethodDescriptor(Type.VOID_TYPE,
                             Type.LONG_TYPE, Type.LONG_TYPE, Type.INT_TYPE),
                     false);
@@ -432,7 +432,7 @@ public class DirectByteBufferAdapter extends AbstractSfsAdapter {
         // setInstrumentationActive(true);
         setInstrumentationActive(mv, true);
 
-        // long startTime = System.currentTimeMillis();
+        // long startTime = System.nanoTime();
         int startTimeIndex = 1;
         for (Type argument : argumentTypes) {
             startTimeIndex += argument.getSize();
@@ -456,7 +456,7 @@ public class DirectByteBufferAdapter extends AbstractSfsAdapter {
             endTimeIndex += returnType.getSize();
         }
 
-        // long endTime = System.currentTimeMillis();
+        // long endTime = System.nanoTime();
         storeTime(mv, endTimeIndex);
 
         // callback.<callbackMethod>(startTime, endTime, result?);
@@ -553,10 +553,9 @@ public class DirectByteBufferAdapter extends AbstractSfsAdapter {
         if ("put".equals(name)) {
             if (Type.getMethodDescriptor(Type.getType(ByteBuffer.class),
                     Type.getType(byte[].class), Type.INT_TYPE, Type.INT_TYPE)
-                    .equals(desc) || Type
-                            .getMethodDescriptor(Type.getType(ByteBuffer.class),
-                                    Type.getType(ByteBuffer.class))
-                            .equals(desc)) {
+                    .equals(desc)
+                    || Type.getMethodDescriptor(Type.getType(ByteBuffer.class),
+                            Type.getType(ByteBuffer.class)).equals(desc)) {
                 return !skipWrites();
             }
         }

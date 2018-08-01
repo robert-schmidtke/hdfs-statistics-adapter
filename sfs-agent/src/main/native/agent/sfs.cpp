@@ -40,7 +40,7 @@ static std::string g_native_method_prefix("sfs_native_");
 // a custom key to include in the log files
 static std::string g_key;
 
-// time in milliseconds to aggregate incoming events over before beginning a new
+// time in nanoseconds to aggregate incoming events over before beginning a new
 // bin
 static std::string g_time_bin_duration;
 
@@ -109,7 +109,7 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
         << "Required options:" << std::endl
         << "  trans_jar=/path/to/trans.jar" << std::endl
         << "  key=key" << std::endl
-        << "  bin_duration=milliseconds" << std::endl
+        << "  bin_duration=nanoseconds" << std::endl
         << "  cache_size=number" << std::endl
         << "  out_dir=/path/to/out/dir" << std::endl
         << "  out_fmt=csv|fb|bb" << std::endl

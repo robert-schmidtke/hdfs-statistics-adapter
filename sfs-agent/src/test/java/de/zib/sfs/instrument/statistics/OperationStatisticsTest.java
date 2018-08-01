@@ -109,10 +109,10 @@ public class OperationStatisticsTest {
         // now expect addresses returned in the other direction
         for (int j = 127; j >= 0; --j) {
             for (int i = 0; i < 128; ++i) {
-                long startTime = System.currentTimeMillis();
+                long startTime = System.nanoTime();
                 long address = OperationStatistics.getOperationStatistics(1000,
                         OperationSource.JVM, OperationCategory.OTHER, startTime,
-                        startTime + 5, 42, 43);
+                        startTime + 5000000, 42, 43);
 
                 // multiples of 46 because OS is that big, index of pool
                 // prepended
@@ -172,11 +172,11 @@ public class OperationStatisticsTest {
         // now expect addresses returned in the other direction
         for (int j = 127; j >= 0; --j) {
             for (int i = 0; i < 128; ++i) {
-                long startTime = System.currentTimeMillis();
+                long startTime = System.nanoTime();
                 long address = DataOperationStatistics
                         .getDataOperationStatistics(1000, OperationSource.JVM,
                                 OperationCategory.WRITE, startTime,
-                                startTime + 5, 42, 43, 42);
+                                startTime + 5000000, 42, 43, 42);
 
                 Assert.assertEquals((1L << 61) | ((long) j << 32) | (i * 54),
                         address);
@@ -243,11 +243,12 @@ public class OperationStatisticsTest {
         // now expect addresses returned in the other direction
         for (int j = 127; j >= 0; --j) {
             for (int i = 0; i < 128; ++i) {
-                long startTime = System.currentTimeMillis();
+                long startTime = System.nanoTime();
                 long address = ReadDataOperationStatistics
                         .getReadDataOperationStatistics(1000,
                                 OperationSource.JVM, OperationCategory.READ,
-                                startTime, startTime + 5, 42, 43, 42, true);
+                                startTime, startTime + 5000000, 42, 43, 42,
+                                true);
 
                 Assert.assertEquals((2L << 61) | ((long) j << 32) | (i * 78),
                         address);

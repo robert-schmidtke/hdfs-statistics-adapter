@@ -131,10 +131,10 @@ public class ZipFileAdapter extends ClassVisitor {
 
         @Override
         protected void onMethodEnter() {
-            // startTime = System.currentTimeMillis();
+            // startTime = System.nanoTime();
             this.mv.visitVarInsn(Opcodes.ALOAD, 0);
             this.mv.visitMethodInsn(Opcodes.INVOKESTATIC,
-                    Type.getInternalName(System.class), "currentTimeMillis",
+                    Type.getInternalName(System.class), "nanoTime",
                     Type.getMethodDescriptor(Type.LONG_TYPE), false);
             this.mv.visitFieldInsn(Opcodes.PUTFIELD,
                     Type.getInternalName(ZipFile.class), "startTime",
@@ -145,13 +145,13 @@ public class ZipFileAdapter extends ClassVisitor {
         protected void onMethodExit(int opcode) {
             if (opcode == Opcodes.RETURN) {
                 // ZipFileCallback.constructorCallback(startTime,
-                // System.currentTimeMillis(), name, jzfile, file.length());
+                // System.nanoTime(), name, jzfile, file.length());
                 this.mv.visitVarInsn(Opcodes.ALOAD, 0);
                 this.mv.visitFieldInsn(Opcodes.GETFIELD,
                         Type.getInternalName(ZipFile.class), "startTime",
                         Type.getDescriptor(Long.TYPE));
                 this.mv.visitMethodInsn(Opcodes.INVOKESTATIC,
-                        Type.getInternalName(System.class), "currentTimeMillis",
+                        Type.getInternalName(System.class), "nanoTime",
                         Type.getMethodDescriptor(Type.LONG_TYPE), false);
                 this.mv.visitVarInsn(Opcodes.ALOAD, 0);
                 this.mv.visitFieldInsn(Opcodes.GETFIELD,
