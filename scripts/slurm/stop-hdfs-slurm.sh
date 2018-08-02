@@ -237,10 +237,12 @@ if [ -f \$pidfile ]; then
   rm \$pidfile
   cp $LOCAL/$HDFS_LOCAL_LOG_DIR/nodemanager-$datanode.log $HADOOP_PREFIX/log-$SLURM_JOB_ID/nodemanager-$datanode.log
 #   cp /local_ssd/$HDFS_LOCAL_LOG_DIR/nodemanager-$datanode.log $HADOOP_PREFIX/log-$SLURM_JOB_ID/nodemanager-$datanode.log
-  rm -rf /local/$HDFS_LOCAL_LOG_DIR
-  rm -rf /local_ssd/$HDFS_LOCAL_LOG_DIR
-  rm -rf /local/$HDFS_LOCAL_DIR
-  rm -rf /local_ssd/$HDFS_LOCAL_DIR
+  if [ -z $NO_CLEAN ]; then
+    rm -rf /local/$HDFS_LOCAL_LOG_DIR
+    rm -rf /local_ssd/$HDFS_LOCAL_LOG_DIR
+    rm -rf /local/$HDFS_LOCAL_DIR
+    rm -rf /local_ssd/$HDFS_LOCAL_DIR
+  fi
 else
   echo "PID file \$pidfile does not exist."
 fi
@@ -273,9 +275,11 @@ for datanode in ${HADOOP_DATANODES[@]}; do
   rm $(dirname $0)/${SLURM_JOB_ID}-${datanode}-stop-nodemanager.sh
 done
 
-rm -rf /local/$HDFS_LOCAL_LOG_DIR
-rm -rf /local_ssd/$HDFS_LOCAL_LOG_DIR
-rm -rf /local/$HDFS_LOCAL_DIR
-rm -rf /local_ssd/$HDFS_LOCAL_DIR
+if [ -z $NO_CLEAN ]; then
+  rm -rf /local/$HDFS_LOCAL_LOG_DIR
+  rm -rf /local_ssd/$HDFS_LOCAL_LOG_DIR
+  rm -rf /local/$HDFS_LOCAL_DIR
+  rm -rf /local_ssd/$HDFS_LOCAL_DIR
+fi
 
 echo "Stopping Hadoop done."
