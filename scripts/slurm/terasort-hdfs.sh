@@ -102,6 +102,13 @@ echo "$(date): Cleaning Java processes done"
 # Flink's temporary directories are set by YARN if using HDFS
 
 echo "$(date): Cleaning local directories"
+# need separate script because of wildcard
+cat > rm-tmp.sh << EOF
+#!/bin/bash
+rm -rf /tmp/* > /dev/null 2>&1
+EOF
+chmod +x rm-tmp.sh
+srun ./rm-tmp.sh
 srun -N$SLURM_JOB_NUM_NODES rm -rf /local/$USER
 srun -N$SLURM_JOB_NUM_NODES rm -rf /local_ssd/$USER
 srun -N$SLURM_JOB_NUM_NODES rm -rf /tmp/$USER
@@ -445,6 +452,11 @@ fi
 
 # pack the results
 tar czf $SFS_DIRECTORY/$SLURM_JOB_ID-$ENGINE-terasort-results.tar.gz $SFS_TARGET_DIRECTORY
+
+# need separate script because of wildcard
+cd $SFS_DIRECTORY/scripts/slurm
+srun ./rm-tmp.sh
+rm rm-tmp.sh
 
 if [ "$RET_CODE" -eq "0" ]; then
   echo "$(date): Cleaning local directories"
