@@ -13,6 +13,8 @@ usage() {
   echo "     --hadoop-tasks <tasks> (default: automatic)"
 }
 
+echo "$(date): terasort-hdfs.sh $@"
+
 while [[ $# -gt 0 ]]; do
   key="$1"
   case $key in
