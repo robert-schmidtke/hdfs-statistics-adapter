@@ -372,9 +372,13 @@ srun -N$SLURM_JOB_NUM_NODES $dump_xfs_stats_script
 rm $dump_xfs_stats_script
 echo "$(date): Dumping file system counters done"
 
-echo "$(date): Stopping HDFS"
+# do not clean if job was not successful
+if [ "$RET_CODE" -ne "0" ]; then
+  NO_CLEAN="--no-clean"
+fi
+echo "$(date): Stopping HDFS $NO_CLEAN"
 cp ./stop-hdfs-slurm.sh $HADOOP_HOME/sbin
-srun $SRUN_STANDARD_OPTS $HADOOP_HOME/sbin/stop-hdfs-slurm.sh --colocate-datanode-with-namenode
+srun $SRUN_STANDARD_OPTS $HADOOP_HOME/sbin/stop-hdfs-slurm.sh --colocate-datanode-with-namenode $NO_CLEAN
 echo "$(date): Stopping HDFS done"
 
 if [ -z "$NO_SFS" ]; then
