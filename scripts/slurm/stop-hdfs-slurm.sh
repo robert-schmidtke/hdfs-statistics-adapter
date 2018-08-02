@@ -3,7 +3,10 @@
 usage() {
   echo "Usage: srun --nodes=1-1 --nodelist=<NAMENODE> stop-hdfs-slurm.sh"
   echo "  -c|--colocate-datanode-with-namenode (default: not specified/false)"
+  echo "  -n|--no-clean (default: not specified/false)"
 }
+
+echo "$(date): stop-hdfs-slurm.sh $@"
 
 if [ -z $SLURM_JOB_ID ]; then
   echo "No Slurm environment detected."
@@ -16,6 +19,9 @@ while [[ $# -gt 0 ]]; do
   case $key in
     -c|--colocate-datanode-with-namenode)
       COLOCATE_DATANODE_WITH_NAMENODE="true"
+      ;;
+    -n|--no-clean)
+      NO_CLEAN="true"
       ;;
     *)
       echo "Invalid argument detected."

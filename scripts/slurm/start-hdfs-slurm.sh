@@ -23,6 +23,8 @@ usage() {
   echo "     --sfs-trace-fds true|false (default: not specified)"
 }
 
+echo "$(date): start-hdfs-slurm.sh $@"
+
 if [ -z $SLURM_JOB_ID ]; then
   echo "No Slurm environment detected."
   usage
