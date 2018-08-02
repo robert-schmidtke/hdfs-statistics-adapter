@@ -72,9 +72,9 @@ DATA_GB=${DATA_GB:-1024}
 
 export HOSTNAME=$(hostname)
 
-export FLINK_HOME=/scratch/$USER/flink-1.3.2
+export FLINK_HOME=/nfs/scratch/$USER/flink-1.3.2
 
-export SPARK_HOME=/scratch/$USER/spark-2.2.0
+export SPARK_HOME=/nfs/scratch/$USER/spark-2.2.0
 
 NODES=(`scontrol show hostnames`)
 export NODES
@@ -83,17 +83,17 @@ export MASTER=${NODES[0]}
 echo "Nodes: ${NODES[@]}"
 
 export HADOOP_VERSION=2.7.4
-export HADOOP_HOME=/scratch/$USER/hadoop-${HADOOP_VERSION}
+export HADOOP_HOME=/nfs/scratch/$USER/hadoop-${HADOOP_VERSION}
 export HADOOP_CONF_DIR=$HADOOP_HOME/etc/hadoop
 export HDFS_LOCAL_DIR=$USER/hdfs
 export HDFS_LOCAL_LOG_DIR=$HDFS_LOCAL_DIR/log
 
-export GRPC_HOME=/scratch/$USER/grpc-1.6.1
+export GRPC_HOME=/nfs/scratch/$USER/grpc-1.6.1
 
-export SFS_DIRECTORY=/scratch/$USER/hdfs-statistics-adapter
-export SFS_TARGET_DIRECTORY=/scratch/$USER/statistics-fs/logs
+export SFS_DIRECTORY=/nfs/scratch/$USER/hdfs-statistics-adapter
+export SFS_TARGET_DIRECTORY=/nfs/scratch/$USER/statistics-fs/logs
 
-export TERASORT_DIRECTORY=/scratch/$USER/terasort
+export TERASORT_DIRECTORY=/nfs/scratch/$USER/terasort
 
 echo "$(date): Cleaning Java processes"
 srun -N$SLURM_JOB_NUM_NODES killall -sSIGKILL java
@@ -263,8 +263,9 @@ dump_xfs_stats_script="${SLURM_JOB_ID}-dump_xfs_stats.sh"
 cat > $dump_xfs_stats_script << EOF
 #!/bin/bash
 cat /sys/fs/xfs/sda2/stats/stats > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname).xfs.root.pre
-cat /sys/fs/xfs/sda5/stats/stats > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname).xfs.local.pre
-cat /sys/fs/ext4/sdb1/session_write_kbytes > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname).ext4.local_ssd.pre
+cat /sys/fs/xfs/sda3/stats/stats > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname).xfs.tmp.pre
+cat /sys/fs/ext4/sda5/session_write_kbytes > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname).ext4.local_ssd.pre
+cat /sys/fs/xfs/sdb1/stats/stats > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname).xfs.local.pre
 EOF
 chmod +x $dump_xfs_stats_script
 srun -N$SLURM_JOB_NUM_NODES $dump_xfs_stats_script
@@ -291,8 +292,9 @@ dump_xfs_stats_script="${SLURM_JOB_ID}-dump_xfs_stats.sh"
 cat > $dump_xfs_stats_script << EOF
 #!/bin/bash
 cat /sys/fs/xfs/sda2/stats/stats > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname).xfs.root.mid
-cat /sys/fs/xfs/sda5/stats/stats > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname).xfs.local.mid
-cat /sys/fs/ext4/sdb1/session_write_kbytes > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname).ext4.local_ssd.mid
+cat /sys/fs/xfs/sda3/stats/stats > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname).xfs.tmp.mid
+cat /sys/fs/ext4/sda5/session_write_kbytes > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname).ext4.local_ssd.mid
+cat /sys/fs/xfs/sdb1/stats/stats > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname).xfs.local.mid
 EOF
 chmod +x $dump_xfs_stats_script
 srun -N$SLURM_JOB_NUM_NODES $dump_xfs_stats_script
@@ -348,8 +350,9 @@ dump_xfs_stats_script="${SLURM_JOB_ID}-dump_xfs_stats.sh"
 cat > $dump_xfs_stats_script << EOF
 #!/bin/bash
 cat /sys/fs/xfs/sda2/stats/stats > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname).xfs.root.post
-cat /sys/fs/xfs/sda5/stats/stats > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname).xfs.local.post
-cat /sys/fs/ext4/sdb1/session_write_kbytes > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname).ext4.local_ssd.post
+cat /sys/fs/xfs/sda3/stats/stats > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname).xfs.tmp.post
+cat /sys/fs/ext4/sda5/session_write_kbytes > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname).ext4.local_ssd.post
+cat /sys/fs/xfs/sdb1/stats/stats > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname).xfs.local.post
 EOF
 chmod +x $dump_xfs_stats_script
 srun -N$SLURM_JOB_NUM_NODES $dump_xfs_stats_script
