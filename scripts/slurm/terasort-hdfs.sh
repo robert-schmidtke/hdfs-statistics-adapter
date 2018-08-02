@@ -216,12 +216,14 @@ case $ENGINE in
 # blob.storage.directory: /local/$USER/flink
 blob.storage.directory: /local_ssd/$USER/flink
 taskmanager.memory.off-heap: true
+taskmanager.memory.preallocate: true
 akka.ask.timeout: 600 s
 EOF
 
     if [ -z "$NO_SFS" ]; then
       cat >> $FLINK_HOME/conf/flink-conf.yaml << EOF
-env.java.opts: $OPTS,dos_pool_size=262144,rdos_pool_size=8388608,tq_pool_size=8388608,key=flink
+env.java.opts.jobmanager: $OPTS,dos_pool_size=32768,rdos_pool_size=65536,tq_pool_size=65536,key=flink
+env.java.opts.taskmanager: $OPTS,dos_pool_size=262144,rdos_pool_size=262144,tq_pool_size=262144,key=flink
 EOF
     fi
     echo "$(date): Configuring Flink for TeraSort done"
