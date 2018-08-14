@@ -13,6 +13,8 @@ usage() {
   echo "     --hadoop-tasks <tasks> (default: automatic)"
 }
 
+echo "$(date): terasort-hdfs.sh $@"
+
 while [[ $# -gt 0 ]]; do
   key="$1"
   case $key in
@@ -70,9 +72,9 @@ DATA_GB=${DATA_GB:-1024}
 
 export HOSTNAME=$(hostname)
 
-export FLINK_HOME=/scratch/$USER/flink-1.3.2
+export FLINK_HOME=/nfs/scratch/$USER/flink-1.3.2
 
-export SPARK_HOME=/scratch/$USER/spark-2.2.0
+export SPARK_HOME=/nfs/scratch/$USER/spark-2.2.0
 
 NODES=(`scontrol show hostnames`)
 export NODES
@@ -81,17 +83,17 @@ export MASTER=${NODES[0]}
 echo "Nodes: ${NODES[@]}"
 
 export HADOOP_VERSION=2.7.4
-export HADOOP_HOME=/scratch/$USER/hadoop-${HADOOP_VERSION}
+export HADOOP_HOME=/nfs/scratch/$USER/hadoop-${HADOOP_VERSION}
 export HADOOP_CONF_DIR=$HADOOP_HOME/etc/hadoop
 export HDFS_LOCAL_DIR=$USER/hdfs
 export HDFS_LOCAL_LOG_DIR=$HDFS_LOCAL_DIR/log
 
-export GRPC_HOME=/scratch/$USER/grpc-1.6.1
+export GRPC_HOME=/nfs/scratch/$USER/grpc-1.6.1
 
-export SFS_DIRECTORY=/scratch/$USER/hdfs-statistics-adapter
-export SFS_TARGET_DIRECTORY=/scratch/$USER/statistics-fs/logs
+export SFS_DIRECTORY=/nfs/scratch/$USER/hdfs-statistics-adapter
+export SFS_TARGET_DIRECTORY=/nfs/scratch/$USER/statistics-fs/logs
 
-export TERASORT_DIRECTORY=/scratch/$USER/terasort
+export TERASORT_DIRECTORY=/nfs/scratch/$USER/terasort
 
 echo "$(date): Cleaning Java processes"
 srun -N$SLURM_JOB_NUM_NODES killall -sSIGKILL java
@@ -100,6 +102,13 @@ echo "$(date): Cleaning Java processes done"
 # Flink's temporary directories are set by YARN if using HDFS
 
 echo "$(date): Cleaning local directories"
+# need separate script because of wildcard
+cat > rm-tmp.sh << EOF
+#!/bin/bash
+rm -rf /tmp/* > /dev/null 2>&1
+EOF
+chmod +x rm-tmp.sh
+srun ./rm-tmp.sh
 srun -N$SLURM_JOB_NUM_NODES rm -rf /local/$USER
 srun -N$SLURM_JOB_NUM_NODES rm -rf /local_ssd/$USER
 srun -N$SLURM_JOB_NUM_NODES rm -rf /tmp/$USER
@@ -161,7 +170,7 @@ LD_LIBRARY_PATH_EXT="$GRPC_HOME/libs/opt:$GRPC_HOME/third_party/protobuf/src/.li
 if [ -z "$NO_SFS" ]; then
   # configure some additional options for SFS
   OPTS="-agentpath:$SFS_DIRECTORY/sfs-agent/target/libsfs.so=trans_jar=$SFS_DIRECTORY/sfs-agent/target/sfs-agent.jar,trans_address=0.0.0.0:4242"
-  OPTS="$OPTS,bin_duration=1000,cache_size=60,out_dir=/local_ssd/$USER/sfs,out_fmt=$OUT_FMT,trace_mmap=n,verbose=n,instr_skip=o,trace_fds=y,os_pool_size=1024,lq_lock_cache=4096"
+  OPTS="$OPTS,bin_duration=1000000000,cache_size=60,out_dir=/local_ssd/$USER/sfs,out_fmt=$OUT_FMT,trace_mmap=n,verbose=n,instr_skip=o,trace_fds=y,os_pool_size=1024,lq_lock_cache=1024,mp_lock_cache=1024"
   CLIENT_OPTS="$OPTS,dos_pool_size=1024,rdos_pool_size=65536,tq_pool_size=65536,key=client"
   HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --hadoop-opts $OPTS,dos_pool_size=8192,rdos_pool_size=8192,tq_pool_size=4096,key=hdfs"
   HDFS_STANDARD_OPTS="$HDFS_STANDARD_OPTS --map-opts $OPTS,dos_pool_size=262144,rdos_pool_size=262144,tq_pool_size=262144,key=map"
@@ -207,12 +216,14 @@ case $ENGINE in
 # blob.storage.directory: /local/$USER/flink
 blob.storage.directory: /local_ssd/$USER/flink
 taskmanager.memory.off-heap: true
+taskmanager.memory.preallocate: true
 akka.ask.timeout: 600 s
 EOF
 
     if [ -z "$NO_SFS" ]; then
       cat >> $FLINK_HOME/conf/flink-conf.yaml << EOF
-env.java.opts: $OPTS,dos_pool_size=262144,rdos_pool_size=8388608,tq_pool_size=8388608,key=flink
+env.java.opts.jobmanager: $OPTS,dos_pool_size=32768,rdos_pool_size=65536,tq_pool_size=65536,key=flink
+env.java.opts.taskmanager: $OPTS,dos_pool_size=262144,rdos_pool_size=262144,tq_pool_size=262144,key=flink
 EOF
     fi
     echo "$(date): Configuring Flink for TeraSort done"
@@ -261,8 +272,9 @@ dump_xfs_stats_script="${SLURM_JOB_ID}-dump_xfs_stats.sh"
 cat > $dump_xfs_stats_script << EOF
 #!/bin/bash
 cat /sys/fs/xfs/sda2/stats/stats > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname).xfs.root.pre
-cat /sys/fs/xfs/sda5/stats/stats > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname).xfs.local.pre
-cat /sys/fs/ext4/sdb1/session_write_kbytes > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname).ext4.local_ssd.pre
+cat /sys/fs/xfs/sda3/stats/stats > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname).xfs.tmp.pre
+cat /sys/fs/ext4/sda5/session_write_kbytes > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname).ext4.local_ssd.pre
+cat /sys/fs/xfs/sdb1/stats/stats > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname).xfs.local.pre
 EOF
 chmod +x $dump_xfs_stats_script
 srun -N$SLURM_JOB_NUM_NODES $dump_xfs_stats_script
@@ -289,8 +301,9 @@ dump_xfs_stats_script="${SLURM_JOB_ID}-dump_xfs_stats.sh"
 cat > $dump_xfs_stats_script << EOF
 #!/bin/bash
 cat /sys/fs/xfs/sda2/stats/stats > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname).xfs.root.mid
-cat /sys/fs/xfs/sda5/stats/stats > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname).xfs.local.mid
-cat /sys/fs/ext4/sdb1/session_write_kbytes > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname).ext4.local_ssd.mid
+cat /sys/fs/xfs/sda3/stats/stats > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname).xfs.tmp.mid
+cat /sys/fs/ext4/sda5/session_write_kbytes > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname).ext4.local_ssd.mid
+cat /sys/fs/xfs/sdb1/stats/stats > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname).xfs.local.mid
 EOF
 chmod +x $dump_xfs_stats_script
 srun -N$SLURM_JOB_NUM_NODES $dump_xfs_stats_script
@@ -311,7 +324,8 @@ case $ENGINE in
       --class eastcircle.terasort.FlinkTeraSort \
       --parallelism $((${#HADOOP_DATANODES[@]} * $TASK_SLOTS)) \
       $TERASORT_DIRECTORY/target/scala-2.10/terasort_2.10-0.0.1.jar \
-      $SCHEME://$MASTER:8020 /user/$USER/input /user/$USER/output $((${#HADOOP_DATANODES[@]} * $TASK_SLOTS))
+      $SCHEME://$MASTER:8020 /user/$USER/input /user/$USER/output $((${#HADOOP_DATANODES[@]} * $TASK_SLOTS)) \
+      100000 10
     ;;
   spark)
     $SPARK_HOME/bin/spark-submit \
@@ -323,12 +337,15 @@ case $ENGINE in
       --executor-memory "${TASKMANAGER_MEMORY}M" \
       --class eastcircle.terasort.SparkTeraSort \
       $TERASORT_DIRECTORY/target/scala-2.10/terasort_2.10-0.0.1.jar \
-      $SCHEME://$MASTER:8020 /user/$USER/input /user/$USER/output $((${#HADOOP_DATANODES[@]} * $TASK_SLOTS))
+      $SCHEME://$MASTER:8020 /user/$USER/input /user/$USER/output $((${#HADOOP_DATANODES[@]} * $TASK_SLOTS)) \
+      100000 10
     ;;
   hadoop)
     $HADOOP_HOME/bin/hadoop jar $HADOOP_HOME/share/hadoop/mapreduce/hadoop-mapreduce-examples-${HADOOP_VERSION}.jar terasort \
       -Dmapreduce.job.maps=$TERAGEN_MAPPERS \
       -Dmapreduce.job.reduces=$TERAGEN_MAPPERS \
+      -Dmapreduce.terasort.partitions.sample=100000 \
+      -Dmapreduce.terasort.num.partitions=10 \
       $SCHEME://$MASTER:8020/user/$USER/input $SCHEME://$MASTER:8020/user/$USER/output
     ;;
 esac
@@ -346,17 +363,22 @@ dump_xfs_stats_script="${SLURM_JOB_ID}-dump_xfs_stats.sh"
 cat > $dump_xfs_stats_script << EOF
 #!/bin/bash
 cat /sys/fs/xfs/sda2/stats/stats > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname).xfs.root.post
-cat /sys/fs/xfs/sda5/stats/stats > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname).xfs.local.post
-cat /sys/fs/ext4/sdb1/session_write_kbytes > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname).ext4.local_ssd.post
+cat /sys/fs/xfs/sda3/stats/stats > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname).xfs.tmp.post
+cat /sys/fs/ext4/sda5/session_write_kbytes > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname).ext4.local_ssd.post
+cat /sys/fs/xfs/sdb1/stats/stats > $SFS_TARGET_DIRECTORY/$SLURM_JOB_ID-\$(hostname).xfs.local.post
 EOF
 chmod +x $dump_xfs_stats_script
 srun -N$SLURM_JOB_NUM_NODES $dump_xfs_stats_script
 rm $dump_xfs_stats_script
 echo "$(date): Dumping file system counters done"
 
-echo "$(date): Stopping HDFS"
+# do not clean if job was not successful
+if [ "$RET_CODE" -ne "0" ]; then
+  NO_CLEAN="--no-clean"
+fi
+echo "$(date): Stopping HDFS $NO_CLEAN"
 cp ./stop-hdfs-slurm.sh $HADOOP_HOME/sbin
-srun $SRUN_STANDARD_OPTS $HADOOP_HOME/sbin/stop-hdfs-slurm.sh --colocate-datanode-with-namenode
+srun $SRUN_STANDARD_OPTS $HADOOP_HOME/sbin/stop-hdfs-slurm.sh --colocate-datanode-with-namenode $NO_CLEAN
 echo "$(date): Stopping HDFS done"
 
 if [ -z "$NO_SFS" ]; then
@@ -440,6 +462,11 @@ fi
 
 # pack the results
 tar czf $SFS_DIRECTORY/$SLURM_JOB_ID-$ENGINE-terasort-results.tar.gz $SFS_TARGET_DIRECTORY
+
+# need separate script because of wildcard
+cd $SFS_DIRECTORY/scripts/slurm
+srun ./rm-tmp.sh
+rm rm-tmp.sh
 
 if [ "$RET_CODE" -eq "0" ]; then
   echo "$(date): Cleaning local directories"

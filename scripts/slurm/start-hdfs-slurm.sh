@@ -23,6 +23,8 @@ usage() {
   echo "     --sfs-trace-fds true|false (default: not specified)"
 }
 
+echo "$(date): start-hdfs-slurm.sh $@"
+
 if [ -z $SLURM_JOB_ID ]; then
   echo "No Slurm environment detected."
   usage
@@ -118,7 +120,9 @@ CORES=${CORES:-16}
 IO_BUFFER=${IO_BUFFER:-1048576}
 
 export HADOOP_OPTS
+# export HADOOP_OPTS="-XX:+PrintGC -XX:+PrintGCTimeStamps -XX:+PrintGCDateStamps $HADOOP_OPTS"
 export YARN_OPTS
+# export YARN_OPTS="-XX:+PrintGC -XX:+PrintGCTimeStamps -XX:+PrintGCDateStamps $YARN_OPTS"
 export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$LD_LIBRARY_PATH_EXT"
 
 # set up the environment variables
@@ -310,6 +314,7 @@ cat > $HADOOP_CONF_DIR/mapred-site.xml << EOF
   </property>
   <property>
     <name>mapreduce.map.java.opts</name>
+<!--    <value>-Xmx2048M -XX:ErrorFile=/nfs/scratch/bzcschmi/hdfs-statistics-adapter/hs_err_pids/map_hs_err_pid%p.log -XX:+PrintGC -XX:+PrintGCTimeStamps -XX:+PrintGCDateStamps $MAP_OPTS</value> -->
     <value>-Xmx2048M $MAP_OPTS</value>
   </property>
   <property>
@@ -322,6 +327,7 @@ cat > $HADOOP_CONF_DIR/mapred-site.xml << EOF
   </property>
   <property>
     <name>mapreduce.reduce.java.opts</name>
+<!--    <value>-Xmx2048M -XX:ErrorFile=/nfs/scratch/bzcschmi/hdfs-statistics-adapter/hs_err_pids/reduce_hs_err_pid%p.log -XX:+PrintGC -XX:+PrintGCTimeStamps -XX:+PrintGCDateStamps $REDUCE_OPTS</value> -->
     <value>-Xmx2048M $REDUCE_OPTS</value>
   </property>
   <property>
@@ -336,6 +342,7 @@ cat > $HADOOP_CONF_DIR/mapred-site.xml << EOF
 <!-- -->
   <property>
     <name>yarn.app.mapreduce.am.command-opts</name>
+<!--    <value>-Xmx1024M -XX:+PrintGC -XX:+PrintGCTimeStamps -XX:+PrintGCDateStamps $MRAPPMASTER_OPTS</value> -->
     <value>-Xmx1024M $MRAPPMASTER_OPTS</value>
   </property>
   <property>
@@ -384,10 +391,18 @@ cat > $HADOOP_CONF_DIR/yarn-site.xml << EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
 <configuration>
+<!--
+  <property>
+    <name>yarn.nodemanager.delete.debug-delay-sec</name>
+    <value>-1</value>
+  </property>
+-->
+<!--
   <property>
     <name>yarn.am.liveness-monitor.expiry-interval-ms</name>
     <value>60000</value>
   </property>
+-->
   <property>
     <name>yarn.nodemanager.aux-services</name>
     <value>mapreduce_shuffle</value>
