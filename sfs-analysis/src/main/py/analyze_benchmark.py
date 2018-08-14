@@ -111,32 +111,34 @@ else:
 
     # specify operation statistics array
     os_shared_arrays = (
-        sct.RawArray(ct.c_wchar, os_count * 10),  # hostname
-        sct.RawArray(ct.c_int32, os_count),  # pid
-        sct.RawArray(ct.c_wchar, os_count * 7),  # key
-        sct.RawArray(ct.c_int64, os_count),  # time bin
-        sct.RawArray(ct.c_int64, os_count),  # count
-        sct.RawArray(ct.c_int64, os_count),  # CPU time
-        sct.RawArray(ct.c_wchar, os_count * 4),  # source
-        sct.RawArray(ct.c_wchar, os_count * 6),  # category
-        sct.RawArray(ct.c_int32, os_count),  # file descriptor
-        sct.RawArray(ct.c_int64, os_count),  # thread ID
-        sct.RawArray(ct.c_int64, os_count),  # data
-        sct.RawArray(ct.c_int64, os_count),  # remote count
-        sct.RawArray(ct.c_int64, os_count),  # remote CPU time
-        sct.RawArray(ct.c_int64, os_count)  # remote Data
+        sct.RawArray(ct.c_wchar, os_count * 10),  # hostname: 10 * 4 bytes
+        sct.RawArray(ct.c_int32, os_count),  # pid: 4 bytes
+        sct.RawArray(ct.c_wchar, os_count * 7),  # key: 7 * 4 bytes
+        sct.RawArray(ct.c_int64, os_count),  # time bin: 8 bytes
+        sct.RawArray(ct.c_int64, os_count),  # count: 8 bytes
+        sct.RawArray(ct.c_int64, os_count),  # CPU time: 8 bytes
+        sct.RawArray(ct.c_wchar, os_count * 4),  # source: 4 * 4 bytes
+        sct.RawArray(ct.c_wchar, os_count * 6),  # category: 6 * 4 bytes
+        sct.RawArray(ct.c_int32, os_count),  # file descriptor: 4 bytes
+        sct.RawArray(ct.c_int64, os_count),  # thread ID: 8 bytes
+        sct.RawArray(ct.c_int64, os_count),  # data: 8 bytes
+        sct.RawArray(ct.c_int64, os_count),  # remote count: 8 bytes
+        sct.RawArray(ct.c_int64, os_count),  # remote CPU time: 8 bytes
+        sct.RawArray(ct.c_int64, os_count)  # remote Data: 8 bytes
     )
+    # os_count * 180 bytes
 
     print("Setting up FD arrays", flush=True)
 
     # specify file descriptor mappings array
     fd_shared_arrays = (
-        sct.RawArray(ct.c_wchar, fd_count * 10),  # hostname
-        sct.RawArray(ct.c_int32, fd_count),  # pid
-        sct.RawArray(ct.c_wchar, fd_count * 7),  # key
-        sct.RawArray(ct.c_int32, fd_count),  # file descriptor
-        sct.RawArray(ct.c_wchar, fd_count * 256)  # path
+        sct.RawArray(ct.c_wchar, fd_count * 10),  # hostname: 10 * 4 bytes
+        sct.RawArray(ct.c_int32, fd_count),  # pid: 4 bytes
+        sct.RawArray(ct.c_wchar, fd_count * 7),  # key: 7 * 4 bytes
+        sct.RawArray(ct.c_int32, fd_count),  # file descriptor 4 bytes
+        sct.RawArray(ct.c_wchar, fd_count * 256)  # path: 256 * 4 bytes
     )
+    # fd_count * 1100 bytes
 
     os_index = sct.Value(ct.c_int32, 0)
     os_executor = Pool(processes=None, initializer=osp.os_init,
