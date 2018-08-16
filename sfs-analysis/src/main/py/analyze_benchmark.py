@@ -229,10 +229,10 @@ else:
     # # === CSV ===
 
     print("Writing os_raw_data", flush=True)
-    os_raw_data.to_hdf("{}/raw_data.h5".format(args.bd), "os_raw_data", mode='w', format='table', append=True)
+    os_raw_data.to_hdf("{}/raw_data.h5".format(args.bd), "os_raw_data", mode='w', format='table', append=True, data_columns=["hostname"])
 
     print("Writing fd_raw_data", flush=True)
-    fd_raw_data.to_hdf("{}/raw_data.h5".format(args.bd), "fd_raw_data", mode='a', format='table', append=True)
+    fd_raw_data.to_hdf("{}/raw_data.h5".format(args.bd), "fd_raw_data", mode='a', format='table', append=True, data_columns=["hostname"])
 
 files = os.listdir(args.bd)
 slurm_file = None
