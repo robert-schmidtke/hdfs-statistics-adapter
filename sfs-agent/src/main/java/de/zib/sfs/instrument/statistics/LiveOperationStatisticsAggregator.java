@@ -409,13 +409,17 @@ public class LiveOperationStatisticsAggregator {
         return this.fdToFd.getOrDefault(fileDescriptor, 0);
     }
 
+    private static long getCurrentThreadId() {
+        return Thread.currentThread().getName().hashCode();
+    }
+
     public void aggregateOperationStatistics(OperationSource source,
             OperationCategory category, long startTime, long endTime, int fd) {
         if (!LifecyclePhase.RUNNING.equals(this.phase)) {
             return;
         }
 
-        long threadId = Thread.currentThread().getId();
+        long threadId = getCurrentThreadId();
 
         // compute start and end times in system time in nanoseconds
         startTime += this.nanoTimeOffset;
@@ -467,7 +471,7 @@ public class LiveOperationStatisticsAggregator {
             return;
         }
 
-        long threadId = Thread.currentThread().getId();
+        long threadId = getCurrentThreadId();
 
         startTime += this.nanoTimeOffset;
         endTime += this.nanoTimeOffset;
@@ -519,7 +523,7 @@ public class LiveOperationStatisticsAggregator {
             return;
         }
 
-        long threadId = Thread.currentThread().getId();
+        long threadId = getCurrentThreadId();
 
         startTime += this.nanoTimeOffset;
         endTime += this.nanoTimeOffset;
