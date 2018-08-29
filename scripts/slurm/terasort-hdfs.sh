@@ -454,7 +454,7 @@ fi
 # put the files in a separate, uncompressed archive for BBs
 if [ "$OUT_FMT" == "bb" ]; then
   cd $SFS_TARGET_DIRECTORY
-  ls -1A *.$OUT_FMT > $OUT_FMT.files
+  find . -name "*.$OUT_FMT" > $OUT_FMT.files
   tar cf $OUT_FMT.tar --files-from $OUT_FMT.files
   rm $OUT_FMT.files
   find . -name "*.$OUT_FMT" | xargs rm
