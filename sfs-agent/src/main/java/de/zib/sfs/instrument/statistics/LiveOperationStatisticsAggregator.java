@@ -327,8 +327,8 @@ public class LiveOperationStatisticsAggregator {
         this.logFilePrefix = outputDirectory
                 + (outputDirectory.endsWith(File.separator) ? ""
                         : File.separator)
-                + this.systemHostname + "." + this.systemPid + "."
-                + this.systemKey;
+                + this.systemHostname + "." + this.systemKey + "."
+                + this.systemPid;
 
         int queueSize = 1048576;
         String sizeString = System.getProperty("de.zib.sfs.queueSize");
@@ -767,9 +767,9 @@ public class LiveOperationStatisticsAggregator {
                     // first thread to initialize writer also writes the headers
                     if (this.csvWriters[index] == null) {
                         String filename = getLogFilePrefix() + "."
+                                + this.initializationTime + "."
                                 + source.name().toLowerCase() + "."
                                 + category.name().toLowerCase() + "."
-                                + this.initializationTime + "."
                                 + this.outputFormat.name().toLowerCase();
 
                         File file = new File(filename);
@@ -855,9 +855,9 @@ public class LiveOperationStatisticsAggregator {
                 synchronized (this.writerLocks[index]) {
                     if (this.bbChannels[index] == null) {
                         String filename = getLogFilePrefix() + "."
+                                + this.initializationTime + "."
                                 + source.name().toLowerCase() + "."
                                 + category.name().toLowerCase() + "."
-                                + this.initializationTime + "."
                                 + this.outputFormat.name().toLowerCase();
 
                         File file = new File(filename);
@@ -985,9 +985,9 @@ public class LiveOperationStatisticsAggregator {
         try {
             AbstractSfsCallback.DISCARD_NEXT.set(Boolean.TRUE);
             try (BufferedWriter fileDescriptorMappingsWriter = new BufferedWriter(
-                    new FileWriter(new File(getLogFilePrefix()
+                    new FileWriter(new File(getLogFilePrefix() + "."
+                            + this.initializationTime
                             + ".filedescriptormappings."
-                            + this.initializationTime + "."
                             + this.outputFormat.name().toLowerCase())))) {
 
                 fileDescriptorMappingsWriter.write("hostname");
@@ -1027,8 +1027,9 @@ public class LiveOperationStatisticsAggregator {
             AbstractSfsCallback.DISCARD_NEXT.set(Boolean.TRUE);
             @SuppressWarnings("resource") // we close the channel later on
             FileChannel fileDescriptorMappingsChannel = new FileOutputStream(
-                    new File(getLogFilePrefix() + ".filedescriptormappings."
-                            + this.initializationTime + "."
+                    new File(getLogFilePrefix() + "." + this.initializationTime
+                            + ".filedescriptormappings."
+
                             + this.outputFormat.name().toLowerCase()))
                                     .getChannel();
             AbstractSfsCallback.DISCARD_NEXT.set(Boolean.FALSE);
@@ -1065,8 +1066,9 @@ public class LiveOperationStatisticsAggregator {
             AbstractSfsCallback.DISCARD_NEXT.set(Boolean.TRUE);
             @SuppressWarnings("resource") // we close the channel later on
             FileChannel fileDescriptorMappingsChannel = new FileOutputStream(
-                    new File(getLogFilePrefix() + ".filedescriptormappings."
-                            + this.initializationTime + "."
+                    new File(getLogFilePrefix() + "." + this.initializationTime
+                            + ".filedescriptormappings."
+
                             + this.outputFormat.name().toLowerCase()))
                                     .getChannel();
             AbstractSfsCallback.DISCARD_NEXT.set(Boolean.FALSE);
