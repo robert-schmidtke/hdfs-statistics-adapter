@@ -125,16 +125,12 @@ public class InstrumentationTest {
         case "zip":
             runZipTest(executor, numProcessors);
             break;
-        case "throughput":
-            runThroughputTest(executor, numProcessors);
-            break;
         case "all":
             runStreamTest(executor, numProcessors);
             runRandomTest(executor, numProcessors);
             runChannelTest(executor, numProcessors);
             runMappedTest(executor, numProcessors);
             runZipTest(executor, numProcessors);
-            runThroughputTest(executor, numProcessors);
             break;
         case "none":
             return;
@@ -1455,88 +1451,6 @@ public class InstrumentationTest {
             // closed automatically
         }
         zipReadBytes += file.length();
-
-        file.delete();
-    }
-
-    /**
-     * @param executor
-     * @param numProcessors
-     * @throws IOException
-     */
-    private static void runThroughputTest(ExecutorService executor,
-            int numProcessors) throws IOException {
-        // TODO add threading
-
-        File file = File.createTempFile("throughput", null);
-        file.deleteOnExit();
-
-        int size = 32 * 1024 * 1024;
-        ByteBuffer buffer = ByteBuffer.allocateDirect(size);
-        int[] blockSizes = new int[] { 512, 1024, 4096, 16384, 524288,
-                1048576, };
-
-        // Write
-
-        for (int blockSize : blockSizes) {
-            FileChannel fco = new FileOutputStream(file).getChannel();
-            ++openOperations;
-
-            long duration = 0;
-            for (int i = 0; i < size; i += blockSize) {
-                ByteBuffer bb = buffer.slice();
-                bb.limit(blockSize);
-                long startTime = System.nanoTime();
-                fco.write(bb);
-                long endTime = System.nanoTime();
-                buffer.position(buffer.position() + blockSize);
-
-                duration += endTime - startTime;
-            }
-
-            assert (buffer.position() == size);
-            buffer.clear();
-
-            System.err
-                    .println("Block size: " + blockSize + ", write throughput: "
-                            + (int) (size / (.001048576 * duration))
-                            + " MiB/s ( " + size + " / " + duration + " )");
-
-            writeBytes += size;
-            fco.close();
-        }
-
-        assert (file.length() == size) : file.length() + " : " + size;
-
-        // Read
-
-        for (int blockSize : blockSizes) {
-            FileChannel fci = new FileInputStream(file).getChannel();
-            ++openOperations;
-
-            long duration = 0;
-            for (int i = 0; i < size; i += blockSize) {
-                ByteBuffer bb = buffer.slice();
-                bb.limit(blockSize);
-                long startTime = System.nanoTime();
-                fci.read(bb);
-                long endTime = System.nanoTime();
-                buffer.position(buffer.position() + blockSize);
-
-                duration += endTime - startTime;
-            }
-
-            assert (buffer.position() == size);
-            buffer.clear();
-
-            System.err
-                    .println("Block size: " + blockSize + ", read throughput: "
-                            + (int) (size / (.001048576 * duration))
-                            + " MiB/s ( " + size + " / " + duration + " )");
-
-            readBytes += size;
-            fci.close();
-        }
 
         file.delete();
     }

@@ -390,7 +390,6 @@
                 <item>mapped-false</item>
                 <item>mapped-true</item>
                 <item>zip-false</item>
-                <item>throughput-false</item>
               </items>
               <pluginExecutors>
                 <pluginExecutor>
