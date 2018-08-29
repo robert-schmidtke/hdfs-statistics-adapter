@@ -896,7 +896,7 @@ for (orders, ax, title, subtitle) in [(jvm_orders, ax_bottom, None, "JVM Layer")
         colors.append(base_colors[orders[group]])
 
     # compute the minute value for each time bin so we can plot against it
-    plot_data = plot_data.assign(Minutes=lambda x: (x.index - plot_index.values[0]) / 60000)
+    plot_data = plot_data.assign(Minutes=lambda x: (x.index - plot_index.values[0]) / 60000000000)
 
     # fill holes in data with previous valid value
     plot_data = plot_data.fillna(method='pad')
@@ -1106,7 +1106,7 @@ for group in current_data.groups:
     })
 
 # compute the minute value for each time bin so we can plot against it
-plot_data = plot_data.assign(Minutes=lambda x: (x.index - plot_index.values[0]) / 60000)
+plot_data = plot_data.assign(Minutes=lambda x: (x.index - plot_index.values[0]) / 60000000000)
 
 # fill holes in data with previous valid value
 #plot_data = plot_data.fillna(method='pad')
