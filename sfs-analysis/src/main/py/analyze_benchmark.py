@@ -724,7 +724,7 @@ for group in sorted(per_node_data_jvm.groups):
     data.fillna(0).plot(ax=ax[int(i)], y='data', kind='line', legend=False)
     i += 0.5
 del i
-fig.savefig("io.pdf")
+fig.savefig("{}/io.pdf".format(args.bd))
 plt.close(fig)
 
 #per_node_index = None
