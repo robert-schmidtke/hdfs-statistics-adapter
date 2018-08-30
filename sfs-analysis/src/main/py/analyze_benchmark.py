@@ -181,6 +181,22 @@ else:
     del os_executor
     del fd_executor
 
+    # we do not need the initial buffers any longer, close memory mapped files
+    mms = [
+        os_buffer._wrapper._state[0][0].buffer,
+        fd_buffer._wrapper._state[0][0].buffer,
+        os_index._obj._wrapper._state[0][0].buffer,
+        fd_index._obj._wrapper._state[0][0].buffer]
+
+    # need to remove all references...
+    del os_buffer, fd_buffer, os_index, fd_index
+
+    # ... before we can close the memory mapped files
+    for mm in mms:
+        mm.close()
+        del mm
+    del mms
+
     os_raw_data = pd.concat([
         pd.DataFrame(np.frombuffer(os_shared_arrays[0], dtype=[('hostname', np.unicode_, 10)])),
         pd.DataFrame(np.frombuffer(os_shared_arrays[1], dtype=[('pid', np.int32)])),
@@ -206,17 +222,13 @@ else:
         pd.DataFrame(np.frombuffer(fd_shared_arrays[4], dtype=[('path', np.unicode_, 256)]))
     ], axis=1, copy=False)
 
-    # manually close memory mapped files to free memory
-    mms = [a._wrapper._state[0][0].buffer for a in os_shared_arrays]
-    mms.extend([a._wrapper._state[0][0].buffer for a in fd_shared_arrays])
-    mms.append(os_index._obj._wrapper._state[0][0].buffer)
-    mms.append(fd_index._obj._wrapper._state[0][0].buffer)
-    mms.append(os_buffer._wrapper._state[0][0].buffer)
-    mms.append(fd_buffer._wrapper._state[0][0].buffer)
-    del os_shared_arrays, fd_shared_arrays, os_index, fd_index, os_buffer, fd_buffer
+    # repeat for shared arrays
+    mms = [a._wrapper._state[0][0].buffer for a in os_shared_arrays + fd_shared_arrays]
+    del os_shared_arrays, fd_shared_arrays
     for mm in mms:
         mm.close()
         del mm
+    del mms
     # === BB ===
 
     # # === CSV ===
