@@ -2,12 +2,12 @@
 # Parses them and plots them into a cumulative stacked chart.
 # Parses the slurm.out file and prints I/O for each phase.
 
+import math
+
 import argparse
 import datetime as dt
-import math
-import os
-
 import matplotlib as mpl
+import os
 
 # use Agg backend if we're on a server
 if os.getenv('DISPLAY') is None:
@@ -241,10 +241,12 @@ else:
     # # === CSV ===
 
     print("Writing os_raw_data", flush=True)
-    os_raw_data.to_hdf("{}/raw_data.h5".format(args.bd), "os_raw_data", mode='w', format='table', append=True, data_columns=["hostname"])
+    os_raw_data.to_hdf("{}/raw_data.h5".format(args.bd), "os_raw_data", mode='w', format='table', append=True,
+                       data_columns=["hostname"])
 
     print("Writing fd_raw_data", flush=True)
-    fd_raw_data.to_hdf("{}/raw_data.h5".format(args.bd), "fd_raw_data", mode='a', format='table', append=True, data_columns=["hostname"])
+    fd_raw_data.to_hdf("{}/raw_data.h5".format(args.bd), "fd_raw_data", mode='a', format='table', append=True,
+                       data_columns=["hostname"])
 
 files = os.listdir(args.bd)
 slurm_file = None
@@ -529,11 +531,9 @@ print(flush=True)
 
 print("Total")
 print("=====")
-print(rpad("Duration:") + "{} minutes".format(int(round((
-                                                            stats['teragen.time.end'] - stats['teragen.time.start'] +
-                                                            stats[
-                                                                'terasort.time.end'] - stats[
-                                                                'terasort.time.start']) / 60.0))))
+print(rpad("Duration:") + "{} minutes".format(int(round((stats['teragen.time.end'] - stats['teragen.time.start'] +
+                                                         stats['terasort.time.end'] - stats[
+                                                             'terasort.time.start']) / 60.0))))
 
 if stats['terasort.engine'] == 'hadoop':
     print(rpad("HDFS Read:") + "{} GiB".format(
@@ -642,32 +642,32 @@ if os_raw_data.empty:
     quit()
 
 # sanity-check file descriptor mappings
-#dups = fd_raw_data[fd_raw_data.duplicated(['hostname', 'pid', 'key', 'fileDescriptor'], keep=False)]
-#if not dups.empty:
+# dups = fd_raw_data[fd_raw_data.duplicated(['hostname', 'pid', 'key', 'fileDescriptor'], keep=False)]
+# if not dups.empty:
 #    print("Found duplicates:")
 #    print(dups)
 #    print(flush=True)
-#del dups
+# del dups
 
-#t = os_raw_data[os_raw_data['category'] != 'other']
-#t = t[t['source'] == 'jvm']
-#t = t.groupby(['category', 'timeBin'], as_index=False).sum().set_index(['timeBin'], drop=False)
-#t = t.groupby(['category'], as_index=False)
-#for group, data in t:
+# t = os_raw_data[os_raw_data['category'] != 'other']
+# t = t[t['source'] == 'jvm']
+# t = t.groupby(['category', 'timeBin'], as_index=False).sum().set_index(['timeBin'], drop=False)
+# t = t.groupby(['category'], as_index=False)
+# for group, data in t:
 #    d = data.assign(Bandwidth=lambda x: x['data'] / (x['cpuTime'] * 1048.576)) # bytes/ms => MiB/s
 #    ax = d.plot(x='timeBin', y=['Bandwidth', 'count'], kind='line')
 #    f = ax.get_figure()
 #    f.savefig("{}.pdf".format(group))
 
-#file_data = os_raw_data.join(fd_raw_data.set_index(['hostname', 'pid', 'key', 'fileDescriptor']),
+# file_data = os_raw_data.join(fd_raw_data.set_index(['hostname', 'pid', 'key', 'fileDescriptor']),
 #                             on=['hostname', 'pid', 'key', 'fileDescriptor'])
-#file_data = file_data[file_data['source'] == 'jvm']
-#file_data = file_data[file_data['category'] != 'other']
-#file_data = file_data.drop(['source', 'fileDescriptor', 'remoteCount', 'remoteCpuTime', 'remoteData'], axis=1)
-#file_data = file_data.groupby(['hostname', 'path'], as_index=False).sum().sort_values(['hostname', 'data'],
+# file_data = file_data[file_data['source'] == 'jvm']
+# file_data = file_data[file_data['category'] != 'other']
+# file_data = file_data.drop(['source', 'fileDescriptor', 'remoteCount', 'remoteCpuTime', 'remoteData'], axis=1)
+# file_data = file_data.groupby(['hostname', 'path'], as_index=False).sum().sort_values(['hostname', 'data'],
 #                                                                                      ascending=[True, False])
-#file_data.to_excel("{}/file_data.xlsx".format(args.bd))
-#del file_data, fd_raw_data
+# file_data.to_excel("{}/file_data.xlsx".format(args.bd))
+# del file_data, fd_raw_data
 
 # aggregate over all pids of desired hosts the metrics per time, key, source and category
 hostnames = [
@@ -709,12 +709,15 @@ grouped_data = os_raw_data[os_raw_data['hostname'].isin(hostnames)].drop(['hostn
     ['timeBin', 'key', 'source', 'category'], as_index=False).sum().set_index(['timeBin'], drop=False)
 # del os_raw_data
 
-per_node_data_jvm = os_raw_data[os_raw_data['hostname'].isin(hostnames)].groupby(['timeBin', 'hostname', 'source', 'category'], as_index=False).sum().set_index(['timeBin'], drop=False)
+per_node_data_jvm = os_raw_data[os_raw_data['hostname'].isin(hostnames)].groupby(
+    ['timeBin', 'hostname', 'source', 'category'], as_index=False).sum().set_index(['timeBin'], drop=False)
 per_node_data_jvm = per_node_data_jvm[per_node_data_jvm['category'].isin(['read', 'write'])]
 per_node_data_jvm = per_node_data_jvm[per_node_data_jvm['source'] == 'jvm']
 per_node_data_jvm = per_node_data_jvm.groupby(['hostname', 'category'], as_index=False)
 
-all_nodes = os_raw_data[os_raw_data['hostname'].isin(hostnames)].groupby(['timeBin', 'source', 'category'], as_index=False).sum().set_index(['timeBin'], drop=False)
+all_nodes = os_raw_data[os_raw_data['hostname'].isin(hostnames)].groupby(['timeBin', 'source', 'category'],
+                                                                         as_index=False).sum().set_index(['timeBin'],
+                                                                                                         drop=False)
 all_nodes = all_nodes[all_nodes['category'].isin(['read', 'write'])]
 all_nodes_sfs = all_nodes[all_nodes['source'] == 'sfs']
 all_nodes_sfs = all_nodes_sfs.groupby(['category'], as_index=False)
@@ -739,19 +742,19 @@ del i
 fig.savefig("{}/io.pdf".format(args.bd))
 plt.close(fig)
 
-#per_node_index = None
-#for group, group_data in per_node_data:
+# per_node_index = None
+# for group, group_data in per_node_data:
 #    per_node_index = group_data.index if per_node_index is None else per_node_index.union(group_data.index)
-#per_node_io = pd.DataFrame(index=per_node_index)
-#hs = []
-#for group in per_node_data.groups:
+# per_node_io = pd.DataFrame(index=per_node_index)
+# hs = []
+# for group in per_node_data.groups:
 #    group_data = per_node_data.get_group(group)
 #    per_node_io = per_node_io.assign(group=lambda x: x['data'] / x['cpuTime'])
 #    hs.append("{}".format(group))
 #    del group_data
-#ax = per_node_io.plot(y=hs, kind='line')
-#f = ax.get_figure()
-#f.savefig("per_node.pdf")
+# ax = per_node_io.plot(y=hs, kind='line')
+# f = ax.get_figure()
+# f.savefig("per_node.pdf")
 
 # regroup to obtain a DataFrame per key/source/category tuple
 current_data = grouped_data.groupby(['key', 'source', 'category'], as_index=False)
@@ -1121,12 +1124,12 @@ for group in current_data.groups:
 plot_data = plot_data.assign(Minutes=lambda x: (x.index - plot_index.values[0]) / 60000000000)
 
 # fill holes in data with previous valid value
-#plot_data = plot_data.fillna(method='pad')
+# plot_data = plot_data.fillna(method='pad')
 
 # fill remaining holes at the beginning of each series
-#plot_data = plot_data.fillna(0)
+# plot_data = plot_data.fillna(0)
 
-latex_textwidth = 235 # half the text width now
+latex_textwidth = 235  # half the text width now
 latex_textheight = 650  # in pt, what \textheight reports
 latex_figure_height = latex_textwidth / latex_aspect_ratio  # in pt, height of the figure in the paper
 font_scale = latex_textheight / latex_figure_height  # scaling factor to reach the target font size when scaled down
@@ -1150,8 +1153,8 @@ handles, labels = ax.get_legend_handles_labels()
 l = [(x, y) for (y, x) in sorted(zip(labels, handles), key=lambda pair: pair[0])]
 (a, b) = zip(*l)
 
-legend = ax.legend(a, map(lambda h: "host-{}".format(h[7:]), b), loc='upper right', fontsize=font_size / 2, framealpha=.85,
-                       edgecolor='.5', ncol=math.ceil((plot_data.shape[1] - 1) / 8))
+legend = ax.legend(a, map(lambda h: "host-{}".format(h[7:]), b), loc='upper right', fontsize=font_size / 2,
+                   framealpha=.85, edgecolor='.5', ncol=math.ceil((plot_data.shape[1] - 1) / 8))
 legend.get_frame().set_linewidth(1)
 
 # set both y axes
@@ -1171,25 +1174,20 @@ for phase in ['teragen', 'terasort']:
         data_r = operation_data[phase][source]['read']
         count_w = operation_count[phase][source]['write']
         data_w = operation_data[phase][source]['write']
-        print("{} {}: {} read ops for {} bytes (avg. {} bytes/iop), {} write ops for {} bytes (avg. {} bytes/iop), {} other ops"
-              .format(phase, source,
-                      count_r, data_r,
-                      int(round(data_r / count_r)) if count_r != 0 else 0,
-                      count_w, data_w,
-                      int(round(data_w / count_w)) if count_w != 0 else 0,
-                      operation_count[phase][source]['other']))
-    print("{} xfs: {} read ops for {} bytes (avg. {} bytes/iop), {} MiB/s, {} write ops for {} bytes (avg. {} bytes/iop), {} MiB/s"
-          .format(phase,
-                  stats["{}.io.xfs.all.reads".format(phase)], stats["{}.io.xfs.all.read".format(phase)],
-                  int(round(stats["{}.io.xfs.all.read".format(phase)] / stats["{}.io.xfs.all.reads".format(phase)])),
-                  int(round(stats["{}.io.xfs.all.read".format(phase)] / (
-                      (stats["{}.time.end".format(phase)] - stats["{}.time.start".format(phase)]) * 1048576))),
-                  stats["{}.io.xfs.all.writes".format(phase)], stats["{}.io.xfs.all.write".format(phase)],
-                  int(round(stats["{}.io.xfs.all.write".format(phase)] / stats["{}.io.xfs.all.writes".format(phase)])),
-                  int(round(stats["{}.io.xfs.all.write".format(phase)] / (
-                      (stats["{}.time.end".format(phase)] - stats["{}.time.start".format(phase)]) * 1048576)))))
-    print("{} ext4: {} MiB/s"
-          .format(phase,
-                  int(round(stats["{}.io.ext4.all.write".format(phase)] / (
-                      (stats["{}.time.end".format(phase)] - stats["{}.time.start".format(phase)]) * 1024)))))
+        print(
+            "{} {}: {} read ops for {} bytes (avg. {} bytes/iop), {} write ops for {} bytes (avg. {} bytes/iop), {} other ops".format(
+                phase, source, count_r, data_r, int(round(data_r / count_r)) if count_r != 0 else 0, count_w, data_w,
+                int(round(data_w / count_w)) if count_w != 0 else 0, operation_count[phase][source]['other']))
+    print(
+        "{} xfs: {} read ops for {} bytes (avg. {} bytes/iop), {} MiB/s, {} write ops for {} bytes (avg. {} bytes/iop), {} MiB/s".format(
+            phase, stats["{}.io.xfs.all.reads".format(phase)], stats["{}.io.xfs.all.read".format(phase)],
+            int(round(stats["{}.io.xfs.all.read".format(phase)] / stats["{}.io.xfs.all.reads".format(phase)])), int(
+                round(stats["{}.io.xfs.all.read".format(phase)] / (
+                            (stats["{}.time.end".format(phase)] - stats["{}.time.start".format(phase)]) * 1048576))),
+            stats["{}.io.xfs.all.writes".format(phase)], stats["{}.io.xfs.all.write".format(phase)],
+            int(round(stats["{}.io.xfs.all.write".format(phase)] / stats["{}.io.xfs.all.writes".format(phase)])), int(
+                round(stats["{}.io.xfs.all.write".format(phase)] / (
+                            (stats["{}.time.end".format(phase)] - stats["{}.time.start".format(phase)]) * 1048576)))))
+    print("{} ext4: {} MiB/s".format(phase, int(round(stats["{}.io.ext4.all.write".format(phase)] / (
+                (stats["{}.time.end".format(phase)] - stats["{}.time.start".format(phase)]) * 1024)))))
 print(flush=True)
