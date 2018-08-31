@@ -397,7 +397,6 @@ for f in files:
                                                                                   0) + int(rw[1])
     elif 'ext4' in f:
         parts = f.split('.')
-        print(f)
         mount = parts[2]
         mounts['ext4'].add(mount)
         phase = parts[3]
