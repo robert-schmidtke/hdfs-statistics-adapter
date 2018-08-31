@@ -67,6 +67,12 @@ else:
     progress = 0
 
     # read into shared memory
+
+    # initialize shared counters here so they get their own shared memory region
+    os_index = sct.Value(ct.c_int32, 0)
+    fd_index = sct.Value(ct.c_int32, 0)
+
+    # these will quite likely each have their own shared memory regions
     os_buffer, os_pos = sct.RawArray(ct.c_byte, os_size), 0
     fd_buffer, fd_pos = sct.RawArray(ct.c_byte, fd_size), 0
 
@@ -109,7 +115,7 @@ else:
 
     print("Setting up OS arrays", flush=True)
 
-    # specify operation statistics array
+    # specify operation statistics array, again in separate memory region
     os_shared_arrays = (
         sct.RawArray(ct.c_wchar, os_count * 10),  # hostname: 10 * 4 bytes
         sct.RawArray(ct.c_int32, os_count),  # pid: 4 bytes
@@ -140,10 +146,8 @@ else:
     )
     # fd_count * 1100 bytes
 
-    os_index = sct.Value(ct.c_int32, 0)
     os_executor = Pool(processes=None, initializer=osp.os_init,
                        initargs=(os_shared_arrays, os_buffer, os_index))
-    fd_index = sct.Value(ct.c_int32, 0)
     fd_executor = Pool(processes=None, initializer=osp.fd_init,
                        initargs=(fd_shared_arrays, fd_buffer, fd_index))
 
@@ -182,20 +186,24 @@ else:
     del fd_executor
 
     # we do not need the initial buffers any longer, close memory mapped files
-    mms = [
-        os_buffer._wrapper._state[0][0].buffer,
-        fd_buffer._wrapper._state[0][0].buffer,
-        os_index._obj._wrapper._state[0][0].buffer,
-        fd_index._obj._wrapper._state[0][0].buffer]
+    arenas = [
+        os_buffer._wrapper._state[0][0],
+        fd_buffer._wrapper._state[0][0],
+        os_index._obj._wrapper._state[0][0],
+        fd_index._obj._wrapper._state[0][0]]
 
     # need to remove all references...
     del os_buffer, fd_buffer, os_index, fd_index
 
     # ... before we can close the memory mapped files
-    for mm in mms:
-        mm.close()
-        del mm
-    del mms
+    for arena in arenas:
+        # since we have initialized the shared memory regions in order,
+        # they do not share space with the regions we free below, which allows us to close regions here
+        # do not close regions twice, as they may be shared
+        if not arena.buffer.closed:
+            arena.buffer.close()
+            os.close(arena.fd)
+    del arenas
 
     os_raw_data = pd.concat([
         pd.DataFrame(np.frombuffer(os_shared_arrays[0], dtype=[('hostname', np.unicode_, 10)])),
@@ -223,12 +231,13 @@ else:
     ], axis=1, copy=False)
 
     # repeat for shared arrays
-    mms = [a._wrapper._state[0][0].buffer for a in os_shared_arrays + fd_shared_arrays]
+    arenas = [a._wrapper._state[0][0] for a in os_shared_arrays + fd_shared_arrays]
     del os_shared_arrays, fd_shared_arrays
-    for mm in mms:
-        mm.close()
-        del mm
-    del mms
+    for arena in arenas:
+        if not arena.buffer.closed:
+            arena.buffer.close()
+            os.close(arena.fd)
+    del arenas
     # === BB ===
 
     # # === CSV ===
