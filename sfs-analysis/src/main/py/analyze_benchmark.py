@@ -19,18 +19,23 @@ import numpy as np
 import pandas as pd
 
 # get the benchmark's directory containing all files
-parser = argparse.ArgumentParser()
-parser.add_argument("bd", help="path to the benchmark directory")
+parser = argparse.ArgumentParser(description="Analyze SFS benchmark data")
+parser.add_argument("bd", metavar="benchmark-directory", help="path to the benchmark directory")
+parser.add_argument("--hostname", default=None, help="process data only for this host, append to raw_data.h5")
 args = parser.parse_args()
 
-print("Processing {}".format(args.bd), flush=True)
+# switch whether we are given a hostname to process
+single_host = args.hostname is not None
+
+print("Processing {}{}".format(args.bd, " ({})".format(args.hostname) if single_host else ""), flush=True)
 
 # read all BB files into one DataFrame
 os_raw_data = pd.DataFrame()
 fd_raw_data = pd.DataFrame()
 
 # assume operation statistics and file descriptor mappings data have been created together
-if os.path.isfile("{}/raw_data.h5".format(args.bd)):
+# if we are given a host, do not read the raw data but instead process the host
+if not single_host and os.path.isfile("{}/raw_data.h5".format(args.bd)):
     try:
         print("Reading os_raw_data", flush=True)
         os_raw_data = pd.read_hdf("{}/raw_data.h5".format(args.bd), "os_raw_data")
@@ -52,13 +57,28 @@ else:
     import tarfile
     import time
 
+
+    def is_os_file(filename):
+        if single_host:
+            return args.hostname in filename and ('jvm' in filename or 'sfs' in filename)
+        else:
+            return 'jvm' in filename or 'sfs' in filename
+
+
+    def is_fd_file(filename):
+        if single_host:
+            return args.hostname in filename and 'filedescriptormappings' in filename
+        else:
+            return 'filedescriptormappings' in filename
+
+
     # first figure out memory requirements
     os_size, fd_size = 0, 0
     with tarfile.open("{}/bb.tar".format(args.bd), mode='r|') as bb:
         for entry in bb:
-            if 'jvm' in entry.name or 'sfs' in entry.name:
+            if is_os_file(entry.name):
                 os_size += entry.size
-            elif 'filedescriptormappings' in entry.name:
+            elif is_fd_file(entry.name):
                 fd_size += entry.size
     total_size = os_size + fd_size
 
@@ -82,17 +102,11 @@ else:
     with tarfile.open("{}/bb.tar".format(args.bd), mode='r|', bufsize=1048576) as bb:
         start_time = time.time()
         for entry in bb:
-            current_size += entry.size
-            new_progress = 100 * current_size / total_size
-            if new_progress > .5:
-                progress += new_progress
-                current_speed = int(round(current_size / (1048576 * (time.time() - start_time))))
-                current_size = 0
-                start_time = time.time()
-                print("Reading {}% at {} MiB/s".format(int(round(progress)), current_speed), flush=True)
-
             if entry.isfile():
-                if 'jvm' in entry.name or 'sfs' in entry.name:
+                is_os_or_fd = False
+                if is_os_file(entry.name):
+                    is_os_or_fd = True
+
                     file = bb.extractfile(entry)
                     os_buffer[os_pos:os_pos + entry.size] = file.read()
                     os_offsets.append(os_pos)
@@ -102,7 +116,9 @@ else:
                     os_pos += entry.size
 
                     file.close()
-                elif 'filedescriptormappings' in entry.name:
+                elif is_fd_file(entry.name):
+                    is_os_or_fd = True
+
                     file = bb.extractfile(entry)
                     fd_buffer[fd_pos:fd_pos + entry.size] = file.read()
                     fd_offsets.append(fd_pos)
@@ -112,6 +128,17 @@ else:
                     fd_pos += entry.size
 
                     file.close()
+
+                # update progress only if we handled the entry
+                if is_os_or_fd:
+                    current_size += entry.size
+                    new_progress = 100 * current_size / total_size
+                    if new_progress > .5:
+                        progress += new_progress
+                        current_speed = int(round(current_size / (1048576 * (time.time() - start_time))))
+                        current_size = 0
+                        start_time = time.time()
+                        print("Reading {}% at {} MiB/s".format(int(round(progress)), current_speed), flush=True)
 
     print("Setting up OS arrays", flush=True)
 
@@ -249,13 +276,18 @@ else:
     #         os_raw_data = pd.concat([os_raw_data, pd.read_csv("{}/{}".format(args.bd, f)).dropna()]).fillna(0)
     # # === CSV ===
 
+    # append if we are processing one host at a time
     print("Writing os_raw_data", flush=True)
-    os_raw_data.to_hdf("{}/raw_data.h5".format(args.bd), "os_raw_data", mode='w', format='table', append=True,
-                       data_columns=["hostname"])
+    os_raw_data.to_hdf("{}/raw_data.h5".format(args.bd), "os_raw_data", mode='w' if not single_host else 'a',
+                       format='table', append=True, data_columns=["hostname"])
 
     print("Writing fd_raw_data", flush=True)
     fd_raw_data.to_hdf("{}/raw_data.h5".format(args.bd), "fd_raw_data", mode='a', format='table', append=True,
                        data_columns=["hostname"])
+
+    if single_host:
+        print("Exiting early", flush=True)
+        exit(0)
 
 files = os.listdir(args.bd)
 slurm_file = None
@@ -494,9 +526,8 @@ def rpad(s):
 
 print("TeraGen")
 print("=======")
-print(
-    rpad("Duration:") + "{} minutes".format(
-        int(round((stats['teragen.time.end'] - stats['teragen.time.start']) / 60.0))))
+print(rpad("Duration:") + "{} minutes".format(
+    int(round((stats['teragen.time.end'] - stats['teragen.time.start']) / 60.0))))
 print(rpad("HDFS Read:") + "{} GiB".format(int(round(stats['teragen.io.hdfs.read'] / 1073741824.0))))
 print(rpad("HDFS Write:") + "{} GiB".format(int(round(stats['teragen.io.hdfs.write'] / 1073741824.0))))
 print(rpad("FILE Read:") + "{} GiB".format(int(round(stats['teragen.io.file.read'] / 1073741824.0))))
@@ -515,9 +546,8 @@ print(flush=True)
 
 print("TeraSort")
 print("=======")
-print(
-    rpad("Duration:") + "{} minutes".format(
-        int(round((stats['terasort.time.end'] - stats['terasort.time.start']) / 60.0))))
+print(rpad("Duration:") + "{} minutes".format(
+    int(round((stats['terasort.time.end'] - stats['terasort.time.start']) / 60.0))))
 if stats['terasort.engine'] == 'hadoop':
     print(rpad("HDFS Read:") + "{} GiB".format(int(round(stats['terasort.io.hdfs.read'] / 1073741824.0))))
     print(rpad("HDFS Write:") + "{} GiB".format(int(round(stats['terasort.io.hdfs.write'] / 1073741824.0))))
@@ -1191,11 +1221,11 @@ for phase in ['teragen', 'terasort']:
             phase, stats["{}.io.xfs.all.reads".format(phase)], stats["{}.io.xfs.all.read".format(phase)],
             int(round(stats["{}.io.xfs.all.read".format(phase)] / stats["{}.io.xfs.all.reads".format(phase)])), int(
                 round(stats["{}.io.xfs.all.read".format(phase)] / (
-                            (stats["{}.time.end".format(phase)] - stats["{}.time.start".format(phase)]) * 1048576))),
+                        (stats["{}.time.end".format(phase)] - stats["{}.time.start".format(phase)]) * 1048576))),
             stats["{}.io.xfs.all.writes".format(phase)], stats["{}.io.xfs.all.write".format(phase)],
             int(round(stats["{}.io.xfs.all.write".format(phase)] / stats["{}.io.xfs.all.writes".format(phase)])), int(
                 round(stats["{}.io.xfs.all.write".format(phase)] / (
-                            (stats["{}.time.end".format(phase)] - stats["{}.time.start".format(phase)]) * 1048576)))))
+                        (stats["{}.time.end".format(phase)] - stats["{}.time.start".format(phase)]) * 1048576)))))
     print("{} ext4: {} MiB/s".format(phase, int(round(stats["{}.io.ext4.all.write".format(phase)] / (
-                (stats["{}.time.end".format(phase)] - stats["{}.time.start".format(phase)]) * 1024)))))
+            (stats["{}.time.end".format(phase)] - stats["{}.time.start".format(phase)]) * 1024)))))
 print(flush=True)
