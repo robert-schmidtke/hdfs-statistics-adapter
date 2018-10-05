@@ -283,7 +283,7 @@ else:
 
     print("Writing fd_raw_data", flush=True)
     fd_raw_data.to_hdf("{}/raw_data.h5".format(args.bd), "fd_raw_data", mode='a', format='table', append=True,
-                       data_columns=["hostname"])
+                       data_columns=["hostname"], min_itemsize={"path": 256})
 
     if single_host:
         print("Exiting early", flush=True)
